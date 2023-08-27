@@ -24,7 +24,7 @@ stdenv.mkDerivation {
 
   src = fetchurl {
     url = "https://download.roonlabs.com/updates/production/RoonServer_linuxx64_${urlVersion}.tar.bz2";
-    hash = "";
+    hash = "sha256-8KDQroXopeDDv2hV9V7eZUVE9wkv8QoUac2rlLW3b5I=";
   };
 
   dontConfigure = true;
