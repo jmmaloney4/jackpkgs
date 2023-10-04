@@ -15,7 +15,7 @@
 , stdenv
 }:
 let
-  version = "200001311";
+  version = "200001324";
   urlVersion = builtins.replaceStrings [ "." "-" ] [ "00" "0" ] version;
 in
 stdenv.mkDerivation {
