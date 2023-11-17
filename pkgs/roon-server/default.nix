@@ -1,48 +1,47 @@
-{ alsa-lib
-, alsa-utils
-, autoPatchelfHook
-, cifs-utils
-, fetchurl
-, ffmpeg
-, freetype
-, icu66
-, krb5
-, lib
-, libtasn1
-, lttng-ust_2_12
-, makeWrapper
-, openssl
-, stdenv
-}:
-let
+{
+  alsa-lib,
+  alsa-utils,
+  autoPatchelfHook,
+  cifs-utils,
+  fetchurl,
+  ffmpeg,
+  freetype,
+  icu66,
+  krb5,
+  lib,
+  libtasn1,
+  lttng-ust_2_12,
+  makeWrapper,
+  openssl,
+  stdenv,
+}: let
   version = "200001303";
-  urlVersion = builtins.replaceStrings [ "." "-" ] [ "00" "0" ] version;
+  urlVersion = builtins.replaceStrings ["." "-"] ["00" "0"] version;
 in
-stdenv.mkDerivation {
-  pname = "roon-server";
-  inherit version;
+  stdenv.mkDerivation {
+    pname = "roon-server";
+    inherit version;
 
-  src = fetchurl {
-    url = "https://download.roonlabs.com/updates/production/RoonServer_linuxx64_${urlVersion}.tar.bz2";
-    hash = "sha256-8KDQroXopeDDv2hV9V7eZUVE9wkv8QoUac2rlLW3b5I=";
-  };
+    src = fetchurl {
+      url = "https://download.roonlabs.com/updates/production/RoonServer_linuxx64_${urlVersion}.tar.bz2";
+      hash = "sha256-8KDQroXopeDDv2hV9V7eZUVE9wkv8QoUac2rlLW3b5I=";
+    };
 
-  dontConfigure = true;
-  dontBuild = true;
+    dontConfigure = true;
+    dontBuild = true;
 
-  buildInputs = [
-    alsa-lib
-    freetype
-    krb5
-    libtasn1
-    lttng-ust_2_12
-    stdenv.cc.cc.lib
-  ];
+    buildInputs = [
+      alsa-lib
+      freetype
+      krb5
+      libtasn1
+      lttng-ust_2_12
+      stdenv.cc.cc.lib
+    ];
 
-  nativeBuildInputs = [ autoPatchelfHook makeWrapper ];
+    nativeBuildInputs = [autoPatchelfHook makeWrapper];
 
-  installPhase =
-    let
+    installPhase = let
       # NB: While this might seem like odd behavior, it's what Roon expects. The
       # tarball distribution provides scripts that do a bunch of nonsense on top
       # of what wrapBin is doing here, so consider it the lesser of two evils.
@@ -60,15 +59,14 @@ stdenv.mkDerivation {
           makeWrapper "$dotnetDir/$binName" "${binPath}" \
             --add-flags "$binDir/$binName.dll" \
             --argv0 "$binName" \
-            --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [ alsa-lib icu66 ffmpeg openssl ]}" \
+            --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [alsa-lib icu66 ffmpeg openssl]}" \
             --prefix PATH : "$dotnetDir" \
-            --prefix PATH : "${lib.makeBinPath [ alsa-utils cifs-utils ffmpeg ]}" \
+            --prefix PATH : "${lib.makeBinPath [alsa-utils cifs-utils ffmpeg]}" \
             --chdir "$binDir" \
             --set DOTNET_ROOT "$dotnetDir"
         )
       '';
-    in
-    ''
+    in ''
       runHook preInstall
       mkdir -p $out
       mv * $out
@@ -87,13 +85,13 @@ stdenv.mkDerivation {
       runHook postInstall
     '';
 
-  meta = with lib; {
-    description = "The music player for music lovers";
-    changelog = "https://community.roonlabs.com/c/roon/software-release-notes/18";
-    homepage = "https://roonlabs.com";
-    sourceProvenance = with sourceTypes; [ binaryNativeCode ];
-    # license = licenses.unfree;
-    maintainers = with maintainers; [ lovesegfault steell ];
-    platforms = [ "x86_64-linux" ];
-  };
-}
+    meta = with lib; {
+      description = "The music player for music lovers";
+      changelog = "https://community.roonlabs.com/c/roon/software-release-notes/18";
+      homepage = "https://roonlabs.com";
+      sourceProvenance = with sourceTypes; [binaryNativeCode];
+      # license = licenses.unfree;
+      maintainers = with maintainers; [lovesegfault steell];
+      platforms = ["x86_64-linux"];
+    };
+  }
