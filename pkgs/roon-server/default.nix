@@ -15,7 +15,7 @@
   openssl,
   stdenv,
 }: let
-  version = "200001303";
+  version = "200001353";
   urlVersion = builtins.replaceStrings ["." "-"] ["00" "0"] version;
 in
   stdenv.mkDerivation {
