@@ -15,7 +15,8 @@
   openssl,
   stdenv,
 }: let
-  version = "200001353";
+  # https://community.roonlabs.com/c/roon/software-release-notes/
+  version = "200001357";
   urlVersion = builtins.replaceStrings ["." "-"] ["00" "0"] version;
 in
   stdenv.mkDerivation {
@@ -24,7 +25,7 @@ in
 
     src = fetchurl {
       url = "https://download.roonlabs.com/updates/production/RoonServer_linuxx64_${urlVersion}.tar.bz2";
-      hash = "sha256-/lBrDymDcXfOg3/sLa0/nzVgxbWN1x1qUx+jsHpwUgI=";
+      hash = "sha256-DFS+usSClmaMg9cLMKP4VKLNejQvqlLj3YQOTUm0YXE=";
     };
 
     dontConfigure = true;
