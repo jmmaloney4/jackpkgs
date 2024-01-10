@@ -12,7 +12,18 @@ in
       sha256 = "sha256-fYVTHsmn3xi7JRMx+aaYWgAojfkSc7zTetHh6WxWmlk=";
       # python = "py3";
     };
-    propagatedBuildInputs = [cryptography pytest pyfakefs responses lxml-stubs pip pydantic click rich];
+    propagatedBuildInputs = [
+      click
+      cryptography
+      json5
+      lxml-stubs
+      pip
+      pydantic
+      pyfakefs
+      pytest
+      responses
+      rich
+    ];
     checkPhase = ''
       runHook preCheck
       ${pkgs.python3.interpreter} -m unittest
