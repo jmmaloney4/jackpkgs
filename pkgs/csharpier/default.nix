@@ -4,6 +4,7 @@
   dotnetCorePackages,
   writeShellScriptBin,
   fetchNuGet,
+  dotnetCoreSdk ? dotnetCorePackages.sdk_7_0
 }: let
   csharpierNuGet = fetchNuGet {
     pname = "CSharpier";
@@ -13,5 +14,5 @@
   };
 in
   writeShellScriptBin "csharpier" ''
-    ${lib.getExe dotnetCorePackages.sdk_7_0} ${csharpierNuGet}/lib/dotnet/CSharpier/net7.0/any/dotnet-csharpier.dll "$@";
+    ${lib.getExe dotnetCoreSdk} ${csharpierNuGet}/lib/dotnet/CSharpier/net7.0/any/dotnet-csharpier.dll "$@";
   ''
