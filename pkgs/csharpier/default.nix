@@ -7,8 +7,8 @@
 }: let
   csharpierNuGet = fetchNuGet {
     pname = "CSharpier";
-    version = "0.26.0";
-    sha256 = "sha256-Qz3DqqpWF8FmvwnQxIBsribgG+P2pFr45Ct+TFDuGBM=";
+    version = "0.26.7";
+    sha256 = "sha256-QVfbEtkj41/b8urLx8X274KWjawyfgPTIb9HOLfduB8=";
     outputFiles = ["tools/*"];
   };
 in
