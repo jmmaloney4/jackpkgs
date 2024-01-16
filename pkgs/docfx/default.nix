@@ -16,6 +16,7 @@
     .overrideAttrs (old: {
       postUnpack = ''
         chmod +x tools/.playwright/node/*/playwright.sh
+        chmod +x tools/.playwright/node/*/node
       '';
     });
 in
