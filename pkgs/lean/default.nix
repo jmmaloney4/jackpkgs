@@ -15,7 +15,6 @@ in
     propagatedBuildInputs = [
       click
       cryptography
-      json
       json5
       lxml-stubs
       pip
