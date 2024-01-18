@@ -15,11 +15,28 @@ in
       sha256 = "sha256-fYVTHsmn3xi7JRMx+aaYWgAojfkSc7zTetHh6WxWmlk=";
       # python = "py3";
     };
-    propagatedBuildInputs = [
+    propagatedBuildInputs = let
+      maskpass = let
+        pname = "maskpass";
+        version = "0.3.7";
+      in buildPythonApplication {
+        inherit pname version;
+        src = fetchPypi {
+          inherit pname version;
+          sha256 = "sha256-c0SIVhR6YRy3ydmP9Bfx5ViEQZ4IZFBFhODbnGpXtgw=";
+        };
+        checkPhase = ''
+          runHook preCheck
+          # ${pkgs.python3.interpreter} -m unittest
+          runHook postCheck
+        '';
+      };
+    in [
       click
       cryptography
       json5
       lxml-stubs
+      maskpass
       pip
       pydantic
       pyfakefs
