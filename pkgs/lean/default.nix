@@ -1,4 +1,4 @@
-{python3Packages}:
+{gnupatch, python3Packages}:
 with python3Packages; let
   pname = "lean";
   version = "1.0.177";
@@ -36,6 +36,6 @@ in
     postInstall =
       (old.postInstall or "")
       + ''
-        patch -ruN -p0 -d $out -i ${./lean.patch}
+        ${lib.getExe' gnupatch "patch"} -ruN -p0 -d $out -i ${./lean.patch}
       '';
   })
