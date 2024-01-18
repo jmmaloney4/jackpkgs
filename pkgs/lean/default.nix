@@ -43,6 +43,7 @@ in
       pytest
       responses
       rich
+      setuptools
     ];
     checkPhase = ''
       runHook preCheck
