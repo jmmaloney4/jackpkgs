@@ -16,7 +16,7 @@
   stdenv,
 }: let
   # https://community.roonlabs.com/c/roon/software-release-notes/
-  version = "200001365";
+  version = "200001368";
   urlVersion = builtins.replaceStrings ["." "-"] ["00" "0"] version;
 in
   stdenv.mkDerivation {
@@ -25,7 +25,7 @@ in
 
     src = fetchurl {
       url = "https://download.roonlabs.com/updates/production/RoonServer_linuxx64_${urlVersion}.tar.bz2";
-      hash = "sha256-RwmBszv3zCFX8IvDu/XMVu92EH/yd1tyaw0P4CmODCA=";
+      hash = "sha256-osyEiefd+Gb7Wfo7mDDeP2QHb2lUTD+dxBzMdsrof0M=";
     };
 
     dontConfigure = true;
