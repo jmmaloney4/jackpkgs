@@ -4,7 +4,7 @@
 }:
 with python3Packages; let
   pname = "lean";
-  version = "1.0.177";
+  version = "1.0.185";
 in
   (buildPythonApplication {
     format = "setuptools";
@@ -12,7 +12,7 @@ in
     nativeBuildInputs = [setuptools-scm];
     src = fetchPypi {
       inherit pname version;
-      sha256 = "sha256-fYVTHsmn3xi7JRMx+aaYWgAojfkSc7zTetHh6WxWmlk=";
+      sha256 = "sha256-YstmQE1YqbfseB84K1fKizPMJyrErJdl4pu9aFwnp4M=";
       # python = "py3";
     };
     propagatedBuildInputs = let
