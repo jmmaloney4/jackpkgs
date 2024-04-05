@@ -16,9 +16,9 @@
   stdenv,
 }: let
   # https://community.roonlabs.com/c/roon/software-release-notes/
-  version = "200001382";
+  version = "200001392";
   urlVersion = builtins.replaceStrings ["." "-"] ["00" "0"] version;
-  hash = "sha256-KOZkTsQrUYh3geezsA1h2ZcU3Ns/v67iD1QNWalA6H4=";
+  hash = "sha256:0jvr60a284nm0j6iqk2rnaxkb25kh99cg4g9z8lpimcsap37dajb";
 in
   stdenv.mkDerivation {
     pname = "roon-server";
