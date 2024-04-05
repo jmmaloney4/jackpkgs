@@ -23,6 +23,8 @@
           config.allowUnfree = true;
         };
       });
-    packages = forAllSystems (system: nixpkgs.lib.filterAttrs (_: v: nixpkgs.lib.isDerivation v) self.legacyPackages.${system});
+    packages = forAllSystems (system: nixpkgs.lib.filterAttrs (_: v: nixpkgs.lib.isDerivation v) self.legacyPackages.${system})
+    // {
+      roon-update = lib.writeShellScriptBin "roon-update" import ./pkgs/roon-update/update.nix { lib, pkgs };
   };
 }
