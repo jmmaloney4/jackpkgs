@@ -8,12 +8,13 @@
 with config.deps; let
   pname = "CSharpier";
   version = "0.26.7";
-in {
+  dotnetCoreSdk = dotnetCorePackages.sdk_8_0;
+in rec {
   imports = [
     # dream2nix.modules.core.public
   ];
 
-  name = "csharpier";
+  name = lib.strings.toLower pname;
   inherit version;
 
   deps = {nixpkgs, ...}: {
@@ -28,12 +29,10 @@ in {
 
   public = let
     nuGet = fetchNuGet {
-      pname = "CSharpier";
-      version = "0.26.7";
+      inherit pname version;
       sha256 = "sha256-QVfbEtkj41/b8urLx8X274KWjawyfgPTIb9HOLfduB8=";
       outputFiles = ["tools/*"];
     };
-    dotnetCoreSdk = dotnetCorePackages.sdk_8_0;
   in
-    writeShellScriptBin "csharpier" ''${lib.getExe dotnetCoreSdk} ${nuGet}/lib/dotnet/CSharpier/net${lib.versions.majorMinor dotnetCoreSdk.version}/any/dotnet-csharpier.dll "$@";'';
+    writeShellScriptBin name ''${lib.getExe dotnetCoreSdk} ${nuGet}/lib/dotnet/CSharpier/net${lib.versions.majorMinor dotnetCoreSdk.version}/any/dotnet-csharpier.dll "$@";'';
 }
