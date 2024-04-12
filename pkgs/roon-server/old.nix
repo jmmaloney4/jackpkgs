@@ -1,46 +1,25 @@
 {
-  dream2nix,
-  config,
+  alsa-lib,
+  alsa-utils,
+  autoPatchelfHook,
+  cifs-utils,
+  fetchurl,
+  ffmpeg,
+  freetype,
+  icu66,
+  krb5,
   lib,
-  self,
-  ...
-}:
-with config.deps; let
-  pname = "roon-server";
-  version = "2.0.1392";
-  urlVersion = "20000" + lib.versions.patch version;
-  url = "https://download.roonlabs.com/updates/production/RoonServer_linuxx64_${urlVersion}.tar.bz2";
+  libtasn1,
+  lttng-ust_2_12,
+  makeWrapper,
+  openssl,
+  stdenv,
+}: let
+  # https://community.roonlabs.com/c/roon/software-release-notes/
+  version = "200001392";
   hash = "sha256:0jvr60a284nm0j6iqk2rnaxkb25kh99cg4g9z8lpimcsap37dajb";
-in rec {
-  imports = [
-    dream2nix.modules.mkDerivation
-  ];
-
-  name = pname;
-  inherit version;
-
-  deps = {nixpkgs, ...}: {
-    inherit
-      (nixpkgs)
-      alsa-lib
-      alsa-utils
-      autoPatchelfHook
-      cifs-utils
-      fetchurl
-      ffmpeg
-      freetype
-      icu66
-      krb5
-      lib
-      libtasn1
-      lttng-ust_2_12
-      makeWrapper
-      openssl
-      stdenv
-      ;
-  };
-
-  mkDerivation = {
+in
+  stdenv.mkDerivation {
     pname = "roon-server";
     inherit version;
 
@@ -113,8 +92,7 @@ in rec {
       homepage = "https://roonlabs.com";
       sourceProvenance = with sourceTypes; [binaryNativeCode];
       # license = licenses.unfree;
-      maintainers = with maintainers; [jmmaloney4];
+      maintainers = with maintainers; [lovesegfault steell];
       platforms = ["x86_64-linux"];
     };
-  };
-}
+  }

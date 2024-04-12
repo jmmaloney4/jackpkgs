@@ -10,10 +10,6 @@ with config.deps; let
   version = "0.26.7";
   dotnetCoreSdk = dotnetCorePackages.sdk_8_0;
 in rec {
-  imports = [
-    # dream2nix.modules.core.public
-  ];
-
   name = lib.strings.toLower pname;
   inherit version;
 
