@@ -35,6 +35,7 @@ in
     in [
       click
       cryptography
+      docker
       json5
       lxml-stubs
       maskpass
