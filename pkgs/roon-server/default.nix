@@ -16,8 +16,8 @@
   stdenv,
 }: let
   # https://community.roonlabs.com/c/roon/software-release-notes/
-  version = "200001470";
-  hash = "sha256:1vqlxqpqx6riviv9j5m11r9c0gsf7hmkjbgs6na5m5vg4ynv3iks";
+  version = "200001480";
+  hash = "sha256:1wzgh2353mxm3b2cn89972azpz72zf6mqaqbq7mr223pzb1ah3ca";
   urlVersion = builtins.replaceStrings ["." "-"] ["00" "0"] version;
 in
   stdenv.mkDerivation {
