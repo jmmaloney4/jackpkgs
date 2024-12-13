@@ -1,4 +1,4 @@
-name: nix flake update
+name: roon update
 on:
   workflow_dispatch:
   schedule:
