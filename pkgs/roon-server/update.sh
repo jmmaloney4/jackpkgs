@@ -12,9 +12,8 @@ newHash=${data[0]}
 tarPath=${data[1]}
 newVersion="$(tar -jxvOf $tarPath RoonServer/VERSION 2> /dev/null | head -n 1)"
 
-echo $newVersion $newHash $tarPath
 
 sed --in-place "s/hash = \"sha256\:[a-z0-9]*\"/hash = \"sha256:$newHash\"/g" "$SCRIPTPATH/default.nix"
-echo "updated hash to: $newHash"
 sed --in-place "s/version = \"[0-9]*\"/version = \"$newVersion\"/g" "$SCRIPTPATH/default.nix"
-echo "updated version to: $newVersion"
+echo "commit-msg=\"[roon] update to $newVersion\"" >> "$GITHUB_OUTPUT"
+
