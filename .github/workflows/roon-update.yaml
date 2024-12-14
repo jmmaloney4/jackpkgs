@@ -17,7 +17,7 @@ jobs:
       - uses: peter-evans/create-pull-request@v7.0.5
         with:
           branch: roon-update
-          commit-msg: ${{ steps.update-sh.outputs.commit-msg }}
-          pr-title: "roon update"
-          pr-assignees: jmmaloney4
+          commit-message: ${{ steps.update-sh.outputs.commit-msg }}
+          title: "roon update"
+          assignees: jmmaloney4
 
