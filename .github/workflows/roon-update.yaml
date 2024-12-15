@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
-      - run: nix shell nixpkgs#zsh nixpkgs#gnused -c zsh ./pkgs/roon-server/update.sh >> "$GITHUB_OUTPUT"
+      - run: nix shell nixpkgs#bash nixpkgs#gnused -c bash ./pkgs/roon-server/update.sh >> "$GITHUB_OUTPUT"
         id: update-sh
       - uses: peter-evans/create-pull-request@v7.0.5
         with:
