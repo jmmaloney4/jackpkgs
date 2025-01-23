@@ -1,29 +1,35 @@
 {
-#   lib,
-# #   stdenv,
+  #   lib,
+  # #   stdenv,
   buildNpmPackage,
   fetchFromGitHub,
-#   copyDesktopItems,
-#   makeDesktopItem,
-#   makeWrapper,
-#   libpng,
-#   libX11,
-#   libXi,
-#   libXtst,
-#   zlib,
-#   darwin,
-#   electron,
-}:let
-#   inherit (darwin.apple_sdk.frameworks)
-    # Carbon
-    # CoreFoundation
-    # ApplicationServices
-    # OpenGL
-    # ;
-in
-buildNpmPackage rec { 
-  pname = "lms";
-  version = "0.3.31";
+  callPackage,
+  #   copyDesktopItems,
+  #   makeDesktopItem,
+  #   makeWrapper,
+  #   libpng,
+  #   libX11,
+  #   libXi,
+  #   libXtst,
+  #   zlib,
+  #   darwin,
+  #   electron,
+}: let
+  #   inherit (darwin.apple_sdk.frameworks)
+  # Carbon
+  # CoreFoundation
+  # ApplicationServices
+  # OpenGL
+  # ;
+    lmstudio-js = fetchFromGitHub {
+    owner = "lmstudio-ai";
+    repo = "lmstudio-js";
+    rev = "release-43-c6bb28b";
+    sha256 = "sha256-KLptMinet43NLFHoA1k80w6C0BQcLOGJDEtcaUHAnC8=";
+    };
+
+
+
   src = fetchFromGitHub {
     owner = "lmstudio-ai";
     repo = "lms";
@@ -32,4 +38,20 @@ buildNpmPackage rec {
   };
 
   npmDepsHash = "sha256-qX/2Wqd4QNSzyzu3a39mc88dKivECmNl1IGlxVSGIG0=";
-}
+
+  lms-common-server = buildNpmPackage {
+    pname = "lms-common-server";
+    version = "0.3.31";
+    src = lmstudio-js;
+    npmRoot = "packages/lms-common-server";
+    npmDepsHash = "sha256-qX/2Wqd4QNSzyzu3a39mc88dKivECmNl1IGlxVSGIG0=";
+  };
+in
+  buildNpmPackage rec {
+    pname = "lms";
+    version = "0.3.31";
+    inherit src npmDepsHash;
+    buildInputs = [
+      lms-common-server
+    ];
+  }
