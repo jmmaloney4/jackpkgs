@@ -15,5 +15,6 @@
   docfx = pkgs.callPackage ./pkgs/docfx {};
   epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
   lean = pkgs.callPackage ./pkgs/lean {};
+  lms = pkgs.callPackage ./pkgs/lms {};
   roon-server = pkgs.callPackage ./pkgs/roon-server {};
 }
