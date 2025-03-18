@@ -56,5 +56,5 @@ in
     version = "0.3.31";
     src = lmstudio-js;
     npmRoot = "packages/lms-cli";
-    npmDepsHash = "sha256-qX/2Wqd4QNSzyzu3a39mc88dKivECmNl1IGlxVSGIG0=";
+    # npmDepsHash = "sha256-qX/2Wqd4QNSzyzu3a39mc88dKivECmNl1IGlxVSGIG0=";
   }
