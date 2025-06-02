@@ -4,7 +4,7 @@
   dotnetCorePackages,
   writeShellScriptBin,
   fetchNuGet,
-  dotnetCoreSdk ? dotnetCorePackages.sdk_7_0,
+  dotnetCoreSdk ? dotnetCorePackages.sdk_8_0,
 }: let
   nuGet = fetchNuGet {
     pname = "CSharpier";
