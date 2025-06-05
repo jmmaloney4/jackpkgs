@@ -55,7 +55,7 @@ in
   })
   .overridePythonAttrs (old: {
     # we have to patch in postInstall for the wheel to be extracted to $out.
-    # actually, we could probably could set preferWheel to false for this package too...
+    # actually, we could probably set preferWheel to false for this package too...
     postInstall =
       (old.postInstall or "")
       + ''
