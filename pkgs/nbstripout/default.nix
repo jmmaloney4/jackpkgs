@@ -42,6 +42,10 @@ python3.pkgs.buildPythonApplication rec {
     testAssets
   ];
 
+  pythonImportsCheck = [
+    "nbstripout"
+  ];
+
   preCheck = ''
     export HOME=$(mktemp -d)
     export PATH=$out/bin:$PATH
