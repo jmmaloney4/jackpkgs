@@ -10,7 +10,7 @@ set +o noglob
 
 newHash="\${data[0]}"
 tarPath="\${data[1]}"
-newVersion="$(${lib.getExe pkgs.gnutar} -zxvOf $tarPath RoonServer/VERSION 2> /dev/null | head -n 1)"
+  newVersion="$(${lib.getExe pkgs.gnutar} -jxvOf $tarPath RoonServer/VERSION 2> /dev/null | head -n 1)"
 
 echo $newVersion $newHash $tarPath
 
