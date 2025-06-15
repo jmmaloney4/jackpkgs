@@ -1,0 +1,46 @@
+name: add new items to project
+
+on:
+  pull_request:
+    types: [opened]
+  issues:
+    types: [opened]
+
+jobs:
+  add-to-project:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install GitHub CLI and extension
+        run: |
+          sudo apt-get update
+          sudo apt-get install gh jq -y
+          gh extension install github/gh-projects
+
+      - name: Authenticate gh CLI
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      - name: Get item GraphQL ID
+        id: item
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            gh pr view ${{ github.event.pull_request.number }} --json id -q .id > id.txt
+          else
+            gh issue view ${{ github.event.issue.number }} --json id -q .id > id.txt
+          fi
+          echo "id=$(cat id.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Add to GitHub Project
+        run: |
+          gh projects item-add \
+            --owner jmmaloney4 \
+            --project-number 4 \
+            --content-id "${{ steps.item.outputs.id }}"
