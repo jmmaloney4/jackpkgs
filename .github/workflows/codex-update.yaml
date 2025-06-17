@@ -1,0 +1,23 @@
+name: codex update
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1' # weekly on Monday
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  codex-update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - run: nix shell nixpkgs#bash nixpkgs#node2nix -c bash ./pkgs/codex/update.sh >> "$GITHUB_OUTPUT"
+        id: update-sh
+      - uses: peter-evans/create-pull-request@v7.0.5
+        with:
+          branch: codex-update
+          commit-message: ${{ steps.update-sh.outputs.commit-msg }}
+          title: "codex update"
+          assignees: jmmaloney4
+
