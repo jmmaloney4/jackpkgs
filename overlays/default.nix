@@ -1,8 +1,4 @@
 {
-  # Add your overlays here
-  #
-  # my-overlay = import ./my-overlay;
-  
   # Default overlay with all packages from jackpkgs
   default = self: super: {
     csharpier = super.callPackage ../pkgs/csharpier {};
