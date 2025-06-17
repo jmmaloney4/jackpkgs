@@ -1,5 +1,4 @@
 {
-  # Add your NixOS modules here
-  #
-  # my-module = ./my-module;
+  # NixOS modules go here
+  # Home Manager modules are now in ./home-manager/
 }

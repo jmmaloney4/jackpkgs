@@ -12,6 +12,143 @@ This repository includes the following packages:
 - `lean` - Lean theorem prover
 - `nbstripout` - Strip output from Jupyter notebooks
 - `roon-server` - Roon audio server
+- `tod` - Command line interface for Todoist
+
+## Home Manager Modules
+
+This repository also provides Home Manager modules:
+
+- `tod` - Home Manager module for configuring the Tod CLI
+
+### Using Home Manager Modules
+
+#### Standalone Home Manager
+
+If you're using Home Manager standalone:
+
+```nix
+let
+  jackpkgs = fetchGit {
+    url = "https://github.com/jmmaloney4/jackpkgs.git";
+    # Optional: specify a specific commit
+    # rev = "commit-hash-here";
+  };
+  
+  jackPackages = import jackpkgs { pkgs = import <nixpkgs> {}; };
+in
+{
+  imports = [ jackPackages.homeManagerModules.programs.tod ];
+  
+  programs.tod = {
+    enable = true;
+    settings = {
+      # Your tod configuration here
+    };
+    apiTokenFile = "/path/to/your/todoist-token";
+  };
+}
+```
+
+#### Home Manager as NixOS Module
+
+If you're using Home Manager as a NixOS module:
+
+```nix
+let
+  jackpkgs = fetchGit {
+    url = "https://github.com/jmmaloney4/jackpkgs.git";
+  };
+  
+  jackPackages = import jackpkgs { pkgs = import <nixpkgs> {}; };
+in
+{
+  home-manager.users.myuser = {
+    imports = [ jackPackages.homeManagerModules.programs.tod ];
+    
+    programs.tod = {
+      enable = true;
+      settings = {
+        # Your tod configuration here
+      };
+      apiTokenFile = "/path/to/your/todoist-token";
+    };
+  };
+}
+```
+
+#### Flake Usage with Home Manager
+
+If you're using Nix flakes with Home Manager:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    jackpkgs.url = "github:jmmaloney4/jackpkgs";
+  };
+
+  outputs = { self, nixpkgs, home-manager, jackpkgs }: {
+    homeConfigurations.myuser = home-manager.lib.homeManagerConfiguration {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      modules = [
+        jackpkgs.homeManagerModules.programs.tod
+        {
+          programs.tod = {
+            enable = true;
+            settings = {
+              # Your tod configuration here
+            };
+            apiTokenFile = "/path/to/your/todoist-token";
+          };
+        }
+      ];
+    };
+  };
+}
+```
+
+#### Flake Usage with NixOS + Home Manager
+
+For NixOS configurations using Home Manager:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    jackpkgs.url = "github:jmmaloney4/jackpkgs";
+  };
+
+  outputs = { self, nixpkgs, home-manager, jackpkgs }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        home-manager.nixosModules.home-manager
+        {
+          home-manager.users.myuser = {
+            imports = [ jackpkgs.homeManagerModules.programs.tod ];
+            
+            programs.tod = {
+              enable = true;
+              settings = {
+                # Your tod configuration here
+              };
+              apiTokenFile = "/path/to/your/todoist-token";
+            };
+          };
+        }
+      ];
+    };
+  };
+}
+```
 
 ## Using the Overlay
 
@@ -40,6 +177,7 @@ in
     lean
     nbstripout
     roon-server
+    tod
   ];
 }
 ```
@@ -63,6 +201,7 @@ in
   environment.systemPackages = with pkgs; [
     csharpier
     docfx
+    tod
     # ... other packages
   ];
 }
@@ -86,6 +225,7 @@ in
   environment.systemPackages = [
     jackPackages.csharpier
     jackPackages.docfx
+    jackPackages.tod
     # ... other packages
   ];
 }
@@ -116,6 +256,7 @@ If you're using Nix flakes, you can add this repository as an input:
             lean
             nbstripout
             roon-server
+            tod
           ];
         })
       ];

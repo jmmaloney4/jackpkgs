@@ -9,6 +9,7 @@
   # The `lib`, `modules`, and `overlay` names are special
   lib = import ./lib {inherit pkgs;}; # functions
   modules = import ./modules; # NixOS modules
+  homeManagerModules = import ./home-manager; # Home Manager modules
   overlays = import ./overlays; # nixpkgs overlays
 
   csharpier = pkgs.callPackage ./pkgs/csharpier {};
@@ -17,4 +18,5 @@
   lean = pkgs.callPackage ./pkgs/lean {};
   nbstripout = pkgs.callPackage ./pkgs/nbstripout {};
   roon-server = pkgs.callPackage ./pkgs/roon-server {};
+  tod = pkgs.callPackage ./pkgs/tod {};
 }
