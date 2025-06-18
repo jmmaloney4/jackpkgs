@@ -1,6 +1,6 @@
 # jackpkgs
 
-Jack's nix packages.
+Jack's `nix` packages.
 
 ## Packages
 
