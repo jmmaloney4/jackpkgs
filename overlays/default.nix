@@ -7,5 +7,6 @@
     lean = super.callPackage ../pkgs/lean {};
     nbstripout = super.callPackage ../pkgs/nbstripout {};
     roon-server = super.callPackage ../pkgs/roon-server {};
+    tod = super.callPackage ../pkgs/tod {};
   };
 }
