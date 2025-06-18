@@ -10,9 +10,12 @@ let
     let
       base = ''dockutil --add ${item.path}'';
       folderArgs = if item.type == "folder" then
-        ''${optionalString (item.view     != null) "--view ${item.view}"} \
-${optionalString (item.display  != null) "--display ${item.display}"} \
-${optionalString (item.sort     != null) "--sort ${item.sort}"}''
+        let
+          viewArg = optionalString (item.view != null) " --view ${item.view}";
+          displayArg = optionalString (item.display != null) " --display ${item.display}";
+          sortArg = optionalString (item.sort != null) " --sort ${item.sort}";
+        in
+          "${viewArg}${displayArg}${sortArg}"
       else "";
       spacerArgs = if item.type == "spacer" then " --type spacer" else "";
       posArg     = optionalString (item.position != null) " --position ${toString item.position}";
