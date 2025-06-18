@@ -17,4 +17,5 @@
   lean = pkgs.callPackage ./pkgs/lean {};
   nbstripout = pkgs.callPackage ./pkgs/nbstripout {};
   roon-server = pkgs.callPackage ./pkgs/roon-server {};
+  gpto = pkgs.callPackage ./pkgs/gpto {};
 }
