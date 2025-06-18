@@ -5,7 +5,7 @@ let
   cfg = config.programs.tod;
   configToml = pkgs.writeText "tod-config.toml" (generators.toTOML {} cfg.settings);
   launcher = pkgs.writeShellScriptBin "tod" ''
-    ${optionalString (cfg.apiTokenFile != null) "export TODOIST_API_TOKEN=$(cat ${cfg.apiTokenFile})"}
+    ${optionalString (cfg.apiTokenFile != null) "export TODOIST_API_TOKEN=\"$(cat ${cfg.apiTokenFile})\""}
     exec ${lib.getExe cfg.package} "$@"
   '';
 
