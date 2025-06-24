@@ -11,7 +11,7 @@ This repository includes the following packages:
 - `epub2tts` - EPUB to Text-to-Speech converter
 - `lean` - Lean theorem prover
 - `nbstripout` - Strip output from Jupyter notebooks
-- `roon-server` - Roon audio server
+- `roon-server` - Roon audio server (x86_64-linux only)
 - `tod` - Command line interface for Todoist
 
 ## Home Manager Modules
