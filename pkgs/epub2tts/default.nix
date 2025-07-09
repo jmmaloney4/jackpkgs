@@ -122,8 +122,7 @@ in
     meta = with lib; {
       description = "EPUB to TTS";
       homepage = "https://github.com/aedocw/epub2tts";
-      license = licenses.mit;
-      maintainers = with maintainers; [ lovesegfault ];
+      license = licenses.asl20;
       platforms = platforms.linux;
     };
   }
