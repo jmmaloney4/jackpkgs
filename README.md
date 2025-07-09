@@ -1,4 +1,5 @@
 # jackpkgs
+[![built with garnix](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fgarnix.io%2Fapi%2Fbadges%2Fjmmaloney4%2Fjackpkgs)](https://garnix.io/repo/jmmaloney4/jackpkgs)
 
 Jack's `nix` packages.
 
