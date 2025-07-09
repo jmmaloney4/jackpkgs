@@ -20,6 +20,7 @@ with python3Packages; let
       src = fetchPypi {
         inherit pname version sha256;
       };
+      format = "setuptools";
     };
 in
   buildPythonApplication {
@@ -66,13 +67,14 @@ in
           rev = "c3f44ba7740a629a11298ad90ec20602f25d3fdd";
           sha256 = "sha256-MIJ9BpqnG5SoyO/mKn7NpLJV2e2cwNvJ/LK+A/jUGRQ=";
         };
+        format = "setuptools";
         propagatedBuildInputs = [
           pybind11
           pkgconfig
           (freetype-py.overridePythonAttrs
             (old: {
               propagatedBuildInputs =
-                old.propagatedBuildInputs
+                (old.propagatedBuildInputs or [])
                 ++ [
                   pkg-config-unwrapped
                 ];
@@ -116,4 +118,11 @@ in
       espeak
       ffmpeg
     ];
+
+    meta = with lib; {
+      description = "EPUB to TTS";
+      homepage = "https://github.com/aedocw/epub2tts";
+      license = licenses.asl20;
+      platforms = platforms.linux;
+    };
   }

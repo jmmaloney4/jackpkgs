@@ -26,6 +26,7 @@ in
             inherit pname version;
             sha256 = "sha256-c0SIVhR6YRy3ydmP9Bfx5ViEQZ4IZFBFhODbnGpXtgw=";
           };
+          format = "setuptools";
           checkPhase = ''
             runHook preCheck
             # ${pkgs.python3.interpreter} -m unittest
@@ -52,6 +53,11 @@ in
       # ${pkgs.python3.interpreter} -m unittest
       runHook postCheck
     '';
+    meta = with lib; {
+      description = "QuantConnect Lean Algorithmic Trading Engine";
+      homepage = "https://github.com/quantconnect/lean";
+      license = licenses.asl20;
+    };
   })
   .overridePythonAttrs (old: {
     # we have to patch in postInstall for the wheel to be extracted to $out.

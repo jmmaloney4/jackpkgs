@@ -11,6 +11,7 @@
 python3.pkgs.buildPythonApplication rec {
   version = "0.8.1";
   pname = "nbstripout";
+  format = "setuptools";
 
   src = fetchPypi {
     inherit pname version;
