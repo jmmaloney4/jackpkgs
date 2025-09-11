@@ -5,9 +5,8 @@
 # Having pkgs default to <nixpkgs> is fine though, and it lets you use short
 # commands such as:
 #     nix-build -A mypackage
-{pkgs ? import <nixpkgs> {}}:
-let
-  jackLib = import ./lib { inherit pkgs; };
+{pkgs ? import <nixpkgs> {}}: let
+  jackLib = import ./lib {inherit pkgs;};
   packages = {
     csharpier = pkgs.callPackage ./pkgs/csharpier {};
     docfx = pkgs.callPackage ./pkgs/docfx {};
@@ -18,11 +17,11 @@ let
     tod = pkgs.callPackage ./pkgs/tod {};
   };
 in
-{
-  # The `lib`, `modules`, and `overlay` names are special
-  lib = jackLib; # functions
-  modules = import ./modules; # NixOS modules
-  homeManagerModules = import ./modules/home-manager; # Home Manager modules
-  overlays = import ./overlays; # nixpkgs overlays
-}
-// jackLib.filterByPlatforms pkgs.system packages
+  {
+    # The `lib`, `modules`, and `overlay` names are special
+    lib = jackLib; # functions
+    modules = import ./modules; # NixOS modules
+    homeManagerModules = import ./modules/home-manager; # Home Manager modules
+    overlays = import ./overlays; # nixpkgs overlays
+  }
+  // jackLib.filterByPlatforms pkgs.system packages

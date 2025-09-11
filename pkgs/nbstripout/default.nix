@@ -7,7 +7,6 @@
   gitMinimal,
   mercurial,
 }:
-
 python3.pkgs.buildPythonApplication rec {
   version = "0.8.1";
   pname = "nbstripout";
@@ -61,7 +60,7 @@ python3.pkgs.buildPythonApplication rec {
     description = "Strip output from Jupyter and IPython notebooks";
     homepage = "https://github.com/kynan/nbstripout";
     license = lib.licenses.mit;
-    maintainers = with lib.maintainers; [ jluttine ];
+    maintainers = with lib.maintainers; [jluttine];
     mainProgram = "nbstripout";
   };
 }
