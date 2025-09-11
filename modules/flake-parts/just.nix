@@ -1,4 +1,4 @@
-{inputs, ...}: {
+{inputs, config, ...}: {
   flake = {
     # Add the just flakeModule
     flakeModules.just = {
@@ -17,7 +17,7 @@
         config = let
           inherit (lib) mkIf;
         in
-          mkIf config.enable {
+          mkIf config.just.enable {
             imports = [
               inputs.just-flake.flakeModules.just
             ];
@@ -29,7 +29,7 @@
                 enable = true;
                 justfile = ''
                   hello:
-                  echo Hello World
+                  echo Hello Jackpkgs!
                 '';
               };
             };
