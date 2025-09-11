@@ -28,7 +28,7 @@
       homeManager = {
         imports = [
           inputs.home-manager.flakeModules.home-manager
-          ../../home-manager
+          ../home-manager
         ];
       };
     };

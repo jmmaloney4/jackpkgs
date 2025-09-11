@@ -22,7 +22,7 @@ in
   # The `lib`, `modules`, and `overlay` names are special
   lib = jackLib; # functions
   modules = import ./modules; # NixOS modules
-  homeManagerModules = import ./home-manager; # Home Manager modules
+  homeManagerModules = import ./modules/home-manager; # Home Manager modules
   overlays = import ./overlays; # nixpkgs overlays
 }
 // jackLib.filterByPlatforms pkgs.system packages
