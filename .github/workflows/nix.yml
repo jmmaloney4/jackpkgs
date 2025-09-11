@@ -1,0 +1,19 @@
+name: '❄️ nix'
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+    - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  nix-build:
+    uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
+    with:
+      runs-on: ubuntu-latest
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref }}
