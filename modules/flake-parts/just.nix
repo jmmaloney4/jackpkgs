@@ -1,39 +1,36 @@
-{inputs, config, ...}: {
-  flake = {
-    # Add the just flakeModule
-    flakeModules.just = {
-      perSystem = {
-        system,
-        pkgs,
-        lib,
-        ...
-      }: {
-        options = let
-          inherit (lib) types mkOption mkEnableOption;
-        in {
-          enable = mkEnableOption "jackpkgs-just-flake";
-        };
+{
+  inputs,
+  config,
+  lib,
+  ...
+}: let
+  inherit (lib) mkIf;
+  cfg = config.jackpkgs.just;
+in {
+  imports = [
+    inputs.just-flake.flakeModule
+  ];
 
-        config = let
-          inherit (lib) mkIf;
-        in
-          mkIf config.just.enable {
-            imports = [
-              inputs.just-flake.flakeModules.just
-            ];
+  options = let
+    inherit (lib) types mkOption mkEnableOption;
+  in {
+    jackpkgs.just.enable = mkEnableOption "jackpkgs-just-flake";
+  };
 
-            just-flake.features = {
-              treefmt.enable = true;
-              rust.enable = true;
-              hello = {
-                enable = true;
-                justfile = ''
-                  hello:
-                  echo Hello Jackpkgs!
-                '';
-              };
-            };
+  config = mkIf cfg.enable {
+    perSystem = {system, ...}: {
+      just-flake = lib.mkDefault {
+        features = {
+          treefmt.enable = true;
+          rust.enable = true;
+          hello = {
+            enable = true;
+            justfile = ''
+              hello:
+              echo Hello Jackpkgs!
+            '';
           };
+        };
       };
     };
   };

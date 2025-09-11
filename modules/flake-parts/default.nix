@@ -1,5 +1,6 @@
 {inputs, ...}: {
-  imports = [
-    ./just.nix
-  ];
+  flake = {
+    # Add the just flakeModule
+    flakeModules.just = import ./just.nix;
+  };
 }
