@@ -1,3 +1,5 @@
 {
-  programs.tod = ./programs/tod.nix;
+  imports = [
+    ./programs/tod.nix
+  ];
 } 
