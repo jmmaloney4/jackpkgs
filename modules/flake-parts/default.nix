@@ -1,6 +1,8 @@
 {inputs, ...}: {
   flake = {
-    # Add the just flakeModule
-    flakeModules.just = import ./just.nix;
+    flakeModules = {
+      default = import ./all.nix;
+      just = import ./just.nix;
+    };
   };
 }
