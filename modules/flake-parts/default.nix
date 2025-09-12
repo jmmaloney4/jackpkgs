@@ -1,4 +1,8 @@
-{config, inputs, ...}: {
+{
+  config,
+  inputs,
+  ...
+}: {
   flake = {
     flakeModule = config.flakeModules.default;
     flakeModules = {

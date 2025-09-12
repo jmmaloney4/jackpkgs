@@ -16,7 +16,7 @@ in {
     inherit (inputs.flake-parts.lib) mkDeferredModuleOption;
   in {
     jackpkgs.just = {
-      enable = mkEnableOption "jackpkgs-just-flake";
+      enable = mkEnableOption "jackpkgs-just-flake" // {default = true;};
     };
 
     perSystem = mkDeferredModuleOption ({
