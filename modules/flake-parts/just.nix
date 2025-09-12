@@ -19,37 +19,51 @@ in {
       enable = mkEnableOption "jackpkgs-just-flake";
     };
 
-    perSystem = mkDeferredModuleOption ({ lib, ... }: {
-      options.jackpkgs.just.pulumiPackage = mkOption {
-        type = types.package;
-        default = null;
-        defaultText = "pkgs.pulumi";
-        description = "Pulumi package to use.";
+    perSystem = mkDeferredModuleOption ({
+      lib,
+      pkgs,
+      ...
+    }: {
+      options.jackpkgs.just = {
+        pulumiPackage = mkOption {
+          type = types.package;
+          default = pkgs.pulumi;
+          defaultText = "pkgs.pulumi";
+          description = "Pulumi package to use.";
+        };
+        nbstripoutPackage = mkOption {
+          type = types.package;
+          default = pkgs.nbstripout;
+          defaultText = "pkgs.nbstripout";
+          description = "Nbstripout package to use.";
+        };
+        fdPackage = mkOption {
+          type = types.package;
+          default = pkgs.fd;
+          defaultText = "pkgs.fd";
+          description = "fd package to use for finding files.";
+        };
       };
     });
   };
 
   config = mkIf cfg.enable {
     # Contribute per-system config as a function (this is the correct place for a function)
-    perSystem = { pkgs, lib, config, ... }:
-    let
+    perSystem = {
+      pkgs,
+      lib,
+      config,
+      ...
+    }: let
       pcfg = config.jackpkgs.just; # per-system config scope
     in {
-      jackpkgs.just.pulumiPackage = pcfg.pulumiPackage or pkgs.pulumi;
-
-      just-flake = lib.mkDefault {
+      just-flake = {
         features = {
           treefmt.enable = true;
           rust.enable = true;
-          default = {
+          infra = {
             enable = true;
             justfile = ''
-              # Display the list of recipes
-              default:
-                  @just --list
-                  @echo
-            '';
-            infra = ''
               # Authenticate with GCP and refresh ADC
               auth:
                   gcloud auth login --update-adc
@@ -60,6 +74,18 @@ in {
                   ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} login "$PULUMI_BACKEND_URL"
                   ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "$PULUMI_SECRETS_PROVIDER"
                   ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
+            '';
+          };
+          python = {
+            enable = true;
+            justfile = ''
+              # Strip output from Jupyter notebooks
+              nbstrip notebook="":
+                  @if [ -z "{{notebook}}" ]; then \
+                      ${lib.getExe pcfg.fdPackage} -e ipynb -x ${lib.getExe pcfg.nbstripoutPackage}; \
+                  else \
+                      ${lib.getExe pcfg.nbstripoutPackage} "{{notebook}}"; \
+                  fi
             '';
           };
         };
