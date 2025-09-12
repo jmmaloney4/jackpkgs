@@ -5,7 +5,7 @@
   ...
 }: let
   inherit (lib) mkIf;
-  cfg = config.jackpkgs.just; # top-level enable
+  cfg = config.jackpkgs.just;
 in {
   imports = [
     inputs.just-flake.flakeModule

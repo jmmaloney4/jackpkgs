@@ -30,7 +30,11 @@
     };
   };
 
-  outputs = inputs @ {flake-parts, ...}:
+  outputs = inputs @ {
+    self,
+    flake-parts,
+    ...
+  }:
     flake-parts.lib.mkFlake {inherit inputs;} {
       systems = [
         "x86_64-linux"
@@ -45,6 +49,8 @@
       # Import our flake modules
       imports = [
         ./modules/flake-parts
+
+        ./modules/flake-parts/all.nix
       ];
 
       perSystem = {
