@@ -60,7 +60,6 @@ in {
       just-flake = {
         features = {
           treefmt.enable = true;
-          rust.enable = true;
           infra = {
             enable = true;
             justfile = ''
