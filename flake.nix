@@ -63,7 +63,7 @@
         # Expose just templates
         templates = {
           just = {
-            path = ./modules/flake-parts/justfile-template;
+            path = ./templates/just-flake;
             description = "just-flake template";
           };
         };
