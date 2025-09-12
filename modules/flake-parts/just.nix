@@ -25,23 +25,29 @@ in {
       ...
     }: {
       options.jackpkgs.just = {
-        pulumiPackage = mkOption {
+        direnvPackage = mkOption {
           type = types.package;
-          default = pkgs.pulumi;
-          defaultText = "pkgs.pulumi";
-          description = "Pulumi package to use.";
-        };
-        nbstripoutPackage = mkOption {
-          type = types.package;
-          default = pkgs.nbstripout;
-          defaultText = "pkgs.nbstripout";
-          description = "Nbstripout package to use.";
+          default = pkgs.direnv;
+          defaultText = "pkgs.direnv";
+          description = "direnv package to use.";
         };
         fdPackage = mkOption {
           type = types.package;
           default = pkgs.fd;
           defaultText = "pkgs.fd";
           description = "fd package to use for finding files.";
+        };
+        nbstripoutPackage = mkOption {
+          type = types.package;
+          default = pkgs.nbstripout;
+          defaultText = "pkgs.nbstripout";
+          description = "nbstripout package to use.";
+        };
+        pulumiPackage = mkOption {
+          type = types.package;
+          default = pkgs.pulumi;
+          defaultText = "pkgs.pulumi";
+          description = "pulumi package to use.";
         };
       };
     });
@@ -60,6 +66,17 @@ in {
       just-flake = {
         features = {
           treefmt.enable = true;
+          direnv = {
+            enable = true;
+            justfile = ''
+              # Run direnv
+              reload:
+                  ${lib.getExe pcfg.direnvPackage} reload
+              # alias for reload
+              r:
+                  @just reload 
+            '';
+          };
           infra = {
             enable = true;
             justfile = ''
