@@ -49,6 +49,31 @@ in {
           defaultText = "pkgs.pulumi";
           description = "pulumi package to use.";
         };
+        googleCloudSdkPackage = mkOption {
+          type = types.package;
+          default = pkgs.google-cloud-sdk;
+          defaultText = "pkgs.google-cloud-sdk";
+          description = "google-cloud-sdk package to use.";
+        };
+        jqPackage = mkOption {
+          type = types.package;
+          default = pkgs.jq;
+          defaultText = "pkgs.jq";
+          description = "jq package to use.";
+        };
+        flakeIterPackage = mkOption {
+          type = types.package;
+          default = inputs.flake-iter.packages.default;
+          defaultText = "inputs.flake-iter.packages.default";
+          description = "flake-iter package to use.";
+        };
+
+        # 
+        pulumiBackendUrl = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          description = "Pulumi backend URL to use for authentication and stack operations. If not set, Pulumi login will be skipped.";
+        };
       };
     });
   };
@@ -109,3 +134,6 @@ in {
     };
   };
 }
+
+
+
