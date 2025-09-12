@@ -15,6 +15,19 @@
       url = "github:juspay/just-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    flake-iter = {
+      url = "github:DeterminateSystems/flake-iter";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    pre-commit-hooks = {
+      url = "github:cachix/pre-commit-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+      # inputs.flake-utils.inputs.systems.follows = "systems";
+    };
+    treefmt = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {flake-parts, ...}:

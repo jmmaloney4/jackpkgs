@@ -105,7 +105,7 @@ in {
                   ${lib.getExe pcfg.direnvPackage} reload
               # alias for reload
               r:
-                  @just reload 
+                  @just reload
             '';
           };
           infra = {
@@ -166,6 +166,3 @@ in {
     };
   };
 }
-
-
-
