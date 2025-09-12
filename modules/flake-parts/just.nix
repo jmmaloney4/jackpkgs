@@ -20,6 +20,7 @@ in {
     };
 
     perSystem = mkDeferredModuleOption ({
+      inputs',
       lib,
       pkgs,
       ...
@@ -63,7 +64,7 @@ in {
         };
         flakeIterPackage = mkOption {
           type = types.package;
-          default = inputs.flake-iter.packages.default;
+          default = inputs'.flake-iter.packages.default;
           defaultText = "inputs.flake-iter.packages.default";
           description = "flake-iter package to use.";
         };
