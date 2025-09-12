@@ -67,8 +67,14 @@ in {
           defaultText = "inputs.flake-iter.packages.default";
           description = "flake-iter package to use.";
         };
+        preCommitPackage = mkOption {
+          type = types.package;
+          default = pkgs.pre-commit;
+          defaultText = "pkgs.pre-commit";
+          description = "pre-commit package to use.";
+        };
 
-        # 
+        #
         pulumiBackendUrl = mkOption {
           type = types.nullOr types.str;
           default = null;
@@ -127,6 +133,32 @@ in {
                   else \
                       ${lib.getExe pcfg.nbstripoutPackage} "{{notebook}}"; \
                   fi
+            '';
+          };
+          git = {
+            enable = true;
+            justfile = ''
+              # Run pre-commit hooks
+              pre-commit:
+                ${lib.getExe pcfg.preCommitPackage}
+              # alias for pre-commit
+              pre:
+                @just pre-commit
+              # Run pre-commit hooks on all files
+              pre-all:
+                ${lib.getExe pcfg.preCommitPackage} run --all-files
+            '';
+          };
+          nix = {
+            enable = true;
+            justfile = ''
+              # Build all flake outputs using flake-iter
+              build-all:
+                ${lib.getExe pcfg.flakeIterPackage} build
+
+              # Build all flake outputs with verbose output
+              build-all-verbose:
+                ${lib.getExe pcfg.flakeIterPackage} build --verbose
             '';
           };
         };
