@@ -4,7 +4,7 @@
   ...
 }: {
   flake = {
-    flakeModule = config.flakeModules.default;
+    flakeModule = import ./all.nix;
     flakeModules = {
       default = import ./all.nix;
       just = import ./just.nix;
