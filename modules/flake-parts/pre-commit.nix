@@ -32,6 +32,12 @@ in {
           defaultText = "config.treefmt.build.wrapper";
           description = "treefmt package to use.";
         };
+        nbstripoutPackage = mkOption {
+          type = types.package;
+          default = pkgs.nbstripout;
+          defaultText = "pkgs.nbstripout";
+          description = "nbstripout package to use.";
+        };
       };
     });
   };
@@ -49,6 +55,11 @@ in {
         check.enable = true;
         settings.hooks.treefmt.enable = true;
         settings.hooks.treefmt.package = pcfg.treefmtPackage;
+        settings.hooks.nbstripout = {
+          enable = true;
+          entry = "${lib.getExe pcfg.nbstripoutPackage}";
+          files = "\\.ipynb$";
+        };
       };
     };
   };

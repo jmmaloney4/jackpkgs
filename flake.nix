@@ -3,20 +3,21 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-25.05-darwin";
+    flake-iter = {
+      url = "github:DeterminateSystems/flake-iter";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    flake-root.url = "github:srid/flake-root";
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     just-flake = {
       url = "github:juspay/just-flake";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    flake-iter = {
-      url = "github:DeterminateSystems/flake-iter";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     pre-commit-hooks = {
@@ -67,6 +68,17 @@
 
         # Legacy compatibility - expose the full jackpkgs set
         legacyPackages = config._module.args.jackpkgs;
+
+        devShells.default = pkgs.mkShell {
+          inputsFrom = [
+            config.just-flake.outputs.devShell
+            config.flake-root.devShell
+            config.pre-commit.devShell
+            config.treefmt.build.devShell
+          ];
+          packages = [
+          ];
+        };
       };
 
       flake = {

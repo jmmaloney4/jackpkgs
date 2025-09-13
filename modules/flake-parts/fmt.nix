@@ -8,6 +8,7 @@
   cfg = config.jackpkgs.fmt;
 in {
   imports = [
+    inputs.flake-root.flakeModule
     inputs.treefmt.flakeModule
   ];
 
@@ -20,11 +21,24 @@ in {
     };
 
     perSystem = mkDeferredModuleOption ({
+      config,
       lib,
       pkgs,
       ...
     }: {
       options.jackpkgs.fmt = {
+        treefmtPackage = mkOption {
+          type = types.package;
+          default = pkgs.treefmt;
+          defaultText = "pkgs.treefmt";
+          description = "treefmt package to use.";
+        };
+        projectRootFile = mkOption {
+          type = types.str;
+          default = config.flake-root.projectRootFile;
+          defaultText = "config.flake-root.projectRootFile";
+          description = "Project root file to use.";
+        };
         excludes = mkOption {
           type = types.listOf types.str;
           default = ["**/node_modules/**" "**/dist/**"];
@@ -47,7 +61,7 @@ in {
       treefmt.config = let
         excludes = pcfg.excludes;
       in {
-        inherit (config.flake-root) projectRootFile;
+        inherit (pcfg) projectRootFile;
         package = pkgs.treefmt;
         # alejandra formats nix code
         programs.alejandra = {
