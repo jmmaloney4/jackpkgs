@@ -12,6 +12,7 @@
       fmt = import ./fmt.nix {jackpkgsInputs = inputs;};
       just = import ./just.nix {jackpkgsInputs = inputs;};
       pre-commit = import ./pre-commit.nix {jackpkgsInputs = inputs;};
+      shell = import ./devshell.nix {jackpkgsInputs = inputs;};
     };
   };
 }

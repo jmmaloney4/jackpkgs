@@ -3,7 +3,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * 0' # runs weekly on Sunday at 00:00
-
 jobs:
   nix-flake-update:
     runs-on: ubuntu-latest

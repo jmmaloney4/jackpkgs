@@ -4,12 +4,10 @@ on:
   pull_request:
   push:
     branches:
-    - main
-
+      - main
 permissions:
   contents: read
   id-token: write
-
 jobs:
   nix-build:
     uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main

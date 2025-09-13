@@ -1,8 +1,8 @@
 builds:
   exclude:
-  - packages.*.epub2tts
-  - packages.*.lean
+    - packages.*.epub2tts
+    - packages.*.lean
   include:
-  - '*.aarch64-darwin.*'
-  - '*.aarch64-linux.*'
-  - '*.x86_64-linux.*'
+    - '*.aarch64-darwin.*'
+    - '*.aarch64-linux.*'
+    - '*.x86_64-linux.*'

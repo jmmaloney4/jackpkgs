@@ -1,11 +1,9 @@
 name: add new items to project
-
 on:
   pull_request:
     types: [opened]
   issues:
     types: [opened]
-
 jobs:
   add-to-project:
     runs-on: ubuntu-latest
@@ -18,13 +16,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Install GitHub CLI and extension
         run: |
           sudo apt-get update
           sudo apt-get install gh jq -y
           gh extension install github/gh-projects
-
       - name: Get item GraphQL ID
         id: item
         run: |
@@ -34,7 +30,6 @@ jobs:
             gh issue view ${{ github.event.issue.number }} --json id -q .id > id.txt
           fi
           echo "id=$(cat id.txt)" >> "$GITHUB_OUTPUT"
-
       - name: Add to GitHub Project
         run: |
           gh projects item-add \

@@ -9,7 +9,6 @@
     };
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
     flake-root.url = "github:srid/flake-root";
     home-manager = {
@@ -18,7 +17,6 @@
     };
     just-flake = {
       url = "github:juspay/just-flake";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
     pre-commit-hooks = {
       url = "github:cachix/pre-commit-hooks.nix";

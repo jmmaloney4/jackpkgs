@@ -73,16 +73,14 @@ in {
           enable = true;
           inherit excludes;
         };
+        programs.hujsonfmt = {
+          enable = true;
+          inherit excludes;
+        };
         # latex
         programs.latexindent = {
           enable = true;
           inherit excludes;
-        };
-        # just use prettier for json files
-        programs.prettier = {
-          enable = true;
-          inherit excludes;
-          includes = ["*.json"];
         };
         # ruff lints and formats python code
         programs.ruff-check = {
