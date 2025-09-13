@@ -38,17 +38,11 @@ in {
           defaultText = "pkgs.fd";
           description = "fd package to use for finding files.";
         };
-        nbstripoutPackage = mkOption {
+        flakeIterPackage = mkOption {
           type = types.package;
-          default = pkgs.nbstripout;
-          defaultText = "pkgs.nbstripout";
-          description = "nbstripout package to use.";
-        };
-        pulumiPackage = mkOption {
-          type = types.package;
-          default = pkgs.pulumi;
-          defaultText = "pkgs.pulumi";
-          description = "pulumi package to use.";
+          default = jackpkgsInputs.flake-iter.packages.default;
+          defaultText = "flake-iter.packages.default";
+          description = "flake-iter package to use.";
         };
         googleCloudSdkPackage = mkOption {
           type = types.package;
@@ -62,17 +56,23 @@ in {
           defaultText = "pkgs.jq";
           description = "jq package to use.";
         };
-        flakeIterPackage = mkOption {
+        nbstripoutPackage = mkOption {
           type = types.package;
-          default = inputs'.flake-iter.packages.default;
-          defaultText = "inputs.flake-iter.packages.default";
-          description = "flake-iter package to use.";
+          default = pkgs.nbstripout;
+          defaultText = "pkgs.nbstripout";
+          description = "nbstripout package to use.";
         };
         preCommitPackage = mkOption {
           type = types.package;
           default = pkgs.pre-commit;
           defaultText = "pkgs.pre-commit";
           description = "pre-commit package to use.";
+        };
+        pulumiPackage = mkOption {
+          type = types.package;
+          default = pkgs.pulumi;
+          defaultText = "pkgs.pulumi";
+          description = "pulumi package to use.";
         };
 
         #
