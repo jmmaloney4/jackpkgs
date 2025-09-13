@@ -99,7 +99,7 @@ in {
         # yaml
         programs.yamlfmt = {
           enable = true;
-          inherit excludes;
+          excludes = excludes ++ ["**/pnpm-lock.yaml"];
         };
       };
     };

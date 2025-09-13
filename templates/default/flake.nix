@@ -86,16 +86,16 @@
           '';
         };
 
-                just-flake.features = {
+        just-flake.features = {
           treefmt.enable = true;
-          
+
           development = {
             enable = true;
             justfile = ''
               # Update flake dependencies
               update-deps:
                   nix flake update
-              
+
               # Run tests and checks
               test:
                   nix flake check
