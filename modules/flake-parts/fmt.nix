@@ -1,4 +1,4 @@
-{
+{jackpkgsInputs}: {
   inputs,
   config,
   lib,
@@ -8,13 +8,13 @@
   cfg = config.jackpkgs.fmt;
 in {
   imports = [
-    inputs.flake-root.flakeModule
-    inputs.treefmt.flakeModule
+    jackpkgsInputs.flake-root.flakeModule
+    jackpkgsInputs.treefmt.flakeModule
   ];
 
   options = let
     inherit (lib) types mkOption mkEnableOption;
-    inherit (inputs.flake-parts.lib) mkDeferredModuleOption;
+    inherit (jackpkgsInputs.flake-parts.lib) mkDeferredModuleOption;
   in {
     jackpkgs.fmt = {
       enable = mkEnableOption "jackpkgs-treefmt" // {default = true;};

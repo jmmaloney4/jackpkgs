@@ -1,4 +1,4 @@
-{
+{jackpkgsInputs}: {
   inputs,
   config,
   lib,
@@ -8,12 +8,12 @@
   cfg = config.jackpkgs.pre-commit;
 in {
   imports = [
-    inputs.pre-commit-hooks.flakeModule
+    jackpkgsInputs.pre-commit-hooks.flakeModule
   ];
 
   options = let
     inherit (lib) types mkOption mkEnableOption;
-    inherit (inputs.flake-parts.lib) mkDeferredModuleOption;
+    inherit (jackpkgsInputs.flake-parts.lib) mkDeferredModuleOption;
   in {
     jackpkgs.pre-commit = {
       enable = mkEnableOption "jackpkgs-pre-commit" // {default = true;};

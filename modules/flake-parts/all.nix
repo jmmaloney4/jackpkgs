@@ -1,7 +1,7 @@
-{
+{inputs, ...}: {
   imports = [
-    ./fmt.nix
-    ./just.nix
-    ./pre-commit.nix
+    (import ./fmt.nix {jackpkgsInputs = inputs;})
+    (import ./just.nix {jackpkgsInputs = inputs;})
+    (import ./pre-commit.nix {jackpkgsInputs = inputs;})
   ];
 }

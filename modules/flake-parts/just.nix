@@ -1,4 +1,4 @@
-{
+{jackpkgsInputs}: {
   inputs,
   config,
   lib,
@@ -8,12 +8,12 @@
   cfg = config.jackpkgs.just;
 in {
   imports = [
-    inputs.just-flake.flakeModule
+    jackpkgsInputs.just-flake.flakeModule
   ];
 
   options = let
     inherit (lib) types mkOption mkEnableOption;
-    inherit (inputs.flake-parts.lib) mkDeferredModuleOption;
+    inherit (jackpkgsInputs.flake-parts.lib) mkDeferredModuleOption;
   in {
     jackpkgs.just = {
       enable = mkEnableOption "jackpkgs-just-flake" // {default = true;};
