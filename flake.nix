@@ -51,7 +51,7 @@
       imports = [
         ./modules/flake-parts
 
-        ./modules/flake-parts/all.nix
+        (import ./modules/flake-parts/all.nix {jackpkgsInputs = inputs;})
       ];
 
       perSystem = {

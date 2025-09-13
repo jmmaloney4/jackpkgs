@@ -1,7 +1,7 @@
-{inputs, ...}: {
+{jackpkgsInputs}: {inputs, ...}: {
   imports = [
-    (import ./fmt.nix {jackpkgsInputs = inputs;})
-    (import ./just.nix {jackpkgsInputs = inputs;})
-    (import ./pre-commit.nix {jackpkgsInputs = inputs;})
+    (import ./fmt.nix {inherit jackpkgsInputs;})
+    (import ./just.nix {inherit jackpkgsInputs;})
+    (import ./pre-commit.nix {inherit jackpkgsInputs;})
   ];
 }

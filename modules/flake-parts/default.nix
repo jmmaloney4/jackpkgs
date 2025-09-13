@@ -4,9 +4,9 @@
   ...
 }: {
   flake = {
-    flakeModule = import ./all.nix;
+    flakeModule = import ./all.nix {jackpkgsInputs = inputs;};
     flakeModules = {
-      default = import ./all.nix;
+      default = import ./all.nix {jackpkgsInputs = inputs;};
 
       # Don't forget to update all.nix too!
       fmt = import ./fmt.nix {jackpkgsInputs = inputs;};
