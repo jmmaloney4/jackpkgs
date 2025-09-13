@@ -25,6 +25,11 @@ in {
       ...
     }: {
       options.jackpkgs.fmt = {
+        excludes = mkOption {
+          type = types.listOf types.str;
+          default = ["**/node_modules/**" "**/dist/**"];
+          description = "Excludes for treefmt.";
+        };
       };
     });
   };
@@ -40,14 +45,32 @@ in {
     in {
       formatter = lib.mkDefault config.treefmt.build.wrapper;
       treefmt.config = let
-        excludes = ["**/node_modules/**" "**/dist/**"];
+        excludes = pcfg.excludes;
       in {
         inherit (config.flake-root) projectRootFile;
         package = pkgs.treefmt;
+        # alejandra formats nix code
         programs.alejandra = {
           enable = true;
           inherit excludes;
         };
+        # biome lints and formats js/ts code
+        programs.biome = {
+          enable = true;
+          inherit excludes;
+        };
+        # latex
+        programs.latexindent = {
+          enable = true;
+          inherit excludes;
+        };
+        # just use prettier for json files
+        programs.prettier = {
+          enable = true;
+          inherit excludes;
+          includes = ["*.json"];
+        };
+        # ruff lints and formats python code
         programs.ruff-check = {
           enable = true;
           inherit excludes;
@@ -56,19 +79,12 @@ in {
           enable = true;
           inherit excludes;
         };
-        programs.biome = {
-          enable = true;
-          inherit excludes;
-        };
-        programs.prettier = {
-          enable = true;
-          inherit excludes;
-          includes = ["*.json"];
-        };
+        # rust obv
         programs.rustfmt = {
           enable = true;
           inherit excludes;
         };
+        # yaml
         programs.yamlfmt = {
           enable = true;
           inherit excludes;
