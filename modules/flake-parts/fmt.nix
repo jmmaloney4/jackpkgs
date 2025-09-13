@@ -62,7 +62,7 @@ in {
         excludes = pcfg.excludes;
       in {
         inherit (pcfg) projectRootFile;
-        package = pkgs.treefmt;
+        package = pcfg.treefmtPackage;
         # alejandra formats nix code
         programs.alejandra = {
           enable = true;
