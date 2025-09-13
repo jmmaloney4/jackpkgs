@@ -8,7 +8,7 @@
   cfg = config.jackpkgs.fmt;
 in {
   imports = [
-    inputs.pre-commit-hooks.flakeModule
+    inputs.treefmt.flakeModule
   ];
 
   options = let
