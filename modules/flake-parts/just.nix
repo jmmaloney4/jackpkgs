@@ -23,6 +23,7 @@ in {
       inputs',
       lib,
       pkgs,
+      system,
       ...
     }: {
       options.jackpkgs.just = {
@@ -40,7 +41,7 @@ in {
         };
         flakeIterPackage = mkOption {
           type = types.package;
-          default = jackpkgsInputs.flake-iter.packages.default;
+          default = jackpkgsInputs.flake-iter.packages.${system}.default;
           defaultText = "flake-iter.packages.default";
           description = "flake-iter package to use.";
         };
