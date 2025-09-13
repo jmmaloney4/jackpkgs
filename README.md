@@ -1,282 +1,187 @@
-# jackpkgs
-[![built with garnix](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fgarnix.io%2Fapi%2Fbadges%2Fjmmaloney4%2Fjackpkgs)](https://garnix.io/repo/jmmaloney4/jackpkgs)
+# jackpkgs (flake)
 
-Jack's `nix` packages.
+Jack's Nix flake providing packages, an overlay, and reusable flake-parts modules.
 
-## Packages
+## TL;DR
 
-This repository includes the following packages:
+- Add as a flake input: `jackpkgs = "github:jmmaloney4/jackpkgs"`.
+- Use packages via `jackpkgs.packages.${system}` or by enabling the overlay in your `nixpkgs`.
+- Import flake-parts modules from `inputs.jackpkgs.flakeModules` (default or à la carte).
 
-- `csharpier` - C# code formatter
-- `docfx` - Documentation generation tool for .NET
-- `epub2tts` - EPUB to Text-to-Speech converter
-- `lean` - Lean theorem prover
-- `nbstripout` - Strip output from Jupyter notebooks
-- `roon-server` - Roon audio server (x86_64-linux only)
-- `tod` - Command line interface for Todoist
+---
 
-## Home Manager Modules
-
-This repository also provides Home Manager modules:
-
-- `tod` - Home Manager module for configuring the Tod CLI
-
-### Using Home Manager Modules
-
-#### Standalone Home Manager
-
-If you're using Home Manager standalone:
-
-```nix
-let
-  jackpkgs = fetchGit {
-    url = "https://github.com/jmmaloney4/jackpkgs.git";
-    # Optional: specify a specific commit
-    # rev = "commit-hash-here";
-  };
-  
-  jackPackages = import jackpkgs { pkgs = import <nixpkgs> {}; };
-in
-{
-  imports = [ jackPackages.homeManagerModules.programs.tod ];
-  
-  programs.tod = {
-    enable = true;
-    settings = {
-      # Your tod configuration here
-    };
-    apiTokenFile = "/path/to/your/todoist-token";
-  };
-}
-```
-
-#### Home Manager as NixOS Module
-
-If you're using Home Manager as a NixOS module:
-
-```nix
-let
-  jackpkgs = fetchGit {
-    url = "https://github.com/jmmaloney4/jackpkgs.git";
-  };
-  
-  jackPackages = import jackpkgs { pkgs = import <nixpkgs> {}; };
-in
-{
-  home-manager.users.myuser = {
-    imports = [ jackPackages.homeManagerModules.programs.tod ];
-    
-    programs.tod = {
-      enable = true;
-      settings = {
-        # Your tod configuration here
-      };
-      apiTokenFile = "/path/to/your/todoist-token";
-    };
-  };
-}
-```
-
-#### Flake Usage with Home Manager
-
-If you're using Nix flakes with Home Manager:
+## Add as a flake input
 
 ```nix
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    home-manager = {
-      url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable"; # or your chosen channel
     jackpkgs.url = "github:jmmaloney4/jackpkgs";
   };
+}
+```
 
-  outputs = { self, nixpkgs, home-manager, jackpkgs }: {
-    homeConfigurations.myuser = home-manager.lib.homeManagerConfiguration {
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
-      modules = [
-        jackpkgs.homeManagerModules.programs.tod
-        {
-          programs.tod = {
-            enable = true;
-            settings = {
-              # Your tod configuration here
-            };
-            apiTokenFile = "/path/to/your/todoist-token";
-          };
-        }
-      ];
+## Use packages (flake-only)
+
+- Directly reference packages:
+
+```nix
+{
+  outputs = { self, nixpkgs, jackpkgs, ... }:
+  let
+    system = "x86_64-darwin"; # or x86_64-linux, aarch64-linux, etc.
+  in {
+    packages.${system} = {
+      inherit (jackpkgs.packages.${system}) csharpier docfx tod; # example
+    };
+
+    # Or build one-off from CLI:
+    # nix build .#csharpier
+    # nix build github:jmmaloney4/jackpkgs#docfx
+  };
+}
+```
+
+- Via overlay (for seamless `pkgs.<name>`):
+
+```nix
+{
+  outputs = { self, nixpkgs, jackpkgs, ... }:
+  let
+    system = "x86_64-linux";
+    pkgs = import nixpkgs {
+      inherit system;
+      overlays = [ jackpkgs.overlays.default ];
+    };
+  in {
+    devShells.${system}.default = pkgs.mkShell {
+      packages = [ pkgs.csharpier pkgs.docfx pkgs.tod ];
     };
   };
 }
 ```
 
-#### Flake Usage with NixOS + Home Manager
+Notes:
+- `roon-server` is packaged for `x86_64-linux` only.
 
-For NixOS configurations using Home Manager:
+---
+
+## Flake-parts modules
+
+This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModules` sourced from `modules/flake-parts/`:
+
+- `default` — imports all modules below.
+- `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
+- `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
+- `pre-commit` — pre-commit-hooks (treefmt + nbstripout for `.ipynb`).
+- `shell` — shared dev shell output to include via `inputsFrom`.
+
+### Import (one-liner: everything)
 
 ```nix
-{
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    home-manager = {
-      url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    jackpkgs.url = "github:jmmaloney4/jackpkgs";
-  };
-
-  outputs = { self, nixpkgs, home-manager, jackpkgs }: {
-    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        home-manager.nixosModules.home-manager
-        {
-          home-manager.users.myuser = {
-            imports = [ jackpkgs.homeManagerModules.programs.tod ];
-            
-            programs.tod = {
-              enable = true;
-              settings = {
-                # Your tod configuration here
-              };
-              apiTokenFile = "/path/to/your/todoist-token";
-            };
-          };
-        }
-      ];
-    };
-  };
+flake-parts.lib.mkFlake { inherit inputs; } {
+  systems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
+  imports = [ inputs.jackpkgs.flakeModules.default ];
 }
 ```
 
-## Using the Overlay
-
-### Method 1: Using the Default Overlay
-
-You can use the default overlay that includes all packages:
+### Import (à la carte)
 
 ```nix
-let
-  jackpkgs = fetchGit {
-    url = "https://github.com/jmmaloney4/jackpkgs.git";
-    # Optional: specify a specific commit
-    # rev = "commit-hash-here";
-  };
-  
-  pkgs = import <nixpkgs> {
-    overlays = [ (import "${jackpkgs}/overlays/default.nix").default ];
-  };
-in
-{
-  # Now you can use the packages
-  environment.systemPackages = with pkgs; [
-    csharpier
-    docfx
-    epub2tts
-    lean
-    nbstripout
-    roon-server
-    tod
+flake-parts.lib.mkFlake { inherit inputs; } {
+  systems = import inputs.systems;
+  imports = [
+    inputs.jackpkgs.flakeModules.fmt
+    inputs.jackpkgs.flakeModules.just
+    inputs.jackpkgs.flakeModules.pre-commit
+    inputs.jackpkgs.flakeModules.shell
   ];
 }
 ```
 
-### Method 2: Using the Main Overlay
+### Module reference (concise)
 
-Alternatively, you can use the main overlay that includes all packages plus lib, modules, and overlays:
+- fmt (`modules/flake-parts/fmt.nix`)
+  - Enables treefmt and sets `formatter = config.treefmt.build.wrapper`.
+  - Options under `jackpkgs.fmt`:
+    - `treefmtPackage` (package, default `pkgs.treefmt`)
+    - `projectRootFile` (str, default `config.flake-root.projectRootFile`)
+    - `excludes` (list of str, default `["**/node_modules/**" "**/dist/**"]`)
+  - Enables formatters: Alejandra (Nix), Biome (JS/TS), HuJSON, latexindent, Ruff (check + format), Rustfmt, Yamlfmt.
 
-```nix
-let
-  jackpkgs = fetchGit {
-    url = "https://github.com/jmmaloney4/jackpkgs.git";
-  };
-  
-  pkgs = import <nixpkgs> {
-    overlays = [ (import "${jackpkgs}/overlay.nix") ];
-  };
-in
-{
-  # Use the packages
-  environment.systemPackages = with pkgs; [
-    csharpier
-    docfx
-    tod
-    # ... other packages
-  ];
-}
-```
+- just (`modules/flake-parts/just.nix`)
+  - Integrates `just-flake` features; provides a generated `justfile` with:
+    - direnv: `just reload` (`direnv reload`)
+    - infra: `just auth` (GCloud ADC), `just new-stack <project> <stack>` (Pulumi)
+    - python: `just nbstrip [<notebook>]` (strip outputs)
+    - git: `just pre`, `just pre-all` (pre-commit)
+    - nix: `just build-all`, `just build-all-verbose` (flake-iter)
+  - Options under `jackpkgs.just` to replace tool packages if desired:
+    - `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`
+    - `pulumiBackendUrl` (nullable string)
 
-### Method 3: Direct Package Import
+- pre-commit (`modules/flake-parts/pre-commit.nix`)
+  - Enables pre-commit with `treefmt` and `nbstripout` for `.ipynb`.
+  - Options under `jackpkgs.pre-commit`:
+    - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
+    - `nbstripoutPackage` (default `pkgs.nbstripout`)
 
-You can also import packages directly without using overlays:
+- shell (`modules/flake-parts/devshell.nix`)
+  - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
+  - The shell aggregates dev environments from `just-flake`, `flake-root`, `pre-commit`, and `treefmt`.
 
-```nix
-let
-  jackpkgs = fetchGit {
-    url = "https://github.com/jmmaloney4/jackpkgs.git";
-  };
-  
-  pkgs = import <nixpkgs> {};
-  
-  jackPackages = import jackpkgs { inherit pkgs; };
-in
-{
-  environment.systemPackages = [
-    jackPackages.csharpier
-    jackPackages.docfx
-    jackPackages.tod
-    # ... other packages
-  ];
-}
-```
+### DevShell usage pattern
 
-### Method 4: Flake Usage
-
-If you're using Nix flakes, you can add this repository as an input:
+Include the shared shell in your own dev shell via `inputsFrom`:
 
 ```nix
-{
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    jackpkgs.url = "github:jmmaloney4/jackpkgs";
+perSystem = { pkgs, config, ... }: {
+  devShells.default = pkgs.mkShell {
+    inputsFrom = [
+      config.jackpkgs.outputs.devShell
+    ];
+    packages = [ ]; # add your project-specific tools
   };
-
-  outputs = { self, nixpkgs, jackpkgs }: {
-    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        ({ pkgs, ... }: {
-          nixpkgs.overlays = [ jackpkgs.overlays.default ];
-          
-          environment.systemPackages = with pkgs; [
-            csharpier
-            docfx
-            epub2tts
-            lean
-            nbstripout
-            roon-server
-            tod
-          ];
-        })
-      ];
-    };
-  };
-}
+};
 ```
 
-## Development
+---
 
-To build a specific package:
+## Packages available
+
+- `csharpier` — C# formatter
+- `docfx` — .NET docs generator
+- `epub2tts` — EPUB → TTS
+- `lean` — Lean theorem prover
+- `nbstripout` — Strip outputs from Jupyter notebooks
+- `roon-server` — Roon server (x86_64-linux only)
+- `tod` — Todoist CLI
+
+Build from CLI (examples):
 
 ```bash
-nix-build -A packagename
+# build a package from this flake
+nix build github:jmmaloney4/jackpkgs#tod
+
+# or from within your project if exposed via packages
+nix build .#tod
 ```
 
-To build all packages:
+---
+
+## Template(s)
+
+A `just-flake` template is available:
 
 ```bash
-nix-build
+nix flake init -t github:jmmaloney4/jackpkgs#just
+# or
+nix flake new myproj -t github:jmmaloney4/jackpkgs#just
 ```
+
+---
+
+## License
+
+See `LICENSE`.
 
