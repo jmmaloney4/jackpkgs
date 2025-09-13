@@ -25,6 +25,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       # inputs.flake-utils.inputs.systems.follows = "systems";
     };
+    systems.url = "github:nix-systems/default";
     treefmt = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -34,18 +35,11 @@
   outputs = inputs @ {
     self,
     flake-parts,
+    systems,
     ...
   }:
     flake-parts.lib.mkFlake {inherit inputs;} {
-      systems = [
-        "x86_64-linux"
-        # "i686-linux"
-        # "x86_64-darwin"
-        "aarch64-darwin"
-        "aarch64-linux"
-        # "armv6l-linux"
-        # "armv7l-linux"
-      ];
+      systems = import systems;
 
       # Import our flake modules
       imports = [
