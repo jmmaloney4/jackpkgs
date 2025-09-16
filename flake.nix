@@ -50,6 +50,10 @@
 
       # Import our flake modules
       imports = [
+        # expose flake-parts modules for consumers
+        ./modules/flake-parts
+
+        # dogfood our own flake-parts modules
         (import ./modules/flake-parts/all.nix {jackpkgsInputs = inputs;})
       ];
 
