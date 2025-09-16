@@ -40,7 +40,7 @@ in {
       ...
     }: {
       jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
-        nativeBuildInputs = with pkgs; [
+        packages = with pkgs; [
           pulumi-bin
           nodejs
           pnpm
@@ -51,6 +51,11 @@ in {
           nodePackages.typescript
         ];
       };
+
+      # Contribute this fragment to the composed devshell
+      jackpkgs.shell.inputsFrom = [
+        config.jackpkgs.outputs.pulumiDevShell
+      ];
     };
   };
 }

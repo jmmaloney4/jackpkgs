@@ -25,6 +25,16 @@ in {
       ...
     }: {
       options.jackpkgs.shell = {
+        inputsFrom = mkOption {
+          type = types.listOf types.package;
+          default = [];
+          description = "Additional devShell fragments to include via inputsFrom.";
+        };
+        packages = mkOption {
+          type = types.listOf types.package;
+          default = [];
+          description = "Additional packages to include in the composed devShell.";
+        };
       };
       options.jackpkgs.outputs.devShell = mkOption {
         type = types.package;
@@ -51,7 +61,8 @@ in {
             config.pre-commit.devShell
             config.treefmt.build.devShell
           ]
-          ++ lib.optional (config.jackpkgs.pulumi.enable or false) config.jackpkgs.outputs.pulumiDevShell;
+          ++ pcfg.inputsFrom;
+        packages = pcfg.packages;
       };
     };
   };
