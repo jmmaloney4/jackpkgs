@@ -50,8 +50,6 @@
 
       # Import our flake modules
       imports = [
-        ./modules/flake-parts
-
         (import ./modules/flake-parts/all.nix {jackpkgsInputs = inputs;})
       ];
 
@@ -72,10 +70,7 @@
 
         devShells.default = pkgs.mkShell {
           inputsFrom = [
-            config.just-flake.outputs.devShell
-            config.flake-root.devShell
-            config.pre-commit.devShell
-            config.treefmt.build.devShell
+            config.jackpkgs.outputs.devShell
           ];
           packages = [
           ];
@@ -95,7 +90,7 @@
         # Expose just templates
         templates = {
           just = {
-            path = ./templates/just-flake;
+            path = ./templates/default;
             description = "just-flake template";
           };
         };

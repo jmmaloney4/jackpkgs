@@ -49,7 +49,7 @@ in {
           config.flake-root.devShell
           config.pre-commit.devShell
           config.treefmt.build.devShell
-        ];
+        ] ++ lib.optional (config.jackpkgs.pulumi.enable or false) config.jackpkgs.outputs.pulumiDevShell;
       };
     };
   };

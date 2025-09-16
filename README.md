@@ -75,6 +75,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
 - `pre-commit` — pre-commit-hooks (treefmt + nbstripout for `.ipynb`).
 - `shell` — shared dev shell output to include via `inputsFrom`.
+- `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
 
 ### Import (one-liner: everything)
 
@@ -95,6 +96,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     inputs.jackpkgs.flakeModules.just
     inputs.jackpkgs.flakeModules.pre-commit
     inputs.jackpkgs.flakeModules.shell
+    inputs.jackpkgs.flakeModules.pulumi
   ];
 }
 ```
@@ -129,6 +131,12 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 - shell (`modules/flake-parts/devshell.nix`)
   - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
   - The shell aggregates dev environments from `just-flake`, `flake-root`, `pre-commit`, and `treefmt`.
+  - Conditionally includes `pulumi` devShell fragment when `jackpkgs.pulumi.enable` is true.
+
+- pulumi (`modules/flake-parts/pulumi.nix`)
+  - Provides Pulumi CLI in a devShell fragment: `config.jackpkgs.outputs.pulumiDevShell`.
+  - Options under `jackpkgs.pulumi`:
+    - `enable` (bool, default `true`)
 
 ### DevShell usage pattern
 
