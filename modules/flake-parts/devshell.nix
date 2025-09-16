@@ -44,12 +44,14 @@ in {
       pcfg = config.jackpkgs.shell;
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell {
-        inputsFrom = [
-          config.just-flake.outputs.devShell
-          config.flake-root.devShell
-          config.pre-commit.devShell
-          config.treefmt.build.devShell
-        ] ++ lib.optional (config.jackpkgs.pulumi.enable or false) config.jackpkgs.outputs.pulumiDevShell;
+        inputsFrom =
+          [
+            config.just-flake.outputs.devShell
+            config.flake-root.devShell
+            config.pre-commit.devShell
+            config.treefmt.build.devShell
+          ]
+          ++ lib.optional (config.jackpkgs.pulumi.enable or false) config.jackpkgs.outputs.pulumiDevShell;
       };
     };
   };

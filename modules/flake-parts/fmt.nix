@@ -61,8 +61,11 @@ in {
       treefmt.config = let
         excludes = pcfg.excludes;
       in {
+        flakeFormatter = lib.mkForce false; # we set this ourselves above
         inherit (pcfg) projectRootFile;
         package = pcfg.treefmtPackage;
+
+        ### Formatters ###
         # alejandra formats nix code
         programs.alejandra = {
           enable = true;
