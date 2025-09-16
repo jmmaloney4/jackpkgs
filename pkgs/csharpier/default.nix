@@ -16,3 +16,11 @@ in
   writeShellScriptBin "csharpier" ''
     ${lib.getExe dotnetCoreSdk} ${nuGet}/lib/dotnet/CSharpier/net${lib.versions.majorMinor dotnetCoreSdk.version}/any/dotnet-csharpier.dll "$@";
   ''
+  // {
+    meta = with lib; {
+      description = "C# code formatter";
+      homepage = "https://github.com/belav/csharpier";
+      license = licenses.mit;
+      broken = true; # TODO: Fix build issues
+    };
+  }

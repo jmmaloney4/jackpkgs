@@ -57,6 +57,7 @@ in
       description = "QuantConnect Lean Algorithmic Trading Engine";
       homepage = "https://github.com/quantconnect/lean";
       license = licenses.asl20;
+      broken = true; # TODO: Fix build issues
     };
   })
   .overridePythonAttrs (old: {
