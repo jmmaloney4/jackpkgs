@@ -40,8 +40,15 @@ in {
       ...
     }: {
       jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
-        packages = [
-          pkgs.pulumi
+        packages = with pkgs; [
+          pulumi-bin
+          nodejs
+          pnpm
+          jq
+          just
+          (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
+          nodePackages.ts-node
+          nodePackages.typescript
         ];
       };
     };
