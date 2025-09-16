@@ -67,7 +67,14 @@
         # Import our packages using the existing structure
         _module.args.jackpkgs = import ./default.nix {inherit pkgs;};
 
-        packages = lib.filterAttrs (_: v: lib.isDerivation v) config._module.args.jackpkgs;
+        packages =
+          lib.filterAttrs (
+            _: v:
+              lib.isDerivation v
+              && !(v.meta.broken or false)
+              && (v.meta.license.free or true)
+          )
+          config._module.args.jackpkgs;
 
         # Legacy compatibility - expose the full jackpkgs set
         legacyPackages = config._module.args.jackpkgs;
