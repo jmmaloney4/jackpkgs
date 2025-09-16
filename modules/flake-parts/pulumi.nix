@@ -40,7 +40,7 @@ in {
       ...
     }: {
       jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
-        packages = with pkgs; [
+        nativeBuildInputs = with pkgs; [
           pulumi-bin
           nodejs
           pnpm
