@@ -124,5 +124,6 @@ in
       homepage = "https://github.com/aedocw/epub2tts";
       license = licenses.asl20;
       platforms = platforms.linux;
+      broken = true;
     };
   }
