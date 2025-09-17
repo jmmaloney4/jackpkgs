@@ -82,6 +82,14 @@ in {
           default = null;
           description = "Pulumi backend URL to use for authentication and stack operations. If not set, Pulumi login will be skipped.";
         };
+
+        # Shared release script utilities
+        releaseUtils = mkOption {
+          type = types.package;
+          default = pkgs.writeShellScriptBin "release-utils" (builtins.readFile ./release-utils.sh);
+          defaultText = "pkgs.writeShellScriptBin \"release-utils\" (builtins.readFile ./release-utils.sh)";
+          description = "Shared utilities for release scripts.";
+        };
       };
     });
   };
@@ -155,31 +163,18 @@ in {
                 #!/usr/bin/env bash
                 set -euo pipefail
                 
+                # Source shared utilities
+                source ${lib.getExe pcfg.releaseUtils}
+                
                 echo "🏷️  Creating new semver minor release..." >&2
                 
                 # Always operate on origin/main, regardless of current checkout
                 main_remote="origin"
                 main_branch="main"
                 
-                echo "📥 Fetching latest from $main_remote..." >&2
-                git fetch --tags --prune "$main_remote"
-                git fetch "$main_remote" "$main_branch":"refs/remotes/$main_remote/$main_branch"
-                
-                if ! git rev-parse --verify --quiet "$main_remote/$main_branch" >/dev/null; then
-                  echo "❌ Unable to find $main_remote/$main_branch. Ensure the remote and branch exist." >&2
-                  exit 1
-                fi
-                
-                # Note: We intentionally do not require a clean working directory or a checked-out branch.
-                # The release tag is created against the remote tracking ref for main (origin/main).
-                
-                # Get the latest semver tag
-                latest_tag=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-                
-                if [ -z "$latest_tag" ]; then
-                  echo "❌ No semver tags found. Please create an initial tag like v0.1.0 first." >&2
-                  exit 1
-                fi
+                # Use shared functions
+                fetch_latest "$main_remote" "$main_branch"
+                latest_tag=$(get_latest_tag)
                 
                 echo "📋 Latest tag: $latest_tag" >&2
                 
@@ -194,19 +189,15 @@ in {
                 
                 echo "🆕 New tag: $new_tag" >&2
                 
-                # Create and push the tag (pointing at origin/main)
-                target_commit=$(git rev-parse "$main_remote/$main_branch")
-                echo "🏷️  Creating tag $new_tag at $main_remote/$main_branch ($target_commit)..." >&2
-                git tag -a "$new_tag" -m "Release $new_tag" "$target_commit"
-                
-                echo "📤 Pushing tag to remote..." >&2
-                git push origin "$new_tag"
-                
-                echo "✅ Successfully created and pushed release tag: $new_tag" >&2
+                # Use shared function to create and push tag
+                create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
 
               bump:
                 #!/usr/bin/env bash
                 set -euo pipefail
+                
+                # Source shared utilities
+                source ${lib.getExe pcfg.releaseUtils}
                 
                 echo "🏷️  Creating new semver patch release..." >&2
                 
@@ -214,25 +205,9 @@ in {
                 main_remote="origin"
                 main_branch="main"
                 
-                echo "📥 Fetching latest from $main_remote..." >&2
-                git fetch --tags --prune "$main_remote"
-                git fetch "$main_remote" "$main_branch":"refs/remotes/$main_remote/$main_branch"
-                
-                if ! git rev-parse --verify --quiet "$main_remote/$main_branch" >/dev/null; then
-                  echo "❌ Unable to find $main_remote/$main_branch. Ensure the remote and branch exist." >&2
-                  exit 1
-                fi
-                
-                # Note: We intentionally do not require a clean working directory or a checked-out branch.
-                # The release tag is created against the remote tracking ref for main (origin/main).
-                
-                # Get the latest semver tag
-                latest_tag=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-                
-                if [ -z "$latest_tag" ]; then
-                  echo "❌ No semver tags found. Please create an initial tag like v0.1.0 first." >&2
-                  exit 1
-                fi
+                # Use shared functions
+                fetch_latest "$main_remote" "$main_branch"
+                latest_tag=$(get_latest_tag)
                 
                 echo "📋 Latest tag: $latest_tag" >&2
                 
@@ -247,15 +222,8 @@ in {
                 
                 echo "🆕 New tag: $new_tag" >&2
                 
-                # Create and push the tag (pointing at origin/main)
-                target_commit=$(git rev-parse "$main_remote/$main_branch")
-                echo "🏷️  Creating tag $new_tag at $main_remote/$main_branch ($target_commit)..." >&2
-                git tag -a "$new_tag" -m "Release $new_tag" "$target_commit"
-                
-                echo "📤 Pushing tag to remote..." >&2
-                git push origin "$new_tag"
-                
-                echo "✅ Successfully created and pushed release tag: $new_tag" >&2
+                # Use shared function to create and push tag
+                create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
             '';
           };
           nix = {
