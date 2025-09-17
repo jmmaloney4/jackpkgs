@@ -181,14 +181,14 @@ in {
                 latest_tag=$(get_latest_tag)
 
                 echo "📋 Latest tag: $latest_tag" >&2
-
+                
                 # Extract version numbers (remove 'v' prefix)
-                version=$${latest_tag#v}
-                major=$${version%%.*}
-                minor=$${version#*.}
-                minor=$${minor%%.*}
-                patch=$${version##*.}
-
+                version=''${latest_tag#v}
+                major=''${version%%.*}
+                minor=''${version#*.}
+                minor=''${minor%%.*}
+                patch=''${version##*.}
+                
                 # Increment minor version and reset patch to 0
                 new_minor=$((minor + 1))
                 new_version="$major.$new_minor.0"
@@ -217,14 +217,14 @@ in {
                 latest_tag=$(get_latest_tag)
 
                 echo "📋 Latest tag: $latest_tag" >&2
-
+                
                 # Extract version numbers (remove 'v' prefix)
-                version=$${latest_tag#v}
-                major=$${version%%.*}
-                minor=$${version#*.}
-                minor=$${minor%%.*}
-                patch=$${version##*.}
-
+                version=''${latest_tag#v}
+                major=''${version%%.*}
+                minor=''${version#*.}
+                minor=''${minor%%.*}
+                patch=''${version##*.}
+                
                 # Increment patch version
                 new_patch=$((patch + 1))
                 new_version="$major.$minor.$new_patch"
