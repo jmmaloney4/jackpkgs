@@ -103,7 +103,7 @@ in {
         # yaml
         programs.yamlfmt = {
           enable = true;
-          excludes = excludes ++ ["**/pnpm-lock.yaml"];
+          excludes = excludes ++ ["pnpm-lock.yaml"];
         };
       };
     };
