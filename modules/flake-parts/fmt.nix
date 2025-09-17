@@ -6,6 +6,7 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.fmt;
+  defaultExcludes = ["**/node_modules/**" "**/dist/**" "**/.direnv/**" ".jj/**" "/nix/**"];
 in {
   imports = [
     jackpkgsInputs.flake-root.flakeModule
@@ -41,8 +42,8 @@ in {
         };
         excludes = mkOption {
           type = types.listOf types.str;
-          default = ["**/node_modules/**" "**/dist/**" "**/.direnv/**" ".jj/**"];
-          description = "Excludes for treefmt.";
+          default = defaultExcludes;
+          description = "Excludes for treefmt. User-provided excludes will be appended to the defaults.";
         };
       };
     });
@@ -59,7 +60,7 @@ in {
     in {
       formatter = lib.mkDefault config.treefmt.build.wrapper;
       treefmt.config = let
-        excludes = pcfg.excludes;
+        excludes = lib.unique (defaultExcludes ++ pcfg.excludes);
       in {
         flakeFormatter = lib.mkForce false; # we set this ourselves above
         inherit (pcfg) projectRootFile;
