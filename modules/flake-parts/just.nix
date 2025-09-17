@@ -157,8 +157,12 @@ in {
               # Run pre-commit hooks on all files
               pre-all:
                 ${lib.getExe pcfg.preCommitPackage} run --all-files
-              
-              # Release management
+              '';
+          };
+          release = {
+            enable = true;
+            justfile = ''
+              # New minor release
               release:
                 #!/usr/bin/env bash
                 set -euo pipefail
@@ -191,7 +195,7 @@ in {
                 
                 # Use shared function to create and push tag
                 create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
-
+              # Bump patch version
               bump:
                 #!/usr/bin/env bash
                 set -euo pipefail
