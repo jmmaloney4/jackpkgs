@@ -12,6 +12,6 @@ jobs:
   nix-build:
     uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
     with:
-      runs-on: ubuntu-latest
+      runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}

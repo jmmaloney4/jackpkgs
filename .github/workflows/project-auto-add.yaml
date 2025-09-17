@@ -6,7 +6,7 @@ on:
     types: [opened]
 jobs:
   add-to-project:
-    runs-on: ubuntu-latest
+    runs-on: runs-on=${{ github.run_id }}/runner=1cpu-linux-arm64
     permissions:
       contents: read
       issues: write

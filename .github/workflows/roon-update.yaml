@@ -8,7 +8,7 @@ permissions:
   pull-requests: write
 jobs:
   roon-update:
-    runs-on: ubuntu-latest
+    runs-on: runs-on=${{ github.run_id }}/runner=1cpu-linux-arm64
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
