@@ -149,6 +149,113 @@ in {
               # Run pre-commit hooks on all files
               pre-all:
                 ${lib.getExe pcfg.preCommitPackage} run --all-files
+              
+              # Release management
+              release:
+                #!/usr/bin/env bash
+                set -euo pipefail
+                
+                echo "🏷️  Creating new semver minor release..." >&2
+                
+                # Always operate on origin/main, regardless of current checkout
+                main_remote="origin"
+                main_branch="main"
+                
+                echo "📥 Fetching latest from $main_remote..." >&2
+                git fetch --tags --prune "$main_remote"
+                git fetch "$main_remote" "$main_branch":"refs/remotes/$main_remote/$main_branch"
+                
+                if ! git rev-parse --verify --quiet "$main_remote/$main_branch" >/dev/null; then
+                  echo "❌ Unable to find $main_remote/$main_branch. Ensure the remote and branch exist." >&2
+                  exit 1
+                fi
+                
+                # Note: We intentionally do not require a clean working directory or a checked-out branch.
+                # The release tag is created against the remote tracking ref for main (origin/main).
+                
+                # Get the latest semver tag
+                latest_tag=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+                
+                if [ -z "$latest_tag" ]; then
+                  echo "❌ No semver tags found. Please create an initial tag like v0.1.0 first." >&2
+                  exit 1
+                fi
+                
+                echo "📋 Latest tag: $latest_tag" >&2
+                
+                # Extract version numbers (remove 'v' prefix)
+                version=${latest_tag#v}
+                IFS='.' read -r major minor patch <<< "$version"
+                
+                # Increment minor version and reset patch to 0
+                new_minor=$((minor + 1))
+                new_version="$major.$new_minor.0"
+                new_tag="v$new_version"
+                
+                echo "🆕 New tag: $new_tag" >&2
+                
+                # Create and push the tag (pointing at origin/main)
+                target_commit=$(git rev-parse "$main_remote/$main_branch")
+                echo "🏷️  Creating tag $new_tag at $main_remote/$main_branch ($target_commit)..." >&2
+                git tag -a "$new_tag" -m "Release $new_tag" "$target_commit"
+                
+                echo "📤 Pushing tag to remote..." >&2
+                git push origin "$new_tag"
+                
+                echo "✅ Successfully created and pushed release tag: $new_tag" >&2
+
+              bump:
+                #!/usr/bin/env bash
+                set -euo pipefail
+                
+                echo "🏷️  Creating new semver patch release..." >&2
+                
+                # Always operate on origin/main, regardless of current checkout
+                main_remote="origin"
+                main_branch="main"
+                
+                echo "📥 Fetching latest from $main_remote..." >&2
+                git fetch --tags --prune "$main_remote"
+                git fetch "$main_remote" "$main_branch":"refs/remotes/$main_remote/$main_branch"
+                
+                if ! git rev-parse --verify --quiet "$main_remote/$main_branch" >/dev/null; then
+                  echo "❌ Unable to find $main_remote/$main_branch. Ensure the remote and branch exist." >&2
+                  exit 1
+                fi
+                
+                # Note: We intentionally do not require a clean working directory or a checked-out branch.
+                # The release tag is created against the remote tracking ref for main (origin/main).
+                
+                # Get the latest semver tag
+                latest_tag=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+                
+                if [ -z "$latest_tag" ]; then
+                  echo "❌ No semver tags found. Please create an initial tag like v0.1.0 first." >&2
+                  exit 1
+                fi
+                
+                echo "📋 Latest tag: $latest_tag" >&2
+                
+                # Extract version numbers (remove 'v' prefix)
+                version=${latest_tag#v}
+                IFS='.' read -r major minor patch <<< "$version"
+                
+                # Increment patch version
+                new_patch=$((patch + 1))
+                new_version="$major.$minor.$new_patch"
+                new_tag="v$new_version"
+                
+                echo "🆕 New tag: $new_tag" >&2
+                
+                # Create and push the tag (pointing at origin/main)
+                target_commit=$(git rev-parse "$main_remote/$main_branch")
+                echo "🏷️  Creating tag $new_tag at $main_remote/$main_branch ($target_commit)..." >&2
+                git tag -a "$new_tag" -m "Release $new_tag" "$target_commit"
+                
+                echo "📤 Pushing tag to remote..." >&2
+                git push origin "$new_tag"
+                
+                echo "✅ Successfully created and pushed release tag: $new_tag" >&2
             '';
           };
           nix = {
