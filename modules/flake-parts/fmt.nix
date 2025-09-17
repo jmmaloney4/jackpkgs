@@ -41,7 +41,7 @@ in {
         };
         excludes = mkOption {
           type = types.listOf types.str;
-          default = ["**/node_modules/**" "**/dist/**"];
+          default = ["**/node_modules/**" "**/dist/**" "**/.direnv/**"];
           description = "Excludes for treefmt.";
         };
       };
