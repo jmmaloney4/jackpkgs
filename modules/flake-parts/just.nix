@@ -157,7 +157,7 @@ in {
               # Run pre-commit hooks on all files
               pre-all:
                 ${lib.getExe pcfg.preCommitPackage} run --all-files
-              '';
+            '';
           };
           release = {
             enable = true;
@@ -166,66 +166,72 @@ in {
               release:
                 #!/usr/bin/env bash
                 set -euo pipefail
-                
+
                 # Source shared utilities
                 source ${lib.getExe pcfg.releaseUtils}
-                
+
                 echo "🏷️  Creating new semver minor release..." >&2
-                
+
                 # Always operate on origin/main, regardless of current checkout
                 main_remote="origin"
                 main_branch="main"
-                
+
                 # Use shared functions
                 fetch_latest "$main_remote" "$main_branch"
                 latest_tag=$(get_latest_tag)
-                
+
                 echo "📋 Latest tag: $latest_tag" >&2
-                
+
                 # Extract version numbers (remove 'v' prefix)
-                version=${latest_tag#v}
-                IFS='.' read -r major minor patch <<< "$version"
-                
+                version=$${latest_tag#v}
+                major=$${version%%.*}
+                minor=$${version#*.}
+                minor=$${minor%%.*}
+                patch=$${version##*.}
+
                 # Increment minor version and reset patch to 0
                 new_minor=$((minor + 1))
                 new_version="$major.$new_minor.0"
                 new_tag="v$new_version"
-                
+
                 echo "🆕 New tag: $new_tag" >&2
-                
+
                 # Use shared function to create and push tag
                 create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
               # Bump patch version
               bump:
                 #!/usr/bin/env bash
                 set -euo pipefail
-                
+
                 # Source shared utilities
                 source ${lib.getExe pcfg.releaseUtils}
-                
+
                 echo "🏷️  Creating new semver patch release..." >&2
-                
+
                 # Always operate on origin/main, regardless of current checkout
                 main_remote="origin"
                 main_branch="main"
-                
+
                 # Use shared functions
                 fetch_latest "$main_remote" "$main_branch"
                 latest_tag=$(get_latest_tag)
-                
+
                 echo "📋 Latest tag: $latest_tag" >&2
-                
+
                 # Extract version numbers (remove 'v' prefix)
-                version=${latest_tag#v}
-                IFS='.' read -r major minor patch <<< "$version"
-                
+                version=$${latest_tag#v}
+                major=$${version%%.*}
+                minor=$${version#*.}
+                minor=$${minor%%.*}
+                patch=$${version##*.}
+
                 # Increment patch version
                 new_patch=$((patch + 1))
                 new_version="$major.$minor.$new_patch"
                 new_tag="v$new_version"
-                
+
                 echo "🆕 New tag: $new_tag" >&2
-                
+
                 # Use shared function to create and push tag
                 create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
             '';
