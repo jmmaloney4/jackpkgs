@@ -35,7 +35,25 @@ with builtins; let
 
   outputsOf = p: map (o: p.${o}) p.outputs;
 
-  nurAttrs = import ./default.nix {inherit pkgs;};
+  # Define packages inline instead of importing default.nix
+  allPackages = {
+    csharpier = pkgs.callPackage ./pkgs/csharpier {};
+    docfx = pkgs.callPackage ./pkgs/docfx {};
+    epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
+    lean = pkgs.callPackage ./pkgs/lean {};
+    nbstripout = pkgs.callPackage ./pkgs/nbstripout {};
+    roon-server = pkgs.callPackage ./pkgs/roon-server {};
+    tod = pkgs.callPackage ./pkgs/tod {};
+  };
+  jackLib = import ./lib {inherit pkgs;};
+  nurAttrs =
+    {
+      lib = jackLib;
+      modules = import ./modules;
+      homeManagerModules = import ./modules/home-manager;
+      overlays = import ./overlays;
+    }
+    // jackLib.filterByPlatforms pkgs.system allPackages;
 
   nurPkgs =
     flattenPkgs

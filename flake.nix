@@ -63,9 +63,28 @@
         lib,
         config,
         ...
-      }: {
-        # Import our packages using the existing structure
-        _module.args.jackpkgs = import ./default.nix {inherit pkgs;};
+      }: let
+        jackLib = import ./lib {inherit pkgs;};
+        allPackages = {
+          csharpier = pkgs.callPackage ./pkgs/csharpier {};
+          docfx = pkgs.callPackage ./pkgs/docfx {};
+          epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
+          lean = pkgs.callPackage ./pkgs/lean {};
+          nbstripout = pkgs.callPackage ./pkgs/nbstripout {};
+          roon-server = pkgs.callPackage ./pkgs/roon-server {};
+          tod = pkgs.callPackage ./pkgs/tod {};
+        };
+        platformFilteredPackages = jackLib.filterByPlatforms system allPackages;
+      in {
+        # Make jackLib and platformFilteredPackages available for devShell
+        _module.args.jackpkgs =
+          {
+            lib = jackLib;
+            modules = import ./modules;
+            homeManagerModules = import ./modules/home-manager;
+            overlays = import ./overlays;
+          }
+          // platformFilteredPackages;
 
         packages =
           lib.filterAttrs (
@@ -74,10 +93,7 @@
               && !(v.meta.broken or false)
               && (v.meta.license.free or true)
           )
-          config._module.args.jackpkgs;
-
-        # Legacy compatibility - expose the full jackpkgs set
-        legacyPackages = config._module.args.jackpkgs;
+          platformFilteredPackages;
 
         devShells.default = pkgs.mkShell {
           inputsFrom = [
@@ -95,7 +111,7 @@
         # Expose lib for backward compatibility
         lib = inputs.nixpkgs.lib.extend (
           final: prev:
-            import ./lib {pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;}
+            import ./lib {pkgs = inputs.nixpkgs.legacyPackages.${builtins.head (import inputs.systems)};}
         );
 
         # Expose just templates

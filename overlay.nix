@@ -7,7 +7,25 @@ self: super: let
     name = n;
     value = v;
   };
-  nurAttrs = import ./default.nix {pkgs = super;};
+  # Define packages inline instead of importing default.nix
+  allPackages = {
+    csharpier = super.callPackage ./pkgs/csharpier {};
+    docfx = super.callPackage ./pkgs/docfx {};
+    epub2tts = super.callPackage ./pkgs/epub2tts {};
+    lean = super.callPackage ./pkgs/lean {};
+    nbstripout = super.callPackage ./pkgs/nbstripout {};
+    roon-server = super.callPackage ./pkgs/roon-server {};
+    tod = super.callPackage ./pkgs/tod {};
+  };
+  jackLib = import ./lib {pkgs = super;};
+  nurAttrs =
+    {
+      lib = jackLib;
+      modules = import ./modules;
+      homeManagerModules = import ./modules/home-manager;
+      overlays = import ./overlays;
+    }
+    // jackLib.filterByPlatforms super.system allPackages;
 in
   builtins.listToAttrs
   (map (n: nameValuePair n nurAttrs.${n})
