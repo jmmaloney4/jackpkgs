@@ -1,17 +1,3 @@
 {
-	"enabled": true,
-	"timezone": "America/Chicago",
-	"extends": ["config:base"],
-	"prHourlyLimit": 0,
-	"rebaseWhen": "behind-base-branch",
-	"dependencyDashboard": true,
-	"dependencyDashboardTitle": "Renovate Dashboard",
-	"lockFileMaintenance": {
-		"enabled": true,
-		"extends": ["schedule:monthly"],
-		"automerge": true
-	},
-	"nix": {
-		"enabled": true
-	}
+	"extends": ["github>jmmaloney4/workflows//renovate:all"]
 }
