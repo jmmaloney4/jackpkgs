@@ -76,13 +76,6 @@ in {
           description = "pulumi package to use.";
         };
 
-        #
-        pulumiBackendUrl = mkOption {
-          type = types.nullOr types.str;
-          default = null;
-          description = "Pulumi backend URL to use for authentication and stack operations. If not set, Pulumi login will be skipped.";
-        };
-
         # Shared release script utilities
         releaseUtils = mkOption {
           type = types.package;
@@ -119,7 +112,7 @@ in {
             '';
           };
           infra = {
-            enable = true;
+            enable = config.jackpkgs.pulumi.enable;
             justfile = ''
               # Authenticate with GCP and refresh ADC
               auth:
@@ -128,7 +121,7 @@ in {
 
               # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
               new-stack project_path stack_name:
-                  ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} login "$PULUMI_BACKEND_URL"
+                  ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} login "${config.jackpkgs.pulumi.backendUrl}"
                   ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "$PULUMI_SECRETS_PROVIDER"
                   ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
             '';

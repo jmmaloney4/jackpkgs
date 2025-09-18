@@ -16,6 +16,11 @@ in {
   in {
     jackpkgs.pulumi = {
       enable = mkEnableOption "jackpkgs-pulumi" // {default = true;};
+
+      backendUrl = mkOption {
+        type = types.str;
+        description = "Pulumi backend URL to use for authentication and stack operations.";
+      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -33,6 +38,12 @@ in {
   };
 
   config = mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.backendUrl != null;
+        message = "jackpkgs.pulumi.backendUrl must be set when jackpkgs.pulumi.enable is true";
+      }
+    ];
     perSystem = {
       pkgs,
       lib,
