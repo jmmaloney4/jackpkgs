@@ -18,8 +18,9 @@ in {
       enable = mkEnableOption "jackpkgs-pulumi" // {default = true;};
 
       backendUrl = mkOption {
-        type = types.str;
-        description = "Pulumi backend URL to use for authentication and stack operations.";
+        type = types.nullOr types.str;
+        default = null;
+        description = "Pulumi backend URL to use for authentication and stack operations. Required when enable is true.";
       };
     };
 
@@ -37,36 +38,32 @@ in {
     });
   };
 
-  config = mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = cfg.backendUrl != null;
-        message = "jackpkgs.pulumi.backendUrl must be set when jackpkgs.pulumi.enable is true";
-      }
-    ];
-    perSystem = {
-      pkgs,
-      lib,
-      config,
-      ...
-    }: {
-      jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
-        packages = with pkgs; [
-          pulumi-bin
-          nodejs
-          pnpm
-          jq
-          just
-          (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
-          nodePackages.ts-node
-          nodePackages.typescript
+  config =
+    mkIf cfg.enable
+    {
+      perSystem = {
+        pkgs,
+        lib,
+        config,
+        ...
+      }: {
+        jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
+          packages = with pkgs; [
+            pulumi-bin
+            nodejs
+            pnpm
+            jq
+            just
+            (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
+            nodePackages.ts-node
+            nodePackages.typescript
+          ];
+        };
+
+        # Contribute this fragment to the composed devshell
+        jackpkgs.shell.inputsFrom = [
+          config.jackpkgs.outputs.pulumiDevShell
         ];
       };
-
-      # Contribute this fragment to the composed devshell
-      jackpkgs.shell.inputsFrom = [
-        config.jackpkgs.outputs.pulumiDevShell
-      ];
     };
-  };
 }

@@ -112,7 +112,7 @@ in {
             '';
           };
           infra = {
-            enable = config.jackpkgs.pulumi.enable;
+            enable = config.jackpkgs.pulumi.enable or false;
             justfile = ''
               # Authenticate with GCP and refresh ADC
               auth:
@@ -121,7 +121,7 @@ in {
 
               # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
               new-stack project_path stack_name:
-                  ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} login "${config.jackpkgs.pulumi.backendUrl}"
+                  ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} login "${config.jackpkgs.pulumi.backendUrl or ""}"
                   ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "$PULUMI_SECRETS_PROVIDER"
                   ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
             '';
