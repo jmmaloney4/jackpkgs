@@ -5,8 +5,7 @@
   ...
 }: let
   inherit (lib) mkIf;
-  cfg = config.jackpkgs.just;
-  pulumiEnable = config.jackpkgs.pulumi.enable or false;
+  cfg = config.jackpkgs;
 in {
   imports = [
     jackpkgsInputs.just-flake.flakeModule
@@ -88,7 +87,7 @@ in {
     });
   };
 
-  config = mkIf cfg.enable {
+  config = mkIf cfg.just.enable {
     # Contribute per-system config as a function (this is the correct place for a function)
     perSystem = {
       pkgs,
@@ -113,19 +112,22 @@ in {
             '';
           };
           infra = {
-            enable = pulumiEnable;
-            justfile = ''
-              # Authenticate with GCP and refresh ADC
-              auth:
-                  gcloud auth login --update-adc
-                  gcloud auth application-default login
+            enable = cfg.pulumi.enable && cfg.pulumi.backendUrl != null && cfg.pulumi.secretsProvider != null;
+            justfile =
+              lib.throwIf (cfg.pulumi.enable && (cfg.pulumi.backendUrl == null || cfg.pulumi.secretsProvider == null))
+              "jackpkgs.pulumi.backendUrl and jackpkgs.pulumi.secretsProvider must be set when jackpkgs.pulumi.enable is true"
+              ''
+                # Authenticate with GCP and refresh ADC
+                auth:
+                    gcloud auth login --update-adc
+                    gcloud auth application-default login
 
-              # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
-              new-stack project_path stack_name:
-                  ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} login "${config.jackpkgs.pulumi.backendUrl or ""}"
-                  ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "$PULUMI_SECRETS_PROVIDER"
-                  ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
-            '';
+                # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
+                new-stack project_path stack_name:
+                    ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} login "${cfg.pulumi.backendUrl}"
+                    ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "${cfg.pulumi.secretsProvider}"
+                    ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
+              '';
           };
           python = {
             enable = true;
