@@ -18,14 +18,12 @@ in {
       enable = mkEnableOption "jackpkgs-pulumi" // {default = true;};
 
       backendUrl = mkOption {
-        type = types.nullOr types.str;
-        default = null;
+        type = types.str;
         description = "Pulumi backend URL to use for authentication and stack operations. Required when enable is true.";
       };
 
       secretsProvider = mkOption {
         type = types.str;
-        default = "default";
         description = "Pulumi secrets provider to use for authentication and stack operations. Required when enable is true.";
       };
     };

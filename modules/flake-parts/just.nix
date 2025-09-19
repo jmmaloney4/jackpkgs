@@ -112,10 +112,10 @@ in {
             '';
           };
           infra = {
-            enable = cfg.pulumi.enable && cfg.pulumi.backendUrl != null && cfg.pulumi.secretsProvider != null;
+            enable = cfg.pulumi.enable; # && cfg.pulumi.backendUrl != null && cfg.pulumi.secretsProvider != null;
             justfile =
-              lib.throwIf (cfg.pulumi.enable && (cfg.pulumi.backendUrl == null || cfg.pulumi.secretsProvider == null))
-              "jackpkgs.pulumi.backendUrl and jackpkgs.pulumi.secretsProvider must be set when jackpkgs.pulumi.enable is true"
+              # lib.throwIf (cfg.pulumi.enable && (cfg.pulumi.backendUrl == null || cfg.pulumi.secretsProvider == null))
+              # "jackpkgs.pulumi.backendUrl and jackpkgs.pulumi.secretsProvider must be set when jackpkgs.pulumi.enable is true"
               ''
                 # Authenticate with GCP and refresh ADC
                 auth:

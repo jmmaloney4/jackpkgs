@@ -57,6 +57,8 @@
         (import ./modules/flake-parts/all.nix {jackpkgsInputs = inputs;})
       ];
 
+      jackpkgs.pulumi.enable = false;
+
       perSystem = {
         system,
         pkgs,
