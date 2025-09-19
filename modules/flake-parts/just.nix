@@ -6,6 +6,7 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.just;
+  pulumiEnable = config.jackpkgs.pulumi.enable or false;
 in {
   imports = [
     jackpkgsInputs.just-flake.flakeModule
@@ -112,7 +113,7 @@ in {
             '';
           };
           infra = {
-            enable = config.jackpkgs.pulumi.enable or false;
+            enable = pulumiEnable;
             justfile = ''
               # Authenticate with GCP and refresh ADC
               auth:
