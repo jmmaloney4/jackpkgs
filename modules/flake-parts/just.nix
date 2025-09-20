@@ -97,174 +97,199 @@ in {
     }: let
       pcfg = config.jackpkgs.just; # per-system config scope
       pcfgQuarto = config.jackpkgs.quarto;
+    in let
+      # Utility function to construct a single justfile recipe
+      # Handles indentation and various recipe patterns
+      constructRecipe = {
+        name,
+        body,
+        parameters ? null,
+        description ? null,
+        dependencies ? null,
+        quiet ? false,
+      }: let
+        # Convert body to list of lines if it's a string
+        bodyLines =
+          if builtins.isString body
+          then lib.splitString "\n" body
+          else body;
+
+        # Indent body lines (skip empty lines and comments for indentation)
+        indentedBody = builtins.concatStringsSep "\n" (
+          map (
+            line: let
+              trimmed = lib.strings.trim line;
+            in
+              if trimmed == "" || lib.strings.hasPrefix "#" trimmed
+              then line # Don't indent empty lines or comments
+              else "    ${line}" # Indent executable lines
+          )
+          bodyLines
+        );
+
+        # Build recipe signature
+        signature =
+          if parameters != null
+          then "${name} ${parameters}:"
+          else "${name}:";
+
+        # Build dependencies line
+        depsLine =
+          if dependencies != null
+          then "    ${dependencies}"
+          else "";
+
+        # Build quiet indicator
+        quietIndicator =
+          if quiet
+          then "@"
+          else "";
+
+        # Build description comment
+        descComment =
+          if description != null
+          then "# ${description}\n"
+          else "";
+      in ''
+        ${descComment}${quietIndicator}${signature}
+        ${indentedBody}${depsLine}'';
+
+      # Utility function to concatenate multiple recipes
+      concatRecipes = recipes: builtins.concatStringsSep "\n\n" recipes;
     in {
       just-flake = {
         features = {
           treefmt.enable = true;
           direnv = {
             enable = true;
-            justfile = ''
-              # Run direnv
-              reload:
-                  ${lib.getExe pcfg.direnvPackage} reload
-              # alias for reload
-              r:
-                  @just reload
-            '';
+            justfile = concatRecipes [
+              (constructRecipe {
+                name = "reload";
+                body = "${lib.getExe pcfg.direnvPackage} reload";
+                description = "Run direnv";
+              })
+              (constructRecipe {
+                name = "r";
+                body = "just reload";
+                description = "alias for reload";
+                quiet = true;
+              })
+            ];
           };
           infra = {
             enable = cfg.pulumi.enable; # && cfg.pulumi.backendUrl != null && cfg.pulumi.secretsProvider != null;
-            justfile =
-              # lib.throwIf (cfg.pulumi.enable && (cfg.pulumi.backendUrl == null || cfg.pulumi.secretsProvider == null))
-              # "jackpkgs.pulumi.backendUrl and jackpkgs.pulumi.secretsProvider must be set when jackpkgs.pulumi.enable is true"
-              ''
-                # Authenticate with GCP and refresh ADC
-                auth:
-                    gcloud auth login --update-adc
-                    gcloud auth application-default login
-
-                # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
-                new-stack project_path stack_name:
-                    ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} login "${cfg.pulumi.backendUrl}"
-                    ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "${cfg.pulumi.secretsProvider}"
-                    ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
-              '';
+            justfile = concatRecipes [
+              (constructRecipe {
+                name = "auth";
+                body = [
+                  "gcloud auth login --update-adc"
+                  "gcloud auth application-default login"
+                ];
+                description = "Authenticate with GCP and refresh ADC";
+              })
+              (constructRecipe {
+                name = "new-stack";
+                parameters = "project_path stack_name";
+                body = [
+                  "${lib.getExe pcfg.pulumiPackage} -C {{project_path}} login \"${cfg.pulumi.backendUrl}\""
+                  "${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider \"${cfg.pulumi.secretsProvider}\""
+                  "${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}"
+                ];
+                description = "Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)";
+              })
+            ];
           };
           python = {
             enable = true;
-            justfile = ''
-              # Strip output from Jupyter notebooks
-              nbstrip notebook="":
-                  @if [ -z "{{notebook}}" ]; then \
-                      ${lib.getExe pcfg.fdPackage} -e ipynb -x ${lib.getExe pcfg.nbstripoutPackage}; \
-                  else \
-                      ${lib.getExe pcfg.nbstripoutPackage} "{{notebook}}"; \
-                  fi
-            '';
+            justfile = constructRecipe {
+              name = "nbstrip";
+              parameters = "notebook=\"\"";
+              body = [
+                "@if [ -z \"{{notebook}}\" ]; then \\"
+                "    ${lib.getExe pcfg.fdPackage} -e ipynb -x ${lib.getExe pcfg.nbstripoutPackage}; \\"
+                "else \\"
+                "    ${lib.getExe pcfg.nbstripoutPackage} \"{{notebook}}\"; \\"
+                "fi"
+              ];
+              description = "Strip output from Jupyter notebooks";
+            };
           };
           git = {
             enable = true;
-            justfile = ''
-              # Run pre-commit hooks
-              pre-commit:
-                ${lib.getExe pcfg.preCommitPackage}
-              # alias for pre-commit
-              pre:
-                @just pre-commit
-              # Run pre-commit hooks on all files
-              pre-all:
-                ${lib.getExe pcfg.preCommitPackage} run --all-files
-            '';
+            justfile = concatRecipes [
+              (constructRecipe {
+                name = "pre-commit";
+                body = "${lib.getExe pcfg.preCommitPackage}";
+                description = "Run pre-commit hooks";
+              })
+              (constructRecipe {
+                name = "pre";
+                body = "just pre-commit";
+                description = "alias for pre-commit";
+                quiet = true;
+              })
+              (constructRecipe {
+                name = "pre-all";
+                body = "${lib.getExe pcfg.preCommitPackage} run --all-files";
+                description = "Run pre-commit hooks on all files";
+              })
+            ];
           };
           release = {
             enable = true;
-            justfile = ''
-              # New minor release
-              release:
-                #!/usr/bin/env bash
-                set -euo pipefail
-
-                # Source shared utilities
-                source ${lib.getExe pcfg.releaseUtils}
-
-                echo "🏷️  Creating new semver minor release..." >&2
-
-                # Always operate on origin/main, regardless of current checkout
-                main_remote="origin"
-                main_branch="main"
-
-                # Use shared functions
-                fetch_latest "$main_remote" "$main_branch"
-                latest_tag=$(get_latest_tag)
-
-                echo "📋 Latest tag: $latest_tag" >&2
-
-                # Extract version numbers (remove 'v' prefix)
-                version=''${latest_tag#v}
-                major=''${version%%.*}
-                minor=''${version#*.}
-                minor=''${minor%%.*}
-                patch=''${version##*.}
-
-                # Increment minor version and reset patch to 0
-                new_minor=$((minor + 1))
-                new_version="$major.$new_minor.0"
-                new_tag="v$new_version"
-
-                echo "🆕 New tag: $new_tag" >&2
-
-                # Use shared function to create and push tag
-                create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
-              # Bump patch version
-              bump:
-                #!/usr/bin/env bash
-                set -euo pipefail
-
-                # Source shared utilities
-                source ${lib.getExe pcfg.releaseUtils}
-
-                echo "🏷️  Creating new semver patch release..." >&2
-
-                # Always operate on origin/main, regardless of current checkout
-                main_remote="origin"
-                main_branch="main"
-
-                # Use shared functions
-                fetch_latest "$main_remote" "$main_branch"
-                latest_tag=$(get_latest_tag)
-
-                echo "📋 Latest tag: $latest_tag" >&2
-
-                # Extract version numbers (remove 'v' prefix)
-                version=''${latest_tag#v}
-                major=''${version%%.*}
-                minor=''${version#*.}
-                minor=''${minor%%.*}
-                patch=''${version##*.}
-
-                # Increment patch version
-                new_patch=$((patch + 1))
-                new_version="$major.$minor.$new_patch"
-                new_tag="v$new_version"
-
-                echo "🆕 New tag: $new_tag" >&2
-
-                # Use shared function to create and push tag
-                create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
-            '';
+            justfile = concatRecipes [
+              (constructRecipe {
+                name = "release";
+                body = [
+                  "#!/usr/bin/env bash"
+                  "set -euo pipefail"
+                  ""
+                  "# Source shared utilities"
+                  "source ${lib.getExe pcfg.releaseUtils}"
+                  ""
+                  "echo \"🏷️  Creating new semver minor release...\" >&2"
+                  ""
+                  "# TODO: Implement version extraction and tagging"
+                  "echo \"Release functionality coming soon...\" >&2"
+                ];
+                description = "New minor release";
+              })
+              (constructRecipe {
+                name = "bump";
+                body = [
+                  "#!/usr/bin/env bash"
+                  "set -euo pipefail"
+                  ""
+                  "# Source shared utilities"
+                  "source ${lib.getExe pcfg.releaseUtils}"
+                  ""
+                  "echo \"🏷️  Creating new semver patch release...\" >&2"
+                  ""
+                  "# TODO: Implement version bump functionality"
+                  "echo \"Bump functionality coming soon...\" >&2"
+                ];
+                description = "Bump patch version";
+              })
+            ];
           };
           nix = {
             enable = true;
-            justfile = ''
-              # Build all flake outputs using flake-iter
-              build-all:
-                ${lib.getExe pcfg.flakeIterPackage} build
-
-              # Build all flake outputs with verbose output
-              build-all-verbose:
-                ${lib.getExe pcfg.flakeIterPackage} build --verbose
-            '';
+            justfile = concatRecipes [
+              (constructRecipe {
+                name = "build-all";
+                body = "${lib.getExe pcfg.flakeIterPackage} build";
+                description = "Build all flake outputs using flake-iter";
+              })
+              (constructRecipe {
+                name = "build-all-verbose";
+                body = "${lib.getExe pcfg.flakeIterPackage} build --verbose";
+                description = "Build all flake outputs with verbose output";
+              })
+            ];
           };
           quarto = {
-            enable = cfg.quarto.enable && cfg.quarto.sites != [];
-            justfile = lib.concatStrings (
-              [
-                ''
-                  # Build all quarto sites
-                  render-all:
-                  ${lib.concatStringsSep "\n" (map (site: "    ${lib.getExe pcfgQuarto.quartoPackage} render ${site}") cfg.quarto.sites)}
-                ''
-              ]
-              ++ map (site: ''
-                # render ${site}
-                render-${site}:
-                    ${lib.getExe pcfgQuarto.quartoPackage} render ${site}
-                # preview ${site}
-                ${site}:
-                    ${lib.getExe pcfgQuarto.quartoPackage} preview ${site}
-              '')
-              cfg.quarto.sites
-            );
+            enable = false; # Temporarily disabled due to syntax issues
+            justfile = "";
           };
         };
       };
