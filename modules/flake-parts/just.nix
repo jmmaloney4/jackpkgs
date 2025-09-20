@@ -261,7 +261,7 @@ in {
                 {{site}}:
                   ${lib.getExe pcfgQuarto.quartoPackage} preview {{site}}
               '')
-              pcfg.sites;
+              cfg.quarto.sites;
           };
         };
       };
