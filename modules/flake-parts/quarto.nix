@@ -37,6 +37,13 @@ in {
       };
 
       options.jackpkgs.quarto = {
+        quartoPackage = mkOption {
+          type = types.package;
+          default = pkgs.quarto;
+          defaultText = "pkgs.quarto";
+          description = "Quarto package to use.";
+        };
+
         pythonEnv = mkOption {
           type = types.package;
           default = pkgs.python3Packages.python;
