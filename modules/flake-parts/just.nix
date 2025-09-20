@@ -251,7 +251,7 @@ in {
               [
                 ''
                   # Build all quarto sites
-                  build-all:
+                  build-sites:
                   ${lib.concatStringsSep "\n" (map (site: "    ${lib.getExe pcfgQuarto.quartoPackage} build ${site}") cfg.quarto.sites)}
                 ''
               ]
