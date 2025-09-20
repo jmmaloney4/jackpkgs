@@ -251,14 +251,14 @@ in {
               [
                 ''
                   # Build all quarto sites
-                  build-sites:
-                  ${lib.concatStringsSep "\n" (map (site: "    ${lib.getExe pcfgQuarto.quartoPackage} build ${site}") cfg.quarto.sites)}
+                  render-all:
+                  ${lib.concatStringsSep "\n" (map (site: "    ${lib.getExe pcfgQuarto.quartoPackage} render ${site}") cfg.quarto.sites)}
                 ''
               ]
               ++ map (site: ''
-                # Build ${site}
-                build-${site}:
-                    ${lib.getExe pcfgQuarto.quartoPackage} build ${site}
+                # render ${site}
+                render-${site}:
+                    ${lib.getExe pcfgQuarto.quartoPackage} render ${site}
                 # preview ${site}
                 ${site}:
                     ${lib.getExe pcfgQuarto.quartoPackage} preview ${site}
