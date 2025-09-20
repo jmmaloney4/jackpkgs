@@ -244,6 +244,24 @@ in {
                 ${lib.getExe pcfg.flakeIterPackage} build --verbose
             '';
           };
+          quarto = {
+            enable = cfg.quarto.enable && cfg.quarto.sites != [];
+            justfile =
+              ''
+                # Build all quarto sites
+                build-all:
+                  ${lib.concatStringsSep "\n" (map (site: "${lib.getExe pcfg.quartoPackage} build {{site}}") cfg.quarto.sites)}
+              ''
+              ++ map (site: ''
+                # Build {{site}}
+                build-{{site}}:
+                  ${lib.getExe pcfg.quartoPackage} build {{site}}
+                # preview {{site}}
+                {{site}}:
+                  ${lib.getExe pcfg.quartoPackage} preview {{site}}
+              '')
+              pcfg.sites;
+          };
         };
       };
     };
