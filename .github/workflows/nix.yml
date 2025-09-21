@@ -9,9 +9,8 @@ permissions:
   contents: read
   id-token: write
 jobs:
-  nix-build:
+  nix:
     uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
     with:
-      runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
