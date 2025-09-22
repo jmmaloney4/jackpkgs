@@ -1,5 +1,4 @@
 name: 🤖 claude
-
 on:
   issue_comment:
     types: [created]
@@ -9,14 +8,12 @@ on:
     types: [opened, assigned]
   pull_request_review:
     types: [submitted]
-
 permissions:
   contents: read
   pull-requests: read
   issues: read
   id-token: write
   actions: read
-
 jobs:
   claude:
     # Gate on event context in the caller
