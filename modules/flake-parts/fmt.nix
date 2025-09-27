@@ -75,6 +75,7 @@ in {
         # biome lints and formats js/ts code
         programs.biome = {
           enable = true;
+          includes = ["**/*.ts" "**/*.tsx" "**/*.json" "**/*.jsonc" "**/*.json5"];
           inherit excludes;
         };
         programs.hujsonfmt = {
