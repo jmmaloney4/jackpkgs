@@ -40,9 +40,11 @@ in {
         };
         nbstripoutPackage = mkOption {
           type = types.package;
-          default = pkgs.nbstripout;
-          defaultText = "pkgs.nbstripout";
-          description = "nbstripout package to use. To use from a custom Python environment, override with pythonPackages.nbstripout";
+          default = pkgs.callPackage ../../pkgs/nbstripout {
+            python3 = config.jackpkgs.pre-commit.pythonPackages.python;
+          };
+          defaultText = "pkgs.callPackage ../../pkgs/nbstripout { python3 = config.jackpkgs.pre-commit.pythonPackages.python; }";
+          description = "nbstripout package to use. Built with the configured pythonPackages by default.";
         };
       };
     });

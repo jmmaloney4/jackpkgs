@@ -53,23 +53,32 @@ options.jackpkgs.pre-commit = {
     type = types.attrs;
     default = pkgs.python3Packages;
     defaultText = "pkgs.python3Packages";
-    description = "Python package set to use for building Python-based tools";
-  };
-
-  buildNbstripoutFromPython = mkOption {
-    type = types.bool;
-    default = false;
-    description = "Build nbstripout using the specified pythonPackages instead of using pkgs.nbstripout";
+    description = "Python package set to use for Python-based tools";
   };
 
   nbstripoutPackage = mkOption {
     type = types.package;
-    default = if pcfg.buildNbstripoutFromPython
-              then buildNbstripoutFromPythonPackages pcfg.pythonPackages
-              else pkgs.nbstripout;
-    description = "nbstripout package to use for pre-commit hooks";
+    default = pkgs.callPackage ../../pkgs/nbstripout {
+      python3 = config.jackpkgs.pre-commit.pythonPackages.python;
+    };
+    description = "nbstripout package built with the configured pythonPackages by default";
   };
 };
+```
+
+### Custom nbstripout Package
+
+```nix
+# pkgs/nbstripout/default.nix
+{
+  lib,
+  python3 ? python3,  # Parameterized Python environment
+  fetchPypi,
+  # ... other dependencies
+}:
+python3.pkgs.buildPythonApplication rec {
+  # ... package definition using the provided python3
+}
 ```
 
 ### Scope
@@ -146,13 +155,14 @@ options.jackpkgs.pre-commit = {
 
 ## Implementation Plan
 
-### Phase 1: Core Infrastructure
+### Phase 1: Core Infrastructure ✅ **COMPLETED**
 - **Owner**: jackpkgs maintainers
-- Implement `buildNbstripoutFromPython` option with conditional package building
-- Remove nbstripout from `config.jackpkgs.outputs.devShell.buildInputs`
-- Ensure pre-commit hooks continue using nbstripout correctly
+- ✅ Revived custom nbstripout package with parameterized Python environment
+- ✅ Enhanced pre-commit module to use parameterized nbstripout by default
+- ✅ Ensured pre-commit hooks continue using nbstripout correctly
+- ✅ Updated flake.nix to include custom nbstripout package
 - **Dependencies**: None
-- **Timeline**: 1-2 weeks
+- **Timeline**: Completed
 
 ### Phase 2: Documentation & Examples
 - **Owner**: jackpkgs maintainers
@@ -216,6 +226,8 @@ python -m cavins.tools.hello
 4. **Package Redundancy Realization**: Discovered both jackpkgs custom nbstripout and `pkgs.python3Packages.nbstripout` do not exist as expected - only `pkgs.nbstripout` (standalone package) exists
 
 5. **Cleanup**: Removed redundant custom nbstripout package since nixpkgs version was identical
+
+5.1. **Solution Implementation**: Revived custom nbstripout package with parameterized Python environment to enable consumer configuration
 
 6. **Architecture Analysis**: Realized `pkgs.nbstripout` brings its own Python environment which gets injected via `inputsFrom = [config.jackpkgs.outputs.devShell]`
 
