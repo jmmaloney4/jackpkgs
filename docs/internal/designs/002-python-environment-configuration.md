@@ -31,19 +31,29 @@ The jackpkgs pre-commit module uses `pkgs.nbstripout` (a standalone Python appli
 
 ## Decision
 
-We MUST implement a **hybrid approach (C + D)** that provides configurable Python environment support while eliminating PATH pollution:
+We MUST implement a **parameterized Python environment approach** that provides configurable Python interpreter support while eliminating PATH pollution:
 
-### Core Changes
+### Core Implementation
 
-1. **Remove nbstripout from jackpkgs devShell** (Approach D)
-   - nbstripout MUST NOT be included in `config.jackpkgs.outputs.devShell.buildInputs`
-   - nbstripout SHOULD only be used during pre-commit hook execution
-   - This eliminates PATH pollution entirely
+1. **Parameterized Custom nbstripout Package**
+   - Revive jackpkgs custom nbstripout package with `python3` parameter
+   - Build nbstripout using consumer's Python interpreter and its package set
+   - Consumer does NOT need to add nbstripout to their Python dependencies
+   - Our package handles dependency resolution automatically
 
-2. **Add configurable Python environment options** (Approach C)
-   - Consumers MUST be able to specify their Python package set for building Python tools
-   - jackpkgs MUST support building nbstripout within consumer's Python environment
+2. **Configurable Python Environment Options**
+   - Consumers MUST be able to specify their Python package set
+   - jackpkgs automatically extracts Python interpreter and builds nbstripout with it
+   - nbstripout uses consumer's Python interpreter → eliminates PATH pollution
    - Default behavior MUST remain unchanged for existing consumers
+
+### Key Technical Insight
+
+The solution works by **using the consumer's Python interpreter** rather than requiring nbstripout in their dependencies. Our custom package:
+- Takes `pythonPackages.python` (the interpreter)
+- Uses `python3.pkgs.buildPythonApplication` with that interpreter
+- Resolves dependencies (`nbformat`) from that Python's package set
+- Produces nbstripout that uses the same Python environment as consumer's project
 
 ### Configuration Schema
 
@@ -61,7 +71,7 @@ options.jackpkgs.pre-commit = {
     default = pkgs.callPackage ../../pkgs/nbstripout {
       python3 = config.jackpkgs.pre-commit.pythonPackages.python;
     };
-    description = "nbstripout package built with the configured pythonPackages by default";
+    description = "nbstripout package built with the configured Python interpreter. Uses consumer's Python environment automatically - no need to add nbstripout to consumer dependencies.";
   };
 };
 ```
@@ -72,14 +82,24 @@ options.jackpkgs.pre-commit = {
 # pkgs/nbstripout/default.nix
 {
   lib,
-  python3 ? python3,  # Parameterized Python environment
+  python3 ? python3,  # Parameterized Python interpreter
   fetchPypi,
   # ... other dependencies
 }:
 python3.pkgs.buildPythonApplication rec {
-  # ... package definition using the provided python3
+  # Builds nbstripout using the provided Python interpreter
+  # Dependencies (nbformat) come from that Python's package set
+  propagatedBuildInputs = with python3.pkgs; [ nbformat ];
+  # ... rest of package definition
 }
 ```
+
+**How it works:**
+- Takes ANY Python interpreter as `python3` parameter
+- Uses `python3.pkgs.buildPythonApplication` to build with that interpreter
+- Resolves `nbformat` dependency from that Python's package set
+- **Consumer doesn't need nbstripout in their dependencies** - we build it for them
+- Result: nbstripout executable uses consumer's Python interpreter
 
 ### Scope
 
@@ -98,28 +118,29 @@ python3.pkgs.buildPythonApplication rec {
 
 ### Benefits
 
-- **Eliminates PATH Pollution**: No more conflicting Python environments in consumer devShells
-- **Environment Isolation**: Consumer Python environments work correctly without interference
-- **Flexibility**: Consumers can choose between system nbstripout or building with their Python environment
-- **Performance**: Heavy packages (numpy, pytorch) only rebuild when actually needed
-- **Backward Compatibility**: Existing consumers continue working without changes
+- **Eliminates PATH Pollution**: nbstripout uses consumer's Python interpreter - no separate Python environment in PATH
+- **Environment Isolation**: All Python tools resolve to the same interpreter and environment
+- **Zero Consumer Dependencies**: Consumers don't need to add nbstripout to their Python dependencies - we build it automatically
+- **Performance**: Only nbstripout rebuilds with consumer's Python - heavy packages (numpy, pytorch) unaffected unless Python version changes
+- **Backward Compatibility**: Existing consumers continue working without changes (defaults to pkgs.python3)
+- **Universal Compatibility**: Works with any Python environment manager (uv2nix, poetry2nix, mach-nix, etc.)
 
 ### Trade-offs
 
-- **Implementation Complexity**: More configuration options and conditional logic in jackpkgs
-- **Documentation Burden**: Need clear guidance on when/how to use different options
-- **Testing Surface**: Additional configuration combinations to test
+- **Custom Package Maintenance**: We maintain our own nbstripout package instead of using nixpkgs directly
+- **Build Dependency**: nbstripout must be built from source for each consumer Python environment (but this is fast)
+- **Testing Surface**: Need to test with different Python environment managers
 
 ### Risks & Mitigations
 
-**Risk**: Building nbstripout from scratch increases consumer build times
-- **Mitigation**: Make it opt-in via `buildNbstripoutFromPython = false` by default
+**Risk**: Custom nbstripout package diverges from nixpkgs version
+- **Mitigation**: Keep package definition synchronized with nixpkgs, monitor for updates
 
-**Risk**: Consumers may not understand when to enable Python environment integration
-- **Mitigation**: Provide clear documentation with decision tree and examples
+**Risk**: Consumer's Python environment lacks required dependencies for nbstripout
+- **Mitigation**: nbstripout has minimal dependencies (only nbformat), widely available in Python environments
 
-**Risk**: Breaking changes for consumers who rely on nbstripout being in devShell PATH
-- **Mitigation**: Document migration path and provide transition period
+**Risk**: Build failures if consumer's Python environment is malformed
+- **Mitigation**: Clear error messages, fallback documentation, default to nixpkgs when consumer config fails
 
 ## Alternatives Considered
 
@@ -135,17 +156,11 @@ python3.pkgs.buildPythonApplication rec {
 - **Cons**: Complex circular dependency issues, unclear fallback behavior
 - **Why not chosen**: Fragile dependency resolution, hard to debug failures
 
-### Alternative C — Build nbstripout in Consumer's Python Environment (Chosen)
+### Alternative C — Build nbstripout with Consumer's Python Interpreter (Chosen)
 
-- **Pros**: Uses consumer's Python without requiring them to manage nbstripout dependency
-- **Cons**: Additional build complexity in jackpkgs
-- **Why chosen**: Balances flexibility with ease of use
-
-### Alternative D — DevShell Separation (Chosen)
-
-- **Pros**: Completely eliminates PATH pollution, clean separation of concerns
-- **Cons**: Changes where nbstripout is available (pre-commit only, not interactive shell)
-- **Why chosen**: Addresses root cause rather than symptoms
+- **Pros**: Uses consumer's Python interpreter without requiring them to manage nbstripout dependency, completely eliminates PATH pollution
+- **Cons**: Requires maintaining custom nbstripout package, slight build overhead
+- **Why chosen**: Solves root cause while providing zero-configuration experience for consumers
 
 ### Alternative E — ShellHook PATH Manipulation
 
@@ -251,7 +266,7 @@ python -m cavins.tools.hello
 
 9. **Root Cause Clarification**: While the missing `/bin` was a bug, the deeper issue remained - PATH pollution from `pkgs.nbstripout` injected via `inputsFrom`
 
-10. **Solution Architecture**: Developed hybrid approach to eliminate pollution at source while providing consumer flexibility
+10. **Solution Architecture**: Developed parameterized Python interpreter approach - revive custom nbstripout package to build with consumer's Python interpreter, eliminating need for consumers to manage nbstripout dependencies while solving PATH pollution
 
 ### Key Technical Insights
 
@@ -277,7 +292,7 @@ During investigation, we explored several approaches before settling on the hybr
 4. **Smart Python detection**: Auto-detect consumer's Python environment
    - **Issue**: Complex heuristics, unreliable edge cases
 
-The chosen hybrid approach addresses the root cause while maintaining backward compatibility and consumer choice.
+The chosen approach addresses the root cause while maintaining backward compatibility and providing a zero-configuration experience for consumers - they simply specify their Python environment and we automatically build compatible tools.
 
 ---
 
