@@ -311,7 +311,7 @@ Pre-commit hooks only need the `nbstripout` executable, not access to its Python
 
 ### **Three Self-Contained Package Approaches**
 
-#### **Option 1: Override propagatedBuildInputs**
+#### **Option 1: Override propagatedBuildInputs** ❌ **FAILED**
 
 ```nix
 (python3.pkgs.buildPythonApplication rec {
@@ -335,6 +335,11 @@ Pre-commit hooks only need the `nbstripout` executable, not access to its Python
 - ❌ **Hacky**: Fighting against build system's intended behavior
 - ❌ **Fragile**: Could break if nixpkgs changes propagation mechanisms
 - ❌ **Wasteful**: Dependencies built but then discarded from propagation
+
+**❌ IMPLEMENTATION RESULT: FAILED**
+- **Issue**: Stripping `propagatedBuildInputs = []` breaks runtime dependency resolution
+- **Error**: `ModuleNotFoundError: No module named 'nbformat'` when nbstripout tries to import nbformat at runtime
+- **Root cause**: Dependencies are built but not accessible to the Python interpreter at runtime when propagation is stripped
 
 #### **Option 2: Custom stdenv.mkDerivation**
 
@@ -374,7 +379,7 @@ stdenv.mkDerivation rec {
 - ❌ **Maintenance**: Need to replicate `buildPythonApplication` features
 - ❌ **Complexity**: Lose automatic script wrapping and other niceties
 
-#### **Option 3: toPythonApplication wrapper (Chosen)**
+#### **Option 3: toPythonApplication wrapper** ❌ **FAILED**
 
 ```nix
 python3.pkgs.toPythonApplication (
@@ -408,25 +413,85 @@ python3.pkgs.toPythonApplication (
 - ⚠️ **Two-stage**: Conceptually more complex (but standard pattern)
 - ⚠️ **Learning curve**: Need to understand both build functions
 
-### **Decision: Option 3 (toPythonApplication)**
+**❌ IMPLEMENTATION RESULT: FAILED**
+- **Issue**: `toPythonApplication` does not prevent Python dependency propagation as expected
+- **Root cause**: The wrapper still propagates the underlying Python environment and dependencies to consumer PATH
+- **Discovery**: `toPythonApplication` is designed for creating applications but doesn't solve PATH pollution for consumers via `inputsFrom`
+
+### **Decision: Option 2 (Custom stdenv.mkDerivation)**
 
 **Why chosen:**
-- **Follows nixpkgs best practices**: `toPythonApplication` is specifically designed for this use case
-- **Long-term stability**: Less likely to break with nixpkgs evolution
-- **Maintainability**: Uses established patterns that other nixpkgs maintainers understand
-- **Clean architecture**: Proper separation of library vs application concerns
+- **Complete control**: Full control over dependency propagation without fighting build system defaults
+- **Proven approach**: Standard derivation building is well-understood and stable
+- **Transparent**: Clear about what dependencies are included and how they're managed
+- **Robust**: Less dependent on Python packaging machinery quirks
+
+**After testing Option 1 and Option 3:**
+- Option 1 broke runtime dependency resolution when stripping propagatedBuildInputs
+- Option 3 did not prevent PATH pollution as expected - still propagates Python environment
+- Option 2 provides explicit control over the entire build process
 
 **Benefits of this approach:**
 - **Zero consumer configuration**: No need for `pythonPackages` option
 - **Universal solution**: Works for all consumers automatically
-- **No PATH pollution**: Python interpreter stays internal to nbstripout
+- **No PATH pollution**: No automatic dependency propagation to consumer PATH
 - **Maintains all functionality**: Pre-commit hooks work exactly the same
+- **Self-contained**: All dependencies embedded within package environment
 
-**Impact on original solution:**
-This approach supersedes the parameterized Python environment solution, providing a simpler architecture:
-- Remove `pythonPackages` configuration option
-- Use self-contained nbstripout package
-- Eliminate need for consumer configuration entirely
+**Implementation approach:**
+- Use `stdenv.mkDerivation` for complete control over the build process
+- Manually install nbstripout and its dependencies using pip into package prefix
+- Ensure proper Python environment setup without propagating to consumers
+- Maintain all existing tests, metadata, and functionality
+
+---
+
+## Appendix C: Future Alternative - Option 4 (pyproject.nix)
+
+### **Untested Alternative: Modern Python Packaging**
+
+During implementation, we discovered that nbstripout has a `pyproject.toml` file, making it compatible with modern Python packaging tools like `pyproject.nix`. This could provide a cleaner long-term solution.
+
+**Potential implementation:**
+```nix
+# Using pyproject.nix instead of stdenv.mkDerivation
+let
+  pyproject-nix = inputs.pyproject-nix.lib.${system};
+in
+pyproject-nix.buildPythonPackage {
+  src = fetchFromGitHub {
+    owner = "kynan";
+    repo = "nbstripout";
+    rev = "0.8.1";
+    hash = "...";
+  };
+
+  # Key question: Can we control propagation?
+  propagatedBuildInputs = []; # Prevent PATH pollution
+
+  # Modern declarative dependency management
+  pyproject = true;
+}
+```
+
+**Potential advantages:**
+- **Modern tooling**: Uses contemporary Python packaging standards
+- **Better dependency resolution**: pyproject.nix handles dependencies more systematically
+- **Upstream compatibility**: Builds the package as upstream intends
+- **Less custom logic**: More declarative, less manual pip installation
+- **Maintainability**: Easier to sync with upstream changes
+
+**Open questions:**
+- Can pyproject.nix prevent `propagatedBuildInputs` propagation like our Option 2?
+- Does it provide the same level of control over PATH pollution?
+- What's the complexity of integrating pyproject.nix into jackpkgs?
+
+**When to consider:**
+- If Option 2 proves fragile during maintenance
+- If manual pip installation becomes problematic with Python version changes
+- If we want to adopt modern Python packaging practices more broadly in jackpkgs
+
+**Status**: Documented for future consideration. Option 2 provides a working solution today.
 
 ---
 
