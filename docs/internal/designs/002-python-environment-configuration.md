@@ -31,86 +31,89 @@ The jackpkgs pre-commit module uses `pkgs.nbstripout` (a standalone Python appli
 
 ## Decision
 
-We MUST implement a **parameterized Python environment approach** that provides configurable Python interpreter support while eliminating PATH pollution:
+**UPDATED**: We MUST implement a **self-contained nbstripout package** that eliminates PATH pollution without requiring any consumer configuration:
+
+*(Note: See Appendix B for evolution from parameterized approach to zero-configuration solution)*
 
 ### Core Implementation
 
-1. **Parameterized Custom nbstripout Package**
-   - Revive jackpkgs custom nbstripout package with `python3` parameter
-   - Build nbstripout using consumer's Python interpreter and its package set
-   - Consumer does NOT need to add nbstripout to their Python dependencies
-   - Our package handles dependency resolution automatically
+1. **Self-Contained nbstripout Package**
+   - Build nbstripout using `python3.pkgs.toPythonApplication` wrapper pattern
+   - Python interpreter embedded within package but NOT propagated to PATH
+   - Zero consumer configuration required
+   - No PATH pollution in consumer devShells
 
-2. **Configurable Python Environment Options**
-   - Consumers MUST be able to specify their Python package set
-   - jackpkgs automatically extracts Python interpreter and builds nbstripout with it
-   - nbstripout uses consumer's Python interpreter → eliminates PATH pollution
-   - Default behavior MUST remain unchanged for existing consumers
+2. **Universal Solution**
+   - Works automatically for all consumers regardless of Python environment
+   - Pre-commit hooks function identically to current behavior
+   - Eliminates need for any consumer Python environment configuration
+   - Maintains backward compatibility perfectly
 
 ### Key Technical Insight
 
-The solution works by **using the consumer's Python interpreter** rather than requiring nbstripout in their dependencies. Our custom package:
-- Takes `pythonPackages.python` (the interpreter)
-- Uses `python3.pkgs.buildPythonApplication` with that interpreter
-- Resolves dependencies (`nbformat`) from that Python's package set
-- Produces nbstripout that uses the same Python environment as consumer's project
+The solution works by **preventing Python propagation to PATH** rather than configuring consumer environments:
+- Use `toPythonApplication` to wrap a `buildPythonPackage` library
+- Python interpreter stays internal to nbstripout package
+- No `propagatedBuildInputs` reach consumer PATH
+- Pre-commit hooks execute nbstripout directly without PATH conflicts
 
 ### Configuration Schema
 
+**SIMPLIFIED**: No consumer configuration needed!
+
 ```nix
 options.jackpkgs.pre-commit = {
-  pythonPackages = mkOption {
-    type = types.attrs;
-    default = pkgs.python3Packages;
-    defaultText = "pkgs.python3Packages";
-    description = "Python package set to use for Python-based tools";
-  };
-
   nbstripoutPackage = mkOption {
     type = types.package;
-    default = pkgs.callPackage ../../pkgs/nbstripout {
-      python3 = config.jackpkgs.pre-commit.pythonPackages.python;
-    };
-    description = "nbstripout package built with the configured Python interpreter. Uses consumer's Python environment automatically - no need to add nbstripout to consumer dependencies.";
+    default = pkgs.callPackage ../../pkgs/nbstripout { };
+    description = "Self-contained nbstripout package with no PATH pollution";
   };
 };
 ```
 
-### Custom nbstripout Package
+### Self-Contained nbstripout Package
 
 ```nix
 # pkgs/nbstripout/default.nix
 {
   lib,
-  python3 ? python3,  # Parameterized Python interpreter
+  python3,
   fetchPypi,
   # ... other dependencies
 }:
-python3.pkgs.buildPythonApplication rec {
-  # Builds nbstripout using the provided Python interpreter
-  # Dependencies (nbformat) come from that Python's package set
-  propagatedBuildInputs = with python3.pkgs; [ nbformat ];
-  # ... rest of package definition
-}
+python3.pkgs.toPythonApplication (
+  python3.pkgs.buildPythonPackage rec {
+    pname = "nbstripout";
+    version = "0.8.1";
+    format = "setuptools";
+
+    src = fetchPypi {
+      inherit pname version;
+      hash = "sha256-6qyLa05yno3+Hl3ywPi6RKvFoXplRI8EgBQfgL4jC7E=";
+    };
+
+    propagatedBuildInputs = with python3.pkgs; [ nbformat ];
+    # ... rest of package definition
+  }
+)
 ```
 
 **How it works:**
-- Takes ANY Python interpreter as `python3` parameter
-- Uses `python3.pkgs.buildPythonApplication` to build with that interpreter
-- Resolves `nbformat` dependency from that Python's package set
-- **Consumer doesn't need nbstripout in their dependencies** - we build it for them
-- Result: nbstripout executable uses consumer's Python interpreter
+- First builds nbstripout as Python library with `buildPythonPackage`
+- Then wraps with `toPythonApplication` to create executable
+- Python interpreter embedded but not propagated to consumer PATH
+- **Zero consumer configuration** - works automatically for everyone
 
 ### Scope
 
 **In Scope:**
-- Configurable Python environment for nbstripout
-- Elimination of PATH pollution from jackpkgs devShell
+- Self-contained nbstripout package with zero PATH pollution
+- Universal solution requiring no consumer configuration
 - Backward compatibility for existing consumers
-- Support for uv2nix, poetry2nix, and other Python environment managers
+- Elimination of Python environment conflicts
 
 **Out of Scope:**
-- Automatic detection of consumer's Python environment
+- Consumer Python environment configuration (no longer needed)
 - Migration of other Python tools beyond nbstripout
 - Changes to consumer devShell configuration patterns
 
@@ -118,12 +121,12 @@ python3.pkgs.buildPythonApplication rec {
 
 ### Benefits
 
-- **Eliminates PATH Pollution**: nbstripout uses consumer's Python interpreter - no separate Python environment in PATH
-- **Environment Isolation**: All Python tools resolve to the same interpreter and environment
-- **Zero Consumer Dependencies**: Consumers don't need to add nbstripout to their Python dependencies - we build it automatically
-- **Performance**: Only nbstripout rebuilds with consumer's Python - heavy packages (numpy, pytorch) unaffected unless Python version changes
-- **Backward Compatibility**: Existing consumers continue working without changes (defaults to pkgs.python3)
-- **Universal Compatibility**: Works with any Python environment manager (uv2nix, poetry2nix, mach-nix, etc.)
+- **Eliminates PATH Pollution**: Python interpreter contained within nbstripout package, not propagated to consumer PATH
+- **Zero Configuration**: No consumer setup required - works automatically for everyone
+- **Universal Compatibility**: Works with any Python environment manager (uv2nix, poetry2nix, mach-nix, etc.) without configuration
+- **Perfect Backward Compatibility**: Existing consumers continue working without any changes
+- **Simplified Architecture**: No complex configuration options or conditional logic
+- **Maintainable**: Uses established nixpkgs patterns (`toPythonApplication`)
 
 ### Trade-offs
 
@@ -293,6 +296,137 @@ During investigation, we explored several approaches before settling on the hybr
    - **Issue**: Complex heuristics, unreliable edge cases
 
 The chosen approach addresses the root cause while maintaining backward compatibility and providing a zero-configuration experience for consumers - they simply specify their Python environment and we automatically build compatible tools.
+
+---
+
+## Appendix B: Self-Contained nbstripout Package Approaches
+
+### **Alternative Solution Discovery**
+
+During implementation, we discovered that the core issue could be solved more elegantly by preventing Python propagation to PATH entirely, rather than configuring consumer Python environments. This would provide a zero-configuration solution.
+
+### **The Core Insight**
+
+Pre-commit hooks only need the `nbstripout` executable, not access to its Python environment. The current PATH pollution occurs because `python3.pkgs.buildPythonApplication` always adds Python to `propagatedBuildInputs`, causing it to appear in consumer devShells via `inputsFrom`.
+
+### **Three Self-Contained Package Approaches**
+
+#### **Option 1: Override propagatedBuildInputs**
+
+```nix
+(python3.pkgs.buildPythonApplication rec {
+  pname = "nbstripout";
+  version = "0.8.1";
+  # ... normal definition
+  propagatedBuildInputs = with python3.pkgs; [ nbformat ];
+}).overrideAttrs (old: {
+  propagatedBuildInputs = []; # Strip Python propagation
+})
+```
+
+**How it works:**
+- Build normally with `buildPythonApplication`
+- Post-process to remove propagated dependencies
+- Python environment remains embedded but doesn't propagate to PATH
+
+**Analysis:**
+- ✅ **Simple**: Minimal modification to existing code
+- ✅ **Effective**: Python fully self-contained, zero PATH pollution
+- ❌ **Hacky**: Fighting against build system's intended behavior
+- ❌ **Fragile**: Could break if nixpkgs changes propagation mechanisms
+- ❌ **Wasteful**: Dependencies built but then discarded from propagation
+
+#### **Option 2: Custom stdenv.mkDerivation**
+
+```nix
+stdenv.mkDerivation rec {
+  pname = "nbstripout";
+  version = "0.8.1";
+
+  nativeBuildInputs = [ python3 python3.pkgs.pip python3.pkgs.setuptools ];
+  buildInputs = [ python3 ];
+
+  src = fetchPypi {
+    inherit pname version;
+    hash = "sha256-6qyLa05yno3+Hl3ywPi6RKvFoXplRI8EgBQfgL4jC7E=";
+  };
+
+  buildPhase = ''
+    python -m pip install --prefix=$out $src
+    # Handle dependencies manually
+    python -m pip install --prefix=$out nbformat
+  '';
+
+  # No automatic propagation - we control everything
+}
+```
+
+**How it works:**
+- Build using standard derivation approach
+- Install Python package manually into output
+- Complete control over dependency propagation
+
+**Analysis:**
+- ✅ **Clean separation**: Explicit control over what propagates
+- ✅ **Transparent**: Clear about what we're doing
+- ✅ **Robust**: Less dependent on nixpkgs Python machinery
+- ❌ **More code**: Manual handling of Python package installation
+- ❌ **Maintenance**: Need to replicate `buildPythonApplication` features
+- ❌ **Complexity**: Lose automatic script wrapping and other niceties
+
+#### **Option 3: toPythonApplication wrapper (Chosen)**
+
+```nix
+python3.pkgs.toPythonApplication (
+  python3.pkgs.buildPythonPackage rec {
+    pname = "nbstripout";
+    version = "0.8.1";
+    format = "setuptools";
+
+    src = fetchPypi {
+      inherit pname version;
+      hash = "sha256-6qyLa05yno3+Hl3ywPi6RKvFoXplRI8EgBQfgL4jC7E=";
+    };
+
+    propagatedBuildInputs = with python3.pkgs; [ nbformat ];
+
+    # Build as library first, then wrap as application
+  }
+)
+```
+
+**How it works:**
+- First stage: Build nbstripout as Python library with `buildPythonPackage`
+- Second stage: `toPythonApplication` wraps library with executable scripts
+- The wrapper stage controls propagation behavior for applications
+
+**Analysis:**
+- ✅ **Idiomatic**: Uses nixpkgs patterns correctly - this is what `toPythonApplication` is designed for
+- ✅ **Maintainable**: Follows established nixpkgs conventions
+- ✅ **Stable**: Less likely to break with future nixpkgs changes
+- ✅ **Clean**: Proper separation between library and application concerns
+- ⚠️ **Two-stage**: Conceptually more complex (but standard pattern)
+- ⚠️ **Learning curve**: Need to understand both build functions
+
+### **Decision: Option 3 (toPythonApplication)**
+
+**Why chosen:**
+- **Follows nixpkgs best practices**: `toPythonApplication` is specifically designed for this use case
+- **Long-term stability**: Less likely to break with nixpkgs evolution
+- **Maintainability**: Uses established patterns that other nixpkgs maintainers understand
+- **Clean architecture**: Proper separation of library vs application concerns
+
+**Benefits of this approach:**
+- **Zero consumer configuration**: No need for `pythonPackages` option
+- **Universal solution**: Works for all consumers automatically
+- **No PATH pollution**: Python interpreter stays internal to nbstripout
+- **Maintains all functionality**: Pre-commit hooks work exactly the same
+
+**Impact on original solution:**
+This approach supersedes the parameterized Python environment solution, providing a simpler architecture:
+- Remove `pythonPackages` configuration option
+- Use self-contained nbstripout package
+- Eliminate need for consumer configuration entirely
 
 ---
 
