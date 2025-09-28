@@ -26,6 +26,12 @@ in {
       ...
     }: {
       options.jackpkgs.pre-commit = {
+        pythonPackages = mkOption {
+          type = types.attrs;
+          default = pkgs.python3Packages;
+          defaultText = "pkgs.python3Packages";
+          description = "Python package set to use for Python-based tools";
+        };
         treefmtPackage = mkOption {
           type = types.package;
           default = config.treefmt.build.wrapper;
@@ -36,7 +42,7 @@ in {
           type = types.package;
           default = pkgs.nbstripout;
           defaultText = "pkgs.nbstripout";
-          description = "nbstripout package to use.";
+          description = "nbstripout package to use. To use from a custom Python environment, override with pythonPackages.nbstripout";
         };
       };
     });
