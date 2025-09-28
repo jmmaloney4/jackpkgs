@@ -6,7 +6,7 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.fmt;
-  defaultExcludes = ["**/node_modules/**" "**/dist/**" "**/.direnv/**" ".jj/**" "/nix/**"];
+  defaultExcludes = ["**/node_modules/**" "**/dist/**" "**/.direnv/**" ".jj/**" "/nix/**" ".venv/**"];
 in {
   imports = [
     jackpkgsInputs.flake-root.flakeModule
