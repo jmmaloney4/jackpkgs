@@ -8,6 +8,7 @@
   cfg = config.jackpkgs.shell;
 in {
   imports = [
+    jackpkgsInputs.flake-root.flakeModule
   ];
 
   options = let
@@ -51,7 +52,7 @@ in {
       config,
       ...
     }: let
-      pcfg = config.jackpkgs.shell;
+      sysCfg = config.jackpkgs.shell;
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell {
         inputsFrom =
@@ -61,8 +62,8 @@ in {
             config.pre-commit.devShell
             config.treefmt.build.devShell
           ]
-          ++ pcfg.inputsFrom;
-        packages = pcfg.packages;
+          ++ sysCfg.inputsFrom;
+        packages = sysCfg.packages;
       };
     };
   };
