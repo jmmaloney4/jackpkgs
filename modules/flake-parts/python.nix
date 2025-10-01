@@ -168,17 +168,6 @@ in {
   };
 
   config = mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = inputs ? uv2nix;
-        message = "jackpkgs.python requires uv2nix input (see jackpkgs documentation).";
-      }
-      {
-        assertion = inputs ? pyproject-nix;
-        message = "jackpkgs.python requires pyproject-nix input (see jackpkgs documentation).";
-      }
-    ];
-
     perSystem = {
       pkgs,
       lib,
@@ -205,7 +194,7 @@ in {
       # uv2nix workspace and python set
       workspace =
         if builtins.pathExists uvLockPath
-        then inputs.uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; }
+        then jackpkgsInputs.uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; }
         else throw ("jackpkgs.python: uv.lock not found at " + builtins.toString uvLockPath + " — run 'uv lock' in the project to generate it.");
 
       stdenvForPython =
@@ -220,7 +209,7 @@ in {
           }
         else pkgs.stdenv;
 
-      pythonBase = pkgs.callPackage inputs.pyproject-nix.build.packages {
+      pythonBase = pkgs.callPackage jackpkgsInputs.pyproject-nix.build.packages {
         python = pcfg.pythonPackage;
         stdenv = stdenvForPython;
       };
@@ -241,9 +230,9 @@ in {
 
       overlayList =
         [baseOverlay]
-        ++ lib.optionals (inputs ? pyproject-build-systems) [
-          inputs.pyproject-build-systems.overlays.wheel
-          inputs.pyproject-build-systems.overlays.sdist
+        ++ [
+          jackpkgsInputs.pyproject-build-systems.overlays.wheel
+          jackpkgsInputs.pyproject-build-systems.overlays.sdist
         ]
         ++ [ensureSetuptools]
         ++ pcfg.extraOverlays;
@@ -336,25 +325,10 @@ in {
 
       envNames = map (e: e.name) (lib.attrValues pcfg.environments);
       uniqueEnvNames = lib.unique envNames;
+      _ = if envNames != uniqueEnvNames
+          then throw ("jackpkgs.python: duplicate environment package names detected: " + builtins.toString envNames)
+          else null;
     in {
-      assertions = [
-        {
-          assertion = builtins.pathExists pyprojectPath;
-          message = "jackpkgs.python: pyproject.toml not found at " + builtins.toString pyprojectPath;
-        }
-        {
-          assertion = pyproject ? project && pyproject.project ? name;
-          message = "jackpkgs.python: pyproject.toml is missing [project].name";
-        }
-        {
-          assertion = builtins.pathExists uvLockPath;
-          message = "jackpkgs.python: uv.lock not found at " + builtins.toString uvLockPath + " — run 'uv lock' in the project to generate it.";
-        }
-        {
-          assertion = envNames == uniqueEnvNames;
-          message = "jackpkgs.python: duplicate environment package names detected: " + builtins.toString envNames;
-        }
-      ];
       # Minimal devshell fragment now; still include base Python.
       jackpkgs.outputs.pythonDevShell = pkgs.mkShell {
         packages = [ pcfg.pythonPackage ];
