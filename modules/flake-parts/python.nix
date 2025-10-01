@@ -335,14 +335,14 @@ in {
       };
 
       # Optionally contribute this fragment to the composed devshell
-      jackpkgs.shell.inputsFrom = lib.optionals pcfg.outputs.addToDevShell [
+      jackpkgs.shell.inputsFrom = lib.optionals cfg.outputs.addToDevShell [
         config.jackpkgs.outputs.pythonDevShell
       ];
 
       # Export module args for power users
       _module.args = lib.mkMerge [
-        (lib.optionalAttrs pcfg.outputs.exposeWorkspace { pythonWorkspace = pythonWorkspace; })
-        (lib.optionalAttrs pcfg.outputs.exposeEnvs { pythonEnvs = pythonEnvs; })
+        (lib.optionalAttrs cfg.outputs.exposeWorkspace { pythonWorkspace = pythonWorkspace; })
+        (lib.optionalAttrs cfg.outputs.exposeEnvs { pythonEnvs = pythonEnvs; })
       ];
 
       # Publish each env as packages.<name>
