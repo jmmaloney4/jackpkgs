@@ -1,5 +1,6 @@
 {jackpkgsInputs}: {inputs, ...}: {
   imports = [
+    (import ./python.nix {inherit jackpkgsInputs;})
     (import ./devshell.nix {inherit jackpkgsInputs;})
     (import ./fmt.nix {inherit jackpkgsInputs;})
     (import ./just.nix {inherit jackpkgsInputs;})
