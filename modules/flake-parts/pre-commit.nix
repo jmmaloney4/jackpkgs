@@ -49,15 +49,15 @@ in {
       config,
       ...
     }: let
-      pcfg = config.jackpkgs.pre-commit;
+      sysCfg = config.jackpkgs.pre-commit;
     in {
       pre-commit = {
         check.enable = true;
         settings.hooks.treefmt.enable = true;
-        settings.hooks.treefmt.package = pcfg.treefmtPackage;
+        settings.hooks.treefmt.package = sysCfg.treefmtPackage;
         settings.hooks.nbstripout = {
           enable = true;
-          entry = "${lib.getExe pcfg.nbstripoutPackage}";
+          entry = "${lib.getExe sysCfg.nbstripoutPackage}";
           files = "\\.ipynb$";
         };
       };

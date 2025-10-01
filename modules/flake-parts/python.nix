@@ -177,7 +177,7 @@ in {
       config,
       ...
     }: let
-      pcfg = config.jackpkgs.python;
+      sysCfg = config.jackpkgs.python;
       # Resolve paths relative to the consumer project root
       projectRoot = config.flake-root.projectRoot;
       pyprojectPath = projectRoot + "/" + cfg.pyprojectPath;
@@ -213,7 +213,7 @@ in {
         else pkgs.stdenv;
 
       pythonBase = pkgs.callPackage jackpkgsInputs.pyproject-nix.build.packages {
-        python = pcfg.pythonPackage;
+        python = sysCfg.pythonPackage;
         stdenv = stdenvForPython;
       };
 
@@ -355,7 +355,7 @@ in {
     in {
       # Minimal devshell fragment now; still include base Python.
       jackpkgs.outputs.pythonDevShell = pkgs.mkShell {
-        packages = [pcfg.pythonPackage];
+        packages = [sysCfg.pythonPackage];
       };
 
       # Optionally contribute this fragment to the composed devshell
