@@ -66,10 +66,7 @@ in {
 
       # Environment definitions
       environments = mkOption {
-        type = types.attrsOf (types.submodule ({
-          config,
-          ...
-        }: {
+        type = types.attrsOf (types.submodule ({config, ...}: {
           options = {
             name = mkOption {
               type = types.str;
@@ -116,9 +113,15 @@ in {
         default = {};
         description = "Python virtual environments to create.";
         example = {
-          default = { name = "python-env"; };
-          jupyter = { name = "python-jupyter"; extras = ["jupyter"]; };
-          dev = { name = "python-dev"; editable = true; };
+          default = {name = "python-env";};
+          jupyter = {
+            name = "python-jupyter";
+            extras = ["jupyter"];
+          };
+          dev = {
+            name = "python-dev";
+            editable = true;
+          };
         };
       };
 
@@ -177,9 +180,9 @@ in {
       pcfg = config.jackpkgs.python;
       # Resolve paths relative to the consumer project root
       projectRoot = config.flake-root.projectRoot;
-      pyprojectPath = projectRoot + "/" + pcfg.pyprojectPath;
-      uvLockPath = projectRoot + "/" + pcfg.uvLockPath;
-      workspaceRoot = projectRoot + "/" + pcfg.workspaceRoot;
+      pyprojectPath = projectRoot + "/" + cfg.pyprojectPath;
+      uvLockPath = projectRoot + "/" + cfg.uvLockPath;
+      workspaceRoot = projectRoot + "/" + cfg.workspaceRoot;
 
       # Parse pyproject for project name (guarded to avoid eager failures)
       pyproject =
@@ -194,7 +197,7 @@ in {
       # uv2nix workspace and python set
       workspace =
         if builtins.pathExists uvLockPath
-        then jackpkgsInputs.uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; }
+        then jackpkgsInputs.uv2nix.lib.workspace.loadWorkspace {inherit workspaceRoot;}
         else throw ("jackpkgs.python: uv.lock not found at " + builtins.toString uvLockPath + " — run 'uv lock' in the project to generate it.");
 
       stdenvForPython =
@@ -204,7 +207,7 @@ in {
             targetPlatform =
               pkgs.stdenv.targetPlatform
               // {
-                darwinSdkVersion = pcfg.darwin.sdkVersion;
+                darwinSdkVersion = cfg.darwin.sdkVersion;
               };
           }
         else pkgs.stdenv;
@@ -215,7 +218,7 @@ in {
       };
 
       baseOverlay = workspace.mkPyprojectOverlay {
-        sourcePreference = pcfg.sourcePreference;
+        sourcePreference = cfg.sourcePreference;
       };
 
       ensureSetuptools = final: prev: let
@@ -226,7 +229,7 @@ in {
             });
           };
       in
-        lib.foldl' lib.recursiveUpdate {} (map add pcfg.setuptools.packages);
+        lib.foldl' lib.recursiveUpdate {} (map add cfg.setuptools.packages);
 
       overlayList =
         [baseOverlay]
@@ -235,7 +238,7 @@ in {
           jackpkgsInputs.pyproject-build-systems.overlays.sdist
         ]
         ++ [ensureSetuptools]
-        ++ pcfg.extraOverlays;
+        ++ cfg.extraOverlays;
 
       pythonSet = pythonBase.overrideScope (lib.composeManyExtensions overlayList);
 
@@ -246,17 +249,22 @@ in {
         else lib.head (builtins.attrNames defaultSpec);
 
       ensureList = value:
-        if builtins.isList value then value
-        else if lib.isString value then [value]
+        if builtins.isList value
+        then value
+        else if lib.isString value
+        then [value]
         else value;
 
       specWithExtras = extras: let
         extrasList = lib.unique (ensureList extras);
       in
-        if extrasList == [] then defaultSpec
-        else defaultSpec // {
-          ${targetName} = lib.unique ((defaultSpec.${targetName} or []) ++ extrasList);
-        };
+        if extrasList == []
+        then defaultSpec
+        else
+          defaultSpec
+          // {
+            ${targetName} = lib.unique ((defaultSpec.${targetName} or []) ++ extrasList);
+          };
 
       addMainProgram = drv:
         drv.overrideAttrs (old: {
@@ -276,15 +284,23 @@ in {
       mkEnvForSpec = {
         name,
         spec,
-      }: addMainProgram (pythonSet.mkVirtualEnv name spec);
+      }:
+        addMainProgram (pythonSet.mkVirtualEnv name spec);
 
       mkEnv = {
         name,
         extras ? [],
         spec ? null,
       }: let
-        finalSpec = if spec != null then spec else specWithExtras extras;
-      in mkEnvForSpec { inherit name; spec = finalSpec; };
+        finalSpec =
+          if spec != null
+          then spec
+          else specWithExtras extras;
+      in
+        mkEnvForSpec {
+          inherit name;
+          spec = finalSpec;
+        };
 
       mkEditableEnv = {
         name,
@@ -293,10 +309,14 @@ in {
         members ? null,
         root ? "$REPO_ROOT",
       }: let
-        overlayArgs = { inherit root; } // lib.optionalAttrs (members != null) { inherit members; };
+        overlayArgs = {inherit root;} // lib.optionalAttrs (members != null) {inherit members;};
         editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
-        finalSpec = if spec != null then spec else specWithExtras extras;
-      in addMainProgram (editableSet.mkVirtualEnv name finalSpec);
+        finalSpec =
+          if spec != null
+          then spec
+          else specWithExtras extras;
+      in
+        addMainProgram (editableSet.mkVirtualEnv name finalSpec);
 
       pythonWorkspace = {
         inherit workspace pythonSet projectName defaultSpec specWithExtras;
@@ -305,33 +325,37 @@ in {
         mkEnvForSpec = mkEnvForSpec;
       };
 
-      pythonEnvs = lib.mapAttrs (
-        envKey: envCfg:
-          if envCfg.editable then
-            pythonWorkspace.mkEditableEnv {
-              name = envCfg.name;
-              extras = envCfg.extras;
-              spec = envCfg.spec;
-              members = envCfg.members;
-              root = envCfg.editableRoot;
-            }
-          else
-            pythonWorkspace.mkEnv {
-              name = envCfg.name;
-              extras = envCfg.extras;
-              spec = envCfg.spec;
-            }
-      ) pcfg.environments;
+      pythonEnvs =
+        lib.mapAttrs (
+          envKey: envCfg:
+            if envCfg.editable
+            then
+              pythonWorkspace.mkEditableEnv {
+                name = envCfg.name;
+                extras = envCfg.extras;
+                spec = envCfg.spec;
+                members = envCfg.members;
+                root = envCfg.editableRoot;
+              }
+            else
+              pythonWorkspace.mkEnv {
+                name = envCfg.name;
+                extras = envCfg.extras;
+                spec = envCfg.spec;
+              }
+        )
+        cfg.environments;
 
-      envNames = map (e: e.name) (lib.attrValues pcfg.environments);
+      envNames = map (e: e.name) (lib.attrValues cfg.environments);
       uniqueEnvNames = lib.unique envNames;
-      _ = if envNames != uniqueEnvNames
-          then throw ("jackpkgs.python: duplicate environment package names detected: " + builtins.toString envNames)
-          else null;
+      _ =
+        if envNames != uniqueEnvNames
+        then throw ("jackpkgs.python: duplicate environment package names detected: " + builtins.toString envNames)
+        else null;
     in {
       # Minimal devshell fragment now; still include base Python.
       jackpkgs.outputs.pythonDevShell = pkgs.mkShell {
-        packages = [ pcfg.pythonPackage ];
+        packages = [pcfg.pythonPackage];
       };
 
       # Optionally contribute this fragment to the composed devshell
@@ -341,15 +365,17 @@ in {
 
       # Export module args for power users
       _module.args = lib.mkMerge [
-        (lib.optionalAttrs cfg.outputs.exposeWorkspace { pythonWorkspace = pythonWorkspace; })
-        (lib.optionalAttrs cfg.outputs.exposeEnvs { pythonEnvs = pythonEnvs; })
+        (lib.optionalAttrs cfg.outputs.exposeWorkspace {pythonWorkspace = pythonWorkspace;})
+        (lib.optionalAttrs cfg.outputs.exposeEnvs {pythonEnvs = pythonEnvs;})
       ];
 
       # Publish each env as packages.<name>
-      packages = lib.mapAttrs' (
-        envKey: envCfg:
-          lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
-      ) pcfg.environments;
+      packages =
+        lib.mapAttrs' (
+          envKey: envCfg:
+            lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
+        )
+        cfg.environments;
     };
   };
 }
