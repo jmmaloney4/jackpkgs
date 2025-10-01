@@ -8,6 +8,7 @@
   cfg = config.jackpkgs.shell;
 in {
   imports = [
+    jackpkgsInputs.flake-root.flakeModule
   ];
 
   options = let
