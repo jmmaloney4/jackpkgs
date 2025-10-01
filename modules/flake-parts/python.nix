@@ -175,14 +175,15 @@ in {
       pkgs,
       lib,
       config,
+      inputs,
       ...
     }: let
       sysCfg = config.jackpkgs.python;
       # Resolve paths relative to the consumer project root
-      projectRoot = config.flake-root.projectRoot;
-      pyprojectPath = projectRoot + "/" + cfg.pyprojectPath;
-      uvLockPath = projectRoot + "/" + cfg.uvLockPath;
-      workspaceRoot = projectRoot + "/" + cfg.workspaceRoot;
+      projectRoot = config._module.args.jackpkgsProjectRoot or inputs.self.outPath;
+      pyprojectPath = lib.path.append projectRoot cfg.pyprojectPath;
+      uvLockPath = lib.path.append projectRoot cfg.uvLockPath;
+      workspaceRoot = lib.path.append projectRoot cfg.workspaceRoot;
 
       # Parse pyproject for project name (guarded to avoid eager failures)
       pyproject =

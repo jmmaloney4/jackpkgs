@@ -107,6 +107,10 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 
 ### Module reference (concise)
 
+- core (`modules/flake-parts/project-root.nix`)
+  - Exposes `jackpkgs.projectRoot` (path, default `inputs.self.outPath`).
+  - Other modules resolve relative project files against this path.
+
 - fmt (`modules/flake-parts/fmt.nix`)
   - Enables treefmt and sets `formatter = config.treefmt.build.wrapper`.
   - Options under `jackpkgs.fmt`:
