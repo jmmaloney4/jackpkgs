@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -48,7 +48,7 @@ From zeus implementation, we need to support:
 
 ## Decision
 
-We MUST create a **highly-opinionated, reusable uv2nix flake-parts module** at `jackpkgs/modules/flake-parts/uv2nix.nix` that encapsulates the zeus implementation pattern with minimal required configuration.
+We MUST create a **highly-opinionated, reusable uv2nix flake-parts module** at `jackpkgs/modules/flake-parts/python.nix` (exposed as `jackpkgs.python`) that encapsulates the zeus implementation pattern with minimal required configuration.
 
 ### Core Principles
 
@@ -59,9 +59,9 @@ We MUST create a **highly-opinionated, reusable uv2nix flake-parts module** at `
    - pyproject-build-systems integration when available
 
 2. **Minimal Configuration**: Most projects should only need:
-   ```nix
-   jackpkgs.uv2nix.enable = true;
-   jackpkgs.uv2nix.environments = {
+  ```nix
+  jackpkgs.python.enable = true;
+  jackpkgs.python.environments = {
      default.name = "my-python-env";
    };
    ```
@@ -72,26 +72,26 @@ We MUST create a **highly-opinionated, reusable uv2nix flake-parts module** at `
 ### Configuration Schema
 
 ```nix
-options.jackpkgs.uv2nix = {
-  enable = mkEnableOption "uv2nix Python environment management" // {default = false;};
+options.jackpkgs.python = {
+  enable = mkEnableOption "opinionated Python environment management (uv2nix-backed)" // {default = false;};
 
   # Paths
   pyprojectPath = mkOption {
-    type = types.path;
-    default = ./pyproject.toml;
-    description = "Path to pyproject.toml file";
+    type = types.str;
+    default = "./pyproject.toml";
+    description = "Path to pyproject.toml file (resolved relative to project root when enabled)";
   };
 
   uvLockPath = mkOption {
-    type = types.path;
-    default = ./uv.lock;
-    description = "Path to uv.lock file";
+    type = types.str;
+    default = "./uv.lock";
+    description = "Path to uv.lock file (resolved relative to project root when enabled)";
   };
 
   workspaceRoot = mkOption {
-    type = types.path;
-    default = ./.;
-    description = "Root directory of the uv workspace";
+    type = types.str;
+    default = ".";
+    description = "Root directory of the uv workspace (resolved relative to project root when enabled)";
   };
 
   # Python configuration
@@ -223,7 +223,7 @@ The module will:
    - `packages.<name>` for each environment
    - `_module.args.pythonWorkspace` with utilities
    - `_module.args.pythonEnvs` with environment attrset
-   - Optionally `jackpkgs.outputs.uv2nixDevShell`
+   - Optionally `jackpkgs.outputs.pythonDevShell`
 
 ### Key Technical Details
 
@@ -364,7 +364,7 @@ Create highly opinionated module based on zeus implementation, with clear escape
 
 ### Phase 1: Core Module Implementation
 - **Owner**: jackpkgs maintainers
-- Create `modules/flake-parts/uv2nix.nix` with options schema
+- Create `modules/flake-parts/python.nix` with options schema
 - Implement workspace loading and Python set creation
 - Implement environment builders (mkEnv, mkEditableEnv)
 - Add setuptools fix overlay
@@ -463,7 +463,7 @@ imports = [
 ];
 
 # zeus/flake.nix (config section)
-jackpkgs.uv2nix = {
+jackpkgs.python = {
   enable = true;
   environments = {
     default.name = "python-nautilus";
@@ -514,9 +514,9 @@ jackpkgs.uv2nix = {
 jackpkgs/
 ├── modules/
 │   └── flake-parts/
-│       ├── all.nix              # Add uv2nix import
-│       ├── default.nix          # Add uv2nix to flakeModules
-│       └── uv2nix.nix          # NEW: Core implementation
+│       ├── all.nix              # Add python module import
+│       ├── default.nix          # Add python to flakeModules
+│       └── python.nix          # Core implementation
 ├── flake.nix                    # Make uv2nix inputs optional
 └── docs/
     └── internal/
@@ -558,11 +558,11 @@ config = mkIf cfg.enable {
   assertions = [
     {
       assertion = inputs ? uv2nix;
-      message = "jackpkgs.uv2nix requires uv2nix input (see jackpkgs documentation)";
+      message = "jackpkgs.python requires uv2nix input (see jackpkgs documentation)";
     }
     {
       assertion = inputs ? pyproject-nix;
-      message = "jackpkgs.uv2nix requires pyproject-nix input (see jackpkgs documentation)";
+      message = "jackpkgs.python requires pyproject-nix input (see jackpkgs documentation)";
     }
   ];
   # ... rest of config
