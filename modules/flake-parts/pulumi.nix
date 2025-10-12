@@ -62,6 +62,11 @@ in {
             nodePackages.ts-node
             nodePackages.typescript
           ];
+          env = {
+            # Disable discovering additional plugins by examining $PATH.
+            # Pulumi will download the relevant plugin versions instead.
+            PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+          };
         };
 
         # Contribute this fragment to the composed devshell
