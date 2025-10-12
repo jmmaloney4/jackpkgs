@@ -95,8 +95,8 @@ in {
       config,
       ...
     }: let
-      pcfg = config.jackpkgs.just; # per-system config scope
-      pcfgQuarto = config.jackpkgs.quarto;
+      sysCfg = config.jackpkgs.just; # per-system config scope
+      sysCfgQuarto = config.jackpkgs.quarto;
     in {
       just-flake = {
         features = {
@@ -106,7 +106,7 @@ in {
             justfile = ''
               # Run direnv
               reload:
-                  ${lib.getExe pcfg.direnvPackage} reload
+                  ${lib.getExe sysCfg.direnvPackage} reload
               # alias for reload
               r:
                   @just reload
@@ -125,9 +125,9 @@ in {
 
                 # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
                 new-stack project_path stack_name:
-                    ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} login "${cfg.pulumi.backendUrl}"
-                    ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "${cfg.pulumi.secretsProvider}"
-                    ${lib.getExe pcfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
+                    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login "${cfg.pulumi.backendUrl}"
+                    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "${cfg.pulumi.secretsProvider}"
+                    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
               '';
           };
           python = {
@@ -136,9 +136,9 @@ in {
               # Strip output from Jupyter notebooks
               nbstrip notebook="":
                   @if [ -z "{{notebook}}" ]; then \
-                      ${lib.getExe pcfg.fdPackage} -e ipynb -x ${lib.getExe pcfg.nbstripoutPackage}; \
+                      ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}; \
                   else \
-                      ${lib.getExe pcfg.nbstripoutPackage} "{{notebook}}"; \
+                      ${lib.getExe sysCfg.nbstripoutPackage} "{{notebook}}"; \
                   fi
             '';
           };
@@ -147,13 +147,13 @@ in {
             justfile = ''
               # Run pre-commit hooks
               pre-commit:
-                ${lib.getExe pcfg.preCommitPackage}
+                ${lib.getExe sysCfg.preCommitPackage}
               # alias for pre-commit
               pre:
                 @just pre-commit
               # Run pre-commit hooks on all files
               pre-all:
-                ${lib.getExe pcfg.preCommitPackage} run --all-files
+                ${lib.getExe sysCfg.preCommitPackage} run --all-files
             '';
           };
           release = {
@@ -165,7 +165,7 @@ in {
                 set -euo pipefail
 
                 # Source shared utilities
-                source ${lib.getExe pcfg.releaseUtils}
+                source ${lib.getExe sysCfg.releaseUtils}
 
                 echo "🏷️  Creating new semver minor release..." >&2
 
@@ -201,7 +201,7 @@ in {
                 set -euo pipefail
 
                 # Source shared utilities
-                source ${lib.getExe pcfg.releaseUtils}
+                source ${lib.getExe sysCfg.releaseUtils}
 
                 echo "🏷️  Creating new semver patch release..." >&2
 
@@ -238,11 +238,11 @@ in {
             justfile = ''
               # Build all flake outputs using flake-iter
               build-all:
-                ${lib.getExe pcfg.flakeIterPackage} build
+                ${lib.getExe sysCfg.flakeIterPackage} build
 
               # Build all flake outputs with verbose output
               build-all-verbose:
-                ${lib.getExe pcfg.flakeIterPackage} build --verbose
+                ${lib.getExe sysCfg.flakeIterPackage} build --verbose
             '';
           };
           quarto = {
@@ -252,16 +252,16 @@ in {
                 ''
                   # Build all quarto sites
                   render-all:
-                  ${lib.concatStringsSep "\n" (map (site: "    ${lib.getExe pcfgQuarto.quartoPackage} render ${site}") cfg.quarto.sites)}
+                  ${lib.concatStringsSep "\n" (map (site: "    ${lib.getExe sysCfgQuarto.quartoPackage} render ${site}") cfg.quarto.sites)}
                 ''
               ]
               ++ map (site: ''
                 # render ${site}
                 render-${site}:
-                    ${lib.getExe pcfgQuarto.quartoPackage} render ${site}
+                    ${lib.getExe sysCfgQuarto.quartoPackage} render ${site}
                 # preview ${site}
                 ${site}:
-                    ${lib.getExe pcfgQuarto.quartoPackage} preview ${site}
+                    ${lib.getExe sysCfgQuarto.quartoPackage} preview ${site}
               '')
               cfg.quarto.sites
             );

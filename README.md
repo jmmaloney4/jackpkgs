@@ -76,6 +76,8 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pre-commit` — pre-commit-hooks (treefmt + nbstripout for `.ipynb`).
 - `shell` — shared dev shell output to include via `inputsFrom`.
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
+- `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
+- `python` — opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
 
 ### Import (one-liner: everything)
 
@@ -97,11 +99,17 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     inputs.jackpkgs.flakeModules.pre-commit
     inputs.jackpkgs.flakeModules.shell
     inputs.jackpkgs.flakeModules.pulumi
+    inputs.jackpkgs.flakeModules.quarto
+    inputs.jackpkgs.flakeModules.python
   ];
 }
 ```
 
 ### Module reference (concise)
+
+- core (`modules/flake-parts/project-root.nix`)
+  - Exposes `jackpkgs.projectRoot` (path, default `inputs.self.outPath`).
+  - Other modules resolve relative project files against this path.
 
 - fmt (`modules/flake-parts/fmt.nix`)
   - Enables treefmt and sets `formatter = config.treefmt.build.wrapper`.
@@ -137,6 +145,29 @@ flake-parts.lib.mkFlake { inherit inputs; } {
   - Provides Pulumi CLI in a devShell fragment: `config.jackpkgs.outputs.pulumiDevShell`.
   - Options under `jackpkgs.pulumi`:
     - `enable` (bool, default `true`)
+
+- quarto (`modules/flake-parts/quarto.nix`)
+  - Provides Quarto tooling in a devShell fragment: `config.jackpkgs.outputs.quartoDevShell`.
+  - Options under `jackpkgs.quarto`:
+    - `enable` (bool, default `true`)
+    - `quartoPackage` (package, default `pkgs.quarto`)
+    - `pythonEnv` (package, default `pkgs.python3Packages.python`)
+
+- python (`modules/flake-parts/python.nix`)
+  - Opinionated Python envs using uv2nix; publishes env packages and exposes workspace helpers.
+  - Options under `jackpkgs.python` (selected):
+    - `enable` (bool, default `false`)
+    - `pyprojectPath` (str, default `./pyproject.toml`)
+    - `uvLockPath` (str, default `./uv.lock`)
+    - `workspaceRoot` (str, default `.`)
+    - `pythonPackage` (package, default `pkgs.python312`)
+    - `sourcePreference` ("wheel" | "sdist", default "wheel")
+    - `setuptools.packages` (list of str)
+    - `environments` (attrset of env defs: `{ name, extras, editable, editableRoot, members, spec, passthru }`)
+  - Outputs:
+    - Packages: each env appears under `packages.<env.name>`
+    - Module args: `_module.args.pythonWorkspace`, `_module.args.pythonEnvs` (when enabled)
+    - DevShell: `config.jackpkgs.outputs.pythonDevShell` (added to shared shell when `outputs.addToDevShell = true`)
 
 ### DevShell usage pattern
 
@@ -192,4 +223,3 @@ nix flake new myproj -t github:jmmaloney4/jackpkgs#just
 ## License
 
 See `LICENSE`.
-

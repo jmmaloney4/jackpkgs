@@ -56,15 +56,15 @@ in {
       config,
       ...
     }: let
-      pcfg = config.jackpkgs.fmt;
+      sysCfg = config.jackpkgs.fmt;
     in {
       formatter = lib.mkDefault config.treefmt.build.wrapper;
       treefmt.config = let
-        excludes = lib.unique (defaultExcludes ++ pcfg.excludes);
+        excludes = lib.unique (defaultExcludes ++ sysCfg.excludes);
       in {
         flakeFormatter = lib.mkForce false; # we set this ourselves above
-        inherit (pcfg) projectRootFile;
-        package = pcfg.treefmtPackage;
+        inherit (sysCfg) projectRootFile;
+        package = sysCfg.treefmtPackage;
 
         ### Formatters ###
         # alejandra formats nix code
