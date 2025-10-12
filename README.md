@@ -163,7 +163,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `pythonPackage` (package, default `pkgs.python312`)
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
     - `setuptools.packages` (list of str)
-    - `environments` (attrset of env defs: `{ name, extras, editable, editableRoot, members, spec }`)
+    - `environments` (attrset of env defs: `{ name, extras, editable, editableRoot, members, spec, passthru }`)
   - Outputs:
     - Packages: each env appears under `packages.<env.name>`
     - Module args: `_module.args.pythonWorkspace`, `_module.args.pythonEnvs` (when enabled)

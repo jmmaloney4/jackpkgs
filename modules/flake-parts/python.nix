@@ -224,13 +224,14 @@ in {
 
       ensureSetuptools = final: prev: let
         add = name:
-          lib.optionalAttrs (prev ? ${name}) {
-            ${name} = prev.${name}.overrideAttrs (old: {
-              nativeBuildInputs = (old.nativeBuildInputs or []) ++ [final.setuptools];
-            });
-          };
+          if builtins.hasAttr name prev
+          then lib.nameValuePair name (prev.${name}.overrideAttrs (old: {
+            nativeBuildInputs = (old.nativeBuildInputs or []) ++ [final.setuptools];
+          }))
+          else null;
+        pairs = builtins.filter (x: x != null) (map add cfg.setuptools.packages);
       in
-        lib.foldl' lib.recursiveUpdate {} (map add cfg.setuptools.packages);
+        builtins.listToAttrs pairs;
 
       overlayList =
         [baseOverlay]

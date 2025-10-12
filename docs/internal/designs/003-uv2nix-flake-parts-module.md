@@ -572,5 +572,5 @@ config = mkIf cfg.enable {
 ---
 
 Author: Jack Maloney (with Claude Code)
-Date: 2025-09-30
+Date: 2025-10-01
 PR: TBD

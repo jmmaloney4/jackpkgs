@@ -10,7 +10,7 @@ Projects like zeus maintain ~187 lines of uv2nix + pyproject-nix boilerplate to 
 
 This ADR finalizes the design into a general-purpose module named `python` that happens to use uv2nix under the hood today.
 
-Related: designs/003-uv2nix-flake-parts-module.md, REVIEW-003-uv2nix-flake-parts-module.md
+Related: designs/003-uv2nix-flake-parts-module.md
 
 ## Decision
 
