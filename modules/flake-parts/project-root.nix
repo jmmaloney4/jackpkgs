@@ -1,17 +1,10 @@
 {jackpkgsInputs}: {
   inputs,
-  config,
   lib,
   ...
-}: let
-  inherit (lib) mkOption types;
-  root =
-    if config ? jackpkgs && config.jackpkgs ? projectRoot
-    then config.jackpkgs.projectRoot
-    else inputs.self.outPath;
-in {
-  options.jackpkgs.projectRoot = mkOption {
-    type = types.path;
+}: {
+  options.jackpkgs.projectRoot = lib.mkOption {
+    type = lib.types.path;
     default = inputs.self.outPath;
     defaultText = "inputs.self.outPath";
     description = ''
@@ -20,9 +13,7 @@ in {
     '';
   };
 
-  config.perSystem = {
-    ...
-  }: {
-    _module.args.jackpkgsProjectRoot = root;
+  config.perSystem = {config, ...}: {
+    _module.args.jackpkgsProjectRoot = config.jackpkgs.projectRoot;
   };
 }
