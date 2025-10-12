@@ -1,5 +1,6 @@
 {jackpkgsInputs}: {
   inputs,
+  config,
   lib,
   ...
 }: {
@@ -13,7 +14,7 @@
     '';
   };
 
-  config.perSystem = {config, ...}: {
+  config.perSystem = {...}: {
     _module.args.jackpkgsProjectRoot = config.jackpkgs.projectRoot;
   };
 }
