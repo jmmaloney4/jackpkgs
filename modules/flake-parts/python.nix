@@ -416,10 +416,12 @@ in {
 
           export UV_NO_SYNC="1"
           export UV_PYTHON="${lib.getExe pythonEnvs.editable}"
-          export UV_PYTHON_DOWNLOADS="never"
+          export UV_PYTHON_DOWNLOADS="false"
           export PATH="${pythonEnvs.editable}/bin:$PATH"
         '';
       };
+
+      jackpkgs.shell.packages = lib.mkAfter [pkgs.uv];
 
       # Optionally contribute this fragment to the composed devshell
       jackpkgs.shell.inputsFrom =
