@@ -181,13 +181,20 @@ in {
       sysCfg = config.jackpkgs.python;
       # Resolve paths relative to the consumer project root
       rawProjectRoot = config._module.args.jackpkgsProjectRoot or inputs.self.outPath;
+      projectRootString = builtins.toString rawProjectRoot;
       projectRoot =
         if builtins.isPath rawProjectRoot
         then rawProjectRoot
-        else builtins.toPath rawProjectRoot;
-      pyprojectPath = lib.path.append projectRoot cfg.pyprojectPath;
-      uvLockPath = lib.path.append projectRoot cfg.uvLockPath;
-      workspaceRoot = lib.path.append projectRoot cfg.workspaceRoot;
+        else if lib.hasPrefix "/" projectRootString
+        then builtins.toPath projectRootString
+        else
+          throw
+          "jackpkgs.python: projectRoot must be a Nix path or absolute path string; got ${projectRootString}";
+      appendToProjectRoot = relPath:
+        lib.path.append projectRoot (lib.path.normalise relPath);
+      pyprojectPath = appendToProjectRoot cfg.pyprojectPath;
+      uvLockPath = appendToProjectRoot cfg.uvLockPath;
+      workspaceRoot = appendToProjectRoot cfg.workspaceRoot;
 
       # Parse pyproject for project name (guarded to avoid eager failures)
       pyproject =
@@ -229,9 +236,10 @@ in {
       ensureSetuptools = final: prev: let
         add = name:
           if builtins.hasAttr name prev
-          then lib.nameValuePair name (prev.${name}.overrideAttrs (old: {
-            nativeBuildInputs = (old.nativeBuildInputs or []) ++ [final.setuptools];
-          }))
+          then
+            lib.nameValuePair name (prev.${name}.overrideAttrs (old: {
+              nativeBuildInputs = (old.nativeBuildInputs or []) ++ [final.setuptools];
+            }))
           else null;
         pairs = builtins.filter (x: x != null) (map add cfg.setuptools.packages);
       in
