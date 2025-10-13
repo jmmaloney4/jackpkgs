@@ -65,6 +65,33 @@ Accepted
   - Or join in string space and convert with `builtins.toPath (baseString + "/" + subpath)`
 - Document usage guidance (see below) and add troubleshooting notes.
 
+### API clarification (uv2nix)
+
+- `uv2nix.lib.workspace.loadWorkspace` currently accepts only `{ workspaceRoot = <path>; }`.
+- Do not pass `projectRoot` to `loadWorkspace` (unsupported). Instead, ensure `workspaceRoot` is a Nix path constructed from `jackpkgs.projectRoot` and the relative option value.
+
+### Practical caveat: editable environments
+
+- uv2nix’s editable overlay performs path math using `lib.path.*` that assumes path-typed inputs. Our module resolves `workspaceRoot` to a Nix path, but downstream overlay logic can still assert on paths under certain configurations.
+- Recommendation:
+  - Use the editable environment (`pythonEnvs.editable`) in the main developer shell where editable installs are needed.
+  - For minimal or CI-oriented shells (e.g., Pulumi), prefer a non-editable environment (`pythonEnvs.default`) to avoid unnecessary editable overlay path logic.
+  - When exporting env vars (e.g., `UV_PYTHON`), pass strings such as `lib.getExe drv` or `builtins.toString drv`, not Nix paths.
+
+### Future changes (shell guidance)
+
+- Editable dev shell:
+  - Continue to point `UV_PYTHON` (and similar) at the editable env using string values.
+  - Keep `pyprojectPath`, `uvLockPath`, `workspaceRoot` as relative strings; module resolves them against `jackpkgs.projectRoot`.
+
+- Non-editable/minimal dev shell (e.g., Pulumi):
+  - Point `UV_PYTHON` at the non-editable env (`pythonEnvs.default`).
+  - Avoid editable overlays unless explicitly required.
+
+### Does this undermine `jackpkgs.projectRoot`?
+
+- No. `jackpkgs.projectRoot` still provides the canonical Nix path for evaluation-time path resolution across modules (for `builtins.pathExists`, `readFile`, etc.). The uv2nix API nuance only means we pass a path-typed `workspaceRoot`; we still rely on `projectRoot` to construct that and other absolute paths.
+
 ## Usage Guidance
 
 ### Typical consumer configuration
