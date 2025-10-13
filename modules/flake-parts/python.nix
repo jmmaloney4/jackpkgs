@@ -180,10 +180,36 @@ in {
     }: let
       sysCfg = config.jackpkgs.python;
       # Resolve paths relative to the consumer project root
-      projectRoot = config._module.args.jackpkgsProjectRoot or inputs.self.outPath;
-      pyprojectPath = lib.path.append projectRoot cfg.pyprojectPath;
-      uvLockPath = lib.path.append projectRoot cfg.uvLockPath;
-      workspaceRoot = lib.path.append projectRoot cfg.workspaceRoot;
+      rawProjectRoot = config._module.args.jackpkgsProjectRoot or inputs.self.outPath;
+      projectRootString = builtins.toString rawProjectRoot;
+      projectRoot =
+        if builtins.isPath rawProjectRoot
+        then rawProjectRoot
+        else if lib.hasPrefix "/" projectRootString
+        then builtins.toPath projectRootString
+        else
+          throw
+          "jackpkgs.python: projectRoot must be a Nix path or absolute path string; got ${projectRootString}";
+      appendToProjectRoot = relPath:
+      # Build an absolute path in string space and convert to a Nix path.
+      # Avoid lib.path.normalise (not available in some lib versions) and
+      # trim duplicate separators conservatively.
+      let
+        baseString = builtins.toString projectRoot;
+        # relPath is a user-provided string option; ensure no leading '/'
+        sub =
+          if lib.hasPrefix "/" relPath
+          then builtins.substring 1 (builtins.stringLength relPath - 1) relPath
+          else relPath;
+        sep =
+          if lib.hasSuffix "/" baseString
+          then ""
+          else "/";
+      in
+        builtins.toPath (baseString + sep + sub);
+      pyprojectPath = appendToProjectRoot cfg.pyprojectPath;
+      uvLockPath = appendToProjectRoot cfg.uvLockPath;
+      workspaceRoot = appendToProjectRoot cfg.workspaceRoot;
 
       # Parse pyproject for project name (guarded to avoid eager failures)
       pyproject =
@@ -225,9 +251,10 @@ in {
       ensureSetuptools = final: prev: let
         add = name:
           if builtins.hasAttr name prev
-          then lib.nameValuePair name (prev.${name}.overrideAttrs (old: {
-            nativeBuildInputs = (old.nativeBuildInputs or []) ++ [final.setuptools];
-          }))
+          then
+            lib.nameValuePair name (prev.${name}.overrideAttrs (old: {
+              nativeBuildInputs = (old.nativeBuildInputs or []) ++ [final.setuptools];
+            }))
           else null;
         pairs = builtins.filter (x: x != null) (map add cfg.setuptools.packages);
       in
@@ -311,7 +338,14 @@ in {
         members ? null,
         root ? "$REPO_ROOT",
       }: let
-        overlayArgs = {inherit root;} // lib.optionalAttrs (members != null) {inherit members;};
+        # Coerce editable root to a Nix path for uv2nix overlay path math.
+        resolvedRoot =
+          if root == "$REPO_ROOT"
+          then projectRoot
+          else if lib.hasPrefix "/" root
+          then builtins.toPath root
+          else appendToProjectRoot root;
+        overlayArgs = {root = resolvedRoot;} // lib.optionalAttrs (members != null) {inherit members;};
         editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
         finalSpec =
           if spec != null
