@@ -52,6 +52,22 @@ Accepted
   - Minimal/CI shells: use non-editable env for `UV_PYTHON` (avoid editable overlay in CI).
   - Do not set editableRoot to a Nix path; keep it as `$REPO_ROOT` or an absolute non-store path string.
 
+### Example shellHook (developer shell)
+
+```sh
+# Resolve repository root at runtime (non-store path)
+repo_root="$(${lib.getExe config.flake-root.package})"
+export REPO_ROOT="$repo_root"
+
+# Use editable Python interpreter (string path)
+export UV_NO_SYNC="1"
+export UV_PYTHON="${lib.getExe pythonEnvs.editable}"
+export UV_PYTHON_DOWNLOADS="never"
+
+# Optional: make editable env's bin first
+export PATH="${pythonEnvs.editable}/bin:$PATH"
+```
+
 ## Alternatives Considered
 
 ### A — Publish editable envs as packages

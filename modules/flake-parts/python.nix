@@ -209,7 +209,8 @@ in {
         builtins.toPath (baseString + sep + sub);
       pyprojectPath = appendToProjectRoot cfg.pyprojectPath;
       uvLockPath = appendToProjectRoot cfg.uvLockPath;
-      workspaceRoot = appendToProjectRoot cfg.workspaceRoot;
+      # Use the canonical project root as workspaceRoot (path-typed) to satisfy uv2nix.
+      workspaceRoot = projectRoot;
 
       # Parse pyproject for project name (guarded to avoid eager failures)
       pyproject =
@@ -338,14 +339,8 @@ in {
         members ? null,
         root ? "$REPO_ROOT",
       }: let
-        # Coerce editable root to a Nix path for uv2nix overlay path math.
-        resolvedRoot =
-          if root == "$REPO_ROOT"
-          then projectRoot
-          else if lib.hasPrefix "/" root
-          then builtins.toPath root
-          else appendToProjectRoot root;
-        overlayArgs = {root = resolvedRoot;} // lib.optionalAttrs (members != null) {inherit members;};
+        # Keep editable root as a plain string (resolved at shell runtime).
+        overlayArgs = {root = root;} // lib.optionalAttrs (members != null) {inherit members;};
         editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
         finalSpec =
           if spec != null
@@ -405,13 +400,19 @@ in {
         (lib.optionalAttrs cfg.outputs.exposeEnvs {pythonEnvs = pythonEnvs;})
       ];
 
-      # Publish each env as packages.<name>
-      packages =
-        lib.mapAttrs' (
-          envKey: envCfg:
-            lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
+      # Publish only non-editable envs as packages.<name>
+      packages = lib.listToAttrs (
+        builtins.filter (x: x != null) (
+          lib.mapAttrsToList
+          (
+            envKey: envCfg:
+              if envCfg.editable
+              then null
+              else lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
+          )
+          cfg.environments
         )
-        cfg.environments;
+      );
     };
   };
 }
