@@ -338,7 +338,14 @@ in {
         members ? null,
         root ? "$REPO_ROOT",
       }: let
-        overlayArgs = {inherit root;} // lib.optionalAttrs (members != null) {inherit members;};
+        # Coerce editable root to a Nix path for uv2nix overlay path math.
+        resolvedRoot =
+          if root == "$REPO_ROOT"
+          then projectRoot
+          else if lib.hasPrefix "/" root
+          then builtins.toPath root
+          else appendToProjectRoot root;
+        overlayArgs = {root = resolvedRoot;} // lib.optionalAttrs (members != null) {inherit members;};
         editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
         finalSpec =
           if spec != null
