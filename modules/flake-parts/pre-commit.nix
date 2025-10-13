@@ -34,9 +34,9 @@ in {
         };
         nbstripoutPackage = mkOption {
           type = types.package;
-          default = pkgs.callPackage ../../pkgs/nbstripout {};
-          defaultText = "pkgs.callPackage ../../pkgs/nbstripout {}";
-          description = "Self-contained nbstripout package with no PATH pollution.";
+          default = pkgs.nbstripout;
+          defaultText = "pkgs.nbstripout";
+          description = "nbstripout package to use.";
         };
       };
     });

@@ -192,7 +192,6 @@ perSystem = { pkgs, config, ... }: {
 - `docfx` — .NET docs generator
 - `epub2tts` — EPUB → TTS
 - `lean` — Lean theorem prover
-- `nbstripout` — Strip outputs from Jupyter notebooks
 - `roon-server` — Roon server (x86_64-linux only)
 - `tod` — Todoist CLI
 
