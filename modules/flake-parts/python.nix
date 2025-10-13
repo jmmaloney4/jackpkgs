@@ -180,7 +180,11 @@ in {
     }: let
       sysCfg = config.jackpkgs.python;
       # Resolve paths relative to the consumer project root
-      projectRoot = config._module.args.jackpkgsProjectRoot or inputs.self.outPath;
+      rawProjectRoot = config._module.args.jackpkgsProjectRoot or inputs.self.outPath;
+      projectRoot =
+        if builtins.isPath rawProjectRoot
+        then rawProjectRoot
+        else builtins.toPath rawProjectRoot;
       pyprojectPath = lib.path.append projectRoot cfg.pyprojectPath;
       uvLockPath = lib.path.append projectRoot cfg.uvLockPath;
       workspaceRoot = lib.path.append projectRoot cfg.workspaceRoot;
