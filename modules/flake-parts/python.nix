@@ -191,7 +191,17 @@ in {
           throw
           "jackpkgs.python: projectRoot must be a Nix path or absolute path string; got ${projectRootString}";
       appendToProjectRoot = relPath:
-        lib.path.append projectRoot (lib.path.normalise relPath);
+      # Build an absolute path in string space and convert to a Nix path.
+      # This avoids relying on lib.path.append's strict path-type assertion.
+      let
+        baseString = builtins.toString projectRoot;
+        sub = lib.path.normalise relPath;
+        sep =
+          if lib.hasSuffix "/" baseString
+          then ""
+          else "/";
+      in
+        builtins.toPath (baseString + sep + sub);
       pyprojectPath = appendToProjectRoot cfg.pyprojectPath;
       uvLockPath = appendToProjectRoot cfg.uvLockPath;
       workspaceRoot = appendToProjectRoot cfg.workspaceRoot;
