@@ -144,6 +144,18 @@ in {
           default = false;
           description = "Add python devshell fragment to jackpkgs devShell via inputsFrom.";
         };
+
+        addEditableHookToDevShell = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Add editable Python shell hook fragment to jackpkgs devShell via inputsFrom.";
+        };
+
+        addEditableEnvToDevShell = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Include pythonEnvs.editable in the editable hook fragment packages list.";
+        };
       };
     };
 
@@ -157,6 +169,12 @@ in {
         type = types.package;
         readOnly = true;
         description = "Python devShell fragment to include in `inputsFrom`.";
+      };
+
+      options.jackpkgs.outputs.pythonEditableHook = mkOption {
+        type = types.package;
+        readOnly = true;
+        description = "Editable Python shell hook fragment to set REPO_ROOT/UV_PYTHON at runtime.";
       };
 
       options.jackpkgs.python = {
@@ -389,10 +407,28 @@ in {
         packages = [sysCfg.pythonPackage];
       };
 
+      # Reusable editable Python shell hook fragment
+      jackpkgs.outputs.pythonEditableHook = pkgs.mkShell {
+        packages = lib.optionals cfg.outputs.addEditableEnvToDevShell [pythonEnvs.editable];
+        shellHook = ''
+          repo_root="$(${lib.getExe config.flake-root.package})"
+          export REPO_ROOT="$repo_root"
+
+          export UV_NO_SYNC="1"
+          export UV_PYTHON="${lib.getExe pythonEnvs.editable}"
+          export UV_PYTHON_DOWNLOADS="never"
+          export PATH="${pythonEnvs.editable}/bin:$PATH"
+        '';
+      };
+
       # Optionally contribute this fragment to the composed devshell
-      jackpkgs.shell.inputsFrom = lib.optionals cfg.outputs.addToDevShell [
-        config.jackpkgs.outputs.pythonDevShell
-      ];
+      jackpkgs.shell.inputsFrom =
+        lib.optionals cfg.outputs.addToDevShell [
+          config.jackpkgs.outputs.pythonDevShell
+        ]
+        ++ lib.optionals cfg.outputs.addEditableHookToDevShell [
+          config.jackpkgs.outputs.pythonEditableHook
+        ];
 
       # Export module args for power users
       _module.args = lib.mkMerge [
