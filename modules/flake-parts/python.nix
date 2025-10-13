@@ -192,10 +192,15 @@ in {
           "jackpkgs.python: projectRoot must be a Nix path or absolute path string; got ${projectRootString}";
       appendToProjectRoot = relPath:
       # Build an absolute path in string space and convert to a Nix path.
-      # This avoids relying on lib.path.append's strict path-type assertion.
+      # Avoid lib.path.normalise (not available in some lib versions) and
+      # trim duplicate separators conservatively.
       let
         baseString = builtins.toString projectRoot;
-        sub = lib.path.normalise relPath;
+        # relPath is a user-provided string option; ensure no leading '/'
+        sub =
+          if lib.hasPrefix "/" relPath
+          then builtins.substring 1 (builtins.stringLength relPath - 1) relPath
+          else relPath;
         sep =
           if lib.hasSuffix "/" baseString
           then ""

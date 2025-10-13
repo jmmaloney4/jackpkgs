@@ -169,6 +169,15 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - Module args: `_module.args.pythonWorkspace`, `_module.args.pythonEnvs` (when enabled)
     - DevShell: `config.jackpkgs.outputs.pythonDevShell` (added to shared shell when `outputs.addToDevShell = true`)
 
+#### Path resolution (project root)
+
+- Core module `modules/flake-parts/project-root.nix` exposes `jackpkgs.projectRoot` (type: `path`, default `inputs.self.outPath`).
+- Modules resolve relative file options (e.g., `pyprojectPath`, `uvLockPath`, `workspaceRoot`) against this path during Nix evaluation.
+- To avoid Nix type errors when joining paths at eval-time, ensure:
+  - `jackpkgs.projectRoot` is a Nix path (e.g., `inputs.self.outPath` or `./.`), or an absolute path converted via `builtins.toPath`.
+  - Keep option values as relative strings; modules will resolve them.
+- See ADR-004 for details and troubleshooting: `docs/internal/designs/004-project-root-resolution.md`.
+
 ### DevShell usage pattern
 
 Include the shared shell in your own dev shell via `inputsFrom`:
