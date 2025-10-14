@@ -144,6 +144,25 @@ in {
           default = false;
           description = "Add python devshell fragment to jackpkgs devShell via inputsFrom.";
         };
+
+        # Editable devshell integration options
+        editableEnvKey = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          description = "Key of the environment to use for the editable shell hook. Defaults to the first environment with editable = true.";
+        };
+
+        addEditableEnvToDevShell = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Whether to add the selected editable environment package to the dev shell.";
+        };
+
+        addEditableHookToDevShell = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Whether to include the editable python shell hook in the composed dev shell.";
+        };
       };
     };
 
@@ -157,6 +176,13 @@ in {
         type = types.package;
         readOnly = true;
         description = "Python devShell fragment to include in `inputsFrom`.";
+      };
+
+      # Reusable editable Python shell hook fragment (read-only output option)
+      options.jackpkgs.outputs.pythonEditableHook = mkOption {
+        type = types.package;
+        readOnly = true;
+        description = "Editable Python shell hook fragment to include in `inputsFrom`.";
       };
 
       options.jackpkgs.python = {
@@ -394,10 +420,7 @@ in {
         packages = [sysCfg.pythonPackage];
       };
 
-      # Optionally contribute this fragment to the composed devshell
-      jackpkgs.shell.inputsFrom = lib.optionals cfg.outputs.addToDevShell [
-        config.jackpkgs.outputs.pythonDevShell
-      ];
+      # (removed) inputsFrom is defined above once to avoid duplicate attribute definitions
 
       # Ensure uv is available in the shared shell when python module is enabled
       jackpkgs.shell.packages = lib.mkAfter [pkgs.uv];
@@ -406,10 +429,20 @@ in {
       jackpkgs.outputs.pythonEditableHook = pkgs.mkShell (
         let
           configuredKey = cfg.outputs.editableEnvKey;
-          autoKey = let keys = lib.attrNames (lib.filterAttrs (_: envCfg: envCfg.editable) cfg.environments);
-                   in if keys == [] then null else lib.head keys;
-          selectedKey = if configuredKey != null then configuredKey else autoKey;
-          maybeEditable = if selectedKey == null then null else lib.attrByPath [selectedKey] null pythonEnvs;
+          autoKey = let
+            keys = lib.attrNames (lib.filterAttrs (_: envCfg: envCfg.editable) cfg.environments);
+          in
+            if keys == []
+            then null
+            else lib.head keys;
+          selectedKey =
+            if configuredKey != null
+            then configuredKey
+            else autoKey;
+          maybeEditable =
+            if selectedKey == null
+            then null
+            else lib.attrByPath [selectedKey] null pythonEnvs;
         in {
           packages = lib.optionals (cfg.outputs.addEditableEnvToDevShell && maybeEditable != null) [maybeEditable];
           shellHook = ''
@@ -417,23 +450,27 @@ in {
             export REPO_ROOT="$repo_root"
 
             ${lib.optionalString (maybeEditable != null) ''
-            export UV_NO_SYNC="1"
-            export UV_PYTHON="${lib.getExe maybeEditable}"
-            export UV_PYTHON_DOWNLOADS="false"
-            export PATH="${maybeEditable}/bin:$PATH"
+              export UV_NO_SYNC="1"
+              export UV_PYTHON="${lib.getExe maybeEditable}"
+              export UV_PYTHON_DOWNLOADS="false"
+              export PATH="${maybeEditable}/bin:$PATH"
             ''}
 
             ${lib.optionalString (maybeEditable == null) ''
-            echo "jackpkgs.python: no editable environment found; set jackpkgs.python.outputs.editableEnvKey or define one with editable = true" >&2
+              echo "jackpkgs.python: no editable environment found; set jackpkgs.python.outputs.editableEnvKey or define one with editable = true" >&2
             ''}
           '';
         }
       );
 
-      # Include the editable hook fragment in the composed shell when requested
-      jackpkgs.shell.inputsFrom = jackpkgs.shell.inputsFrom ++ lib.optionals cfg.outputs.addEditableHookToDevShell [
-        config.jackpkgs.outputs.pythonEditableHook
-      ];
+      # Compose devshell fragments in a single definition
+      jackpkgs.shell.inputsFrom =
+        lib.optionals cfg.outputs.addToDevShell [
+          config.jackpkgs.outputs.pythonDevShell
+        ]
+        ++ lib.optionals cfg.outputs.addEditableHookToDevShell [
+          config.jackpkgs.outputs.pythonEditableHook
+        ];
 
       # Export module args for power users
       _module.args = lib.mkMerge [
@@ -441,13 +478,18 @@ in {
         (lib.optionalAttrs cfg.outputs.exposeEnvs {pythonEnvs = pythonEnvs;})
       ];
 
-      # Publish each env as packages.<name>
-      packages =
-        lib.mapAttrs' (
-          envKey: envCfg:
-            lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
+      # Publish only non-editable envs as packages.<name>
+      packages = lib.listToAttrs (
+        builtins.filter (x: x != null) (
+          lib.mapAttrsToList (
+            envKey: envCfg:
+              if envCfg.editable
+              then null
+              else lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
+          )
+          cfg.environments
         )
-        cfg.environments;
+      );
     };
   };
 }

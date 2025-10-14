@@ -54,7 +54,7 @@ Accepted
 
 ### Example shellHook (developer shell)
 
-```sh
+```nix
 # Resolve repository root at runtime (non-store path)
 repo_root="$(${lib.getExe config.flake-root.package})"
 export REPO_ROOT="$repo_root"
