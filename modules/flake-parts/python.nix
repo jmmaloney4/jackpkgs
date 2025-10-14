@@ -144,18 +144,6 @@ in {
           default = false;
           description = "Add python devshell fragment to jackpkgs devShell via inputsFrom.";
         };
-
-        addEditableHookToDevShell = mkOption {
-          type = types.bool;
-          default = false;
-          description = "Add editable Python shell hook fragment to jackpkgs devShell via inputsFrom.";
-        };
-
-        addEditableEnvToDevShell = mkOption {
-          type = types.bool;
-          default = true;
-          description = "Include pythonEnvs.editable in the editable hook fragment packages list.";
-        };
       };
     };
 
@@ -169,12 +157,6 @@ in {
         type = types.package;
         readOnly = true;
         description = "Python devShell fragment to include in `inputsFrom`.";
-      };
-
-      options.jackpkgs.outputs.pythonEditableHook = mkOption {
-        type = types.package;
-        readOnly = true;
-        description = "Editable Python shell hook fragment to set REPO_ROOT/UV_PYTHON at runtime.";
       };
 
       options.jackpkgs.python = {
@@ -227,8 +209,7 @@ in {
         builtins.toPath (baseString + sep + sub);
       pyprojectPath = appendToProjectRoot cfg.pyprojectPath;
       uvLockPath = appendToProjectRoot cfg.uvLockPath;
-      # Use the canonical project root as workspaceRoot (path-typed) to satisfy uv2nix.
-      workspaceRoot = projectRoot;
+      workspaceRoot = appendToProjectRoot cfg.workspaceRoot;
 
       # Parse pyproject for project name (guarded to avoid eager failures)
       pyproject =
@@ -357,8 +338,14 @@ in {
         members ? null,
         root ? "$REPO_ROOT",
       }: let
-        # Keep editable root as a plain string (resolved at shell runtime).
-        overlayArgs = {root = root;} // lib.optionalAttrs (members != null) {inherit members;};
+        # Coerce editable root to a Nix path for uv2nix overlay path math.
+        resolvedRoot =
+          if root == "$REPO_ROOT"
+          then projectRoot
+          else if lib.hasPrefix "/" root
+          then builtins.toPath root
+          else appendToProjectRoot root;
+        overlayArgs = {root = resolvedRoot;} // lib.optionalAttrs (members != null) {inherit members;};
         editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
         finalSpec =
           if spec != null
@@ -407,30 +394,46 @@ in {
         packages = [sysCfg.pythonPackage];
       };
 
-      # Reusable editable Python shell hook fragment
-      jackpkgs.outputs.pythonEditableHook = pkgs.mkShell {
-        packages = lib.optionals cfg.outputs.addEditableEnvToDevShell [pythonEnvs.editable];
-        shellHook = ''
-          repo_root="$(${lib.getExe config.flake-root.package})"
-          export REPO_ROOT="$repo_root"
+      # Optionally contribute this fragment to the composed devshell
+      jackpkgs.shell.inputsFrom = lib.optionals cfg.outputs.addToDevShell [
+        config.jackpkgs.outputs.pythonDevShell
+      ];
 
-          export UV_NO_SYNC="1"
-          export UV_PYTHON="${lib.getExe pythonEnvs.editable}"
-          export UV_PYTHON_DOWNLOADS="false"
-          export PATH="${pythonEnvs.editable}/bin:$PATH"
-        '';
-      };
-
+      # Ensure uv is available in the shared shell when python module is enabled
       jackpkgs.shell.packages = lib.mkAfter [pkgs.uv];
 
-      # Optionally contribute this fragment to the composed devshell
-      jackpkgs.shell.inputsFrom =
-        lib.optionals cfg.outputs.addToDevShell [
-          config.jackpkgs.outputs.pythonDevShell
-        ]
-        ++ lib.optionals cfg.outputs.addEditableHookToDevShell [
-          config.jackpkgs.outputs.pythonEditableHook
-        ];
+      # Reusable editable Python shell hook fragment
+      jackpkgs.outputs.pythonEditableHook = pkgs.mkShell (
+        let
+          configuredKey = cfg.outputs.editableEnvKey;
+          autoKey = let keys = lib.attrNames (lib.filterAttrs (_: envCfg: envCfg.editable) cfg.environments);
+                   in if keys == [] then null else lib.head keys;
+          selectedKey = if configuredKey != null then configuredKey else autoKey;
+          maybeEditable = if selectedKey == null then null else lib.attrByPath [selectedKey] null pythonEnvs;
+        in {
+          packages = lib.optionals (cfg.outputs.addEditableEnvToDevShell && maybeEditable != null) [maybeEditable];
+          shellHook = ''
+            repo_root="$(${lib.getExe config.flake-root.package})"
+            export REPO_ROOT="$repo_root"
+
+            ${lib.optionalString (maybeEditable != null) ''
+            export UV_NO_SYNC="1"
+            export UV_PYTHON="${lib.getExe maybeEditable}"
+            export UV_PYTHON_DOWNLOADS="false"
+            export PATH="${maybeEditable}/bin:$PATH"
+            ''}
+
+            ${lib.optionalString (maybeEditable == null) ''
+            echo "jackpkgs.python: no editable environment found; set jackpkgs.python.outputs.editableEnvKey or define one with editable = true" >&2
+            ''}
+          '';
+        }
+      );
+
+      # Include the editable hook fragment in the composed shell when requested
+      jackpkgs.shell.inputsFrom = jackpkgs.shell.inputsFrom ++ lib.optionals cfg.outputs.addEditableHookToDevShell [
+        config.jackpkgs.outputs.pythonEditableHook
+      ];
 
       # Export module args for power users
       _module.args = lib.mkMerge [
@@ -438,19 +441,13 @@ in {
         (lib.optionalAttrs cfg.outputs.exposeEnvs {pythonEnvs = pythonEnvs;})
       ];
 
-      # Publish only non-editable envs as packages.<name>
-      packages = lib.listToAttrs (
-        builtins.filter (x: x != null) (
-          lib.mapAttrsToList
-          (
-            envKey: envCfg:
-              if envCfg.editable
-              then null
-              else lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
-          )
-          cfg.environments
+      # Publish each env as packages.<name>
+      packages =
+        lib.mapAttrs' (
+          envKey: envCfg:
+            lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
         )
-      );
+        cfg.environments;
     };
   };
 }

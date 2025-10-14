@@ -62,7 +62,7 @@ export REPO_ROOT="$repo_root"
 # Use editable Python interpreter (string path)
 export UV_NO_SYNC="1"
 export UV_PYTHON="${lib.getExe pythonEnvs.editable}"
-export UV_PYTHON_DOWNLOADS="never"
+export UV_PYTHON_DOWNLOADS="false"
 
 # Optional: make editable env's bin first
 export PATH="${pythonEnvs.editable}/bin:$PATH"
