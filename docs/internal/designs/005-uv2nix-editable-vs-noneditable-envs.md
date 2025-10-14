@@ -19,8 +19,8 @@ Accepted
   - Editable env: for interactive developer shells only.
   - Non-editable env: for flake package outputs and CI/minimal shells.
 - We WILL NOT publish editable environments as flake packages. They remain available via `_module.args.pythonEnvs.editable` for dev shells.
-- We WILL pass editableRoot as a string (e.g., `$REPO_ROOT`) so that it resolves to a real, non-store path at shell/runtime.
-- We WILL keep `workspaceRoot` (and other file inputs) as Nix paths at evaluation time for deterministic workspace loading, file checks, and parsing.
+- We WILL ensure the editable root is a non-store path. In `jackpkgs.python`, `editableRoot` defaults to `$REPO_ROOT` and is resolved to `jackpkgs.projectRoot` at evaluation time; therefore, when using editable envs, set `jackpkgs.projectRoot = ./.;` so it points to the working tree, not the Nix store. Avoid `inputs.self.outPath` for editable workflows.
+- We WILL keep `workspaceRoot` (and other file inputs) as relative strings in user config and resolve them to Nix paths at evaluation time for deterministic workspace loading, file checks, and parsing.
 
 ## Consequences
 
@@ -35,7 +35,7 @@ Accepted
 
 ### Risks & Mitigations
 - Risk: Editable root accidentally becomes a Nix store path.
-  - Mitigation: Keep editableRoot as a plain string like `$REPO_ROOT`; export `REPO_ROOT` in shellHook to the current checkout. Avoid coercing it to a Nix path.
+  - Mitigation: Ensure `jackpkgs.projectRoot = ./.;` when enabling editable envs so `$REPO_ROOT` resolves to the working tree. Avoid `inputs.self.outPath` for editables.
 - Risk: Developers try to build the editable env as a package.
   - Mitigation: Module only publishes non-editable envs as packages; document usage clearly.
 
@@ -55,7 +55,7 @@ Accepted
 ### Example shellHook (developer shell)
 
 ```nix
-# Resolve repository root at runtime (non-store path)
+# Resolve repository root at runtime (non-store path). With projectRoot = ./.; this matches the checkout.
 repo_root="$(${lib.getExe config.flake-root.package})"
 export REPO_ROOT="$repo_root"
 
@@ -84,7 +84,7 @@ export PATH="${pythonEnvs.editable}/bin:$PATH"
 
 ## Related
 
-- ADR-004: Project Root Resolution for flake-parts Modules
+- ADR-004: Project Root Resolution for flake-parts Modules (workspaceRoot is resolved to a Nix path at evaluation time and passed to uv2nix)
 - uv2nix workspace docs and overlay implementation (editable overlays and path requirements)
 
 ---

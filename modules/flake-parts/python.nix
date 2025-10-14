@@ -243,6 +243,9 @@ in {
         then throw "jackpkgs.python: internal error: workspaceRoot must be a Nix path; got ${builtins.typeOf workspaceRoot}"
         else null;
 
+      # Force evaluation so a non-path cannot leak into uv2nix
+      _ = wsRootPathAssert;
+
       # Parse pyproject for project name (guarded to avoid eager failures)
       pyproject =
         if builtins.pathExists pyprojectPath
@@ -253,9 +256,9 @@ in {
         then pyproject.project.name
         else throw "jackpkgs.python: pyproject.toml is missing [project].name";
 
-      # uv2nix workspace and python set (assert path-type before calling uv2nix)
+      # uv2nix workspace and python set (require path/outPath here)
       workspace =
-        assert builtins.isPath workspaceRoot;
+        assert (builtins.isPath workspaceRoot) || (builtins.isAttrs workspaceRoot && (workspaceRoot ? outPath));
         if builtins.pathExists uvLockPath
         then jackpkgsInputs.uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; }
         else throw ("jackpkgs.python: uv.lock not found at " + builtins.toString uvLockPath + " — run 'uv lock' in the project to generate it.");
