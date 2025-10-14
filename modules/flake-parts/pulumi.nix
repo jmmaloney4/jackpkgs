@@ -66,6 +66,9 @@ in {
             # Disable discovering additional plugins by examining $PATH.
             # Pulumi will download the relevant plugin versions instead.
             PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+            # Export configured backend and secrets provider
+            PULUMI_BACKEND_URL = cfg.backendUrl;
+            PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
           };
         };
 
