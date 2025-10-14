@@ -32,9 +32,9 @@ in {
       };
 
       workspaceRoot = mkOption {
-        type = types.str;
-        default = ".";
-        description = "Relative path to the uv workspace root (evaluated only when enabled).";
+        type = types.nullOr types.path;
+        default = null;
+        description = "Workspace root as a Nix path (e.g., ./.). Required when jackpkgs.python.enable = true.";
       };
 
       # Build configuration
@@ -144,6 +144,25 @@ in {
           default = false;
           description = "Add python devshell fragment to jackpkgs devShell via inputsFrom.";
         };
+
+        # Editable devshell integration options
+        editableEnvKey = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          description = "Key of the environment to use for the editable shell hook. Defaults to the first environment with editable = true.";
+        };
+
+        addEditableEnvToDevShell = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Whether to add the selected editable environment package to the dev shell.";
+        };
+
+        addEditableHookToDevShell = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Whether to include the editable python shell hook in the composed dev shell.";
+        };
       };
     };
 
@@ -157,6 +176,13 @@ in {
         type = types.package;
         readOnly = true;
         description = "Python devShell fragment to include in `inputsFrom`.";
+      };
+
+      # Reusable editable Python shell hook fragment (read-only output option)
+      options.jackpkgs.outputs.pythonEditableHook = mkOption {
+        type = types.package;
+        readOnly = true;
+        description = "Editable Python shell hook fragment to include in `inputsFrom`.";
       };
 
       options.jackpkgs.python = {
@@ -180,7 +206,7 @@ in {
     }: let
       sysCfg = config.jackpkgs.python;
       # Resolve paths relative to the consumer project root
-      rawProjectRoot = config._module.args.jackpkgsProjectRoot or inputs.self.outPath;
+      rawProjectRoot = config._module.args.jackpkgsProjectRoot or (config.jackpkgs.projectRoot or inputs.self.outPath);
       projectRootString = builtins.toString rawProjectRoot;
       projectRoot =
         if builtins.isPath rawProjectRoot
@@ -191,25 +217,44 @@ in {
           throw
           "jackpkgs.python: projectRoot must be a Nix path or absolute path string; got ${projectRootString}";
       appendToProjectRoot = relPath:
-      # Build an absolute path in string space and convert to a Nix path.
-      # Avoid lib.path.normalise (not available in some lib versions) and
-      # trim duplicate separators conservatively.
+      # Accept either a path or a relative string; join strings against projectRoot
       let
         baseString = builtins.toString projectRoot;
-        # relPath is a user-provided string option; ensure no leading '/'
-        sub =
-          if lib.hasPrefix "/" relPath
-          then builtins.substring 1 (builtins.stringLength relPath - 1) relPath
-          else relPath;
-        sep =
-          if lib.hasSuffix "/" baseString
-          then ""
-          else "/";
       in
-        builtins.toPath (baseString + sep + sub);
+        if builtins.isPath relPath
+        then relPath
+        else
+          (
+            # Build an absolute path in string space and convert to a Nix path.
+            # Avoid lib.path.normalise (not available in some lib versions) and
+            # trim duplicate separators conservatively.
+            let
+              sub =
+                if lib.hasPrefix "/" relPath
+                then builtins.substring 1 (builtins.stringLength relPath - 1) relPath
+                else relPath;
+              sep =
+                if lib.hasSuffix "/" baseString
+                then ""
+                else "/";
+            in
+              builtins.toPath (baseString + sep + sub)
+          );
       pyprojectPath = appendToProjectRoot cfg.pyprojectPath;
       uvLockPath = appendToProjectRoot cfg.uvLockPath;
-      workspaceRoot = appendToProjectRoot cfg.workspaceRoot;
+      workspaceRoot =
+        if cfg.workspaceRoot == "."
+        then projectRoot
+        else appendToProjectRoot cfg.workspaceRoot;
+
+      # Ensure uv2nix receives a Nix path for workspaceRoot (fail fast with a clear error)
+      wsRootPathAssert =
+        if (cfg.workspaceRoot == null) || (!builtins.isPath workspaceRoot)
+        then throw "jackpkgs.python: workspaceRoot (path) is required when jackpkgs.python.enable = true; set, e.g., ./."
+        else null;
+
+      # Force evaluation so a non-path cannot leak into uv2nix
+      __forceWsRootPathAssert = wsRootPathAssert;
 
       # Parse pyproject for project name (guarded to avoid eager failures)
       pyproject =
@@ -336,16 +381,13 @@ in {
         extras ? [],
         spec ? null,
         members ? null,
-        root ? "$REPO_ROOT",
+        root ? null,
       }: let
-        # Coerce editable root to a Nix path for uv2nix overlay path math.
-        resolvedRoot =
-          if root == "$REPO_ROOT"
-          then projectRoot
-          else if lib.hasPrefix "/" root
-          then builtins.toPath root
-          else appendToProjectRoot root;
-        overlayArgs = {root = resolvedRoot;} // lib.optionalAttrs (members != null) {inherit members;};
+        # Use flake-root by default, or accept an explicit runtime path string.
+        # The overlay expects a runtime-resolvable string, not a Nix store path.
+        defaultRoot = "$(${lib.getExe config.flake-root.package})";
+        finalRoot = if root != null then root else defaultRoot;
+        overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
         editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
         finalSpec =
           if spec != null
@@ -394,10 +436,57 @@ in {
         packages = [sysCfg.pythonPackage];
       };
 
-      # Optionally contribute this fragment to the composed devshell
-      jackpkgs.shell.inputsFrom = lib.optionals cfg.outputs.addToDevShell [
-        config.jackpkgs.outputs.pythonDevShell
-      ];
+      # (removed) inputsFrom is defined above once to avoid duplicate attribute definitions
+
+      # Ensure uv is available in the shared shell when python module is enabled
+      jackpkgs.shell.packages = lib.mkAfter [pkgs.uv];
+
+      # Reusable editable Python shell hook fragment
+      jackpkgs.outputs.pythonEditableHook = pkgs.mkShell (
+        let
+          configuredKey = cfg.outputs.editableEnvKey;
+          autoKey = let
+            keys = lib.attrNames (lib.filterAttrs (_: envCfg: envCfg.editable) cfg.environments);
+          in
+            if keys == []
+            then null
+            else lib.head keys;
+          selectedKey =
+            if configuredKey != null
+            then configuredKey
+            else autoKey;
+          maybeEditable =
+            if selectedKey == null
+            then null
+            else lib.attrByPath [selectedKey] null pythonEnvs;
+        in {
+          packages = lib.optionals (cfg.outputs.addEditableEnvToDevShell && maybeEditable != null) [maybeEditable];
+          shellHook = ''
+            repo_root="$(${lib.getExe config.flake-root.package})"
+            export REPO_ROOT="$repo_root"
+
+            ${lib.optionalString (maybeEditable != null) ''
+              export UV_NO_SYNC="1"
+              export UV_PYTHON="${lib.getExe maybeEditable}"
+              export UV_PYTHON_DOWNLOADS="false"
+              export PATH="${maybeEditable}/bin:$PATH"
+            ''}
+
+            ${lib.optionalString (maybeEditable == null) ''
+              echo "jackpkgs.python: no editable environment found; set jackpkgs.python.outputs.editableEnvKey or define one with editable = true" >&2
+            ''}
+          '';
+        }
+      );
+
+      # Compose devshell fragments in a single definition
+      jackpkgs.shell.inputsFrom =
+        lib.optionals cfg.outputs.addToDevShell [
+          config.jackpkgs.outputs.pythonDevShell
+        ]
+        ++ lib.optionals cfg.outputs.addEditableHookToDevShell [
+          config.jackpkgs.outputs.pythonEditableHook
+        ];
 
       # Export module args for power users
       _module.args = lib.mkMerge [
@@ -405,13 +494,18 @@ in {
         (lib.optionalAttrs cfg.outputs.exposeEnvs {pythonEnvs = pythonEnvs;})
       ];
 
-      # Publish each env as packages.<name>
-      packages =
-        lib.mapAttrs' (
-          envKey: envCfg:
-            lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
+      # Publish only non-editable envs as packages.<name>
+      packages = lib.listToAttrs (
+        builtins.filter (x: x != null) (
+          lib.mapAttrsToList (
+            envKey: envCfg:
+              if envCfg.editable
+              then null
+              else lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
+          )
+          cfg.environments
         )
-        cfg.environments;
+      );
     };
   };
 }
