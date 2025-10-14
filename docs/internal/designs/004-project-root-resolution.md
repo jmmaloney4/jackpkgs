@@ -16,7 +16,7 @@ Accepted
   - `jackpkgs.projectRoot : lib.types.path` (default: `inputs.self.outPath`).
   - This is propagated to `perSystem` modules as `_module.args.jackpkgsProjectRoot`.
 - All jackpkgs modules that need to resolve project-relative inputs MUST use `_module.args.jackpkgsProjectRoot` to build absolute Nix paths for evaluation-time operations.
-- Paths configurable by consumers (e.g., `pyprojectPath`, `uvLockPath`, `workspaceRoot`) SHOULD remain relative strings that are resolved against `jackpkgsProjectRoot` inside the module.
+- Paths configurable by consumers SHOULD remain friendly to evaluation-time resolution. `pyprojectPath` and `uvLockPath` stay as relative strings, while `workspaceRoot` MUST be provided as a path when the module enables uv2nix.
 - Minor improvement: path joining within modules MUST be robust against path/string mismatches. Concretely, modules SHOULD:
   - Accept `jackpkgs.projectRoot` as either a Nix path or an absolute path string convertible via `builtins.toPath`.
   - Construct absolute paths by joining in string space and converting with `builtins.toPath`, or by ensuring the base is a Nix path before using `lib.path.append`.
@@ -60,9 +60,10 @@ Accepted
 - Keep `jackpkgs/modules/flake-parts/project-root.nix` exposing:
   - `options.jackpkgs.projectRoot : lib.types.path = inputs.self.outPath`
   - `perSystem._module.args.jackpkgsProjectRoot = config.jackpkgs.projectRoot`
-- Ensure consumers (e.g., `python.nix`) resolve relative strings against `_module.args.jackpkgsProjectRoot` using robust join logic:
+- Ensure consumers (e.g., `python.nix`) resolve relative string options (`pyprojectPath`, `uvLockPath`) against `_module.args.jackpkgsProjectRoot` using robust join logic:
   - Either ensure base is a Nix path and use `lib.path.append base (subpath)`
   - Or join in string space and convert with `builtins.toPath (baseString + "/" + subpath)`
+- Require `workspaceRoot` to be provided as a path (e.g., `./.`) and validate it before invoking uv2nix.
 - Document usage guidance (see below) and add troubleshooting notes.
 
 ### API clarification (uv2nix)
@@ -82,7 +83,8 @@ Accepted
 
 - Editable dev shell:
   - Continue to point `UV_PYTHON` (and similar) at the editable env using string values.
-  - Keep `pyprojectPath`, `uvLockPath`, `workspaceRoot` as relative strings; module resolves them against `jackpkgs.projectRoot`.
+  - Keep `pyprojectPath` and `uvLockPath` as relative strings; the module resolves them against `jackpkgs.projectRoot`.
+  - Pass `workspaceRoot` as a path (`./.` in the typical case) so uv2nix receives a concrete location.
 
 - Non-editable/minimal dev shell (e.g., Pulumi):
   - Point `UV_PYTHON` at the non-editable env (`pythonEnvs.default`).
@@ -105,7 +107,7 @@ jackpkgs.python = {
   # Relative strings; module resolves against projectRoot
   pyprojectPath = "./pyproject.toml";
   uvLockPath = "./uv.lock";
-  workspaceRoot = ".";
+  workspaceRoot = ./.;
 };
 ```
 
@@ -127,6 +129,9 @@ jackpkgs.projectRoot = "../..";  # WRONG — not a Nix path
   - Cause: Base value was a string, not a Nix path, when joining subpaths at evaluation time.
   - Fix (consumer side): Ensure `jackpkgs.projectRoot` is a Nix path (e.g., `inputs.self.outPath` or a path literal like `./.`) or an absolute string converted via `builtins.toPath`.
   - Fix (module side): Before joining, coerce base to a Nix path or join in string space and apply `builtins.toPath`.
+- Error: `workspaceRoot (path) is required when jackpkgs.python.enable = true`
+  - Cause: The python module now requires a path-typed `workspaceRoot`.
+  - Fix: Provide a path literal such as `jackpkgs.python.workspaceRoot = ./.;` or an absolute path via `builtins.toPath`.
 
 ## Related
 

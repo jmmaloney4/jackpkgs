@@ -19,8 +19,8 @@ Accepted
   - Editable env: for interactive developer shells only.
   - Non-editable env: for flake package outputs and CI/minimal shells.
 - We WILL NOT publish editable environments as flake packages. They remain available via `_module.args.pythonEnvs.editable` for dev shells.
-- We WILL ensure the editable root is a non-store path. In `jackpkgs.python`, `editableRoot` defaults to `$REPO_ROOT` and is resolved to `jackpkgs.projectRoot` at evaluation time; therefore, when using editable envs, set `jackpkgs.projectRoot = ./.;` so it points to the working tree, not the Nix store. Avoid `inputs.self.outPath` for editable workflows.
-- We WILL keep `workspaceRoot` (and other file inputs) as relative strings in user config and resolve them to Nix paths at evaluation time for deterministic workspace loading, file checks, and parsing.
+- We WILL ensure the editable root is a non-store path by deferring to runtime path discovery. `jackpkgs.python` keeps `editableRoot = "$REPO_ROOT"` by default and the editable shell hook exports that variable using `flake-root`, so editable installs point at the live working tree. Consumers can still override `editableRoot` with an explicit absolute path when needed.
+- We WILL require `workspaceRoot` to be provided as a path (typically `./.`) so uv2nix receives a concrete location during evaluation. Other file inputs (`pyprojectPath`, `uvLockPath`) remain relative strings that the module resolves against the project root.
 
 ## Consequences
 
@@ -35,7 +35,7 @@ Accepted
 
 ### Risks & Mitigations
 - Risk: Editable root accidentally becomes a Nix store path.
-  - Mitigation: Ensure `jackpkgs.projectRoot = ./.;` when enabling editable envs so `$REPO_ROOT` resolves to the working tree. Avoid `inputs.self.outPath` for editables.
+  - Mitigation: Compose the editable shell hook (or set `editableRoot` explicitly) so `$REPO_ROOT` points at the live checkout before uv runs.
 - Risk: Developers try to build the editable env as a package.
   - Mitigation: Module only publishes non-editable envs as packages; document usage clearly.
 
@@ -47,15 +47,16 @@ Accepted
   - Publish only non-editable environments under `packages.<name>`; omit editable envs from package outputs.
 
 - In consumer projects (e.g., zeus):
-  - Keep `jackpkgs.projectRoot = ./.;` (or `inputs.self.outPath`) so eval-time path resolution uses real Nix paths.
-  - Default developer shell: use `pythonEnvs.editable`; export `REPO_ROOT` in `shellHook`; set `UV_PYTHON = lib.getExe pythonEnvs.editable`.
+  - Set `jackpkgs.python.workspaceRoot = ./.;` (or another path literal) so uv2nix reads the intended checkout.
+  - Leave `jackpkgs.projectRoot` at its default unless the repository layout requires an override; the editable hook discovers the live checkout at runtime.
+  - Default developer shell: use `pythonEnvs.editable` and compose the provided hook (`outputs.addEditableHookToDevShell = true` or `inputsFrom = [ config.jackpkgs.outputs.pythonEditableHook ]`), which exports `REPO_ROOT` and points `UV_PYTHON` at the editable interpreter.
   - Minimal/CI shells: use non-editable env for `UV_PYTHON` (avoid editable overlay in CI).
   - Do not set editableRoot to a Nix path; keep it as `$REPO_ROOT` or an absolute non-store path string.
 
 ### Example shellHook (developer shell)
 
 ```nix
-# Resolve repository root at runtime (non-store path). With projectRoot = ./.; this matches the checkout.
+# Provided hook already exports REPO_ROOT via flake-root; this snippet shows the resulting commands.
 repo_root="$(${lib.getExe config.flake-root.package})"
 export REPO_ROOT="$repo_root"
 
