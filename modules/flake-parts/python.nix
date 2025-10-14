@@ -144,6 +144,24 @@ in {
           default = false;
           description = "Add python devshell fragment to jackpkgs devShell via inputsFrom.";
         };
+
+        editableEnvKey = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          description = "Key of the environment to use for editable hook (null = auto-detect first editable env).";
+        };
+
+        addEditableEnvToDevShell = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Add editable environment to devShell packages.";
+        };
+
+        addEditableHookToDevShell = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Add editable hook (REPO_ROOT, UV_PYTHON, etc.) to devShell via inputsFrom.";
+        };
       };
     };
 
@@ -157,6 +175,12 @@ in {
         type = types.package;
         readOnly = true;
         description = "Python devShell fragment to include in `inputsFrom`.";
+      };
+
+      options.jackpkgs.outputs.pythonEditableHook = mkOption {
+        type = types.package;
+        readOnly = true;
+        description = "Python editable hook fragment to include in `inputsFrom`.";
       };
 
       options.jackpkgs.python = {
@@ -394,11 +418,6 @@ in {
         packages = [sysCfg.pythonPackage];
       };
 
-      # Optionally contribute this fragment to the composed devshell
-      jackpkgs.shell.inputsFrom = lib.optionals cfg.outputs.addToDevShell [
-        config.jackpkgs.outputs.pythonDevShell
-      ];
-
       # Ensure uv is available in the shared shell when python module is enabled
       jackpkgs.shell.packages = lib.mkAfter [pkgs.uv];
 
@@ -430,10 +449,14 @@ in {
         }
       );
 
-      # Include the editable hook fragment in the composed shell when requested
-      jackpkgs.shell.inputsFrom = jackpkgs.shell.inputsFrom ++ lib.optionals cfg.outputs.addEditableHookToDevShell [
-        config.jackpkgs.outputs.pythonEditableHook
-      ];
+      # Consolidate all inputsFrom contributions into a single assignment
+      jackpkgs.shell.inputsFrom =
+        lib.optionals cfg.outputs.addToDevShell [
+          config.jackpkgs.outputs.pythonDevShell
+        ]
+        ++ lib.optionals cfg.outputs.addEditableHookToDevShell [
+          config.jackpkgs.outputs.pythonEditableHook
+        ];
 
       # Export module args for power users
       _module.args = lib.mkMerge [
@@ -441,13 +464,13 @@ in {
         (lib.optionalAttrs cfg.outputs.exposeEnvs {pythonEnvs = pythonEnvs;})
       ];
 
-      # Publish each env as packages.<name>
+      # Publish only non-editable envs as packages.<name>
       packages =
         lib.mapAttrs' (
           envKey: envCfg:
             lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
         )
-        cfg.environments;
+        (lib.filterAttrs (_: envCfg: !envCfg.editable) cfg.environments);
     };
   };
 }
