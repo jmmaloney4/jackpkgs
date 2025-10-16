@@ -165,14 +165,24 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
     - `setuptools.packages` (list of str)
     - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru }`)
-      - **`spec`**: **required** — explicit dependency specification (e.g., `workspace.deps.default // { "my-pkg" = ["dev"]; }`)
+      - **`spec`**: optional (defaults to `workspace.deps.default`) — explicit dependency specification for customization (e.g., `workspace.deps.default // { "my-pkg" = ["dev"]; }`)
   - Outputs:
     - Packages: each env appears under `packages.<env.name>`
     - Module args: `_module.args.pythonWorkspace`, `_module.args.pythonEnvs` (when enabled)
     - DevShell: `config.jackpkgs.outputs.pythonDevShell` (added to shared shell when `outputs.addToDevShell = true`)
-  - Example:
+  - Examples:
     ```nix
-    perSystem = { config, pythonWorkspace, ... }: {
+    # Minimal - uses all dependencies from uv.lock
+    jackpkgs.python = {
+      enable = true;
+      workspaceRoot = ./.;
+      environments.dev = {
+        name = "python-dev";
+      };
+    };
+    
+    # With customization - add extras to specific packages
+    perSystem = { pythonWorkspace, ... }: {
       jackpkgs.python = {
         enable = true;
         workspaceRoot = ./.;
