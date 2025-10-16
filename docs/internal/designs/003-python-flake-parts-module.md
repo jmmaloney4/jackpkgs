@@ -36,24 +36,21 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
   - `darwin.sdkVersion` (str; default "15.0")
   - `setuptools.packages` (list of str; default `["peewee" "multitasking" "sgmllib3k"]`)
   - `extraOverlays` (list; default [])
-  - `environments` (attrset of: `{ name, extras, editable, editableRoot, members, spec, passthru }`)
-  - `outputs.exposeWorkspace` (bool; default true)
-  - `outputs.exposeEnvs` (bool; default true)
-  - `outputs.addToDevShell` (bool; default false)
-  - `outputs.editableEnvKey` (nullable string; default null)
-  - `outputs.addEditableEnvToDevShell` (bool; default false)
-  - `outputs.addEditableHookToDevShell` (bool; default false)
+  - `environments` (attrset of: `{ name, spec, editable, editableRoot, members, passthru }`)
+    - **`spec` is optional** (defaults to `workspace.deps.default`) — explicit dependency specification for customization
+    - **`editable`**: at most one environment may have `editable = true`
 
 - Per-system additions:
   - `jackpkgs.python.pythonPackage` (package; default `pkgs.python312`)
-  - Read-only outputs `jackpkgs.outputs.pythonDevShell` and `jackpkgs.outputs.pythonEditableHook`
+  - Read-only output `jackpkgs.outputs.pythonEditableHook` (automatically included in devshell)
 
 - Preconditions and assertions:
   - Inputs `uv2nix` and `pyproject-nix` must be present when enabled.
   - `workspaceRoot` must be set to a path (for example `./.`); the module asserts if it is unset or not a path.
-  - `pyproject.toml` must exist and contain `[project].name`.
-  - `uv.lock` must exist, with actionable remediation (“run 'uv lock'”).
+  - `pyproject.toml` must exist and contain either `[project].name` OR `[tool.uv.workspace]` (workspace-only mode).
+  - `uv.lock` must exist, with actionable remediation ("run 'uv lock'").
   - Environment package names must be unique across `environments`.
+  - **At most one environment may have `editable = true`**; fails with clear error if violated.
 
 - Workspace and overlays:
   - Loads workspace via `uv2nix.lib.workspace.loadWorkspace`.
@@ -61,14 +58,15 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
   - Base python set from `pyproject-nix.build.packages`.
   - Overlay composition: project overlay (with `sourcePreference`) + optional `pyproject-build-systems` overlays + `ensureSetuptools` overlay + `extraOverlays`.
 
-- Environment builders (zeus parity):
-  - `mkEnv`, `mkEditableEnv`, `mkEnvForSpec`, `specWithExtras`.
+- Environment builders (simplified from zeus):
+  - `mkEnv`, `mkEditableEnv`, `mkEnvForSpec`.
   - `meta.mainProgram = "python"` + activation script fixups in `postFixup`.
+  - **Breaking change (ADR-006)**: `extras` and `specWithExtras` removed entirely; all environments require explicit `spec` configuration.
 
 - Exports:
   - `packages.<env.name>` for each non-editable environment.
-  - `_module.args.pythonWorkspace` and `_module.args.pythonEnvs` when enabled.
-  - Devshell fragments `jackpkgs.outputs.pythonDevShell` (base interpreter) and `jackpkgs.outputs.pythonEditableHook`; each may be composed into the shared shell via the corresponding `outputs.*` flags.
+  - `_module.args.pythonWorkspace` (always exposed for use in environment specs).
+  - Editable environment automatically included in devshell via `jackpkgs.outputs.pythonEditableHook` (sets PATH, UV_PYTHON, REPO_ROOT).
 
 ## Inputs (consumer flake.nix)
 
@@ -98,7 +96,7 @@ inputs = {
 
 ## Quick Start
 
-Minimal default environment (non-editable env exported as package):
+Minimal default environment (uses all dependencies from uv.lock):
 
 ```nix
 imports = [ inputs.jackpkgs.flakeModules.python ];
@@ -106,23 +104,40 @@ imports = [ inputs.jackpkgs.flakeModules.python ];
 jackpkgs.python = {
   enable = true;
   workspaceRoot = ./.;
-  environments.default.name = "python-env";
+  environments.default = {
+    name = "python-env";
+  };
 };
 ```
 
-Default + Jupyter extras + editable dev env:
+Multiple environments with explicit specs:
 
 ```nix
 imports = [ inputs.jackpkgs.flakeModules.python ];
 
-jackpkgs.python = {
-  enable = true;
-  workspaceRoot = ./.;
-  outputs.addToDevShell = true; # include python fragment in the shared devshell
-  environments = {
-    default = { name = "python-env"; };
-    jupyter = { name = "python-env-jupyter"; extras = ["jupyter"]; };
-    dev = { name = "python-env-editable"; editable = true; };
+perSystem = { pythonWorkspace, ... }: {
+  jackpkgs.python = {
+    enable = true;
+    workspaceRoot = ./.;
+    environments = {
+      default = {
+        name = "python-env";
+        spec = pythonWorkspace.defaultSpec;
+      };
+      jupyter = {
+        name = "python-env-jupyter";
+        spec = pythonWorkspace.defaultSpec // {
+          "my-package" = ["jupyter"];
+        };
+      };
+      dev = {
+        name = "python-env-editable";
+        editable = true;  # Automatically included in devshell
+        spec = pythonWorkspace.defaultSpec // {
+          "my-package" = ["dev" "test"];
+        };
+      };
+    };
   };
 };
 ```
@@ -135,10 +150,32 @@ perSystem = { pkgs, ... }: {
 };
 ```
 
+Workspace-only configuration (no `[project]` section):
+
+```nix
+imports = [ inputs.jackpkgs.flakeModules.python ];
+
+perSystem = { config, pythonWorkspace, ... }: {
+  jackpkgs.python = {
+    enable = true;
+    workspaceRoot = ./.;
+    environments = {
+      dev = {
+        name = "python-dev";
+        spec = pythonWorkspace.defaultSpec // {
+          "package-a" = ["dev" "test"];
+          "package-b" = ["dev"];
+        };
+      };
+    };
+  };
+};
+```
+
 Build/run examples:
 - `nix build .#python-env`
 - `nix run .#python-env` (works via `meta.mainProgram = "python"`)
-- `nix develop` includes the python devshell fragment if `outputs.addToDevShell = true` and you compose `config.jackpkgs.outputs.devShell` in your dev shell.
+- `nix develop` automatically includes the editable environment when one is defined.
 
 ## Troubleshooting
 
@@ -150,21 +187,25 @@ Build/run examples:
   - Error: “workspaceRoot (path) is required when jackpkgs.python.enable = true …”
   - Fix: Set `jackpkgs.python.workspaceRoot = ./.;` (or an absolute path) so the module can pass a real Nix path to uv2nix.
 
-- `pyproject.toml` missing `[project].name`
-  - Error: “pyproject.toml is missing [project].name”
-  - Fix: Add `project.name` to pyproject.toml.
+- `pyproject.toml` missing `[project]` or `[tool.uv.workspace]`
+  - Error: "pyproject.toml must contain [project] or [tool.uv.workspace]"
+  - Fix: Add `[project]` section with `name` field, or add `[tool.uv.workspace]` section for workspace-only repos.
 
 - Duplicate environment names
-  - Error: “duplicate environment package names detected”
+  - Error: "duplicate environment package names detected"
   - Fix: Ensure each `environments.<key>.name` is unique; consider a naming convention like `<repo>-<variant>`.
+
+- Multiple editable environments
+  - Error: "at most one environment may have editable = true; found: ..."
+  - Fix: Only one environment can be editable. Choose which environment should be your development environment and set `editable = true` only for that one.
 
 - Darwin SDK mismatches
   - Symptom: build failures on macOS related to SDK/headers.
   - Fix: Override `jackpkgs.python.darwin.sdkVersion` to match your Xcode/SDK; default is "15.0".
 
 - Editable mode root
-  - Default `editableRoot = "$REPO_ROOT"` expects your devshell to export `REPO_ROOT` (e.g., via flake-root). If unset, pass an explicit path in `editableRoot` or ensure your shell composes a fragment that sets it.
-  - Remember that editable environments are not exported under `packages`; access them via `_module.args.pythonEnvs`.
+  - Default `editableRoot = "$REPO_ROOT"` is set automatically via flake-root in the devshell.
+  - Editable environments are not exported under `packages`; they're automatically available in `nix develop`.
 
 - Wheels vs sdist behavior
   - `sourcePreference` controls preference only; fallbacks depend on upstream availability and the build-systems overlays when present. If a wheel is missing, sdist may be used; document/package-specific nuances may apply.
