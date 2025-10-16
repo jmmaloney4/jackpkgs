@@ -36,7 +36,8 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
   - `darwin.sdkVersion` (str; default "15.0")
   - `setuptools.packages` (list of str; default `["peewee" "multitasking" "sgmllib3k"]`)
   - `extraOverlays` (list; default [])
-  - `environments` (attrset of: `{ name, extras, editable, editableRoot, members, spec, passthru }`)
+  - `environments` (attrset of: `{ name, spec, editable, editableRoot, members, passthru }`)
+    - **`spec` is required** — explicit dependency specification
   - `outputs.exposeWorkspace` (bool; default true)
   - `outputs.exposeEnvs` (bool; default true)
   - `outputs.addToDevShell` (bool; default false)
@@ -61,10 +62,10 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
   - Base python set from `pyproject-nix.build.packages`.
   - Overlay composition: project overlay (with `sourcePreference`) + optional `pyproject-build-systems` overlays + `ensureSetuptools` overlay + `extraOverlays`.
 
-- Environment builders (zeus parity):
-  - `mkEnv`, `mkEditableEnv`, `mkEnvForSpec`, `specWithExtras`.
+- Environment builders (simplified from zeus):
+  - `mkEnv`, `mkEditableEnv`, `mkEnvForSpec`.
   - `meta.mainProgram = "python"` + activation script fixups in `postFixup`.
-  - **Workspace-only support**: `extras` option only works with `[project]` section; workspace-only projects must use explicit `spec` configuration (see ADR-006).
+  - **Breaking change (ADR-006)**: `extras` and `specWithExtras` removed entirely; all environments require explicit `spec` configuration.
 
 - Exports:
   - `packages.<env.name>` for each non-editable environment.
@@ -104,26 +105,47 @@ Minimal default environment (non-editable env exported as package):
 ```nix
 imports = [ inputs.jackpkgs.flakeModules.python ];
 
-jackpkgs.python = {
-  enable = true;
-  workspaceRoot = ./.;
-  environments.default.name = "python-env";
+perSystem = { pythonWorkspace, ... }: {
+  jackpkgs.python = {
+    enable = true;
+    workspaceRoot = ./.;
+    environments.default = {
+      name = "python-env";
+      spec = pythonWorkspace.defaultSpec;
+    };
+  };
 };
 ```
 
-Default + Jupyter extras + editable dev env:
+Multiple environments with explicit specs:
 
 ```nix
 imports = [ inputs.jackpkgs.flakeModules.python ];
 
-jackpkgs.python = {
-  enable = true;
-  workspaceRoot = ./.;
-  outputs.addToDevShell = true; # include python fragment in the shared devshell
-  environments = {
-    default = { name = "python-env"; };
-    jupyter = { name = "python-env-jupyter"; extras = ["jupyter"]; };
-    dev = { name = "python-env-editable"; editable = true; };
+perSystem = { pythonWorkspace, ... }: {
+  jackpkgs.python = {
+    enable = true;
+    workspaceRoot = ./.;
+    outputs.addToDevShell = true; # include python fragment in the shared devshell
+    environments = {
+      default = {
+        name = "python-env";
+        spec = pythonWorkspace.defaultSpec;
+      };
+      jupyter = {
+        name = "python-env-jupyter";
+        spec = pythonWorkspace.defaultSpec // {
+          "my-package" = ["jupyter"];
+        };
+      };
+      dev = {
+        name = "python-env-editable";
+        editable = true;
+        spec = pythonWorkspace.defaultSpec // {
+          "my-package" = ["dev" "test"];
+        };
+      };
+    };
   };
 };
 ```
@@ -177,9 +199,9 @@ Build/run examples:
   - Error: "pyproject.toml must contain [project] or [tool.uv.workspace]"
   - Fix: Add `[project]` section with `name` field, or add `[tool.uv.workspace]` section for workspace-only repos.
   
-- Using `extras` in workspace-only mode
-  - Error: "'extras' option is not supported in workspace-only mode (no [project] section)"
-  - Fix: Use explicit `spec` configuration instead (see ADR-006 for examples).
+- Missing `spec` in environment definition
+  - Error: "'spec' is required for environment '<name>'"
+  - Fix: Provide explicit dependency specification using `pythonWorkspace.defaultSpec` as a base (see ADR-006 for examples).
 
 - Duplicate environment names
   - Error: “duplicate environment package names detected”
