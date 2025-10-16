@@ -337,55 +337,30 @@ in {
 
       mkEnv = {
         name,
-        spec,
-      }:
-        if spec == null
-        then throw ''
-          jackpkgs.python: 'spec' is required for environment '${name}'.
-          
-          Provide explicit dependency specification:
-          
-            environments.${name} = {
-              name = "${name}";
-              spec = workspace.deps.default // {
-                "your-package" = ["dev" "test"];
-              };
-            };
-        ''
-        else mkEnvForSpec {inherit name spec;};
+        spec ? null,
+      }: let
+        finalSpec = if spec == null then defaultSpec else spec;
+      in
+        mkEnvForSpec {inherit name; spec = finalSpec;};
 
       mkEditableEnv = {
         name,
-        spec,
+        spec ? null,
         members ? null,
         root ? null,
-      }:
-        if spec == null
-        then throw ''
-          jackpkgs.python: 'spec' is required for editable environment '${name}'.
-          
-          Provide explicit dependency specification:
-          
-            environments.${name} = {
-              name = "${name}";
-              editable = true;
-              spec = workspace.deps.default // {
-                "your-package" = ["dev" "test"];
-              };
-            };
-        ''
-        else let
-          # Use flake-root by default, or accept an explicit runtime path string.
-          # The overlay expects a runtime-resolvable string, not a Nix store path.
-          defaultRoot = "$(${lib.getExe config.flake-root.package})";
-          finalRoot =
-            if root != null
-            then root
-            else defaultRoot;
-          overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
-          editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
-        in
-          addMainProgram (editableSet.mkVirtualEnv name spec);
+      }: let
+        finalSpec = if spec == null then defaultSpec else spec;
+        # Use flake-root by default, or accept an explicit runtime path string.
+        # The overlay expects a runtime-resolvable string, not a Nix store path.
+        defaultRoot = "$(${lib.getExe config.flake-root.package})";
+        finalRoot =
+          if root != null
+          then root
+          else defaultRoot;
+        overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
+        editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
+      in
+        addMainProgram (editableSet.mkVirtualEnv name finalSpec);
 
       pythonWorkspace = {
         inherit workspace pythonSet defaultSpec;
