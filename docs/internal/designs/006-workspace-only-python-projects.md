@@ -67,7 +67,7 @@ We WILL simplify to **workspace-only Python projects** by:
 
 3. **No new configuration options**: No `workspaceName`, no `includeRootDistribution`, no `extrasTarget`, no `extras`. Keep the API surface minimal.
 
-4. **Clear error messages**: When `spec` is null, throw an actionable error directing users to provide explicit spec.
+4. **Sensible default**: When `spec` is null, defaults to `workspace.deps.default` (all dependencies from uv.lock). Users can customize by providing explicit `spec` configuration.
 
 ### Rationale
 
@@ -139,7 +139,8 @@ perSystem = { config, pythonWorkspace, ... }: {
     environments.dev = {
       name = "python-dev";
       spec = pythonWorkspace.defaultSpec // {
-        "zeus-core" = pythonWorkspace.defaultSpec."zeus-core" ++ ["dev"];
+        # Use `or []` to safely handle cases where the package might not be in defaultSpec
+        "zeus-core" = (pythonWorkspace.defaultSpec."zeus-core" or []) ++ ["dev"];
       };
     };
   };
@@ -243,32 +244,43 @@ environments.dev = {
 ## Implementation Plan
 
 ### Phase 1: Code Changes
-1. Update validation logic in `modules/flake-parts/python.nix`:
-   - Add `hasProject` and `hasWorkspace` checks
-   - Relax `projectName` validation to accept workspace-only mode
-   - Add error in `specWithExtras` when `extras` is used without `[project]`
+1. Update `modules/flake-parts/python.nix`:
+   - Relax validation to accept `[tool.uv.workspace]` without `[project]` section
+   - Remove `extras` option from environment configuration entirely
+   - Remove `specWithExtras`, `projectName`, `targetName`, `ensureList` functions and related logic (~60 lines)
+   - Simplify environment builders (`mkEnv`, `mkEditableEnv`) to only use `spec` parameter (defaults to `defaultSpec` when null)
+   - Remove all `outputs.*` configuration options (`exposeWorkspace`, `exposeEnvs`, `addToDevShell`, `editableEnvKey`, `addEditableEnvToDevShell`, `addEditableHookToDevShell`)
+   - Auto-include editable environment hook in devshell (via `jackpkgs.shell.inputsFrom`)
+   - Add validation that at most one environment can have `editable = true`
+   - Remove `pythonDevShell` output (no longer needed)
+   - Always expose `pythonWorkspace` as module arg (no toggle needed)
 2. Test locally with a workspace-only fixture
 
 ### Phase 2: Documentation
 1. Update `README.md`:
-   - Remove `[project].name` requirement from python module docs
-   - Add workspace-only example with explicit `spec`
-   - Clarify that `extras` requires a root distribution
+   - Document support for both `[project]` and `[tool.uv.workspace]`
+   - Remove `extras` from environment configuration options
+   - Add examples showing explicit `spec` configuration
+   - Document that `spec` defaults to `workspace.deps.default` when null
+   - Document that editable environments are automatically included in devshell
 2. Update `docs/internal/designs/003-python-flake-parts-module.md`:
    - Document workspace-only support
-   - Update constraints section
-   - Add examples for both modes
+   - Update constraints section to accept `[project]` OR `[tool.uv.workspace]`
+   - Remove `extras` from environment builder documentation
+   - Add examples for workspace-only configuration
+   - Update troubleshooting section
 3. Create this ADR (006)
 
 ### Phase 3: Validation
 1. Build test environments (editable + non-editable) in workspace-only repo
-2. Verify error message clarity when `extras` is misused
-3. Confirm backwards compatibility with existing root-distribution repos
+2. Run `nix flake check` to verify module evaluates correctly
+3. Confirm that `spec` defaults to `defaultSpec` when null
 
 ### Rollout Considerations
-- **Breaking change risk**: Low — only affects undocumented fallback behavior
-- **Migration path**: Users relying on `extras` in workspace-only repos will get clear error with migration example
-- **Rollback**: Simply revert validation changes; no persistent state affected
+- **Breaking change**: High — `extras` option removed entirely; all existing configs using `extras` must migrate to explicit `spec`
+- **Migration path**: Replace `extras = ["foo"]` with `spec = pythonWorkspace.defaultSpec // { "package-name" = ["foo"]; }`
+- **Simplification benefit**: Removes ~60 lines of conditional logic, multiple configuration options, and implicit behavior
+- **Rollback**: Revert entire commit; no persistent state affected
 
 ## Related
 
