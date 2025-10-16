@@ -261,10 +261,16 @@ in {
         if builtins.pathExists pyprojectPath
         then builtins.fromTOML (builtins.readFile pyprojectPath)
         else {};
+
+      hasProject = pyproject ? project && pyproject.project ? name;
+      hasWorkspace = pyproject ? tool && pyproject.tool ? uv && pyproject.tool.uv ? workspace;
+
       projectName =
-        if pyproject ? project && pyproject.project ? name
+        if hasProject
         then pyproject.project.name
-        else throw "jackpkgs.python: pyproject.toml is missing [project].name";
+        else if hasWorkspace
+        then "workspace" # Generic placeholder for pythonWorkspace passthru only
+        else throw "jackpkgs.python: pyproject.toml must contain [project] or [tool.uv.workspace]";
 
       # uv2nix workspace and python set
       workspace =
@@ -334,6 +340,21 @@ in {
       in
         if extrasList == []
         then defaultSpec
+        else if !hasProject
+        then
+          throw ''
+            jackpkgs.python: 'extras' option is not supported in workspace-only mode (no [project] section).
+
+            Use explicit 'spec' configuration instead:
+
+              environments.dev = {
+                name = "dev";
+                spec = workspace.deps.default // {
+                  "your-package" = ["dev" "test"];
+                  "another-package" = ["dev"];
+                };
+              };
+          ''
         else
           defaultSpec
           // {
@@ -386,7 +407,10 @@ in {
         # Use flake-root by default, or accept an explicit runtime path string.
         # The overlay expects a runtime-resolvable string, not a Nix store path.
         defaultRoot = "$(${lib.getExe config.flake-root.package})";
-        finalRoot = if root != null then root else defaultRoot;
+        finalRoot =
+          if root != null
+          then root
+          else defaultRoot;
         overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
         editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
         finalSpec =

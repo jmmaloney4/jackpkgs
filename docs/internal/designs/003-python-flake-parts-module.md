@@ -51,8 +51,8 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
 - Preconditions and assertions:
   - Inputs `uv2nix` and `pyproject-nix` must be present when enabled.
   - `workspaceRoot` must be set to a path (for example `./.`); the module asserts if it is unset or not a path.
-  - `pyproject.toml` must exist and contain `[project].name`.
-  - `uv.lock` must exist, with actionable remediation (“run 'uv lock'”).
+  - `pyproject.toml` must exist and contain either `[project].name` OR `[tool.uv.workspace]` (workspace-only mode).
+  - `uv.lock` must exist, with actionable remediation ("run 'uv lock'").
   - Environment package names must be unique across `environments`.
 
 - Workspace and overlays:
@@ -64,6 +64,7 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
 - Environment builders (zeus parity):
   - `mkEnv`, `mkEditableEnv`, `mkEnvForSpec`, `specWithExtras`.
   - `meta.mainProgram = "python"` + activation script fixups in `postFixup`.
+  - **Workspace-only support**: `extras` option only works with `[project]` section; workspace-only projects must use explicit `spec` configuration (see ADR-006).
 
 - Exports:
   - `packages.<env.name>` for each non-editable environment.
@@ -135,6 +136,28 @@ perSystem = { pkgs, ... }: {
 };
 ```
 
+Workspace-only configuration (no `[project]` section):
+
+```nix
+imports = [ inputs.jackpkgs.flakeModules.python ];
+
+perSystem = { config, pythonWorkspace, ... }: {
+  jackpkgs.python = {
+    enable = true;
+    workspaceRoot = ./.;
+    environments = {
+      dev = {
+        name = "python-dev";
+        spec = pythonWorkspace.defaultSpec // {
+          "package-a" = ["dev" "test"];
+          "package-b" = ["dev"];
+        };
+      };
+    };
+  };
+};
+```
+
 Build/run examples:
 - `nix build .#python-env`
 - `nix run .#python-env` (works via `meta.mainProgram = "python"`)
@@ -150,9 +173,13 @@ Build/run examples:
   - Error: “workspaceRoot (path) is required when jackpkgs.python.enable = true …”
   - Fix: Set `jackpkgs.python.workspaceRoot = ./.;` (or an absolute path) so the module can pass a real Nix path to uv2nix.
 
-- `pyproject.toml` missing `[project].name`
-  - Error: “pyproject.toml is missing [project].name”
-  - Fix: Add `project.name` to pyproject.toml.
+- `pyproject.toml` missing `[project]` or `[tool.uv.workspace]`
+  - Error: "pyproject.toml must contain [project] or [tool.uv.workspace]"
+  - Fix: Add `[project]` section with `name` field, or add `[tool.uv.workspace]` section for workspace-only repos.
+  
+- Using `extras` in workspace-only mode
+  - Error: "'extras' option is not supported in workspace-only mode (no [project] section)"
+  - Fix: Use explicit `spec` configuration instead (see ADR-006 for examples).
 
 - Duplicate environment names
   - Error: “duplicate environment package names detected”

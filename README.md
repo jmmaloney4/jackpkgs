@@ -155,6 +155,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 
 - python (`modules/flake-parts/python.nix`)
   - Opinionated Python envs using uv2nix; publishes env packages and exposes workspace helpers.
+  - Supports both standard projects (with `[project]`) and workspace-only repos (with `[tool.uv.workspace]` only).
   - Options under `jackpkgs.python` (selected):
     - `enable` (bool, default `false`)
     - `pyprojectPath` (str, default `./pyproject.toml`)
@@ -164,10 +165,37 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
     - `setuptools.packages` (list of str)
     - `environments` (attrset of env defs: `{ name, extras, editable, editableRoot, members, spec, passthru }`)
+      - `extras`: applies to root `[project]` only (not available in workspace-only mode)
+      - `spec`: explicit dependency specification (required for workspace-only projects)
   - Outputs:
     - Packages: each env appears under `packages.<env.name>`
     - Module args: `_module.args.pythonWorkspace`, `_module.args.pythonEnvs` (when enabled)
     - DevShell: `config.jackpkgs.outputs.pythonDevShell` (added to shared shell when `outputs.addToDevShell = true`)
+  - Examples:
+    ```nix
+    # Standard project (with [project]):
+    jackpkgs.python = {
+      enable = true;
+      workspaceRoot = ./.;
+      environments.dev = {
+        name = "python-dev";
+        extras = ["dev" "test"];  # Applied to root project
+      };
+    };
+    
+    # Workspace-only (no [project]):
+    jackpkgs.python = {
+      enable = true;
+      workspaceRoot = ./.;
+      environments.dev = {
+        name = "python-dev";
+        spec = workspace.deps.default // {
+          "package-a" = ["dev" "test"];
+          "package-b" = ["dev"];
+        };
+      };
+    };
+    ```
 
 #### Path resolution (project root)
 
