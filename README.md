@@ -164,34 +164,23 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `pythonPackage` (package, default `pkgs.python312`)
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
     - `setuptools.packages` (list of str)
-    - `environments` (attrset of env defs: `{ name, extras, editable, editableRoot, members, spec, passthru }`)
-      - `extras`: applies to root `[project]` only (not available in workspace-only mode)
-      - `spec`: explicit dependency specification (required for workspace-only projects)
+    - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru }`)
+      - **`spec`**: **required** — explicit dependency specification (e.g., `workspace.deps.default // { "my-pkg" = ["dev"]; }`)
   - Outputs:
     - Packages: each env appears under `packages.<env.name>`
     - Module args: `_module.args.pythonWorkspace`, `_module.args.pythonEnvs` (when enabled)
     - DevShell: `config.jackpkgs.outputs.pythonDevShell` (added to shared shell when `outputs.addToDevShell = true`)
-  - Examples:
+  - Example:
     ```nix
-    # Standard project (with [project]):
-    jackpkgs.python = {
-      enable = true;
-      workspaceRoot = ./.;
-      environments.dev = {
-        name = "python-dev";
-        extras = ["dev" "test"];  # Applied to root project
-      };
-    };
-    
-    # Workspace-only (no [project]):
-    jackpkgs.python = {
-      enable = true;
-      workspaceRoot = ./.;
-      environments.dev = {
-        name = "python-dev";
-        spec = workspace.deps.default // {
-          "package-a" = ["dev" "test"];
-          "package-b" = ["dev"];
+    perSystem = { config, pythonWorkspace, ... }: {
+      jackpkgs.python = {
+        enable = true;
+        workspaceRoot = ./.;
+        environments.dev = {
+          name = "python-dev";
+          spec = pythonWorkspace.defaultSpec // {
+            "my-package" = ["dev" "test"];
+          };
         };
       };
     };
