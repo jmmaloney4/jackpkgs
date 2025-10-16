@@ -380,6 +380,9 @@ in {
         config.jackpkgs.outputs.pythonEditableHook
       ];
 
+      # Ensure uv is available in the devshell when python module is enabled
+      jackpkgs.shell.packages = lib.mkIf cfg.enable [pkgs.uv];
+
       # Always expose pythonWorkspace as module arg
       _module.args.pythonWorkspace = pythonWorkspace;
 
