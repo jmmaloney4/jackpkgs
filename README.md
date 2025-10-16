@@ -166,10 +166,11 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `setuptools.packages` (list of str)
     - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru }`)
       - **`spec`**: optional (defaults to `workspace.deps.default`) — explicit dependency specification for customization (e.g., `workspace.deps.default // { "my-pkg" = ["dev"]; }`)
+      - **`editable`**: at most one environment may have `editable = true`; automatically included in devshell
   - Outputs:
-    - Packages: each env appears under `packages.<env.name>`
-    - Module args: `_module.args.pythonWorkspace`, `_module.args.pythonEnvs` (when enabled)
-    - DevShell: `config.jackpkgs.outputs.pythonDevShell` (added to shared shell when `outputs.addToDevShell = true`)
+    - Packages: non-editable envs appear under `packages.<env.name>`
+    - Module args: `_module.args.pythonWorkspace` (always exposed)
+    - DevShell: editable environment automatically included when defined
   - Examples:
     ```nix
     # Minimal - uses all dependencies from uv.lock
@@ -178,6 +179,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
       workspaceRoot = ./.;
       environments.dev = {
         name = "python-dev";
+        editable = true;  # Automatically in devshell
       };
     };
     
@@ -188,6 +190,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
         workspaceRoot = ./.;
         environments.dev = {
           name = "python-dev";
+          editable = true;
           spec = pythonWorkspace.defaultSpec // {
             "my-package" = ["dev" "test"];
           };

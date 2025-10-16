@@ -118,46 +118,6 @@ in {
           };
         };
       };
-
-      # Output configuration
-      outputs = {
-        exposeWorkspace = mkOption {
-          type = types.bool;
-          default = true;
-          description = "Expose pythonWorkspace as perSystem module arg.";
-        };
-
-        exposeEnvs = mkOption {
-          type = types.bool;
-          default = true;
-          description = "Expose pythonEnvs as perSystem module arg.";
-        };
-
-        addToDevShell = mkOption {
-          type = types.bool;
-          default = false;
-          description = "Add python devshell fragment to jackpkgs devShell via inputsFrom.";
-        };
-
-        # Editable devshell integration options
-        editableEnvKey = mkOption {
-          type = types.nullOr types.str;
-          default = null;
-          description = "Key of the environment to use for the editable shell hook. Defaults to the first environment with editable = true.";
-        };
-
-        addEditableEnvToDevShell = mkOption {
-          type = types.bool;
-          default = false;
-          description = "Whether to add the selected editable environment package to the dev shell.";
-        };
-
-        addEditableHookToDevShell = mkOption {
-          type = types.bool;
-          default = false;
-          description = "Whether to include the editable python shell hook in the composed dev shell.";
-        };
-      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -166,12 +126,6 @@ in {
       pkgs,
       ...
     }: {
-      options.jackpkgs.outputs.pythonDevShell = mkOption {
-        type = types.package;
-        readOnly = true;
-        description = "Python devShell fragment to include in `inputsFrom`.";
-      };
-
       # Reusable editable Python shell hook fragment (read-only output option)
       options.jackpkgs.outputs.pythonEditableHook = mkOption {
         type = types.package;
@@ -392,69 +346,42 @@ in {
         if envNames != uniqueEnvNames
         then throw ("jackpkgs.python: duplicate environment package names detected: " + builtins.toString envNames)
         else null;
+
+      # Validate at most one editable environment
+      editableKeys = lib.attrNames (lib.filterAttrs (_: envCfg: envCfg.editable) cfg.environments);
+      _editableCountCheck =
+        if (lib.length editableKeys) > 1
+        then throw ("jackpkgs.python: at most one environment may have editable = true; found: " + lib.concatStringsSep ", " editableKeys)
+        else null;
     in {
-      # Minimal devshell fragment now; still include base Python.
-      jackpkgs.outputs.pythonDevShell = pkgs.mkShell {
-        packages = [sysCfg.pythonPackage];
-      };
-
-      # (removed) inputsFrom is defined above once to avoid duplicate attribute definitions
-
-      # Ensure uv is available in the shared shell when python module is enabled
-      jackpkgs.shell.packages = lib.mkAfter [pkgs.uv];
-
       # Reusable editable Python shell hook fragment
       jackpkgs.outputs.pythonEditableHook = pkgs.mkShell (
         let
-          configuredKey = cfg.outputs.editableEnvKey;
-          autoKey = let
-            keys = lib.attrNames (lib.filterAttrs (_: envCfg: envCfg.editable) cfg.environments);
-          in
-            if keys == []
-            then null
-            else lib.head keys;
-          selectedKey =
-            if configuredKey != null
-            then configuredKey
-            else autoKey;
-          maybeEditable =
-            if selectedKey == null
-            then null
-            else lib.attrByPath [selectedKey] null pythonEnvs;
+          editableKey = if editableKeys == [] then null else lib.head editableKeys;
+          editableEnv = if editableKey == null then null else pythonEnvs.${editableKey};
         in {
-          packages = lib.optionals (cfg.outputs.addEditableEnvToDevShell && maybeEditable != null) [maybeEditable];
+          packages = lib.optional (editableEnv != null) editableEnv;
           shellHook = ''
             repo_root="$(${lib.getExe config.flake-root.package})"
             export REPO_ROOT="$repo_root"
 
-            ${lib.optionalString (maybeEditable != null) ''
+            ${lib.optionalString (editableEnv != null) ''
               export UV_NO_SYNC="1"
-              export UV_PYTHON="${lib.getExe maybeEditable}"
+              export UV_PYTHON="${lib.getExe editableEnv}"
               export UV_PYTHON_DOWNLOADS="false"
-              export PATH="${maybeEditable}/bin:$PATH"
-            ''}
-
-            ${lib.optionalString (maybeEditable == null) ''
-              echo "jackpkgs.python: no editable environment found; set jackpkgs.python.outputs.editableEnvKey or define one with editable = true" >&2
+              export PATH="${editableEnv}/bin:$PATH"
             ''}
           '';
         }
       );
 
-      # Compose devshell fragments in a single definition
-      jackpkgs.shell.inputsFrom =
-        lib.optionals cfg.outputs.addToDevShell [
-          config.jackpkgs.outputs.pythonDevShell
-        ]
-        ++ lib.optionals cfg.outputs.addEditableHookToDevShell [
-          config.jackpkgs.outputs.pythonEditableHook
-        ];
-
-      # Export module args for power users
-      _module.args = lib.mkMerge [
-        (lib.optionalAttrs cfg.outputs.exposeWorkspace {pythonWorkspace = pythonWorkspace;})
-        (lib.optionalAttrs cfg.outputs.exposeEnvs {pythonEnvs = pythonEnvs;})
+      # Automatically include editable hook in devshell
+      jackpkgs.shell.inputsFrom = [
+        config.jackpkgs.outputs.pythonEditableHook
       ];
+
+      # Always expose pythonWorkspace as module arg
+      _module.args.pythonWorkspace = pythonWorkspace;
 
       # Publish only non-editable envs as packages.<name>
       packages = lib.listToAttrs (
