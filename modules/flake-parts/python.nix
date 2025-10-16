@@ -250,21 +250,17 @@ in {
       # Force evaluation so a non-path cannot leak into uv2nix
       __forceWsRootPathAssert = wsRootPathAssert;
 
-      # Parse pyproject for project name (guarded to avoid eager failures)
+      # Validate pyproject.toml exists and has either [project] or [tool.uv.workspace]
       pyproject =
         if builtins.pathExists pyprojectPath
         then builtins.fromTOML (builtins.readFile pyprojectPath)
         else {};
 
-      hasProject = pyproject ? project && pyproject.project ? name;
-      hasWorkspace = pyproject ? tool && pyproject.tool ? uv && pyproject.tool.uv ? workspace;
-
-      projectName =
-        if hasProject
-        then pyproject.project.name
-        else if hasWorkspace
-        then "workspace" # Generic placeholder for pythonWorkspace passthru only
-        else throw "jackpkgs.python: pyproject.toml must contain [project] or [tool.uv.workspace]";
+      # Light validation: ensure either [project] or [tool.uv.workspace] exists
+      _ =
+        if !(pyproject ? project || (pyproject ? tool && pyproject.tool ? uv && pyproject.tool.uv ? workspace))
+        then throw "jackpkgs.python: pyproject.toml must contain [project] or [tool.uv.workspace]"
+        else null;
 
       # uv2nix workspace and python set
       workspace =
@@ -317,43 +313,6 @@ in {
       pythonSet = pythonBase.overrideScope (lib.composeManyExtensions overlayList);
 
       defaultSpec = workspace.deps.default;
-      targetName =
-        if lib.hasAttr projectName defaultSpec
-        then projectName
-        else lib.head (builtins.attrNames defaultSpec);
-
-      ensureList = value:
-        if builtins.isList value
-        then value
-        else if lib.isString value
-        then [value]
-        else value;
-
-      specWithExtras = extras: let
-        extrasList = lib.unique (ensureList extras);
-      in
-        if extrasList == []
-        then defaultSpec
-        else if !hasProject
-        then
-          throw ''
-            jackpkgs.python: 'extras' option is not supported in workspace-only mode (no [project] section).
-
-            Use explicit 'spec' configuration instead:
-
-              environments.dev = {
-                name = "dev";
-                spec = workspace.deps.default // {
-                  "your-package" = ["dev" "test"];
-                  "another-package" = ["dev"];
-                };
-              };
-          ''
-        else
-          defaultSpec
-          // {
-            ${targetName} = lib.unique ((defaultSpec.${targetName} or []) ++ extrasList);
-          };
 
       addMainProgram = drv:
         drv.overrideAttrs (old: {
@@ -378,47 +337,59 @@ in {
 
       mkEnv = {
         name,
-        extras ? [],
-        spec ? null,
-      }: let
-        finalSpec =
-          if spec != null
-          then spec
-          else specWithExtras extras;
-      in
-        mkEnvForSpec {
-          inherit name;
-          spec = finalSpec;
-        };
+        spec,
+      }:
+        if spec == null
+        then throw ''
+          jackpkgs.python: 'spec' is required for environment '${name}'.
+          
+          Provide explicit dependency specification:
+          
+            environments.${name} = {
+              name = "${name}";
+              spec = workspace.deps.default // {
+                "your-package" = ["dev" "test"];
+              };
+            };
+        ''
+        else mkEnvForSpec {inherit name spec;};
 
       mkEditableEnv = {
         name,
-        extras ? [],
-        spec ? null,
+        spec,
         members ? null,
         root ? null,
-      }: let
-        # Use flake-root by default, or accept an explicit runtime path string.
-        # The overlay expects a runtime-resolvable string, not a Nix store path.
-        defaultRoot = "$(${lib.getExe config.flake-root.package})";
-        finalRoot =
-          if root != null
-          then root
-          else defaultRoot;
-        overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
-        editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
-        finalSpec =
-          if spec != null
-          then spec
-          else specWithExtras extras;
-      in
-        addMainProgram (editableSet.mkVirtualEnv name finalSpec);
+      }:
+        if spec == null
+        then throw ''
+          jackpkgs.python: 'spec' is required for editable environment '${name}'.
+          
+          Provide explicit dependency specification:
+          
+            environments.${name} = {
+              name = "${name}";
+              editable = true;
+              spec = workspace.deps.default // {
+                "your-package" = ["dev" "test"];
+              };
+            };
+        ''
+        else let
+          # Use flake-root by default, or accept an explicit runtime path string.
+          # The overlay expects a runtime-resolvable string, not a Nix store path.
+          defaultRoot = "$(${lib.getExe config.flake-root.package})";
+          finalRoot =
+            if root != null
+            then root
+            else defaultRoot;
+          overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
+          editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
+        in
+          addMainProgram (editableSet.mkVirtualEnv name spec);
 
       pythonWorkspace = {
-        inherit workspace pythonSet projectName defaultSpec specWithExtras;
-        mkEnv = mkEnv;
-        mkEditableEnv = mkEditableEnv;
-        mkEnvForSpec = mkEnvForSpec;
+        inherit workspace pythonSet defaultSpec;
+        inherit mkEnv mkEditableEnv mkEnvForSpec;
       };
 
       pythonEnvs =
@@ -428,7 +399,6 @@ in {
             then
               pythonWorkspace.mkEditableEnv {
                 name = envCfg.name;
-                extras = envCfg.extras;
                 spec = envCfg.spec;
                 members = envCfg.members;
                 root = envCfg.editableRoot;
@@ -436,7 +406,6 @@ in {
             else
               pythonWorkspace.mkEnv {
                 name = envCfg.name;
-                extras = envCfg.extras;
                 spec = envCfg.spec;
               }
         )
