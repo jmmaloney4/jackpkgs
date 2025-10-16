@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (Simplified Implementation - 2025-10-16)
 
 ## Context
 
@@ -13,12 +13,14 @@ The `jackpkgs.python` module currently requires `pyproject.toml` to contain `[pr
 - Manually maintain uv2nix boilerplate outside the module
 - Switch away from editable development environments
 
+Additionally, the `extras` convenience option creates ambiguity in workspace-only projects where there's no obvious "target" package for applying extras. This leads to fragile default behavior (picking the first package) that is implicit and error-prone.
+
 ### Constraints
 
-- Must preserve backwards compatibility for existing projects with root distributions
-- Must not introduce ambiguous or "magic" default behaviors
 - Must align with uv workspace semantics (workspace-only projects are valid and increasingly common)
 - Solution must be simple and explicit
+- No ambiguous or "magic" default behaviors
+- All projects should use the same configuration pattern
 
 ### Prior Art
 
@@ -57,68 +59,48 @@ The current `jackpkgs.python` module provides a convenience `extras` option that
 
 ## Decision
 
-We WILL support workspace-only Python projects by:
+We WILL simplify to **workspace-only Python projects** by:
 
-1. **Relaxing validation**: Accept `pyproject.toml` files with `[tool.uv.workspace]` but no `[project]` section.
+1. **Removing `extras` support entirely**: The `extras` convenience option is removed. ALL users must use explicit `spec` configuration.
 
-2. **Deprecating implicit extras behavior**: The `extras` convenience option remains available **only** for backwards compatibility with projects that have a root `[project]`. In workspace-only mode, users MUST use explicit `spec` configuration.
+2. **Relaxing validation**: Accept `pyproject.toml` files with `[tool.uv.workspace]` or `[project]` section (but don't extract or use `projectName`).
 
-3. **No new configuration options**: No `workspaceName`, no `includeRootDistribution`, no `extrasTarget`. Keep the API surface minimal.
+3. **No new configuration options**: No `workspaceName`, no `includeRootDistribution`, no `extrasTarget`, no `extras`. Keep the API surface minimal.
 
-4. **Clear error messages**: When `extras` is used in workspace-only mode, throw an actionable error directing users to use `spec` instead.
+4. **Clear error messages**: When `spec` is null, throw an actionable error directing users to provide explicit spec.
+
+### Rationale
+
+- **Explicit > Implicit**: Forces users to see exactly what packages and extras are in their environment
+- **Removes ~60 lines of logic**: Simplifies maintenance by removing conditional behavior, target selection, and fallback logic
+- **Single pattern**: One clear way to configure environments (explicit `spec`)
+- **Future-proof**: uv workspaces are the recommended pattern; this enforces best practices
 
 ### Scope
 
-- **In scope**: Validation relaxation, clear error messaging, documentation updates
-- **Out of scope**: New configuration options, automatic extras target inference, uv2nix changes
+- **In scope**: Validation relaxation, removing extras logic, clear error messaging, documentation updates
+- **Out of scope**: New configuration options, automatic extras target inference, backwards compatibility layer, uv2nix changes
 
 ### Implementation Details
 
-#### Validation Logic
+#### Validation Logic (Simplified)
 
 ```nix
-hasProject = pyproject ? project && pyproject.project ? name;
-hasWorkspace = pyproject ? tool && pyproject.tool ? uv && pyproject.tool.uv ? workspace;
+# Light validation: ensure either [project] or [tool.uv.workspace] exists
+if !(pyproject ? project || (pyproject ? tool && pyproject.tool ? uv && pyproject.tool.uv ? workspace))
+then throw "jackpkgs.python: pyproject.toml must contain [project] or [tool.uv.workspace]"
+else null
 
-projectName =
-  if hasProject 
-  then pyproject.project.name
-  else if hasWorkspace
-  then "workspace"  # Generic placeholder for pythonWorkspace passthru only
-  else throw "jackpkgs.python: pyproject.toml must contain [project] or [tool.uv.workspace]";
+# No projectName extraction needed
 ```
 
-#### Extras Validation
+#### Spec Requirement
 
-```nix
-specWithExtras = extras: let
-  extrasList = lib.unique (ensureList extras);
-in
-  if extrasList == []
-  then defaultSpec
-  else if !hasProject
-  then throw ''
-    jackpkgs.python: 'extras' option is not supported in workspace-only mode (no [project] section).
-    
-    Use explicit 'spec' configuration instead:
-    
-      environments.dev = {
-        name = "dev";
-        spec = workspace.deps.default // {
-          "your-package" = ["dev" "test"];
-          "another-package" = ["dev"];
-        };
-      };
-  ''
-  else
-    defaultSpec // {
-      ${projectName} = lib.unique ((defaultSpec.${projectName} or []) ++ extrasList);
-    };
-```
+All environments must provide explicit `spec` configuration. The `extras` option and related logic (`ensureList`, `specWithExtras`, `targetName`, `projectName`) are removed entirely.
 
 #### Environment Configuration Examples
 
-**Legacy (with root distribution):**
+**Before (removed):**
 ```nix
 jackpkgs.python = {
   enable = true;
@@ -126,12 +108,12 @@ jackpkgs.python = {
   
   environments.dev = {
     name = "python-dev";
-    extras = ["dev" "test"];  # Applied to root project
+    extras = ["dev" "test"];  # REMOVED: No longer supported
   };
 };
 ```
 
-**Workspace-only (explicit spec):**
+**After (only supported pattern):**
 ```nix
 jackpkgs.python = {
   enable = true;
@@ -170,15 +152,17 @@ perSystem = { config, pythonWorkspace, ... }: {
 
 - **Unlocks workspace-only repos**: Monorepos can now use `jackpkgs.python` without creating dummy root packages
 - **Explicit > Implicit**: Forces users to think about which packages get which extras in multi-package workspaces
-- **Simple implementation**: No new options, minimal code changes, clear error messages
-- **Backwards compatible**: Existing projects with root distributions continue working unchanged
+- **Radically simpler implementation**: Removes ~60 lines of conditional logic, validation, and fallback behavior
+- **Single pattern**: One clear way to configure environments (explicit `spec`)
+- **Easier maintenance**: Less code, fewer edge cases, no backwards compatibility burden
 - **Aligns with uv semantics**: Workspace-only projects are first-class in uv; they should be in jackpkgs too
 
 ### Trade-offs
 
-- **More verbose config** for workspace-only projects (must write explicit `spec` instead of convenience `extras`)
-- **Breaking change** if anyone was relying on the "pick first package" fallback (unlikely, as this was undocumented and fragile)
+- **Breaking change**: Existing configs using `extras` must migrate to explicit `spec`
+- **Slightly more verbose config** (but clearer and more explicit)
 - **Learning curve**: Users need to understand `workspace.deps.default` structure to write explicit specs
+- **No convenience option**: Users must always write full spec configuration
 
 ### Risks & Mitigations
 

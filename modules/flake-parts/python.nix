@@ -73,12 +73,6 @@ in {
               description = "Name of the virtual environment and package output.";
             };
 
-            extras = mkOption {
-              type = types.listOf types.str;
-              default = [];
-              description = "Optional dependency groups to include (e.g., 'jupyter', 'dev').";
-            };
-
             editable = mkOption {
               type = types.bool;
               default = false;
@@ -113,14 +107,14 @@ in {
         default = {};
         description = "Python virtual environments to create.";
         example = {
-          default = {name = "python-env";};
-          jupyter = {
-            name = "python-jupyter";
-            extras = ["jupyter"];
+          default = {
+            name = "python-env";
+            spec = {}; # workspace.deps.default // { "my-package" = ["extras"]; }
           };
           dev = {
             name = "python-dev";
             editable = true;
+            spec = {}; # workspace.deps.default // { "my-package" = ["dev"]; }
           };
         };
       };
