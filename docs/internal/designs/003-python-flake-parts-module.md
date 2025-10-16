@@ -37,7 +37,7 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
   - `setuptools.packages` (list of str; default `["peewee" "multitasking" "sgmllib3k"]`)
   - `extraOverlays` (list; default [])
   - `environments` (attrset of: `{ name, spec, editable, editableRoot, members, passthru }`)
-    - **`spec` is required** — explicit dependency specification
+    - **`spec` is optional** (defaults to `workspace.deps.default`) — explicit dependency specification for customization
   - `outputs.exposeWorkspace` (bool; default true)
   - `outputs.exposeEnvs` (bool; default true)
   - `outputs.addToDevShell` (bool; default false)
@@ -100,19 +100,16 @@ inputs = {
 
 ## Quick Start
 
-Minimal default environment (non-editable env exported as package):
+Minimal default environment (uses all dependencies from uv.lock):
 
 ```nix
 imports = [ inputs.jackpkgs.flakeModules.python ];
 
-perSystem = { pythonWorkspace, ... }: {
-  jackpkgs.python = {
-    enable = true;
-    workspaceRoot = ./.;
-    environments.default = {
-      name = "python-env";
-      spec = pythonWorkspace.defaultSpec;
-    };
+jackpkgs.python = {
+  enable = true;
+  workspaceRoot = ./.;
+  environments.default = {
+    name = "python-env";
   };
 };
 ```
@@ -198,10 +195,6 @@ Build/run examples:
 - `pyproject.toml` missing `[project]` or `[tool.uv.workspace]`
   - Error: "pyproject.toml must contain [project] or [tool.uv.workspace]"
   - Fix: Add `[project]` section with `name` field, or add `[tool.uv.workspace]` section for workspace-only repos.
-  
-- Missing `spec` in environment definition
-  - Error: "'spec' is required for environment '<name>'"
-  - Fix: Provide explicit dependency specification using `pythonWorkspace.defaultSpec` as a base (see ADR-006 for examples).
 
 - Duplicate environment names
   - Error: “duplicate environment package names detected”
