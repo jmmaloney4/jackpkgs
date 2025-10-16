@@ -78,6 +78,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
 - `python` — opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
+- `vscode` — merge declarative settings with workspace .vscode/settings.json (typed + untyped options, CLI helper).
 
 ### Import (one-liner: everything)
 
@@ -101,6 +102,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     inputs.jackpkgs.flakeModules.pulumi
     inputs.jackpkgs.flakeModules.quarto
     inputs.jackpkgs.flakeModules.python
+    inputs.jackpkgs.flakeModules.vscode
   ];
 }
 ```
@@ -168,6 +170,16 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - Packages: each env appears under `packages.<env.name>`
     - Module args: `_module.args.pythonWorkspace`, `_module.args.pythonEnvs` (when enabled)
     - DevShell: `config.jackpkgs.outputs.pythonDevShell` (added to shared shell when `outputs.addToDevShell = true`)
+- vscode (`modules/flake-parts/vscode.nix`)
+  - Merge declarative settings with workspace `.vscode/settings.json`, preserving edits via a jq-powered CLI.
+  - Options under `jackpkgs.vscode` (per-system):
+    - `enable` (bool, default `false`)
+    - `projectRoot` (str, default `.`) and `settingsFile` (str, default `.vscode/settings.json`)
+    - `settings` (attrs), `typedSettings` (editor/files/rust helpers), `arrayPolicy` (global/perKey), `ownedKeys` (list of dot paths)
+  - Outputs:
+    - CLI + package: `apps.jackpkgs-vscode-merge-settings`, `packages.jackpkgs-vscode-merge-settings`
+    - DevShell helper: `config.jackpkgs.outputs.vscodeMerge` for `inputsFrom`
+  - Usage: run `nix run .#jackpkgs-vscode-merge-settings` or add the package to your dev shell.
 
 #### Path resolution (project root)
 

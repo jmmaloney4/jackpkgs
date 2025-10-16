@@ -8,5 +8,6 @@
     (import ./pre-commit.nix {inherit jackpkgsInputs;})
     (import ./pulumi.nix {inherit jackpkgsInputs;})
     (import ./quarto.nix {inherit jackpkgsInputs;})
+    (import ./vscode.nix {inherit jackpkgsInputs;})
   ];
 }
