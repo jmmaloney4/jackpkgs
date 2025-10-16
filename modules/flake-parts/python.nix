@@ -413,7 +413,7 @@ in {
 
       envNames = map (e: e.name) (lib.attrValues cfg.environments);
       uniqueEnvNames = lib.unique envNames;
-      _ =
+      _envNamesCheck =
         if envNames != uniqueEnvNames
         then throw ("jackpkgs.python: duplicate environment package names detected: " + builtins.toString envNames)
         else null;
