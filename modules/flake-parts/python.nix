@@ -293,9 +293,15 @@ in {
         name,
         spec ? null,
       }: let
-        finalSpec = if spec == null then defaultSpec else spec;
+        finalSpec =
+          if spec == null
+          then defaultSpec
+          else spec;
       in
-        mkEnvForSpec {inherit name; spec = finalSpec;};
+        mkEnvForSpec {
+          inherit name;
+          spec = finalSpec;
+        };
 
       mkEditableEnv = {
         name,
@@ -303,7 +309,10 @@ in {
         members ? null,
         root ? null,
       }: let
-        finalSpec = if spec == null then defaultSpec else spec;
+        finalSpec =
+          if spec == null
+          then defaultSpec
+          else spec;
         # Use flake-root by default, or accept an explicit runtime path string.
         # The overlay expects a runtime-resolvable string, not a Nix store path.
         defaultRoot = "$(${lib.getExe config.flake-root.package})";
@@ -357,8 +366,14 @@ in {
       # Reusable editable Python shell hook fragment
       jackpkgs.outputs.pythonEditableHook = pkgs.mkShell (
         let
-          editableKey = if editableKeys == [] then null else lib.head editableKeys;
-          editableEnv = if editableKey == null then null else pythonEnvs.${editableKey};
+          editableKey =
+            if editableKeys == []
+            then null
+            else lib.head editableKeys;
+          editableEnv =
+            if editableKey == null
+            then null
+            else pythonEnvs.${editableKey};
         in {
           packages = lib.optional (editableEnv != null) editableEnv;
           shellHook = ''
