@@ -121,7 +121,6 @@ in {
                 # Authenticate with GCP and refresh ADC
                 auth:
                     gcloud auth login --update-adc
-                    gcloud auth application-default login
 
                 # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
                 new-stack project_path stack_name:
