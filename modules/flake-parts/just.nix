@@ -120,7 +120,7 @@ in {
               ''
                 # Authenticate with GCP and refresh ADC
                 auth:
-                    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc
+                    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc --account
 
                 # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
                 new-stack project_path stack_name:
