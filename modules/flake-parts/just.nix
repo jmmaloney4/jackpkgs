@@ -30,6 +30,17 @@ in {
           where GCP_ACCOUNT_USER defaults to the current Unix username ($USER).
         '';
       };
+
+      quotaProject = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "my-project-123";
+        description = ''
+          GCP project ID to use for Application Default Credentials quota/billing.
+          When set, the auth recipe will call:
+            gcloud auth application-default set-quota-project <quotaProject>
+        '';
+      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -137,7 +148,9 @@ in {
                 ${lib.optionalString (cfg.gcp.iamOrg != null) ''
                   : ''${GCP_ACCOUNT_USER:=$USER}
                 ''}                    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}
-
+                ${lib.optionalString (cfg.gcp.quotaProject != null) ''
+                  ${lib.getExe sysCfg.googleCloudSdkPackage} auth application-default set-quota-project ${cfg.gcp.quotaProject}
+                ''}
                                 # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
                                 new-stack project_path stack_name:
                                     ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login "${cfg.pulumi.backendUrl}"
