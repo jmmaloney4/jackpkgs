@@ -19,6 +19,19 @@ in {
       enable = mkEnableOption "jackpkgs-just-flake" // {default = true;};
     };
 
+    jackpkgs.gcp = {
+      iamOrg = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "example.com";
+        description = ''
+          GCP IAM organization domain for constructing user accounts.
+          When set, the auth recipe will use --account=$GCP_ACCOUNT_USER@$IAM_ORG
+          where GCP_ACCOUNT_USER defaults to the current Unix username ($USER).
+        '';
+      };
+    };
+
     perSystem = mkDeferredModuleOption ({
       inputs',
       lib,
@@ -119,8 +132,11 @@ in {
               # "jackpkgs.pulumi.backendUrl and jackpkgs.pulumi.secretsProvider must be set when jackpkgs.pulumi.enable is true"
               ''
                 # Authenticate with GCP and refresh ADC
+                # (set GCP_ACCOUNT_USER to override username)
                 auth:
-                    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc --account
+${lib.optionalString (cfg.gcp.iamOrg != null) ''
+                    : ''${GCP_ACCOUNT_USER:=$USER}
+''}                    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}
 
                 # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
                 new-stack project_path stack_name:
