@@ -129,6 +129,8 @@ flake-parts.lib.mkFlake { inherit inputs; } {
   - Options under `jackpkgs.just` to replace tool packages if desired:
     - `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`
     - `pulumiBackendUrl` (nullable string)
+  - Options under `jackpkgs.gcp`:
+    - `iamOrg` (nullable string, default `null`) — GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
   - Enables pre-commit with `treefmt` and `nbstripout` for `.ipynb`.
