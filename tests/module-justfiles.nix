@@ -4,10 +4,17 @@
   testHelpers,
 }: let
   just = pkgs.just;
-  inherit (testHelpers.justHelpers) mkRecipe;
+  inherit (testHelpers.justHelpers) mkRecipe mkRecipeWithParams;
 
-  # Import the actual module to get the feature justfiles
-  # We need to evaluate them with mock config/lib to extract the justfile content
+  # NOTE: These tests validate recipe PATTERNS and justfile SYNTAX, not actual
+  # module output. They test that common patterns used in modules (shebang recipes,
+  # parameters, conditionals) generate valid justfile syntax that just can parse.
+  #
+  # To test actual module output, we would need to evaluate the modules with mock
+  # configuration (tracked in future work - see tracking issue).
+  #
+  # These tests use the same helper functions (mkRecipe, mkRecipeWithParams) that
+  # the actual modules use, ensuring we test the same API.
 
   # Helper to validate justfile content
   mkJustParseTest = name: justfileContent:
@@ -33,6 +40,14 @@
       touch $out
     '';
 
+  # Mock packages for generating realistic paths
+  mockPackages = {
+    fd = pkgs.writeShellScriptBin "fd" "echo 'mock fd'";
+    nbstripout = pkgs.writeShellScriptBin "nbstripout" "echo 'mock nbstripout'";
+    direnv = pkgs.writeShellScriptBin "direnv" "echo 'mock direnv'";
+    pre-commit = pkgs.writeShellScriptBin "pre-commit" "echo 'mock pre-commit'";
+  };
+
   # Mock getExe that returns a placeholder path
   mockGetExe = _: "/nix/store/mock-package/bin/mock-command";
   mockLib =
@@ -41,30 +56,30 @@
       getExe = mockGetExe;
     };
 in {
-  # Test the python feature nbstrip recipe using mkRecipeWithParams
+  # Test the python feature nbstrip recipe pattern
   testPythonNbstrip = mkJustParseTest "python-nbstrip" (
-    testHelpers.justHelpers.mkRecipeWithParams "nbstrip" [''notebook=""''] "Strip output from Jupyter notebooks" [
+    mkRecipeWithParams "nbstrip" [''notebook=""''] "Strip output from Jupyter notebooks" [
       "#!/usr/bin/env bash"
       "set -euo pipefail"
       ''if [ -z "{{notebook}}" ]; then''
-      "    /nix/store/mock/bin/fd -e ipynb -x /nix/store/mock/bin/nbstripout"
+      "    ${lib.getExe mockPackages.fd} -e ipynb -x ${lib.getExe mockPackages.nbstripout}"
       "else"
-      "    /nix/store/mock/bin/nbstripout \"{{notebook}}\""
+      "    ${lib.getExe mockPackages.nbstripout} \"{{notebook}}\""
       "fi"
     ]
   );
 
-  # Test direnv feature (simple mkRecipe)
+  # Test direnv feature pattern (simple mkRecipe)
   testDirenvAllow = mkJustParseTest "direnv-allow" (
     mkRecipe "allow" "Allow direnv" [
-      "/nix/store/mock/bin/direnv allow"
+      "${lib.getExe mockPackages.direnv} allow"
     ]
   );
 
-  # Test a complex git recipe with shebang
+  # Test git pre-commit recipe pattern
   testGitPreCommit = mkJustParseTest "git-precommit" (
     mkRecipe "pre-commit" "Run pre-commit hooks" [
-      "/nix/store/mock/bin/pre-commit run --all-files"
+      "${lib.getExe mockPackages.pre-commit} run --all-files"
     ]
   );
 
