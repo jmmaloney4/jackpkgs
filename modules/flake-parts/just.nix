@@ -124,6 +124,19 @@ in {
     in {
       just-flake = {
         features = {
+          # NOTE: Nix indented strings ('' ... '') strip common leading whitespace
+          # based on the position of the closing ''. To generate justfiles with
+          # recipes at column 0:
+          #   - Align ALL content with the closing '' (e.g., both at 12 spaces)
+          #   - Recipe commands need 4 additional spaces (16 total) to produce
+          #     the required 4-space indentation in the output justfile
+          # Example:
+          #   justfile = ''
+          #   recipe:        ← 12 spaces (same as closing '')
+          #       command    ← 16 spaces (12 + 4)
+          #   '';            ← 12 spaces (reference point)
+          # Result: recipe at column 0, command indented with 4 spaces
+
           treefmt.enable = true;
           direnv = {
             enable = true;
