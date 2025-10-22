@@ -27,6 +27,10 @@
     just-flake = {
       url = "github:juspay/just-flake";
     };
+    nix-unit = {
+      url = "github:nix-community/nix-unit";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     pre-commit-hooks = {
       url = "github:cachix/pre-commit-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -116,6 +120,33 @@
           ];
           packages = [
           ];
+        };
+
+        checks = let
+          # Import test helpers that are shared across tests
+          testHelpers = import ./tests/test-helpers.nix {inherit lib;};
+          nix-unit = inputs.nix-unit.packages.${system}.default;
+
+          # Helper to run nix-unit tests
+          mkTest = name: tests:
+            pkgs.runCommand "test-${name}" {
+              nativeBuildInputs = [nix-unit];
+            } ''
+              cat > test.nix << 'EOF'
+              ${lib.generators.toPretty {} tests}
+              EOF
+              ${nix-unit}/bin/nix-unit test.nix
+              touch $out
+            '';
+        in {
+          # Run nix-unit tests - import and evaluate with arguments first
+          mkRecipe-test = mkTest "mkRecipe" (import ./tests/mkRecipe.nix {
+            inherit lib testHelpers;
+          });
+
+          optionalLines-test = mkTest "optionalLines" (import ./tests/optionalLines.nix {
+            inherit lib testHelpers;
+          });
         };
       };
 
