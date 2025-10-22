@@ -3,7 +3,7 @@
   pkgs,
   testHelpers,
 }: let
-  inherit (testHelpers.justHelpers) mkRecipe optionalLines;
+  inherit (testHelpers.justHelpers) mkRecipe mkRecipeWithParams optionalLines;
   just = pkgs.just;
 
   # Helper to create a test that validates a justfile with the just parser
@@ -186,4 +186,29 @@ in {
         ]
       )
     );
+
+  # Test mkRecipeWithParams with single parameter
+  testRecipeWithSingleParam = mkJustParseTest "recipe-with-single-param" (
+    mkRecipeWithParams "deploy" [''env="dev"''] "Deploy to environment" [
+      "echo 'Deploying to {{env}}'"
+      "kubectl apply -f {{env}}.yaml"
+    ]
+  );
+
+  # Test mkRecipeWithParams with multiple parameters
+  testRecipeWithMultipleParams = mkJustParseTest "recipe-with-multiple-params" (
+    mkRecipeWithParams "process" [''input=""'' ''output=""'' ''mode="fast"''] "Process file" [
+      "#!/usr/bin/env bash"
+      "set -euo pipefail"
+      ''echo "Processing {{input}} -> {{output}} (mode: {{mode}})"''
+      ''./processor --input "{{input}}" --output "{{output}}" --mode "{{mode}}"''
+    ]
+  );
+
+  # Test mkRecipeWithParams with no parameters (backward compat)
+  testRecipeWithNoParams = mkJustParseTest "recipe-with-no-params" (
+    mkRecipeWithParams "simple" [] "Simple recipe" [
+      "echo 'No parameters needed'"
+    ]
+  );
 }

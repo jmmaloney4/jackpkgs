@@ -10,12 +10,22 @@
         ++ [""]
       );
 
+    # Helper to build justfile recipes with parameters
+    mkRecipeWithParams = name: params: comment: commands: let
+      paramStr = lib.concatStringsSep " " params;
+      fullName =
+        if params == []
+        then name
+        else "${name} ${paramStr}";
+    in
+      mkRecipe fullName comment commands;
+
     optionalLines = cond: lines:
       if cond
       then lines
       else [];
   in {
-    inherit mkRecipe optionalLines;
+    inherit mkRecipe mkRecipeWithParams optionalLines;
   };
 
   # Utility to strip trailing newline for easier comparison

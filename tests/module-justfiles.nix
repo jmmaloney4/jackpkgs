@@ -41,20 +41,18 @@
       getExe = mockGetExe;
     };
 in {
-  # Test the python feature nbstrip recipe
-  # NOTE: Can't use mkRecipe here because it doesn't support parameters
-  # This recipe needs the notebook parameter in its signature
-  testPythonNbstrip = mkJustParseTest "python-nbstrip" ''
-    # Strip output from Jupyter notebooks
-    nbstrip notebook="":
-        #!/usr/bin/env bash
-        set -euo pipefail
-        if [ -z "{{notebook}}" ]; then
-            /nix/store/mock/bin/fd -e ipynb -x /nix/store/mock/bin/nbstripout
-        else
-            /nix/store/mock/bin/nbstripout "{{notebook}}"
-        fi
-  '';
+  # Test the python feature nbstrip recipe using mkRecipeWithParams
+  testPythonNbstrip = mkJustParseTest "python-nbstrip" (
+    testHelpers.justHelpers.mkRecipeWithParams "nbstrip" [''notebook=""''] "Strip output from Jupyter notebooks" [
+      "#!/usr/bin/env bash"
+      "set -euo pipefail"
+      ''if [ -z "{{notebook}}" ]; then''
+      "    /nix/store/mock/bin/fd -e ipynb -x /nix/store/mock/bin/nbstripout"
+      "else"
+      "    /nix/store/mock/bin/nbstripout \"{{notebook}}\""
+      "fi"
+    ]
+  );
 
   # Test direnv feature (simple mkRecipe)
   testDirenvAllow = mkJustParseTest "direnv-allow" (

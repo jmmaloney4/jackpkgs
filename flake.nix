@@ -155,6 +155,10 @@
               inherit lib testHelpers;
             });
 
+            mkRecipeWithParams-test = mkTest "mkRecipeWithParams" (import ./tests/mkRecipeWithParams.nix {
+              inherit lib testHelpers;
+            });
+
             optionalLines-test = mkTest "optionalLines" (import ./tests/optionalLines.nix {
               inherit lib testHelpers;
             });

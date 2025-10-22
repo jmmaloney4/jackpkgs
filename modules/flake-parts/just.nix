@@ -16,6 +16,18 @@
       ++ [""]
     );
 
+  # Helper to build justfile recipes with parameters
+  # Usage: mkRecipeWithParams "recipe-name" ["param1=\"default\"" "param2=\"\""] "comment" ["cmd1" "cmd2"]
+  # Generates: recipe-name param1="default" param2="":
+  mkRecipeWithParams = name: params: comment: commands: let
+    paramStr = lib.concatStringsSep " " params;
+    fullName =
+      if params == []
+      then name
+      else "${name} ${paramStr}";
+  in
+    mkRecipe fullName comment commands;
+
   # Helper for conditional recipe lines
   optionalLines = cond: lines:
     if cond
@@ -191,17 +203,14 @@ in {
           };
           python = {
             enable = true;
-            justfile = lib.concatStringsSep "\n" [
-              "# Strip output from Jupyter notebooks"
-              ''nbstrip notebook="":''
-              "    #!/usr/bin/env bash"
-              "    set -euo pipefail"
+            justfile = mkRecipeWithParams "nbstrip" [''notebook=""''] "Strip output from Jupyter notebooks" [
+              "#!/usr/bin/env bash"
+              "set -euo pipefail"
               ''if [ -z "{{notebook}}" ]; then''
-              "        ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}"
-              "    else"
-              "        ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\""
-              "    fi"
-              ""
+              "    ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}"
+              "else"
+              "    ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\""
+              "fi"
             ];
           };
           git = {
