@@ -49,12 +49,27 @@ jackpkgs.gcp = {
 ```
 
 **Recipe (auth command in infra feature):**
+
+When `iamOrg` is set, the recipe uses a bash script with shebang to ensure all commands run in the same shell:
+
 ```bash
 auth:
-${lib.optionalString (cfg.gcp.iamOrg != null) ''
-    : ''${GCP_ACCOUNT_USER:=$USER}
-''}    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}
+    #!/usr/bin/env bash
+    GCP_ACCOUNT_USER="''${GCP_ACCOUNT_USER:-$USER}"
+    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}
 ```
+
+When `iamOrg` is null, the recipe is simpler (no variable assignment needed):
+
+```bash
+auth:
+    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc
+```
+
+**Implementation notes:**
+- The shebang (`#!/usr/bin/env bash`) ensures all recipe lines run in the same shell, so the variable assignment persists
+- We use `${VAR:-default}` syntax which provides a default when the variable is unset or empty
+- Without the shebang, each line would run in a separate shell, causing the variable to be lost
 
 ## Consequences
 

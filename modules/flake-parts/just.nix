@@ -155,28 +155,45 @@ in {
           };
           infra = {
             enable = cfg.pulumi.enable; # && cfg.pulumi.backendUrl != null && cfg.pulumi.secretsProvider != null;
-            justfile = lib.concatStringsSep "\n" (
-              # auth recipe with conditional content
-              ["# Authenticate with GCP and refresh ADC"]
-              ++ ["# (set GCP_ACCOUNT_USER to override username)"]
-              ++ ["auth:"]
-              ++ optionalLines (cfg.gcp.iamOrg != null) [
-                "    : \${GCP_ACCOUNT_USER:=$USER}"
-              ]
-              ++ ["    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}"]
-              ++ optionalLines (cfg.gcp.quotaProject != null) [
-                "    ${lib.getExe sysCfg.googleCloudSdkPackage} auth application-default set-quota-project ${cfg.gcp.quotaProject}"
-              ]
-              ++ [""]
-              # new-stack recipe
-              ++ ["# Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)"]
-              ++ ["new-stack project_path stack_name:"]
-              ++ [
-                "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login \"${cfg.pulumi.backendUrl}\""
-                "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider \"${cfg.pulumi.secretsProvider}\""
-                "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}"
-              ]
-            );
+            justfile = let
+              # Construct auth recipe commands based on configuration
+              authCommands =
+                (optionalLines (cfg.gcp.iamOrg != null) [
+                  "GCP_ACCOUNT_USER=\"\${GCP_ACCOUNT_USER:-$USER}\""
+                ])
+                ++ [
+                  "${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}"
+                ]
+                ++ optionalLines (cfg.gcp.quotaProject != null) [
+                  "${lib.getExe sysCfg.googleCloudSdkPackage} auth application-default set-quota-project ${cfg.gcp.quotaProject}"
+                ];
+
+              # Determine if we need a shebang (when iamOrg is set, we need multi-line bash)
+              needsShebang = cfg.gcp.iamOrg != null;
+
+              # Build the complete auth recipe
+              authRecipe =
+                ["# Authenticate with GCP and refresh ADC"]
+                ++ ["# (set GCP_ACCOUNT_USER to override username)"]
+                ++ ["auth:"]
+                ++ (
+                  if needsShebang
+                  then ["    #!/usr/bin/env bash"] ++ (map (cmd: "    ${cmd}") authCommands)
+                  else map (cmd: "    ${cmd}") authCommands
+                );
+            in
+              lib.concatStringsSep "\n" (
+                authRecipe
+                ++ [""]
+                # new-stack recipe
+                ++ ["# Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)"]
+                ++ ["new-stack project_path stack_name:"]
+                ++ [
+                  "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login \"${cfg.pulumi.backendUrl}\""
+                  "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider \"${cfg.pulumi.secretsProvider}\""
+                  "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}"
+                ]
+              );
           };
           python = {
             enable = true;

@@ -98,4 +98,24 @@ in {
             echo "Processing: {{notebook}}"
         fi
   '';
+
+  # Test infra auth recipe pattern with GCP account variable
+  # This tests that variable assignment with default values works with just's shell
+  # Uses shebang to ensure commands run in the same shell
+  testInfraAuthWithGcpAccount = mkJustParseTest "infra-auth-gcp" ''
+    # Authenticate with GCP and refresh ADC
+    # (set GCP_ACCOUNT_USER to override username)
+    auth:
+        #!/usr/bin/env bash
+        GCP_ACCOUNT_USER="''${GCP_ACCOUNT_USER:-$USER}"
+        ${mockGetExe null} auth login --update-adc --account=$GCP_ACCOUNT_USER@example.com
+  '';
+
+  # Test infra auth recipe without iamOrg (simpler, no shebang needed)
+  testInfraAuthWithoutGcpAccount = mkJustParseTest "infra-auth-simple" ''
+    # Authenticate with GCP and refresh ADC
+    # (set GCP_ACCOUNT_USER to override username)
+    auth:
+        ${mockGetExe null} auth login --update-adc
+  '';
 }
