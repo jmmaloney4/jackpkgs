@@ -54,11 +54,13 @@ in {
     ]
   );
 
-  # Test recipe with just variables
-  testRecipeWithVariables = mkJustParseTest "recipe-with-variables" (mkRecipe "run" "Run with args" [
-    "./script {{args}}"
-    "echo 'Done: {{args}}'"
-  ]);
+  # Test recipe with just variables (parameters)
+  testRecipeWithVariables = mkJustParseTest "recipe-with-variables" (
+    mkRecipeWithParams "run" [''args=""''] "Run with args" [
+      "./script {{args}}"
+      "echo 'Done: {{args}}'"
+    ]
+  );
 
   # Test recipe with dependencies
   testRecipeWithDependencies = mkJustParseTest "recipe-with-dependencies" ''
