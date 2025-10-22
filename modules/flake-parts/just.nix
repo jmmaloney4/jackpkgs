@@ -191,137 +191,139 @@ in {
           };
           python = {
             enable = true;
-            justfile = ''
-              # Strip output from Jupyter notebooks
-              nbstrip notebook="":
-                  @if [ -z "{{notebook}}" ]; then \
-                      ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}; \
-                  else \
-                      ${lib.getExe sysCfg.nbstripoutPackage} "{{notebook}}"; \
-                  fi
-            '';
+            justfile = lib.concatStringsSep "\n" [
+              "# Strip output from Jupyter notebooks"
+              ''nbstrip notebook="":''
+              ''@if [ -z "{{notebook}}" ]; then \''
+              "        ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}; \\"
+              "    else \\"
+              "        ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\"; \\"
+              "    fi"
+              ""
+            ];
           };
           git = {
             enable = true;
-            justfile = ''
-              # Run pre-commit hooks
-              pre-commit:
-                  ${lib.getExe sysCfg.preCommitPackage}
-              # alias for pre-commit
-              pre:
-                  @just pre-commit
-              # Run pre-commit hooks on all files
-              pre-all:
-                  ${lib.getExe sysCfg.preCommitPackage} run --all-files
-            '';
+            justfile = lib.concatStringsSep "\n" [
+              (mkRecipe "pre-commit" "Run pre-commit hooks" [
+                "${lib.getExe sysCfg.preCommitPackage}"
+              ])
+              (mkRecipe "pre" "alias for pre-commit" [
+                "@just pre-commit"
+              ])
+              (mkRecipe "pre-all" "Run pre-commit hooks on all files" [
+                "${lib.getExe sysCfg.preCommitPackage} run --all-files"
+              ])
+            ];
           };
           release = {
             enable = true;
-            justfile = ''
-              # New minor release
-              release:
-                  #!/usr/bin/env bash
-                  set -euo pipefail
-
-                  # Source shared utilities
-                  source ${lib.getExe sysCfg.releaseUtils}
-
-                  echo "🏷️  Creating new semver minor release..." >&2
-
-                  # Always operate on origin/main, regardless of current checkout
-                  main_remote="origin"
-                  main_branch="main"
-
-                  # Use shared functions
-                  fetch_latest "$main_remote" "$main_branch"
-                  latest_tag=$(get_latest_tag)
-
-                  echo "📋 Latest tag: $latest_tag" >&2
-
-                  # Extract version numbers (remove 'v' prefix)
-                  version=''${latest_tag#v}
-                  major=''${version%%.*}
-                  minor=''${version#*.}
-                  minor=''${minor%%.*}
-                  patch=''${version##*.}
-
-                  # Increment minor version and reset patch to 0
-                  new_minor=$((minor + 1))
-                  new_version="$major.$new_minor.0"
-                  new_tag="v$new_version"
-
-                  echo "🆕 New tag: $new_tag" >&2
-
-                  # Use shared function to create and push tag
-                  create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
-              # Bump patch version
-              bump:
-                  #!/usr/bin/env bash
-                  set -euo pipefail
-
-                  # Source shared utilities
-                  source ${lib.getExe sysCfg.releaseUtils}
-
-                  echo "🏷️  Creating new semver patch release..." >&2
-
-                  # Always operate on origin/main, regardless of current checkout
-                  main_remote="origin"
-                  main_branch="main"
-
-                  # Use shared functions
-                  fetch_latest "$main_remote" "$main_branch"
-                  latest_tag=$(get_latest_tag)
-
-                  echo "📋 Latest tag: $latest_tag" >&2
-
-                  # Extract version numbers (remove 'v' prefix)
-                  version=''${latest_tag#v}
-                  major=''${version%%.*}
-                  minor=''${version#*.}
-                  minor=''${minor%%.*}
-                  patch=''${version##*.}
-
-                  # Increment patch version
-                  new_patch=$((patch + 1))
-                  new_version="$major.$minor.$new_patch"
-                  new_tag="v$new_version"
-
-                  echo "🆕 New tag: $new_tag" >&2
-
-                  # Use shared function to create and push tag
-                  create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
-            '';
+            justfile = lib.concatStringsSep "\n" [
+              "# New minor release"
+              "release:"
+              "    #!/usr/bin/env bash"
+              "    set -euo pipefail"
+              ""
+              "    # Source shared utilities"
+              "    source ${lib.getExe sysCfg.releaseUtils}"
+              ""
+              "    echo \"🏷️  Creating new semver minor release...\" >&2"
+              ""
+              "    # Always operate on origin/main, regardless of current checkout"
+              "    main_remote=\"origin\""
+              "    main_branch=\"main\""
+              ""
+              "    # Use shared functions"
+              "    fetch_latest \"$main_remote\" \"$main_branch\""
+              "    latest_tag=$(get_latest_tag)"
+              ""
+              "    echo \"📋 Latest tag: $latest_tag\" >&2"
+              ""
+              "    # Extract version numbers (remove 'v' prefix)"
+              "    version=\${latest_tag#v}"
+              "    major=\${version%%.*}"
+              "    minor=\${version#*.}"
+              "    minor=\${minor%%.*}"
+              "    patch=\${version##*.}"
+              ""
+              "    # Increment minor version and reset patch to 0"
+              "    new_minor=$((minor + 1))"
+              "    new_version=\"$major.$new_minor.0\""
+              "    new_tag=\"v$new_version\""
+              ""
+              "    echo \"🆕 New tag: $new_tag\" >&2"
+              ""
+              "    # Use shared function to create and push tag"
+              "    create_and_push_tag \"$new_tag\" \"$main_remote\" \"$main_branch\""
+              ""
+              "# Bump patch version"
+              "bump:"
+              "    #!/usr/bin/env bash"
+              "    set -euo pipefail"
+              ""
+              "    # Source shared utilities"
+              "    source ${lib.getExe sysCfg.releaseUtils}"
+              ""
+              "    echo \"🏷️  Creating new semver patch release...\" >&2"
+              ""
+              "    # Always operate on origin/main, regardless of current checkout"
+              "    main_remote=\"origin\""
+              "    main_branch=\"main\""
+              ""
+              "    # Use shared functions"
+              "    fetch_latest \"$main_remote\" \"$main_branch\""
+              "    latest_tag=$(get_latest_tag)"
+              ""
+              "    echo \"📋 Latest tag: $latest_tag\" >&2"
+              ""
+              "    # Extract version numbers (remove 'v' prefix)"
+              "    version=\${latest_tag#v}"
+              "    major=\${version%%.*}"
+              "    minor=\${version#*.}"
+              "    minor=\${minor%%.*}"
+              "    patch=\${version##*.}"
+              ""
+              "    # Increment patch version"
+              "    new_patch=$((patch + 1))"
+              "    new_version=\"$major.$minor.$new_patch\""
+              "    new_tag=\"v$new_version\""
+              ""
+              "    echo \"🆕 New tag: $new_tag\" >&2"
+              ""
+              "    # Use shared function to create and push tag"
+              "    create_and_push_tag \"$new_tag\" \"$main_remote\" \"$main_branch\""
+              ""
+            ];
           };
           nix = {
             enable = true;
-            justfile = ''
-              # Build all flake outputs using flake-iter
-              build-all:
-                  ${lib.getExe sysCfg.flakeIterPackage} build
-
-              # Build all flake outputs with verbose output
-              build-all-verbose:
-                  ${lib.getExe sysCfg.flakeIterPackage} build --verbose
-            '';
+            justfile = lib.concatStringsSep "\n" [
+              (mkRecipe "build-all" "Build all flake outputs using flake-iter" [
+                "${lib.getExe sysCfg.flakeIterPackage} build"
+              ])
+              ""
+              (mkRecipe "build-all-verbose" "Build all flake outputs with verbose output" [
+                "${lib.getExe sysCfg.flakeIterPackage} build --verbose"
+              ])
+            ];
           };
           quarto = {
             enable = cfg.quarto.enable && cfg.quarto.sites != [];
-            justfile = lib.concatStrings (
-              [
-                ''
-                  # Build all quarto sites
-                  render-all:
-                  ${lib.concatStringsSep "\n" (map (site: "    ${lib.getExe sysCfgQuarto.quartoPackage} render ${site}") cfg.quarto.sites)}
-                ''
-              ]
-              ++ map (site: ''
-                # render ${site}
-                render-${site}:
-                    ${lib.getExe sysCfgQuarto.quartoPackage} render ${site}
-                # preview ${site}
-                ${site}:
-                    ${lib.getExe sysCfgQuarto.quartoPackage} preview ${site}
-              '')
+            justfile = lib.concatStringsSep "\n" (
+              # render-all recipe
+              ["# Build all quarto sites"]
+              ++ ["render-all:"]
+              ++ (map (site: "    ${lib.getExe sysCfgQuarto.quartoPackage} render ${site}") cfg.quarto.sites)
+              ++ [""]
+              # Per-site recipes
+              ++ lib.concatMap (site: [
+                (mkRecipe "render-${site}" "render ${site}" [
+                  "${lib.getExe sysCfgQuarto.quartoPackage} render ${site}"
+                ])
+                (mkRecipe "${site}" "preview ${site}" [
+                  "${lib.getExe sysCfgQuarto.quartoPackage} preview ${site}"
+                ])
+              ])
               cfg.quarto.sites
             );
           };
