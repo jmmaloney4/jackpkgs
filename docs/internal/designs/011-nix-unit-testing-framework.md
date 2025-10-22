@@ -163,6 +163,7 @@ All phases of the implementation plan have been completed:
    - Created `tests/test-helpers.nix` with shared utilities
    - Configured checks in `flake.nix` to expose tests via `mkTest` helper function
    - Tests automatically run with `nix flake check`
+   - **CI Integration:** Tests run automatically in CI via `nix flake check` (Phase 3 complete)
 
 2. **Test Suites:**
    - **mkRecipe Tests** (`tests/mkRecipe.nix`): 12/12 tests passing
@@ -217,10 +218,11 @@ All phases of the implementation plan have been completed:
 
 ### Future Work
 
-- CI integration (Phase 3 from implementation plan)
+- Module evaluation testing framework (see issue #76)
 - Add tests for future helper functions
-- Consider integration tests for actual justfile execution
+- Consider integration tests for actual justfile execution (e.g., running recipes in test environment)
 - Document testing guidelines in AGENTS.md
+- Extend test coverage to other modules (python, quarto, etc.)
 
 ---
 
