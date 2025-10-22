@@ -215,6 +215,7 @@ All phases of the implementation plan have been completed:
 - Tests need to be evaluated with arguments before passing to nix-unit
 - `lib.generators.toPretty` is effective for serializing test cases
 - All 26 tests pass, validating the correctness of ADR-010 helpers
+- **String comparison tests:** Using indented strings (`''...''`) for `expected` values works reliably. Nix's indented string handling is well-defined and stable. While `lib.strings.stripStringMargin` could be used for extra explicitness, the current pattern is idiomatic and maintainable.
 
 ### Future Work
 
