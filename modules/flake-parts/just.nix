@@ -142,20 +142,20 @@ in {
               # lib.throwIf (cfg.pulumi.enable && (cfg.pulumi.backendUrl == null || cfg.pulumi.secretsProvider == null))
               # "jackpkgs.pulumi.backendUrl and jackpkgs.pulumi.secretsProvider must be set when jackpkgs.pulumi.enable is true"
               ''
-                                # Authenticate with GCP and refresh ADC
-                                # (set GCP_ACCOUNT_USER to override username)
-                                auth:
+                  # Authenticate with GCP and refresh ADC
+                  # (set GCP_ACCOUNT_USER to override username)
+                  auth:
                 ${lib.optionalString (cfg.gcp.iamOrg != null) ''
                   : ''${GCP_ACCOUNT_USER:=$USER}
-                ''}                    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}
+                ''}      ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}
                 ${lib.optionalString (cfg.gcp.quotaProject != null) ''
                   ${lib.getExe sysCfg.googleCloudSdkPackage} auth application-default set-quota-project ${cfg.gcp.quotaProject}
                 ''}
-                                # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
-                                new-stack project_path stack_name:
-                                    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login "${cfg.pulumi.backendUrl}"
-                                    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "${cfg.pulumi.secretsProvider}"
-                                    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
+                  # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
+                  new-stack project_path stack_name:
+                      ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login "${cfg.pulumi.backendUrl}"
+                      ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "${cfg.pulumi.secretsProvider}"
+                      ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
               '';
           };
           python = {
