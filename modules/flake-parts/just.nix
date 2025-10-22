@@ -7,20 +7,9 @@
   inherit (lib) mkIf;
   cfg = config.jackpkgs;
 
-  # Helper to build justfile recipes without indentation issues
-  # Usage: mkRecipe "recipe-name" "comment" ["cmd1" "cmd2"]
-  mkRecipe = name: comment: commands:
-    lib.concatStringsSep "\n" (
-      ["# ${comment}" "${name}:"]
-      ++ map (cmd: "    ${cmd}") commands
-      ++ [""]
-    );
-
-  # Helper for conditional recipe lines
-  optionalLines = cond: lines:
-    if cond
-    then lines
-    else [];
+  # Import justfile generation helpers from shared lib
+  justfileHelpers = import ../../lib/justfile-helpers.nix {inherit lib;};
+  inherit (justfileHelpers) mkRecipe mkRecipeWithParams optionalLines;
 in {
   imports = [
     jackpkgsInputs.just-flake.flakeModule
@@ -191,15 +180,14 @@ in {
           };
           python = {
             enable = true;
-            justfile = lib.concatStringsSep "\n" [
-              "# Strip output from Jupyter notebooks"
-              ''nbstrip notebook="":''
-              ''@if [ -z "{{notebook}}" ]; then \''
-              "        ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}; \\"
-              "    else \\"
-              "        ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\"; \\"
-              "    fi"
-              ""
+            justfile = mkRecipeWithParams "nbstrip" [''notebook=""''] "Strip output from Jupyter notebooks" [
+              "#!/usr/bin/env bash"
+              "set -euo pipefail"
+              ''if [ -z "{{notebook}}" ]; then''
+              "    ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}"
+              "else"
+              "    ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\""
+              "fi"
             ];
           };
           git = {
