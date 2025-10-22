@@ -7,32 +7,9 @@
   inherit (lib) mkIf;
   cfg = config.jackpkgs;
 
-  # Helper to build justfile recipes without indentation issues
-  # Usage: mkRecipe "recipe-name" "comment" ["cmd1" "cmd2"]
-  mkRecipe = name: comment: commands:
-    lib.concatStringsSep "\n" (
-      ["# ${comment}" "${name}:"]
-      ++ map (cmd: "    ${cmd}") commands
-      ++ [""]
-    );
-
-  # Helper to build justfile recipes with parameters
-  # Usage: mkRecipeWithParams "recipe-name" ["param1=\"default\"" "param2=\"\""] "comment" ["cmd1" "cmd2"]
-  # Generates: recipe-name param1="default" param2="":
-  mkRecipeWithParams = name: params: comment: commands: let
-    paramStr = lib.concatStringsSep " " params;
-    fullName =
-      if params == []
-      then name
-      else "${name} ${paramStr}";
-  in
-    mkRecipe fullName comment commands;
-
-  # Helper for conditional recipe lines
-  optionalLines = cond: lines:
-    if cond
-    then lines
-    else [];
+  # Import justfile generation helpers from shared lib
+  justfileHelpers = import ../../lib/justfile-helpers.nix {inherit lib;};
+  inherit (justfileHelpers) mkRecipe mkRecipeWithParams optionalLines;
 in {
   imports = [
     jackpkgsInputs.just-flake.flakeModule

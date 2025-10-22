@@ -82,9 +82,14 @@
         pkgs,
         lib,
         config,
+        self',
         ...
       }: let
         jackLib = import ./lib {inherit pkgs;};
+        # Make flake lib available for tests
+        flakeLib = inputs.nixpkgs.lib.extend (
+          final: prev: jackLib
+        );
         allPackages = {
           csharpier = pkgs.callPackage ./pkgs/csharpier {};
           docfx = pkgs.callPackage ./pkgs/docfx {};
@@ -124,7 +129,8 @@
 
         checks = let
           # Import test helpers that are shared across tests
-          testHelpers = import ./tests/test-helpers.nix {inherit lib;};
+          # Use flakeLib so tests validate the exposed API
+          testHelpers = import ./tests/test-helpers.nix {lib = flakeLib;};
           nix-unit = inputs.nix-unit.packages.${system}.default;
 
           # Helper to run nix-unit tests

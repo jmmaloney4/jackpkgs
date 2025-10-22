@@ -1,6 +1,10 @@
 {pkgs}:
-with pkgs.lib; {
+with pkgs.lib; rec {
   # Add your library functions here
+
+  # Justfile generation helpers
+  # These helpers make it easy to generate justfile content without indentation issues
+  justfile = import ./justfile-helpers.nix {lib = pkgs.lib;};
 
   /**
   Filter an attribute set so that it is returned only when the
