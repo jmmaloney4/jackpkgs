@@ -194,10 +194,12 @@ in {
             justfile = lib.concatStringsSep "\n" [
               "# Strip output from Jupyter notebooks"
               ''nbstrip notebook="":''
-              ''@if [ -z "{{notebook}}" ]; then \''
-              "        ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}; \\"
-              "    else \\"
-              "        ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\"; \\"
+              "    #!/usr/bin/env bash"
+              "    set -euo pipefail"
+              ''if [ -z "{{notebook}}" ]; then''
+              "        ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}"
+              "    else"
+              "        ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\""
               "    fi"
               ""
             ];

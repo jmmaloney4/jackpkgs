@@ -143,6 +143,11 @@
           justfileValidationTests = import ./tests/justfile-validation.nix {
             inherit lib pkgs testHelpers;
           };
+
+          # Import module pattern tests (test patterns used in actual module features)
+          moduleJustfileTests = import ./tests/module-justfiles.nix {
+            inherit lib pkgs testHelpers;
+          };
         in
           {
             # Run nix-unit tests - import and evaluate with arguments first
@@ -155,7 +160,9 @@
             });
           }
           # Add all justfile validation tests
-          // lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests;
+          // lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests
+          # Add module pattern tests
+          // lib.mapAttrs' (name: test: lib.nameValuePair "module-${name}" test) moduleJustfileTests;
       };
 
       flake = {
