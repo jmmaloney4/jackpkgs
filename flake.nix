@@ -138,16 +138,24 @@
               ${nix-unit}/bin/nix-unit test.nix
               touch $out
             '';
-        in {
-          # Run nix-unit tests - import and evaluate with arguments first
-          mkRecipe-test = mkTest "mkRecipe" (import ./tests/mkRecipe.nix {
-            inherit lib testHelpers;
-          });
 
-          optionalLines-test = mkTest "optionalLines" (import ./tests/optionalLines.nix {
-            inherit lib testHelpers;
-          });
-        };
+          # Import justfile validation tests (these return derivations directly)
+          justfileValidationTests = import ./tests/justfile-validation.nix {
+            inherit lib pkgs testHelpers;
+          };
+        in
+          {
+            # Run nix-unit tests - import and evaluate with arguments first
+            mkRecipe-test = mkTest "mkRecipe" (import ./tests/mkRecipe.nix {
+              inherit lib testHelpers;
+            });
+
+            optionalLines-test = mkTest "optionalLines" (import ./tests/optionalLines.nix {
+              inherit lib testHelpers;
+            });
+          }
+          # Add all justfile validation tests
+          // lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests;
       };
 
       flake = {
