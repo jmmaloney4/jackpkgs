@@ -6,6 +6,21 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs;
+
+  # Helper to build justfile recipes without indentation issues
+  # Usage: mkRecipe "recipe-name" "comment" ["cmd1" "cmd2"]
+  mkRecipe = name: comment: commands:
+    lib.concatStringsSep "\n" (
+      ["# ${comment}" "${name}:"]
+      ++ map (cmd: "    ${cmd}") commands
+      ++ [""]
+    );
+
+  # Helper for conditional recipe lines
+  optionalLines = cond: lines:
+    if cond
+    then lines
+    else [];
 in {
   imports = [
     jackpkgsInputs.just-flake.flakeModule
@@ -140,14 +155,14 @@ in {
           treefmt.enable = true;
           direnv = {
             enable = true;
-            justfile = ''
-              # Run direnv
-              reload:
-                  ${lib.getExe sysCfg.direnvPackage} reload
-              # alias for reload
-              r:
-                  @just reload
-            '';
+            justfile = lib.concatStringsSep "\n" [
+              (mkRecipe "reload" "Run direnv" [
+                "${lib.getExe sysCfg.direnvPackage} reload"
+              ])
+              (mkRecipe "r" "alias for reload" [
+                "@just reload"
+              ])
+            ];
           };
           infra = {
             enable = cfg.pulumi.enable; # && cfg.pulumi.backendUrl != null && cfg.pulumi.secretsProvider != null;
