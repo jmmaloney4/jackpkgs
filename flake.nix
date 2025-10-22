@@ -138,9 +138,9 @@
             pkgs.runCommand "test-${name}" {
               nativeBuildInputs = [nix-unit];
             } ''
-              cat > test.nix << 'EOF'
+              cat > test.nix << '_TEST_EOF_'
               ${lib.generators.toPretty {} tests}
-              EOF
+              _TEST_EOF_
               ${nix-unit}/bin/nix-unit test.nix
               touch $out
             '';
