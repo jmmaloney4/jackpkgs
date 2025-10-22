@@ -132,4 +132,58 @@ in {
           @just build
     '';
   };
+
+  # Test shebang recipe with bash
+  testShebangRecipeBash = {
+    expr = mkRecipe "script" "Run bash script" [
+      "#!/usr/bin/env bash"
+      "set -euo pipefail"
+      "echo 'hello world'"
+    ];
+    expected = ''
+      # Run bash script
+      script:
+          #!/usr/bin/env bash
+          set -euo pipefail
+          echo 'hello world'
+    '';
+  };
+
+  # Test shebang recipe with python
+  testShebangRecipePython = {
+    expr = mkRecipe "pyscript" "Run python script" [
+      "#!/usr/bin/env python3"
+      "print('hello from python')"
+    ];
+    expected = ''
+      # Run python script
+      pyscript:
+          #!/usr/bin/env python3
+          print('hello from python')
+    '';
+  };
+
+  # Test shebang recipe with conditional logic
+  testShebangRecipeConditional = {
+    expr = mkRecipe "conditional" "Conditional script" [
+      "#!/usr/bin/env bash"
+      "set -euo pipefail"
+      ''if [ -z "$VAR" ]; then''
+      "    echo 'VAR is empty'"
+      "else"
+      "    echo 'VAR is set'"
+      "fi"
+    ];
+    expected = ''
+      # Conditional script
+      conditional:
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if [ -z "$VAR" ]; then
+              echo 'VAR is empty'
+          else
+              echo 'VAR is set'
+          fi
+    '';
+  };
 }
