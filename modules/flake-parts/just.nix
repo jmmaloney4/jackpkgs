@@ -138,25 +138,22 @@ in {
           };
           infra = {
             enable = cfg.pulumi.enable; # && cfg.pulumi.backendUrl != null && cfg.pulumi.secretsProvider != null;
-            justfile =
-              # lib.throwIf (cfg.pulumi.enable && (cfg.pulumi.backendUrl == null || cfg.pulumi.secretsProvider == null))
-              # "jackpkgs.pulumi.backendUrl and jackpkgs.pulumi.secretsProvider must be set when jackpkgs.pulumi.enable is true"
-              ''
-                  # Authenticate with GCP and refresh ADC
-                  # (set GCP_ACCOUNT_USER to override username)
-                  auth:
-                ${lib.optionalString (cfg.gcp.iamOrg != null) ''
-                  : ''${GCP_ACCOUNT_USER:=$USER}
-                ''}      ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}
-                ${lib.optionalString (cfg.gcp.quotaProject != null) ''
-                  ${lib.getExe sysCfg.googleCloudSdkPackage} auth application-default set-quota-project ${cfg.gcp.quotaProject}
-                ''}
-                  # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
-                  new-stack project_path stack_name:
-                      ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login "${cfg.pulumi.backendUrl}"
-                      ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "${cfg.pulumi.secretsProvider}"
-                      ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
-              '';
+            justfile = ''
+              # Authenticate with GCP and refresh ADC
+              # (set GCP_ACCOUNT_USER to override username)
+              auth:
+              ${lib.optionalString (cfg.gcp.iamOrg != null) ''
+                : ''${GCP_ACCOUNT_USER:=$USER}
+              ''}    ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}
+              ${lib.optionalString (cfg.gcp.quotaProject != null) ''
+                ${lib.getExe sysCfg.googleCloudSdkPackage} auth application-default set-quota-project ${cfg.gcp.quotaProject}
+              ''}
+              # Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)
+              new-stack project_path stack_name:
+                  ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login "${cfg.pulumi.backendUrl}"
+                  ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider "${cfg.pulumi.secretsProvider}"
+                  ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}
+            '';
           };
           python = {
             enable = true;
@@ -175,13 +172,13 @@ in {
             justfile = ''
               # Run pre-commit hooks
               pre-commit:
-                ${lib.getExe sysCfg.preCommitPackage}
+                  ${lib.getExe sysCfg.preCommitPackage}
               # alias for pre-commit
               pre:
-                @just pre-commit
+                  @just pre-commit
               # Run pre-commit hooks on all files
               pre-all:
-                ${lib.getExe sysCfg.preCommitPackage} run --all-files
+                  ${lib.getExe sysCfg.preCommitPackage} run --all-files
             '';
           };
           release = {
@@ -189,76 +186,76 @@ in {
             justfile = ''
               # New minor release
               release:
-                #!/usr/bin/env bash
-                set -euo pipefail
+                  #!/usr/bin/env bash
+                  set -euo pipefail
 
-                # Source shared utilities
-                source ${lib.getExe sysCfg.releaseUtils}
+                  # Source shared utilities
+                  source ${lib.getExe sysCfg.releaseUtils}
 
-                echo "🏷️  Creating new semver minor release..." >&2
+                  echo "🏷️  Creating new semver minor release..." >&2
 
-                # Always operate on origin/main, regardless of current checkout
-                main_remote="origin"
-                main_branch="main"
+                  # Always operate on origin/main, regardless of current checkout
+                  main_remote="origin"
+                  main_branch="main"
 
-                # Use shared functions
-                fetch_latest "$main_remote" "$main_branch"
-                latest_tag=$(get_latest_tag)
+                  # Use shared functions
+                  fetch_latest "$main_remote" "$main_branch"
+                  latest_tag=$(get_latest_tag)
 
-                echo "📋 Latest tag: $latest_tag" >&2
+                  echo "📋 Latest tag: $latest_tag" >&2
 
-                # Extract version numbers (remove 'v' prefix)
-                version=''${latest_tag#v}
-                major=''${version%%.*}
-                minor=''${version#*.}
-                minor=''${minor%%.*}
-                patch=''${version##*.}
+                  # Extract version numbers (remove 'v' prefix)
+                  version=''${latest_tag#v}
+                  major=''${version%%.*}
+                  minor=''${version#*.}
+                  minor=''${minor%%.*}
+                  patch=''${version##*.}
 
-                # Increment minor version and reset patch to 0
-                new_minor=$((minor + 1))
-                new_version="$major.$new_minor.0"
-                new_tag="v$new_version"
+                  # Increment minor version and reset patch to 0
+                  new_minor=$((minor + 1))
+                  new_version="$major.$new_minor.0"
+                  new_tag="v$new_version"
 
-                echo "🆕 New tag: $new_tag" >&2
+                  echo "🆕 New tag: $new_tag" >&2
 
-                # Use shared function to create and push tag
-                create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
+                  # Use shared function to create and push tag
+                  create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
               # Bump patch version
               bump:
-                #!/usr/bin/env bash
-                set -euo pipefail
+                  #!/usr/bin/env bash
+                  set -euo pipefail
 
-                # Source shared utilities
-                source ${lib.getExe sysCfg.releaseUtils}
+                  # Source shared utilities
+                  source ${lib.getExe sysCfg.releaseUtils}
 
-                echo "🏷️  Creating new semver patch release..." >&2
+                  echo "🏷️  Creating new semver patch release..." >&2
 
-                # Always operate on origin/main, regardless of current checkout
-                main_remote="origin"
-                main_branch="main"
+                  # Always operate on origin/main, regardless of current checkout
+                  main_remote="origin"
+                  main_branch="main"
 
-                # Use shared functions
-                fetch_latest "$main_remote" "$main_branch"
-                latest_tag=$(get_latest_tag)
+                  # Use shared functions
+                  fetch_latest "$main_remote" "$main_branch"
+                  latest_tag=$(get_latest_tag)
 
-                echo "📋 Latest tag: $latest_tag" >&2
+                  echo "📋 Latest tag: $latest_tag" >&2
 
-                # Extract version numbers (remove 'v' prefix)
-                version=''${latest_tag#v}
-                major=''${version%%.*}
-                minor=''${version#*.}
-                minor=''${minor%%.*}
-                patch=''${version##*.}
+                  # Extract version numbers (remove 'v' prefix)
+                  version=''${latest_tag#v}
+                  major=''${version%%.*}
+                  minor=''${version#*.}
+                  minor=''${minor%%.*}
+                  patch=''${version##*.}
 
-                # Increment patch version
-                new_patch=$((patch + 1))
-                new_version="$major.$minor.$new_patch"
-                new_tag="v$new_version"
+                  # Increment patch version
+                  new_patch=$((patch + 1))
+                  new_version="$major.$minor.$new_patch"
+                  new_tag="v$new_version"
 
-                echo "🆕 New tag: $new_tag" >&2
+                  echo "🆕 New tag: $new_tag" >&2
 
-                # Use shared function to create and push tag
-                create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
+                  # Use shared function to create and push tag
+                  create_and_push_tag "$new_tag" "$main_remote" "$main_branch"
             '';
           };
           nix = {
@@ -266,11 +263,11 @@ in {
             justfile = ''
               # Build all flake outputs using flake-iter
               build-all:
-                ${lib.getExe sysCfg.flakeIterPackage} build
+                  ${lib.getExe sysCfg.flakeIterPackage} build
 
               # Build all flake outputs with verbose output
               build-all-verbose:
-                ${lib.getExe sysCfg.flakeIterPackage} build --verbose
+                  ${lib.getExe sysCfg.flakeIterPackage} build --verbose
             '';
           };
           quarto = {
