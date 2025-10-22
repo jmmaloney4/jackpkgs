@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted and Implemented (2025-10-21)
 
 ## Context
 
@@ -151,9 +151,80 @@ Tests SHOULD:
 - Example: `jmmaloney4/latex-utils` (reference implementation of nix-unit testing pattern)
 - nix-unit repo: https://github.com/nix-community/nix-unit
 
+## Implementation Notes
+
+### What Was Built
+
+All phases of the implementation plan have been completed:
+
+1. **Infrastructure Setup:**
+   - Added `nix-unit` as flake input with `inputs.nixpkgs.follows`
+   - Created `tests/` directory with modular structure
+   - Created `tests/test-helpers.nix` with shared utilities
+   - Configured checks in `flake.nix` to expose tests via `mkTest` helper function
+   - Tests automatically run with `nix flake check`
+
+2. **Test Suites:**
+   - **mkRecipe Tests** (`tests/mkRecipe.nix`): 12/12 tests passing
+     - Basic recipe generation with single/multiple commands
+     - Empty commands edge case
+     - Special characters in comments
+     - Interpolation syntax (just variables)
+     - Indentation validation (4 spaces)
+     - Trailing blank lines
+     - Recipe/comment positioning
+     - Backslash handling for multiline commands
+     - Silent commands (@echo)
+     - Just invocations
+   
+   - **optionalLines Tests** (`tests/optionalLines.nix`): 14/14 tests passing
+     - Conditional inclusion (true/false)
+     - Empty list handling
+     - Single line cases
+     - Complex condition expressions
+     - Special characters in lines
+     - List concatenation patterns
+     - Chaining multiple conditionals
+     - Integration with lib functions
+     - Type consistency checks
+
+3. **Running Tests:**
+   ```bash
+   # Run all checks (including tests)
+   nix flake check
+   
+   # Run specific test
+   nix build .#checks.<system>.mkRecipe-test
+   nix build .#checks.<system>.optionalLines-test
+   
+   # Quick evaluation check (no build)
+   nix flake check --no-build
+   ```
+
+4. **Test Implementation Pattern:**
+   - Tests are imported with arguments during flake evaluation
+   - Test results are serialized to Nix expressions using `lib.generators.toPretty`
+   - nix-unit runs in a `pkgs.runCommand` derivation
+   - Success creates an empty output file
+   - Failure stops the build with detailed error messages
+
+### Lessons Learned
+
+- nix-unit expects attrsets with `expr` and `expected` fields
+- Tests need to be evaluated with arguments before passing to nix-unit
+- `lib.generators.toPretty` is effective for serializing test cases
+- All 26 tests pass, validating the correctness of ADR-010 helpers
+
+### Future Work
+
+- CI integration (Phase 3 from implementation plan)
+- Add tests for future helper functions
+- Consider integration tests for actual justfile execution
+- Document testing guidelines in AGENTS.md
+
 ---
 
 Author: jack  
 Date: 2025-10-21  
-PR: #<tbd>
+Implemented: 2025-10-21
 
