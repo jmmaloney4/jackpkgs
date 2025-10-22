@@ -67,6 +67,7 @@ in {
       "    ${lib.getExe mockPackages.nbstripout} \"{{notebook}}\""
       "fi"
     ]
+    false
   );
 
   # Test direnv feature pattern (simple mkRecipe)
@@ -74,6 +75,7 @@ in {
     mkRecipe "allow" "Allow direnv" [
       "${lib.getExe mockPackages.direnv} allow"
     ]
+    false
   );
 
   # Test git pre-commit recipe pattern
@@ -81,6 +83,7 @@ in {
     mkRecipe "pre-commit" "Run pre-commit hooks" [
       "${lib.getExe mockPackages.pre-commit} run --all-files"
     ]
+    false
   );
 
   # Test recipe with just variables (common pattern)

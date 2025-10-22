@@ -33,24 +33,28 @@
 in {
   # Test a simple single-command recipe
   testSingleRecipe = mkJustParseTest "single-recipe" (mkRecipe "build" "Build the project" [
-    "echo 'Building...'"
-  ]);
+      "echo 'Building...'"
+    ]
+    false);
 
   # Test multiple recipes
   testMultipleRecipes = mkJustParseTest "multiple-recipes" (
     lib.concatStringsSep "\n" [
       (mkRecipe "build" "Build the project" [
-        "echo 'Building...'"
-        "make build"
-      ])
+          "echo 'Building...'"
+          "make build"
+        ]
+        false)
       (mkRecipe "test" "Run tests" [
-        "echo 'Testing...'"
-        "make test"
-      ])
+          "echo 'Testing...'"
+          "make test"
+        ]
+        false)
       (mkRecipe "deploy" "Deploy to production" [
-        "@echo 'Deploying...'"
-        "make deploy"
-      ])
+          "@echo 'Deploying...'"
+          "make deploy"
+        ]
+        false)
     ]
   );
 
@@ -60,6 +64,7 @@ in {
       "./script {{args}}"
       "echo 'Done: {{args}}'"
     ]
+    false
   );
 
   # Test recipe with dependencies
@@ -96,44 +101,51 @@ in {
   testComplexJustfile = mkJustParseTest "complex-justfile" (
     lib.concatStringsSep "\n" [
       (mkRecipe "default" "List available recipes" [
-        "@just --list"
-      ])
+          "@just --list"
+        ]
+        false)
       ""
       (mkRecipe "fmt" "Format code" [
-        "treefmt"
-      ])
+          "treefmt"
+        ]
+        false)
       ""
       (mkRecipe "check" "Run checks" [
-        "nix flake check"
-      ])
+          "nix flake check"
+        ]
+        false)
       ""
       (mkRecipe "build" "Build the project" [
-        "nix build"
-      ])
+          "nix build"
+        ]
+        false)
       ""
       (mkRecipe "test" "Run tests" [
-        "nix build .#checks.aarch64-darwin.mkRecipe-test"
-        "nix build .#checks.aarch64-darwin.optionalLines-test"
-      ])
+          "nix build .#checks.aarch64-darwin.mkRecipe-test"
+          "nix build .#checks.aarch64-darwin.optionalLines-test"
+        ]
+        false)
     ]
   );
 
   # Test recipe with multiline shell commands (backslash continuation)
   testMultilineCommand = mkJustParseTest "multiline-command" (mkRecipe "multiline" "Multiline command" [
-    ''echo "line 1" \''
-    ''&& echo "line 2" \''
-    ''&& echo "line 3"''
-  ]);
+      ''echo "line 1" \''
+      ''&& echo "line 2" \''
+      ''&& echo "line 3"''
+    ]
+    false);
 
   # Test recipe with special characters that need quoting
   testSpecialChars = mkJustParseTest "special-chars" (mkRecipe "special" "Special characters" [
-    ''echo "Hello, World!"''
-    ''echo 'Single quotes work too' ''
-    ''echo "Quotes: \" and '"''
-  ]);
+      ''echo "Hello, World!"''
+      ''echo 'Single quotes work too' ''
+      ''echo "Quotes: \" and '"''
+    ]
+    false);
 
   # Test empty recipe (edge case)
-  testEmptyRecipe = mkJustParseTest "empty-recipe" (mkRecipe "empty" "Empty recipe" []);
+  testEmptyRecipe = mkJustParseTest "empty-recipe" (mkRecipe "empty" "Empty recipe" [] false);
 
   # Test recipe with shebang (inline script)
   testShebangRecipe = mkJustParseTest "shebang-recipe" ''
@@ -156,35 +168,40 @@ in {
         # direnv feature
         [
           (mkRecipe "allow" "Allow direnv" [
-            "direnv allow"
-          ])
+              "direnv allow"
+            ]
+            false)
           ""
         ]
         # infra feature (conditional)
         ++ optionalLines hasGcp [
           (mkRecipe "auth" "Authenticate with GCP" [
-            "gcloud auth login --update-adc"
-            "gcloud auth application-default set-quota-project ${quotaProject}"
-          ])
+              "gcloud auth login --update-adc"
+              "gcloud auth application-default set-quota-project ${quotaProject}"
+            ]
+            false)
           ""
         ]
         # python feature (conditional)
         ++ optionalLines hasPython [
           (mkRecipe "venv" "Enter Python virtual environment" [
-            "@echo 'Activating venv...'"
-            "nix develop .#python"
-          ])
+              "@echo 'Activating venv...'"
+              "nix develop .#python"
+            ]
+            false)
           ""
         ]
         # Always present recipes
         ++ [
           (mkRecipe "fmt" "Format code" [
-            "treefmt"
-          ])
+              "treefmt"
+            ]
+            false)
           ""
           (mkRecipe "check" "Run all checks" [
-            "nix flake check"
-          ])
+              "nix flake check"
+            ]
+            false)
         ]
       )
     );
@@ -195,6 +212,7 @@ in {
       "echo 'Deploying to {{env}}'"
       "kubectl apply -f {{env}}.yaml"
     ]
+    false
   );
 
   # Test mkRecipeWithParams with multiple parameters
@@ -205,6 +223,7 @@ in {
       ''echo "Processing {{input}} -> {{output}} (mode: {{mode}})"''
       ''./processor --input "{{input}}" --output "{{output}}" --mode "{{mode}}"''
     ]
+    false
   );
 
   # Test mkRecipeWithParams with no parameters (backward compat)
@@ -212,5 +231,6 @@ in {
     mkRecipeWithParams "simple" [] "Simple recipe" [
       "echo 'No parameters needed'"
     ]
+    false
   );
 }

@@ -146,11 +146,13 @@ in {
             enable = true;
             justfile = lib.concatStringsSep "\n" [
               (mkRecipe "reload" "Run direnv" [
-                "${lib.getExe sysCfg.direnvPackage} reload"
-              ])
+                  "${lib.getExe sysCfg.direnvPackage} reload"
+                ]
+                false)
               (mkRecipe "r" "alias for reload" [
-                "@just reload"
-              ])
+                  "@just reload"
+                ]
+                false)
             ];
           };
           infra = {
@@ -178,7 +180,7 @@ in {
                 ++ ["auth:"]
                 ++ (
                   if needsShebang
-                  then ["    #!/usr/bin/env bash"] ++ (map (cmd: "    ${cmd}") authCommands)
+                  then ["    #!/usr/bin/env bash" "    set -x"] ++ (map (cmd: "    ${cmd}") authCommands)
                   else map (cmd: "    ${cmd}") authCommands
                 );
             in
@@ -197,28 +199,33 @@ in {
           };
           python = {
             enable = true;
-            justfile = mkRecipeWithParams "nbstrip" [''notebook=""''] "Strip output from Jupyter notebooks" [
-              "#!/usr/bin/env bash"
-              "set -euo pipefail"
-              ''if [ -z "{{notebook}}" ]; then''
-              "    ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}"
-              "else"
-              "    ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\""
-              "fi"
-            ];
+            justfile =
+              mkRecipeWithParams "nbstrip" [''notebook=""''] "Strip output from Jupyter notebooks" [
+                "#!/usr/bin/env bash"
+                "set -euo pipefail"
+                ''if [ -z "{{notebook}}" ]; then''
+                "    ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}"
+                "else"
+                "    ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\""
+                "fi"
+              ]
+              true;
           };
           git = {
             enable = true;
             justfile = lib.concatStringsSep "\n" [
               (mkRecipe "pre-commit" "Run pre-commit hooks" [
-                "${lib.getExe sysCfg.preCommitPackage}"
-              ])
+                  "${lib.getExe sysCfg.preCommitPackage}"
+                ]
+                false)
               (mkRecipe "pre" "alias for pre-commit" [
-                "@just pre-commit"
-              ])
+                  "@just pre-commit"
+                ]
+                false)
               (mkRecipe "pre-all" "Run pre-commit hooks on all files" [
-                "${lib.getExe sysCfg.preCommitPackage} run --all-files"
-              ])
+                  "${lib.getExe sysCfg.preCommitPackage} run --all-files"
+                ]
+                false)
             ];
           };
           release = {
@@ -228,6 +235,7 @@ in {
               "release:"
               "    #!/usr/bin/env bash"
               "    set -euo pipefail"
+              "    set -x"
               ""
               "    # Source shared utilities"
               "    source ${lib.getExe sysCfg.releaseUtils}"
@@ -265,6 +273,7 @@ in {
               "bump:"
               "    #!/usr/bin/env bash"
               "    set -euo pipefail"
+              "    set -x"
               ""
               "    # Source shared utilities"
               "    source ${lib.getExe sysCfg.releaseUtils}"
@@ -304,12 +313,14 @@ in {
             enable = true;
             justfile = lib.concatStringsSep "\n" [
               (mkRecipe "build-all" "Build all flake outputs using flake-iter" [
-                "${lib.getExe sysCfg.flakeIterPackage} build"
-              ])
+                  "${lib.getExe sysCfg.flakeIterPackage} build"
+                ]
+                false)
               ""
               (mkRecipe "build-all-verbose" "Build all flake outputs with verbose output" [
-                "${lib.getExe sysCfg.flakeIterPackage} build --verbose"
-              ])
+                  "${lib.getExe sysCfg.flakeIterPackage} build --verbose"
+                ]
+                false)
             ];
           };
           quarto = {
@@ -323,11 +334,13 @@ in {
               # Per-site recipes
               ++ lib.concatMap (site: [
                 (mkRecipe "render-${site}" "render ${site}" [
-                  "${lib.getExe sysCfgQuarto.quartoPackage} render ${site}"
-                ])
+                    "${lib.getExe sysCfgQuarto.quartoPackage} render ${site}"
+                  ]
+                  false)
                 (mkRecipe "${site}" "preview ${site}" [
-                  "${lib.getExe sysCfgQuarto.quartoPackage} preview ${site}"
-                ])
+                    "${lib.getExe sysCfgQuarto.quartoPackage} preview ${site}"
+                  ]
+                  false)
               ])
               cfg.quarto.sites
             );
