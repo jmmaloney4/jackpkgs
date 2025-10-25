@@ -168,6 +168,9 @@ in {
                 ]
                 ++ optionalLines (cfg.gcp.quotaProject != null) [
                   "${lib.getExe sysCfg.googleCloudSdkPackage} auth application-default set-quota-project ${cfg.gcp.quotaProject}"
+                ]
+                ++ optionalLines (cfg.pulumi.enable && cfg.pulumi.backendUrl != null) [
+                  "${lib.getExe sysCfg.pulumiPackage} login \"${cfg.pulumi.backendUrl}\""
                 ];
 
               # Determine if we need a shebang (when iamOrg is set, we need multi-line bash)
@@ -176,7 +179,7 @@ in {
               # Build the complete auth recipe using mkRecipe helper
               authRecipe =
                 mkRecipe "auth"
-                "Authenticate with GCP and refresh ADC (set GCP_ACCOUNT_USER to override username)"
+                "Authenticate with GCP/Pulumi and refresh ADC (set GCP_ACCOUNT_USER to override username)"
                 (
                   if needsShebang
                   then ["#!/usr/bin/env bash"] ++ authCommands
