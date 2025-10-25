@@ -168,6 +168,11 @@
             optionalLines-test = mkTest "optionalLines" (import ./tests/optionalLines.nix {
               inherit lib testHelpers;
             });
+            # Python overlay precedence integration test (issue #78)
+            # This is an integration test (builds packages) unlike the fast eval tests above
+            python-overlay-precedence-integration = import ./tests/python-overlay-precedence-integration.nix {
+              inherit lib pkgs inputs;
+            };
           }
           # Add all justfile validation tests
           // lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests
