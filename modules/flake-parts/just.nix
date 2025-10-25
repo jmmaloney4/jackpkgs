@@ -173,29 +173,26 @@ in {
               # Determine if we need a shebang (when iamOrg is set, we need multi-line bash)
               needsShebang = cfg.gcp.iamOrg != null;
 
-              # Build the complete auth recipe
+              # Build the complete auth recipe using mkRecipe helper
               authRecipe =
-                ["# Authenticate with GCP and refresh ADC"]
-                ++ ["# (set GCP_ACCOUNT_USER to override username)"]
-                ++ ["auth:"]
-                ++ (
+                mkRecipe "auth"
+                "Authenticate with GCP and refresh ADC (set GCP_ACCOUNT_USER to override username)"
+                (
                   if needsShebang
-                  then ["    #!/usr/bin/env bash" "    set -x"] ++ (map (cmd: "    ${cmd}") authCommands)
-                  else map (cmd: "    ${cmd}") authCommands
-                );
+                  then ["#!/usr/bin/env bash"] ++ authCommands
+                  else authCommands
+                )
+                true; # echoCommands = true to inject "set -x" for bash recipes
             in
-              lib.concatStringsSep "\n" (
+              lib.concatStringsSep "\n" [
                 authRecipe
-                ++ [""]
                 # new-stack recipe
-                ++ ["# Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)"]
-                ++ ["new-stack project_path stack_name:"]
-                ++ [
-                  "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login \"${cfg.pulumi.backendUrl}\""
-                  "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider \"${cfg.pulumi.secretsProvider}\""
-                  "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}"
-                ]
-              );
+                "# Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)"
+                "new-stack project_path stack_name:"
+                "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login \"${cfg.pulumi.backendUrl}\""
+                "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider \"${cfg.pulumi.secretsProvider}\""
+                "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}"
+              ];
           };
           python = {
             enable = true;
