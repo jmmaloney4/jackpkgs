@@ -225,6 +225,38 @@ All phases of the implementation plan have been completed:
 - Document testing guidelines in AGENTS.md
 - Extend test coverage to other modules (python, quarto, etc.)
 
+### Integration Tests
+
+**Update 2025-10-25:** First integration test added for Python overlay precedence (ADR-012).
+
+Integration tests (tests that build packages) can coexist with fast pure-eval tests:
+- Place integration test files in `tests/` alongside nix-unit tests
+- Import directly in `flake.nix` checks (return derivations, don't use `mkTest`)
+- Document execution time expectations (integration tests are slower)
+- Use for testing behavior that requires actual builds (e.g., package precedence, runtime imports)
+
+**Pattern for integration tests:**
+```nix
+# tests/my-integration-test.nix
+{ lib, pkgs, inputs }:
+pkgs.runCommand "my-integration-test" {
+  meta.description = "Integration test for ...";
+  meta.timeout = 300;
+} ''
+  # Test script that builds/runs packages
+  ${testScript}
+  echo "success" > $out
+''
+```
+
+**Trade-offs:**
+- ✅ Tests actual consumer experience
+- ✅ Catches issues pure eval can't detect
+- ❌ Slower (minutes vs seconds)
+- ❌ May be flaky (build failures, platform issues)
+
+See `tests/python-overlay-precedence-integration.nix` for reference implementation.
+
 ---
 
 Author: jack  

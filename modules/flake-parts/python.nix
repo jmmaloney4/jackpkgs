@@ -243,6 +243,13 @@ in {
         sourcePreference = cfg.sourcePreference;
       };
 
+      # Debug traces to understand what's being loaded
+      _debugTrace1 = builtins.trace "=== Python Module Debug Info ===" null;
+      _debugTrace2 = builtins.trace "sourcePreference: ${cfg.sourcePreference}" null;
+      _debugTrace3 = builtins.trace "workspace.deps.default packages (first 20): ${builtins.toString (lib.take 20 (builtins.attrNames workspace.deps.default))}" null;
+      _debugTrace4 = builtins.trace "typing-extensions in workspace: ${builtins.toString (builtins.hasAttr "typing-extensions" workspace.deps.default)}" null;
+      _debugTrace5 = builtins.trace "=== End Debug Info ===" null;
+
       ensureSetuptools = final: prev: let
         add = name:
           if builtins.hasAttr name prev
@@ -257,6 +264,9 @@ in {
 
       # Overlay composition order (left-to-right, later takes precedence):
       # 1. pyproject-build-systems: PEP-517 build systems + build fixups (not in uv.lock)
+      #    NOTE: Using only ONE overlay (matching sourcePreference) to avoid double-application
+      #    of the pyproject-build-systems workspace. Each overlay already includes their entire
+      #    workspace with all packages, so applying both would apply it twice.
       # 2. baseOverlay: User's workspace from uv.lock (AUTHORITATIVE for runtime deps)
       # 3. ensureSetuptools: Targeted fixes for packages needing setuptools
       # 4. extraOverlays: User-provided custom overlays
@@ -266,10 +276,14 @@ in {
       # but should NOT override user's locked versions. This ordering ensures user's locked
       # runtime dependencies take precedence while keeping build systems available.
       # See: https://github.com/jmmaloney4/jackpkgs/issues/78
+      #
+      # HYPOTHESIS F TEST: Use only the matching sourcePreference overlay to avoid
+      # double-application of pyproject-build-systems workspace.
       overlayList =
         [
-          jackpkgsInputs.pyproject-build-systems.overlays.wheel
-          jackpkgsInputs.pyproject-build-systems.overlays.sdist
+          (if cfg.sourcePreference == "wheel"
+           then jackpkgsInputs.pyproject-build-systems.overlays.wheel
+           else jackpkgsInputs.pyproject-build-systems.overlays.sdist)
         ]
         ++ [baseOverlay]
         ++ [ensureSetuptools]

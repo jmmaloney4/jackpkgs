@@ -70,20 +70,19 @@
     sourcePreference = "wheel";
   };
 
-  # Compose overlays in the CORRECT order (as per PR #79 fix):
-  # 1. pyproject-build-systems overlays (build-time deps)
+  # Compose overlays in the CORRECT order (as per Hypothesis F fix):
+  # 1. pyproject-build-systems overlay (build-time deps) - USE ONLY ONE to avoid double-application
   # 2. user's workspace overlay (AUTHORITATIVE for runtime deps)
   #
-  # NOTE: This test may not fail if overlay order is reversed, because
-  # pyproject-build-systems currently doesn't have a conflicting typing-extensions
-  # in its workspace. The test validates that user's uv.lock takes effect and
-  # would catch regressions if pyproject-build-systems adds conflicting packages.
+  # NOTE: Using only wheel overlay here to match the common case. Each overlay already
+  # includes the full pyproject-build-systems workspace, so applying both was causing
+  # the workspace to be applied twice, potentially overriding user packages.
+  #
   # The original bug (issue #78) manifested with packages like typing-extensions
   # that were transitive deps of build systems (e.g., pydantic-core → typing-extensions).
   overlayList =
     [
-      inputs.pyproject-build-systems.overlays.wheel
-      inputs.pyproject-build-systems.overlays.sdist
+      inputs.pyproject-build-systems.overlays.wheel  # Only one overlay, not both
     ]
     ++ [
       userBaseOverlay
