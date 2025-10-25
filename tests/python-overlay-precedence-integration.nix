@@ -73,6 +73,13 @@
   # Compose overlays in the CORRECT order (as per PR #79 fix):
   # 1. pyproject-build-systems overlays (build-time deps)
   # 2. user's workspace overlay (AUTHORITATIVE for runtime deps)
+  #
+  # NOTE: This test may not fail if overlay order is reversed, because
+  # pyproject-build-systems currently doesn't have a conflicting typing-extensions
+  # in its workspace. The test validates that user's uv.lock takes effect and
+  # would catch regressions if pyproject-build-systems adds conflicting packages.
+  # The original bug (issue #78) manifested with packages like typing-extensions
+  # that were transitive deps of build systems (e.g., pydantic-core → typing-extensions).
   overlayList =
     [
       inputs.pyproject-build-systems.overlays.wheel
@@ -96,26 +103,29 @@
 
   # Test script that imports typing_extensions.Sentinel
   testScript = pkgs.writeShellScript "test-typing-extensions-sentinel" ''
-        set -euo pipefail
+            set -euo pipefail
 
-        echo "=========================================="
-        echo "Python Overlay Precedence Integration Test"
-        echo "=========================================="
-        echo ""
-        echo "Testing that user's uv.lock takes precedence over pyproject-build-systems"
-        echo "by attempting to import typing_extensions.Sentinel (requires >= 4.14.0)"
-        echo ""
+            echo "=========================================="
+            echo "Python Overlay Precedence Integration Test"
+            echo "=========================================="
+            echo ""
+            echo "Testing that user's uv.lock takes precedence over pyproject-build-systems"
+            echo "by attempting to import typing_extensions.Sentinel (requires >= 4.14.0)"
+            echo ""
 
-        # Check Python interpreter
-        echo "Python interpreter: ${pythonEnv}/bin/python"
-        echo ""
+            # Check Python interpreter
+            echo "Python interpreter: ${pythonEnv}/bin/python"
+            echo ""
 
-        # Attempt the import that would fail with wrong overlay precedence
+                # Attempt the import that would fail with wrong overlay precedence
         if ${pythonEnv}/bin/python -c '
     import sys
     import typing_extensions
+    from importlib.metadata import version
 
-    print(f"typing_extensions version: {typing_extensions.__version__}")
+    # Get version from package metadata
+    te_version = version("typing-extensions")
+    print(f"typing_extensions version: {te_version}")
     print(f"typing_extensions location: {typing_extensions.__file__}")
     print("")
 
@@ -134,31 +144,31 @@
         sys.exit(1)
 
     # Verify version is actually >= 4.14.0
-    major, minor, patch = map(int, typing_extensions.__version__.split("."))
+    major, minor, patch = map(int, te_version.split("."))
     if (major, minor, patch) < (4, 14, 0):
-        print(f"✗ Version too old: {typing_extensions.__version__} < 4.14.0")
+        print(f"✗ Version too old: {te_version} < 4.14.0")
         print("Expected user uv.lock version (>= 4.14.0)")
         sys.exit(1)
 
-    print(f"✓ Version check passed: {typing_extensions.__version__} >= 4.14.0")
-        '; then
-          echo ""
-          echo "=========================================="
-          echo "✓ TEST PASSED"
-          echo "=========================================="
-          echo "User's uv.lock took precedence over pyproject-build-systems"
-          echo "Overlay composition order is correct."
-          exit 0
-        else
-          echo ""
-          echo "=========================================="
-          echo "✗ TEST FAILED"
-          echo "=========================================="
-          echo "Overlay precedence regression detected!"
-          echo "See: https://github.com/jmmaloney4/jackpkgs/issues/78"
-          echo "See: https://github.com/jmmaloney4/jackpkgs/pull/79"
-          exit 1
-        fi
+    print(f"✓ Version check passed: {te_version} >= 4.14.0")
+            '; then
+              echo ""
+              echo "=========================================="
+              echo "✓ TEST PASSED"
+              echo "=========================================="
+              echo "User's uv.lock took precedence over pyproject-build-systems"
+              echo "Overlay composition order is correct."
+              exit 0
+            else
+              echo ""
+              echo "=========================================="
+              echo "✗ TEST FAILED"
+              echo "=========================================="
+              echo "Overlay precedence regression detected!"
+              echo "See: https://github.com/jmmaloney4/jackpkgs/issues/78"
+              echo "See: https://github.com/jmmaloney4/jackpkgs/pull/79"
+              exit 1
+            fi
   '';
 in
   # Return derivation that runs the test
