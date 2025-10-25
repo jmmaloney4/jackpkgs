@@ -56,7 +56,13 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
   - Loads workspace via `uv2nix.lib.workspace.loadWorkspace`.
   - Darwin SDK override applied when on macOS (`darwinSdkVersion` default 15.0).
   - Base python set from `pyproject-nix.build.packages`.
-  - Overlay composition: project overlay (with `sourcePreference`) + optional `pyproject-build-systems` overlays + `ensureSetuptools` overlay + `extraOverlays`.
+  - Overlay composition order (left-to-right, later takes precedence):
+    1. `pyproject-build-systems.overlays.{wheel,sdist}` — Provides PEP-517 build systems (setuptools, maturin, hatchling, etc.) and build fixups
+    2. `baseOverlay` (user's workspace via `workspace.mkPyprojectOverlay`) — User's locked runtime dependencies from `uv.lock` (**AUTHORITATIVE**)
+    3. `ensureSetuptools` — Targeted fixes for packages that need setuptools in `nativeBuildInputs`
+    4. `cfg.extraOverlays` — User-provided custom overlays
+  - **Rationale for ordering:** Build-systems overlays provide essential build-time dependencies not locked by `uv`, but should **not override** user's runtime dependencies. User's `uv.lock` is the single source of truth for runtime dependencies; applying `baseOverlay` after build-systems ensures user's locked versions take precedence. `ensureSetuptools` applies last (except `extraOverlays`) to ensure targeted fixes aren't accidentally removed.
+  - **Historical note:** Prior to issue [#78](https://github.com/jmmaloney4/jackpkgs/issues/78), `baseOverlay` was applied **before** build-systems overlays, causing user's locked dependencies to be overridden by `pyproject-build-systems`'s own workspace packages (which include transitive build deps like `typing-extensions` for `pydantic-core` builds). This defeated the purpose of lock files and was corrected by reversing the order.
 
 - Environment builders (simplified from zeus):
   - `mkEnv`, `mkEditableEnv`, `mkEnvForSpec`.

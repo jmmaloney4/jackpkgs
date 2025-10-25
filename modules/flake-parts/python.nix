@@ -255,12 +255,23 @@ in {
       in
         builtins.listToAttrs pairs;
 
+      # Overlay composition order (left-to-right, later takes precedence):
+      # 1. pyproject-build-systems: PEP-517 build systems + build fixups (not in uv.lock)
+      # 2. baseOverlay: User's workspace from uv.lock (AUTHORITATIVE for runtime deps)
+      # 3. ensureSetuptools: Targeted fixes for packages needing setuptools
+      # 4. extraOverlays: User-provided custom overlays
+      #
+      # Rationale: User's uv.lock is the single source of truth for runtime dependencies.
+      # Build-systems overlays provide essential build-time deps (setuptools, maturin, etc.)
+      # but should NOT override user's locked versions. This ordering ensures user's locked
+      # runtime dependencies take precedence while keeping build systems available.
+      # See: https://github.com/jmmaloney4/jackpkgs/issues/78
       overlayList =
-        [baseOverlay]
-        ++ [
+        [
           jackpkgsInputs.pyproject-build-systems.overlays.wheel
           jackpkgsInputs.pyproject-build-systems.overlays.sdist
         ]
+        ++ [baseOverlay]
         ++ [ensureSetuptools]
         ++ cfg.extraOverlays;
 
