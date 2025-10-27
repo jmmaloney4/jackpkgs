@@ -222,6 +222,9 @@ in {
         then jackpkgsInputs.uv2nix.lib.workspace.loadWorkspace {inherit workspaceRoot;}
         else throw ("jackpkgs.python: uv.lock not found at " + builtins.toString uvLockPath + " — run 'uv lock' in the project to generate it.");
 
+      # Extension: Darwin SDK version handling for macOS compatibility
+      # Not documented in uv2nix, but necessary for real-world macOS builds
+      # Nixpkgs lacks knowledge of target macOS version, so we explicitly set SDK version
       stdenvForPython =
         if pkgs.stdenv.isDarwin
         then
@@ -243,6 +246,9 @@ in {
         sourcePreference = cfg.sourcePreference;
       };
 
+      # Extension: Setuptools override overlay for packages with broken/missing build deps
+      # Not documented in uv2nix, but necessary workaround for upstream packaging issues
+      # Some packages don't properly declare setuptools in their build-system dependencies
       ensureSetuptools = final: prev: let
         add = name:
           if builtins.hasAttr name prev
@@ -255,12 +261,13 @@ in {
       in
         builtins.listToAttrs pairs;
 
+      # Build system overlay should match sourcePreference (wheel OR sdist, not both)
+      # Per uv2nix docs: "The build system overlay has the same sdist/wheel distinction as mkPyprojectOverlay"
       overlayList =
         [baseOverlay]
-        ++ [
-          jackpkgsInputs.pyproject-build-systems.overlays.wheel
-          jackpkgsInputs.pyproject-build-systems.overlays.sdist
-        ]
+        ++ (if cfg.sourcePreference == "wheel"
+            then [jackpkgsInputs.pyproject-build-systems.overlays.wheel]
+            else [jackpkgsInputs.pyproject-build-systems.overlays.sdist])
         ++ [ensureSetuptools]
         ++ cfg.extraOverlays;
 
@@ -268,6 +275,11 @@ in {
 
       defaultSpec = workspace.deps.default;
 
+      # Extension: Virtual environment post-processing for better UX
+      # Not documented in uv2nix, but provides:
+      # - mainProgram metadata for better `nix run` experience
+      # - PowerShell script removal (appears in output, likely upstream bug)
+      # - Activation script permissions fix (should be executable by default)
       addMainProgram = drv:
         drv.overrideAttrs (old: {
           meta = (old.meta or {}) // {mainProgram = "python";};
@@ -379,11 +391,13 @@ in {
           shellHook = ''
             repo_root="$(${lib.getExe config.flake-root.package})"
             export REPO_ROOT="$repo_root"
+            # Unset PYTHONPATH to prevent Nix builder pollution (uv2nix best practice)
+            unset PYTHONPATH
 
             ${lib.optionalString (editableEnv != null) ''
               export UV_NO_SYNC="1"
               export UV_PYTHON="${lib.getExe editableEnv}"
-              export UV_PYTHON_DOWNLOADS="false"
+              export UV_PYTHON_DOWNLOADS="never"
               export PATH="${editableEnv}/bin:$PATH"
             ''}
           '';
