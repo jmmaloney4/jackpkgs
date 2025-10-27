@@ -61,20 +61,40 @@ The current `jackpkgs.python` module provides a convenience `extras` option that
 
 We WILL simplify to **workspace-only Python projects** by:
 
-1. **Removing `extras` support entirely**: The `extras` convenience option is removed. ALL users must use explicit `spec` configuration.
+1. **Removing `extras` convenience option entirely**: The `extras` option (which automatically applied extras to a single package) is removed. When users want extras, they must specify them explicitly in `spec` configuration (e.g., `spec = { "my-package" = ["dev"]; }`).
 
 2. **Relaxing validation**: Accept `pyproject.toml` files with `[tool.uv.workspace]` or `[project]` section (but don't extract or use `projectName`).
 
 3. **No new configuration options**: No `workspaceName`, no `includeRootDistribution`, no `extrasTarget`, no `extras`. Keep the API surface minimal.
 
-4. **Sensible default**: When `spec` is null, defaults to `workspace.deps.default` (all dependencies from uv.lock). Users can customize by providing explicit `spec` configuration.
+4. **Sensible `spec` default**: When `spec` is omitted (null), it defaults to `workspace.deps.default` (all dependencies from uv.lock without optional dependencies). Users can customize by providing explicit `spec` configuration.
 
 ### Rationale
 
-- **Explicit > Implicit**: Forces users to see exactly what packages and extras are in their environment
-- **Removes ~60 lines of logic**: Simplifies maintenance by removing conditional behavior, target selection, and fallback logic
-- **Single pattern**: One clear way to configure environments (explicit `spec`)
+- **Explicit extras**: Removes ambiguity about which package receives extras—users must be explicit when using optional dependencies
+- **Removes ~60 lines of logic**: Simplifies maintenance by removing conditional extras behavior, target package selection, and fallback logic
+- **Optional spec with sensible default**: Simple cases work without boilerplate, but customization is explicit when needed
 - **Future-proof**: uv workspaces are the recommended pattern; this enforces best practices
+
+### Clarification (Added 2025-10-26)
+
+The removal of the `extras` option means extras must be specified explicitly **within** `spec`, not that `spec` itself is required. Users have two options:
+
+```nix
+# Option 1: Omit spec, get workspace.deps.default (production deps only)
+environments.prod = {
+  name = "my-env";
+  # spec defaults to workspace.deps.default
+};
+
+# Option 2: Provide explicit spec with custom extras/packages
+environments.dev = {
+  name = "my-dev-env";
+  spec = workspace.deps.default // {
+    "my-package" = ["dev" "test"];  # Explicit extras
+  };
+};
+```
 
 ### Scope
 

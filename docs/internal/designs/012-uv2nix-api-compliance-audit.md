@@ -179,7 +179,9 @@ Only ONE build system overlay should be included, matching the `sourcePreference
 
 **Severity:** **HIGH** - Clear deviation from documented pattern that could cause issues
 
-#### Issue 4: defaultSpec Fallback Design (LOW PRIORITY)
+#### Issue 4: defaultSpec Fallback Design (RESOLVED - Not an Issue)
+
+**Status:** ✅ **RESOLVED** - Current design is correct; ADR-006 has been clarified
 
 **Location:** python.nix:269, 296-299, 312-315
 
@@ -192,34 +194,19 @@ mkEnv = { name, spec ? null }: let
 in mkEnvForSpec { inherit name; spec = finalSpec; };
 ```
 
-**Documentation Pattern:**
-```nix
-# Documented approach 1: Using dependency presets
-pythonSet.mkVirtualEnv "env-name" workspace.deps.default
+**Initial Concern:** ADR-006 stated "ALL users must use explicit `spec` configuration" but also documented "When `spec` is null, defaults to `workspace.deps.default`". This appeared contradictory.
 
-# Documented approach 2: Explicit specification
-pythonSet.mkVirtualEnv "env-name" { package-name = []; }
-```
+**Resolution:** The contradiction was in ADR-006's wording, not the implementation. What ADR-006 actually removed was the `extras` convenience option (which auto-applied extras to a single package). The `spec` parameter itself was always intended to be optional with a sensible default.
 
-**Issue:** The documentation shows direct usage of `workspace.deps.default` at call sites, not extraction into a `defaultSpec` variable with fallback logic. Additionally, ADR-006 removed the `extras` convenience option and forces explicit `spec` configuration, making the null fallback potentially dead code.
+**Current behavior (CORRECT):**
+- `spec` is **optional** in environment definitions
+- When omitted, defaults to `workspace.deps.default` (production dependencies)
+- When provided, users must be explicit about extras: `spec = { "my-package" = ["dev"]; }`
+- This provides both convenience (omit for simple cases) and clarity (explicit when customizing)
 
-**Current behavior:**
-- `spec` is optional in environment definitions
-- Falls back to `workspace.deps.default` if unspecified
-- Examples in ADR-003 show `spec = pythonWorkspace.defaultSpec;` (explicit)
-- Examples in python.nix:112 show `spec = {}; # workspace.deps.default // ...` (commented)
+**ADR-006 Updated:** Added clarification section explaining the two usage patterns.
 
-**Inconsistencies:**
-1. If ADR-006 requires explicit specs, why allow `spec ? null`?
-2. The example comment suggests `spec = {}` but actual default is `workspace.deps.default`
-3. No clear guidance on when the fallback is appropriate
-
-**Impact:**
-- Confusing API surface (is spec required or optional?)
-- Potentially unused code path (if all real usage requires explicit spec)
-- Documentation mismatch between ADR examples and implementation
-
-**Severity:** **LOW** - Functional but potentially confusing API design
+**Severity:** **N/A** - No issue; design is correct as-is
 
 #### Issue 5: Missing Advanced Configuration Options (LOW PRIORITY)
 
@@ -424,54 +411,22 @@ overlayList =
 
 **Alternative Consideration:** We could also use `overlays.default` as a source-agnostic option, but matching sourcePreference is more explicit and aligns better with the documented pattern.
 
-### 3. Clarify spec Parameter Design
+### 3. Clarify spec Parameter Design (RESOLVED - No Changes Needed)
 
-**Decision:** Make `spec` a required parameter and update documentation.
+**Decision:** Keep `spec` optional with `workspace.deps.default` fallback. Update ADR-006 to clarify the design intent.
 
 **Rationale:**
-- Aligns with ADR-006's decision to require explicit configuration
-- Eliminates confusion about when defaultSpec is used
-- Forces users to be explicit about dependencies
-- Removes potentially dead code
+- ADR-006's intent was to remove the `extras` convenience option, not make `spec` required
+- Optional `spec` with sensible default provides good UX for simple cases
+- Explicit `spec` is still required when customizing extras or packages
+- Current design balances convenience and clarity
 
 **Changes:**
-```nix
-mkEnv = {
-  name,
-  spec,  # Remove ? null - make it required
-}:
-  mkEnvForSpec { inherit name spec; };
+- ✅ Updated ADR-006 to clarify that `extras` removal requires explicit extras **within** spec, not that spec itself is required
+- ✅ Added usage examples to ADR-006 showing both patterns (omitted spec vs explicit spec)
+- ✅ Updated ADR-012 Issue 4 to reflect resolution
 
-mkEditableEnv = {
-  name,
-  spec,  # Remove ? null - make it required
-  members ? null,
-  root ? null,
-}:
-  # ... implementation
-```
-
-**Breaking Change:** Yes - environments without explicit `spec` will fail.
-
-**Migration Path:**
-```nix
-# OLD (would break):
-environments.default = {
-  name = "python-env";
-  # spec implicitly workspace.deps.default
-};
-
-# NEW (required):
-environments.default = {
-  name = "python-env";
-  spec = pythonWorkspace.defaultSpec;  # or workspace.deps.default
-};
-```
-
-**Documentation Updates Required:**
-- Update ADR-003 quick start examples
-- Update python.nix option description
-- Add migration notes for existing users
+**No Breaking Changes Required**
 
 ### 4. Preserve Undocumented Extensions
 
@@ -502,11 +457,9 @@ environments.default = {
 - Identified missing advanced config options (environ, loadWorkspace config)
 - Verified editable overlay usage is correct
 
-### Phase 3: Breaking Changes (Future ADR or Update)
-- [ ] Make `spec` required parameter
-- [ ] Update all examples and documentation
-- [ ] Provide migration guide
-- [ ] Version bump / changelog entry
+### Phase 3: Breaking Changes (CANCELLED)
+- ~~Make `spec` required parameter~~ **CANCELLED** - Issue 4 resolved; current optional design is correct
+- No breaking changes needed from this audit
 
 ### Phase 4: Upstream Contributions (Optional)
 - [ ] Report PowerShell script in venv output to pyproject-nix
