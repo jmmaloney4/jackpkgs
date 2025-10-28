@@ -502,7 +502,6 @@ overlayList =
 - Foundation for future contributions to upstream documentation
 
 ### Negative
-- Breaking change for users who rely on implicit `defaultSpec` fallback (Decision #3)
 - Build system overlay change might affect package builds (though should be more correct)
 - Migration burden for existing projects
 
@@ -562,9 +561,8 @@ This comprehensive audit of the `jackpkgs.python` module's uv2nix usage identifi
 3. **MEDIUM:** Wrong `UV_PYTHON_DOWNLOADS` value ("false" should be "never")
 
 ### Design Questions for Future Consideration:
-4. **LOW:** defaultSpec fallback design inconsistent with ADR-006's explicit spec requirement
-5. **LOW:** Advanced uv2nix config options not exposed (environ, loadWorkspace config)
-6. **NOTE:** workspace.deps.default usage is CORRECT ✅
+4. **LOW:** Advanced uv2nix config options not exposed (environ, loadWorkspace config)
+5. **NOTE:** workspace.deps.default usage is CORRECT ✅
 
 ### Validated Correct Implementations:
 - ✅ Workspace loading API
