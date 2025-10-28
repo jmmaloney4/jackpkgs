@@ -391,7 +391,7 @@ in {
           shellHook = ''
             repo_root="$(${lib.getExe config.flake-root.package})"
             export REPO_ROOT="$repo_root"
-            # Unset PYTHONPATH to prevent Nix builder pollution (uv2nix best practice)
+            # Unset PYTHONPATH to prevent Python from incorrectly importing packages from the Nix build environment instead of the virtual environment (uv2nix best practice)
             unset PYTHONPATH
 
             ${lib.optionalString (editableEnv != null) ''
