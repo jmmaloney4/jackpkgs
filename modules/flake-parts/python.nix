@@ -265,9 +265,11 @@ in {
       # Per uv2nix docs: "The build system overlay has the same sdist/wheel distinction as mkPyprojectOverlay"
       overlayList =
         [baseOverlay]
-        ++ (if cfg.sourcePreference == "wheel"
-            then [jackpkgsInputs.pyproject-build-systems.overlays.wheel]
-            else [jackpkgsInputs.pyproject-build-systems.overlays.sdist])
+        ++ (
+          if cfg.sourcePreference == "wheel"
+          then [jackpkgsInputs.pyproject-build-systems.overlays.wheel]
+          else [jackpkgsInputs.pyproject-build-systems.overlays.sdist]
+        )
         ++ [ensureSetuptools]
         ++ cfg.extraOverlays;
 
