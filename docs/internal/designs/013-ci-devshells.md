@@ -124,15 +124,17 @@ jackpkgs.pulumi.ci = {
 };
 
 # In config section (perSystem):
-devShells.ci-pulumi = mkIf cfg.pulumi.enable (pkgs.mkShell {
-  packages = cfg.pulumi.ci.packages;
+devShells.ci-pulumi = pkgs.mkShell {
+  packages = config.jackpkgs.pulumi.ci.packages;
 
-  PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-  PULUMI_BACKEND_URL = cfg.pulumi.backendUrl;
-  PULUMI_SECRETS_PROVIDER = cfg.pulumi.secretsProvider;
+  env = {
+    PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+    PULUMI_BACKEND_URL = cfg.backendUrl;
+    PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
+  };
 
   # Note: No shellHook, no inputsFrom, minimal surface
-});
+};
 ```
 
 ### What Gets Excluded from CI Shells
