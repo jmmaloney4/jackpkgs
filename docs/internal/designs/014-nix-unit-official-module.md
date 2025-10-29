@@ -1,0 +1,267 @@
+# ADR-014: Adopt Official nix-unit Flake-Parts Module
+
+## Status
+
+Proposed
+
+## Context
+
+ADR-011 established nix-unit as the testing framework for jackpkgs and implemented a custom integration using `pkgs.runCommand` to wrap nix-unit invocations. This implementation has encountered sandbox permission issues in CI environments.
+
+### The Problem
+
+When running tests in CI (specifically on Linux), the custom `mkTest` implementation fails with:
+```
+error: creating directory '/nix/var/nix/profiles': Permission denied
+warning: `--gc-roots-dir' not specified
+```
+
+This occurs because nix-unit, when run inside a Nix build sandbox via `runCommand`, attempts to access `/nix/var/nix/profiles` for garbage collection roots and state management. The build sandbox restricts access to these directories for security and reproducibility.
+
+### Discovery of Official Solution
+
+Research into this issue revealed that the nix-unit project **provides an official flake-parts module** (`inputs.nix-unit.modules.flake.default`) that properly handles sandbox isolation. This module:
+
+1. Sets up a proper isolated Nix environment within the sandbox:
+   ```nix
+   export HOME="$(realpath .)"
+   unset NIX_STORE
+   export NIX_STORE_DIR=${builtins.storeDir}
+   export NIX_REMOTE="$HOME/storedata"
+   ```
+
+2. Provides additional features:
+   - `perSystem.nix-unit.tests` option for declaring tests
+   - `perSystem.nix-unit.inputs` for passing flake inputs to avoid re-downloads
+   - `perSystem.nix-unit.allowNetwork` for tests requiring network access
+   - Automatic integration with `checks` output
+   - Template via `nix flake init -t github:nix-community/nix-unit#flake-parts`
+
+3. Is maintained by the nix-unit project team, ensuring compatibility with future versions
+
+### Current State
+
+The custom implementation in `flake.nix:136-150` defines a `mkTest` helper that:
+- Uses `pkgs.runCommand` to create test derivations
+- Serializes test cases using `lib.generators.toPretty`
+- Runs nix-unit on the serialized test file
+- Works locally on macOS but fails in Linux CI due to sandbox restrictions
+
+**Prior Art:**
+- The nix-unit project's own `lib/modules/flake/system.nix` demonstrates the correct pattern
+- Other projects using nix-unit successfully use the official module
+- The project `jmmaloney4/latex-utils` (mentioned in ADR-011) may use this pattern
+
+**Constraints:**
+- Must work in GitHub Actions CI on Linux
+- Must maintain existing test structure in `tests/` directory
+- Must integrate with flake-parts (already in use)
+- Should not require rewriting existing tests
+
+## Decision
+
+Migrate from the custom nix-unit integration to the **official nix-unit flake-parts module**.
+
+The integration MUST:
+- Import `inputs.nix-unit.modules.flake.default` in the flake's imports list
+- Declare tests using `perSystem.nix-unit.tests` instead of custom `mkTest` wrapper
+- Maintain existing test files in `tests/` directory without modification
+- Continue to expose tests via `checks` output for CI integration
+
+The integration SHOULD:
+- Use `perSystem.nix-unit.inputs` to pass required flake inputs if needed
+- Set `perSystem.nix-unit.allowNetwork = false` (default) to keep tests pure
+- Configure per-system tests for `mkRecipe`, `optionalLines`, and other helpers
+- Leverage the module's automatic check generation
+
+### Scope
+
+**In Scope:**
+- Replacing custom `mkTest` function with official module
+- Updating flake imports to include nix-unit module
+- Migrating test declarations to `perSystem.nix-unit.tests`
+- Updating ADR-011 implementation notes to reference this ADR
+- Verifying tests pass in Linux CI
+
+**Out of Scope:**
+- Rewriting existing test files (they remain in `tests/` directory)
+- Changing test format or structure
+- Adding new tests (covered separately)
+- Module evaluation testing (future work per ADR-011)
+
+## Consequences
+
+### Benefits
+
+- **CI Compatibility:** Fixes sandbox permission errors in Linux CI environments
+- **Official Support:** Leverages maintained integration from nix-unit project
+- **Robustness:** Properly handles edge cases (isolated store, gc-roots, environment variables)
+- **Features:** Gains access to input overrides and network control options
+- **Simplicity:** Removes custom sandbox setup code from our flake
+- **Future-Proof:** Automatic compatibility with nix-unit updates
+- **Best Practices:** Aligns with recommended nix-unit integration pattern
+
+### Trade-offs
+
+- **Refactoring Required:** Need to restructure how tests are declared in `flake.nix`
+- **Module Dependency:** Adds dependency on nix-unit's flake-parts module structure
+- **Learning Curve:** Team needs to understand module's options (though well-documented)
+- **Less Control:** Delegates sandbox setup to upstream module (generally good, but removes customization)
+
+### Risks & Mitigations
+
+- **Risk:** Migration introduces new bugs or breaks existing tests
+  - **Mitigation:** Test locally on both macOS and Linux before merging; existing test files don't change
+- **Risk:** Official module has different behavior or limitations
+  - **Mitigation:** Module is well-tested by nix-unit project; provides more features than custom implementation
+- **Risk:** Future nix-unit module changes break our setup
+  - **Mitigation:** Flake inputs are locked; we control when to update
+- **Risk:** Team unfamiliar with new configuration structure
+  - **Mitigation:** Update ADR-011 with new pattern; document in implementation plan
+
+## Alternatives Considered
+
+### Alternative A — Fix Custom Implementation with Environment Variables
+
+Apply the workaround discovered during investigation:
+```nix
+export NIX_STATE_DIR=$TMPDIR/nix-state
+mkdir -p $NIX_STATE_DIR
+```
+Or the more robust pattern:
+```nix
+export HOME="$(realpath .)"
+unset NIX_STORE
+export NIX_STORE_DIR=${builtins.storeDir}
+export NIX_REMOTE="$HOME/storedata"
+```
+
+- **Pros:** Minimal changes; keeps custom implementation; simpler diff
+- **Cons:** Reimplements what official module provides; misses additional features; requires maintenance if nix-unit requirements change
+- **Why not chosen:** Official module is the proper solution; maintaining custom sandbox setup is unnecessary technical debt
+
+### Alternative B — Use Different Testing Framework
+
+Switch to `lib.runTests`, `nixpkgs.testers`, or NixOS VM tests
+
+- **Pros:** No dependency on nix-unit; potentially simpler
+- **Cons:** ADR-011 already justified nix-unit choice; breaking change; worse developer experience
+- **Why not chosen:** nix-unit is the right tool; we just need to use it correctly
+
+### Alternative C — Disable Sandbox for Tests
+
+Configure tests to run with `sandbox = false` or `sandbox = "relaxed"`
+
+- **Pros:** Would bypass permission issues
+- **Cons:** Defeats purpose of Nix sandbox; unreproducible tests; security concerns; not supported in many CI environments
+- **Why not chosen:** Sandbox is a Nix best practice; proper solution is to work within sandbox
+
+### Alternative D — Keep Custom Implementation, Only Fix for CI
+
+Apply environment variable fix only in CI-specific configuration
+
+- **Pros:** Minimal local changes
+- **Cons:** Divergent behavior between local and CI; masks the real issue; still misses official module features
+- **Why not chosen:** Want consistent behavior everywhere; official module is superior solution
+
+## Implementation Plan
+
+### Phase 1: Update Flake Configuration (30 min)
+
+1. **Import official module** in `flake.nix` imports list:
+   ```nix
+   imports = [
+     ./modules/flake-parts
+     (import ./modules/flake-parts/all.nix {jackpkgsInputs = inputs;})
+     inputs.nix-unit.modules.flake.default  # Add this
+   ];
+   ```
+
+2. **Remove custom `mkTest` function** from `flake.nix` (lines ~136-150)
+
+3. **Migrate test declarations** from custom checks to module pattern:
+   ```nix
+   perSystem = { config, pkgs, lib, system, ... }: {
+     nix-unit = {
+       package = inputs.nix-unit.packages.${system}.default;
+       tests = {
+         mkRecipe = import ./tests/mkRecipe.nix {
+           inherit lib;
+           testHelpers = import ./tests/test-helpers.nix { inherit lib; };
+         };
+         mkRecipeWithParams = import ./tests/mkRecipeWithParams.nix {
+           inherit lib;
+           testHelpers = import ./tests/test-helpers.nix { inherit lib; };
+         };
+         optionalLines = import ./tests/optionalLines.nix {
+           inherit lib;
+           testHelpers = import ./tests/test-helpers.nix { inherit lib; };
+         };
+       };
+     };
+
+     # Keep existing justfile validation checks as-is
+     # (they're already using separate pattern)
+   };
+   ```
+
+4. **Verify check names** remain accessible via `.#checks.<system>.<name>`
+
+### Phase 2: Local Testing (15 min)
+
+5. Run tests locally on macOS:
+   ```bash
+   nix flake check
+   nix build .#checks.aarch64-darwin.nix-unit  # New check name
+   ```
+
+6. Test on Linux if possible (or rely on CI):
+   ```bash
+   nix build .#checks.x86_64-linux.nix-unit
+   ```
+
+### Phase 3: CI Validation (10 min)
+
+7. Push to feature branch and verify CI passes
+8. Confirm all test checks run successfully on Linux
+
+### Phase 4: Documentation Updates (15 min)
+
+9. Update ADR-011 "Implementation Notes" section to reference ADR-014
+10. Add note about official module adoption and link to this ADR
+11. Update any testing documentation if it references `mkTest` directly
+
+### Rollout
+
+- **Migration Strategy:** Single PR with all changes (atomically migrate to new module)
+- **Rollback Plan:** Revert PR if issues arise; can return to custom implementation with env var fix as temporary measure
+- **Validation:** All existing tests must pass; CI must succeed on Linux
+
+### Dependencies
+
+- nix-unit flake input (already present)
+- No additional dependencies required
+
+### Owner
+
+- Jack (implementation and review)
+- Timeline: 1-2 hours total work
+
+## Related
+
+- **Amends:** ADR-011 (Nix Unit Testing Framework)
+  - ADR-011 established nix-unit as the framework
+  - ADR-014 improves the integration by adopting the official module
+- **References:**
+  - nix-unit official docs: https://nix-community.github.io/nix-unit/
+  - flake-parts example: https://nix-community.github.io/nix-unit/examples/flake-parts.html
+  - Official module source: https://github.com/nix-community/nix-unit/blob/main/lib/modules/flake/system.nix
+- **Issues:**
+  - CI error: "Permission denied: /nix/var/nix/profiles"
+  - GitHub Actions Linux environment sandbox restrictions
+
+---
+
+Author: jack (with Claude Code assistance)
+Date: 2025-10-29
+PR: TBD
