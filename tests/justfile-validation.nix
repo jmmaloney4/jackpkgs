@@ -121,8 +121,8 @@ in {
         false)
       ""
       (mkRecipe "test" "Run tests" [
-          "nix build .#checks.aarch64-darwin.mkRecipe-test"
-          "nix build .#checks.aarch64-darwin.optionalLines-test"
+          "nix build .#checks.aarch64-darwin.nix-unit"
+          "nix build .#checks.x86_64-linux.nix-unit"
         ]
         false)
     ]

@@ -161,7 +161,7 @@ All phases of the implementation plan have been completed:
    - Added `nix-unit` as flake input with `inputs.nixpkgs.follows`
    - Created `tests/` directory with modular structure
    - Created `tests/test-helpers.nix` with shared utilities
-   - Configured checks in `flake.nix` to expose tests via `mkTest` helper function
+   - Adopted the official nix-unit flake-parts module (ADR-014) to expose tests via `perSystem.nix-unit.tests`
    - Tests automatically run with `nix flake check`
    - **CI Integration:** Tests run automatically in CI via `nix flake check` (Phase 3 complete)
 
@@ -193,19 +193,18 @@ All phases of the implementation plan have been completed:
    ```bash
    # Run all checks (including tests)
    nix flake check
-   
-   # Run specific test
-   nix build .#checks.<system>.mkRecipe-test
-   nix build .#checks.<system>.optionalLines-test
-   
+
+   # Run nix-unit suites directly
+   nix build .#checks.<system>.nix-unit
+
    # Quick evaluation check (no build)
    nix flake check --no-build
    ```
 
 4. **Test Implementation Pattern:**
    - Tests are imported with arguments during flake evaluation
-   - Test results are serialized to Nix expressions using `lib.generators.toPretty`
-   - nix-unit runs in a `pkgs.runCommand` derivation
+   - Test attrsets are registered under `perSystem.nix-unit.tests`
+   - The official nix-unit module handles sandbox-safe execution and wires results into `checks`
    - Success creates an empty output file
    - Failure stops the build with detailed error messages
 
@@ -213,7 +212,7 @@ All phases of the implementation plan have been completed:
 
 - nix-unit expects attrsets with `expr` and `expected` fields
 - Tests need to be evaluated with arguments before passing to nix-unit
-- `lib.generators.toPretty` is effective for serializing test cases
+- The official nix-unit module handles serialization and sandbox setup
 - All 26 tests pass, validating the correctness of ADR-010 helpers
 - **String comparison tests:** Using indented strings (`''...''`) for `expected` values works reliably. Nix's indented string handling is well-defined and stable. While `lib.strings.stripStringMargin` could be used for extra explicitness, the current pattern is idiomatic and maintainable.
 
@@ -230,4 +229,3 @@ All phases of the implementation plan have been completed:
 Author: jack  
 Date: 2025-10-21  
 Implemented: 2025-10-21
-
