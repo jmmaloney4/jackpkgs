@@ -145,8 +145,12 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 
 - pulumi (`modules/flake-parts/pulumi.nix`)
   - Provides Pulumi CLI in a devShell fragment: `config.jackpkgs.outputs.pulumiDevShell`.
+  - Provides CI devshell: `devShells.ci-pulumi` with minimal dependencies for CI environments.
   - Options under `jackpkgs.pulumi`:
     - `enable` (bool, default `true`)
+    - `backendUrl` (str, required) - Pulumi backend URL
+    - `secretsProvider` (str, required) - Pulumi secrets provider
+    - `ci.packages` (list of packages) - Packages included in ci-pulumi devshell
 
 - quarto (`modules/flake-parts/quarto.nix`)
   - Provides Quarto tooling in a devShell fragment: `config.jackpkgs.outputs.quartoDevShell`.
