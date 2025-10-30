@@ -138,8 +138,12 @@
           ];
         };
 
-        nix-unit = {
+        nix-unit = let
+          # Provide nix-unit with our flake inputs so it never needs network access
+          nixUnitInputs = builtins.removeAttrs inputs ["self"];
+        in {
           package = inputs.nix-unit.packages.${system}.default;
+          inputs = nixUnitInputs;
           tests = {
             mkRecipe = import ./tests/mkRecipe.nix {
               inherit lib testHelpers;

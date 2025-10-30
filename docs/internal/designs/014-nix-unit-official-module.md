@@ -258,7 +258,13 @@ Apply environment variable fix only in CI-specific configuration
   - Official module source: https://github.com/nix-community/nix-unit/blob/main/lib/modules/flake/system.nix
 - **Issues:**
   - CI error: "Permission denied: /nix/var/nix/profiles"
-  - GitHub Actions Linux environment sandbox restrictions
+
+## Follow-up Findings (2025-10)
+
+- **CI failure analysis:** In October 2025 CI began failing during `.#checks.x86_64-linux.nix-unit` with repeated DNS errors (`Could not resolve host: cache.nixos.org/github.com`). Despite the runner having general outbound access, the nix-unit derivation was evaluating the flake in isolation and trying to refetch inputs that were not present in the sandbox.
+- **Mitigation:** Propagating the flake's locked inputs to the nix-unit module via `perSystem.nix-unit.inputs` resolved the problem. We now compute `builtins.removeAttrs inputs ["self"]` and assign it to `nix-unit.inputs` (`flake.nix:141`), ensuring the derivation never attempts network fetches.
+- **Upstream guidance:** The nix-unit flake-parts documentation highlights this requirement and provides the same pattern (<https://nix-community.github.io/nix-unit/examples/flake-parts.html>). Issue nix-community/nix-unit#213 documents identical behaviour and the maintainers recommend specifying `perSystem.nix-unit.inputs` (<https://github.com/nix-community/nix-unit/issues/213>).
+- **Testing notes:** On macOS we can build the native check directly; cross-building the Linux check still requires access to an `x86_64-linux` builder (e.g., RunsOn runner or remote builder).
 
 ---
 
