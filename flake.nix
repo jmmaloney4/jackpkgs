@@ -14,6 +14,7 @@
     };
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
     };
     flake-root.url = "github:srid/flake-root";
     gitignore = {
@@ -139,8 +140,13 @@
         };
 
         nix-unit = let
-          # Provide nix-unit with our flake inputs so it never needs network access
-          nixUnitInputs = builtins.removeAttrs inputs ["self"];
+          # Provide nix-unit with our flake inputs so it never needs network access.
+          # Convert any flake inputs to their realised store paths where possible.
+          sanitizeInput =
+            input:
+              if builtins.isAttrs input && input ? outPath then input.outPath else input;
+          nixUnitInputs =
+            builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]);
         in {
           package = inputs.nix-unit.packages.${system}.default;
           inputs = nixUnitInputs;
