@@ -297,7 +297,7 @@ Since these transitive dependencies are not present in the sandbox and network a
 
 ### Solution
 
-Provide all of nix-unit's required inputs, including a `treefmt-nix` alias for the dependency nix-unit expects:
+Provide all of nix-unit's required inputs using both top-level and nested input overrides:
 
 ```nix
 nixUnitInputs =
@@ -305,15 +305,19 @@ nixUnitInputs =
   // {
     # nix-unit expects an input named 'treefmt-nix', but we call it 'treefmt'
     treefmt-nix = sanitizeInput inputs.treefmt;
+    # Override nix-unit's locked dependencies using nested syntax
+    "nix-unit/flake-parts" = sanitizeInput inputs.flake-parts;
+    "nix-unit/nixpkgs" = sanitizeInput inputs.nixpkgs;
+    "nix-unit/treefmt-nix" = sanitizeInput inputs.treefmt;
   };
 ```
 
-**Rationale:** When the nix-unit module evaluates the flake in the sandbox (to access `inputs.nix-unit.modules.flake.default`), it needs all of nix-unit's dependencies to be available. The nix-unit flake requires:
-- `nixpkgs` (jackpkgs has this)
-- `flake-parts` (jackpkgs has this)
-- `treefmt-nix` (jackpkgs has the same repository, but named `treefmt`)
+**Rationale:** The nix-unit flake has its own `flake.lock` with specific commits for its dependencies:
+- `flake-parts` at commit `af66ad14...` (different from jackpkgs' version)
+- `nixpkgs` at its own pinned version
+- `treefmt-nix` (which jackpkgs calls `treefmt`)
 
-By passing all inputs including `nix-unit` itself, and aliasing our `treefmt` input as `treefmt-nix`, we ensure all dependencies are available in the sandbox without requiring network access.
+When nix-unit's flake.nix is evaluated in the sandbox, it reads its own flake.lock and tries to fetch those specific commits. Top-level overrides aren't sufficient—we must use nested override syntax (`nix-unit/input-name`) to replace nix-unit's locked dependencies with our already-fetched versions.
 
 ### Upstream Precedent
 
@@ -334,13 +338,18 @@ When `--override-input nix-unit <path>` is passed, Nix:
 
 By providing all inputs that nix-unit's flake.nix expects (including the `treefmt-nix` alias), we ensure that step 3 succeeds and step 4 is never reached.
 
-The aliasing technique works because `--override-input` simply maps input names to store paths or flake references. When nix-unit's flake.nix references `inputs.treefmt-nix`, it receives the same `/nix/store/...` path as our `inputs.treefmt`, since both point to `github:numtide/treefmt-nix`.
+The aliasing and nested override techniques work together:
+1. **Top-level aliases** (like `treefmt-nix`) make inputs available under the names nix-unit expects
+2. **Nested overrides** (like `nix-unit/flake-parts`) replace nix-unit's locked dependencies with our versions
+3. Both map input names to `/nix/store/...` paths, preventing any network access
+
+The nested syntax `nix-unit/flake-parts` tells Nix: "when evaluating the nix-unit flake, override its `flake-parts` input with this path" rather than using the commit specified in nix-unit's flake.lock.
 
 ### References
 
 - Issue: nix-community/nix-unit#224 (<https://github.com/nix-community/nix-unit/issues/224>)
 - Related: nix-community/nix-unit#213 (<https://github.com/nix-community/nix-unit/issues/213>)
-- Implementation: `flake.nix:142-158`
+- Implementation: `flake.nix:142-162`
 
 ---
 
