@@ -142,9 +142,10 @@
         nix-unit = let
           # Provide nix-unit with our flake inputs so it never needs network access.
           # Convert flake inputs to their realised store paths where possible.
-          sanitizeInput =
-            input:
-              if builtins.isAttrs input && input ? outPath then input.outPath else input;
+          sanitizeInput = input:
+            if builtins.isAttrs input && input ? outPath
+            then input.outPath
+            else input;
           # Pass all inputs including nix-unit, plus aliases and nested overrides
           nixUnitInputs =
             (builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]))
