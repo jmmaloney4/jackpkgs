@@ -142,17 +142,16 @@
         nix-unit = let
           # Provide nix-unit with our flake inputs so it never needs network access.
           # Convert flake inputs to their realised store paths where possible.
-          # IMPORTANT: For nix-unit itself, pass the flake reference (not the store path)
-          # to avoid triggering re-evaluation of nix-unit's own dependencies.
-          sanitizeInput = name: input:
-            if name == "nix-unit" then
-              input  # Keep as flake reference for module import
-            else if builtins.isAttrs input && input ? outPath then
-              input.outPath  # Convert other inputs to store paths
-            else
-              input;
+          sanitizeInput =
+            input:
+              if builtins.isAttrs input && input ? outPath then input.outPath else input;
+          # Pass all inputs including nix-unit, plus treefmt-nix alias for nix-unit's dependency
           nixUnitInputs =
-            builtins.mapAttrs sanitizeInput (builtins.removeAttrs inputs ["self"]);
+            (builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]))
+            // {
+              # nix-unit expects an input named 'treefmt-nix', but we call it 'treefmt'
+              treefmt-nix = sanitizeInput inputs.treefmt;
+            };
         in {
           package = inputs.nix-unit.packages.${system}.default;
           inputs = nixUnitInputs;
