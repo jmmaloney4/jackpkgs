@@ -14,6 +14,7 @@
     };
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
     };
     flake-root.url = "github:srid/flake-root";
     gitignore = {
@@ -73,6 +74,7 @@
 
         # dogfood our own flake-parts modules
         (import ./modules/flake-parts/all.nix {jackpkgsInputs = inputs;})
+        inputs.nix-unit.modules.flake.default
       ];
 
       jackpkgs.pulumi.enable = false;
@@ -99,6 +101,16 @@
           tod = pkgs.callPackage ./pkgs/tod {};
         };
         platformFilteredPackages = jackLib.filterByPlatforms system allPackages;
+        # Import test helpers that validate the flake-exposed API surface
+        testHelpers = import ./tests/test-helpers.nix {lib = flakeLib;};
+        # Import justfile validation tests (these return derivations directly)
+        justfileValidationTests = import ./tests/justfile-validation.nix {
+          inherit lib pkgs testHelpers;
+        };
+        # Import module pattern tests (test patterns used in actual module features)
+        moduleJustfileTests = import ./tests/module-justfiles.nix {
+          inherit lib pkgs testHelpers;
+        };
       in {
         # Make jackLib and platformFilteredPackages available for devShell
         _module.args.jackpkgs =
@@ -127,50 +139,43 @@
           ];
         };
 
-        checks = let
-          # Import test helpers that are shared across tests
-          # Use flakeLib so tests validate the exposed API
-          testHelpers = import ./tests/test-helpers.nix {lib = flakeLib;};
-          nix-unit = inputs.nix-unit.packages.${system}.default;
-
-          # Helper to run nix-unit tests
-          mkTest = name: tests:
-            pkgs.runCommand "test-${name}" {
-              nativeBuildInputs = [nix-unit];
-            } ''
-              cat > test.nix << '_TEST_EOF_'
-              ${lib.generators.toPretty {} tests}
-              _TEST_EOF_
-              ${nix-unit}/bin/nix-unit test.nix
-              touch $out
-            '';
-
-          # Import justfile validation tests (these return derivations directly)
-          justfileValidationTests = import ./tests/justfile-validation.nix {
-            inherit lib pkgs testHelpers;
+        nix-unit = let
+          # Provide nix-unit with our flake inputs so it never needs network access.
+          # Convert flake inputs to their realised store paths where possible.
+          sanitizeInput = input:
+            if builtins.isAttrs input && input ? outPath
+            then input.outPath
+            else input;
+          # Pass all inputs including nix-unit, plus aliases and nested overrides
+          nixUnitInputs =
+            (builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]))
+            // {
+              # nix-unit expects an input named 'treefmt-nix', but we call it 'treefmt'
+              treefmt-nix = sanitizeInput inputs.treefmt;
+              # Override nix-unit's own flake-parts dependency to use ours
+              "nix-unit/flake-parts" = sanitizeInput inputs.flake-parts;
+              "nix-unit/nixpkgs" = sanitizeInput inputs.nixpkgs;
+              "nix-unit/treefmt-nix" = sanitizeInput inputs.treefmt;
+            };
+        in {
+          package = inputs.nix-unit.packages.${system}.default;
+          inputs = nixUnitInputs;
+          tests = {
+            mkRecipe = import ./tests/mkRecipe.nix {
+              inherit lib testHelpers;
+            };
+            mkRecipeWithParams = import ./tests/mkRecipeWithParams.nix {
+              inherit lib testHelpers;
+            };
+            optionalLines = import ./tests/optionalLines.nix {
+              inherit lib testHelpers;
+            };
           };
+        };
 
-          # Import module pattern tests (test patterns used in actual module features)
-          moduleJustfileTests = import ./tests/module-justfiles.nix {
-            inherit lib pkgs testHelpers;
-          };
-        in
-          {
-            # Run nix-unit tests - import and evaluate with arguments first
-            mkRecipe-test = mkTest "mkRecipe" (import ./tests/mkRecipe.nix {
-              inherit lib testHelpers;
-            });
-
-            mkRecipeWithParams-test = mkTest "mkRecipeWithParams" (import ./tests/mkRecipeWithParams.nix {
-              inherit lib testHelpers;
-            });
-
-            optionalLines-test = mkTest "optionalLines" (import ./tests/optionalLines.nix {
-              inherit lib testHelpers;
-            });
-          }
+        checks =
           # Add all justfile validation tests
-          // lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests
+          lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests
           # Add module pattern tests
           // lib.mapAttrs' (name: test: lib.nameValuePair "module-${name}" test) moduleJustfileTests;
       };
