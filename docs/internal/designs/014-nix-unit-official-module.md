@@ -266,6 +266,82 @@ Apply environment variable fix only in CI-specific configuration
 - **Upstream guidance:** The nix-unit flake-parts documentation highlights this requirement and provides the same pattern (<https://nix-community.github.io/nix-unit/examples/flake-parts.html>). Issue nix-community/nix-unit#213 documents identical behaviour and the maintainers recommend specifying `perSystem.nix-unit.inputs` (<https://github.com/nix-community/nix-unit/issues/213>).
 - **Testing notes:** On macOS we can build the native check directly; cross-building the Linux check still requires access to an `x86_64-linux` builder (e.g., RunsOn runner or remote builder).
 
+## Appendix A: Transitive Dependency Resolution Issue (2025-11)
+
+### Problem Statement
+
+In November 2025, CI continued to fail with network errors despite the October mitigation:
+
+```
+error: Failed to open archive (Source threw exception: error: unable to download
+'https://github.com/hercules-ci/flake-parts/archive/af66ad14b28a127c5c0f3bbb298218fc63528a18.tar.gz':
+Could not resolve hostname (6) Could not resolve host: github.com)
+```
+
+The specific SHA `af66ad14b28a127c5c0f3bbb298218fc63528a18` corresponds to `flake-parts_2` in the lock file—this is **nix-unit's own flake-parts dependency**, not jackpkgs' flake-parts input.
+
+### Root Cause Analysis
+
+The issue was that jackpkgs was passing **all** flake inputs (excluding only `self`) to `perSystem.nix-unit.inputs`, including the `nix-unit` input itself:
+
+```nix
+nixUnitInputs = builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]);
+```
+
+When the nix-unit module invokes the test flake with `--override-input nix-unit /nix/store/...-source`, it causes Nix to re-evaluate the nix-unit flake source. This re-evaluation triggers dependency resolution for nix-unit's own inputs:
+- `flake-parts` (nix-unit's version, not jackpkgs')
+- `treefmt-nix` (a dependency of nix-unit, not jackpkgs)
+- `nixpkgs` (nix-unit's version)
+
+Since these transitive dependencies are not present in the sandbox and network access is disabled, the build fails with DNS resolution errors.
+
+### Solution
+
+Exclude `nix-unit` from the inputs passed to `perSystem.nix-unit.inputs`:
+
+```nix
+nixUnitInputs = builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self" "nix-unit"]);
+```
+
+**Rationale:** The nix-unit module only needs to know about **your flake's inputs** that are referenced during test evaluation. The nix-unit program itself is already built and available via `package = inputs.nix-unit.packages.${system}.default`. Passing the nix-unit source as an input override is unnecessary and causes the problematic re-evaluation.
+
+### Upstream Precedent
+
+This pattern aligns with nix-community/nix-unit#224, where a user encountered identical DNS errors. The issue was resolved by ensuring that only the consuming flake's direct inputs are passed to `nix-unit.inputs`, not the nix-unit flake itself.
+
+From the issue: "nix-unit flake's inputs contain treefmt-nix, so you have to provide all inputs there in the perSystem.nix-input.inputs object." However, this guidance was incomplete—it should specify that you provide *your* inputs, not nix-unit's inputs.
+
+The nix-unit flake-parts documentation example shows:
+```nix
+nix-unit.inputs = {
+  inherit (inputs) nixpkgs flake-parts nix-unit;
+};
+```
+
+However, this is misleading for cases where nix-unit's own dependencies differ from your flake's. The correct pattern for most cases is:
+```nix
+nix-unit.inputs = {
+  inherit (inputs) nixpkgs flake-parts;
+  # Omit nix-unit itself unless you have a specific reason to override it
+};
+```
+
+### Technical Details
+
+When `--override-input nix-unit <path>` is passed, Nix:
+1. Treats `<path>` as a flake source directory
+2. Reads its `flake.nix` and evaluates its inputs
+3. Attempts to fetch those inputs from the lock file or network
+4. Fails in the sandbox because network is disabled and paths aren't available
+
+By excluding `nix-unit` from the overrides, the module uses the nix-unit flake reference from the top-level lock file, which is already available and doesn't trigger re-evaluation.
+
+### References
+
+- Issue: nix-community/nix-unit#224 (<https://github.com/nix-community/nix-unit/issues/224>)
+- Related: nix-community/nix-unit#213 (<https://github.com/nix-community/nix-unit/issues/213>)
+- Implementation: `flake.nix:142-153`
+
 ---
 
 Author: jack (with Claude Code assistance)

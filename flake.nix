@@ -142,11 +142,12 @@
         nix-unit = let
           # Provide nix-unit with our flake inputs so it never needs network access.
           # Convert any flake inputs to their realised store paths where possible.
+          # IMPORTANT: Exclude nix-unit itself to prevent re-evaluation of its dependencies.
           sanitizeInput =
             input:
               if builtins.isAttrs input && input ? outPath then input.outPath else input;
           nixUnitInputs =
-            builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]);
+            builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self" "nix-unit"]);
         in {
           package = inputs.nix-unit.packages.${system}.default;
           inputs = nixUnitInputs;
