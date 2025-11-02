@@ -297,50 +297,50 @@ Since these transitive dependencies are not present in the sandbox and network a
 
 ### Solution
 
-Exclude `nix-unit` from the inputs passed to `perSystem.nix-unit.inputs`:
+Provide all of nix-unit's required inputs, including a `treefmt-nix` alias for the dependency nix-unit expects:
 
 ```nix
-nixUnitInputs = builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self" "nix-unit"]);
+nixUnitInputs =
+  (builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]))
+  // {
+    # nix-unit expects an input named 'treefmt-nix', but we call it 'treefmt'
+    treefmt-nix = sanitizeInput inputs.treefmt;
+  };
 ```
 
-**Rationale:** The nix-unit module only needs to know about **your flake's inputs** that are referenced during test evaluation. The nix-unit program itself is already built and available via `package = inputs.nix-unit.packages.${system}.default`. Passing the nix-unit source as an input override is unnecessary and causes the problematic re-evaluation.
+**Rationale:** When the nix-unit module evaluates the flake in the sandbox (to access `inputs.nix-unit.modules.flake.default`), it needs all of nix-unit's dependencies to be available. The nix-unit flake requires:
+- `nixpkgs` (jackpkgs has this)
+- `flake-parts` (jackpkgs has this)
+- `treefmt-nix` (jackpkgs has the same repository, but named `treefmt`)
+
+By passing all inputs including `nix-unit` itself, and aliasing our `treefmt` input as `treefmt-nix`, we ensure all dependencies are available in the sandbox without requiring network access.
 
 ### Upstream Precedent
 
-This pattern aligns with nix-community/nix-unit#224, where a user encountered identical DNS errors. The issue was resolved by ensuring that only the consuming flake's direct inputs are passed to `nix-unit.inputs`, not the nix-unit flake itself.
+This pattern directly implements the solution from nix-community/nix-unit#224, where a user encountered identical DNS errors when nix-unit tried to fetch `treefmt-nix`.
 
-From the issue: "nix-unit flake's inputs contain treefmt-nix, so you have to provide all inputs there in the perSystem.nix-input.inputs object." However, this guidance was incomplete—it should specify that you provide *your* inputs, not nix-unit's inputs.
+From the issue: "nix-unit flake's inputs contain treefmt-nix, so you have to provide all inputs there in the perSystem.nix-input.inputs object."
 
-The nix-unit flake-parts documentation example shows:
-```nix
-nix-unit.inputs = {
-  inherit (inputs) nixpkgs flake-parts nix-unit;
-};
-```
-
-However, this is misleading for cases where nix-unit's own dependencies differ from your flake's. The correct pattern for most cases is:
-```nix
-nix-unit.inputs = {
-  inherit (inputs) nixpkgs flake-parts;
-  # Omit nix-unit itself unless you have a specific reason to override it
-};
-```
+The key insight is that you must provide **all of nix-unit's transitive dependencies** under the names it expects, even if you have the same repository under a different name in your flake.
 
 ### Technical Details
 
 When `--override-input nix-unit <path>` is passed, Nix:
 1. Treats `<path>` as a flake source directory
 2. Reads its `flake.nix` and evaluates its inputs
-3. Attempts to fetch those inputs from the lock file or network
-4. Fails in the sandbox because network is disabled and paths aren't available
+3. Looks for those inputs in the provided `--override-input` arguments
+4. Falls back to fetching from network if inputs are missing
+5. Fails in the sandbox because network is disabled
 
-By excluding `nix-unit` from the overrides, the module uses the nix-unit flake reference from the top-level lock file, which is already available and doesn't trigger re-evaluation.
+By providing all inputs that nix-unit's flake.nix expects (including the `treefmt-nix` alias), we ensure that step 3 succeeds and step 4 is never reached.
+
+The aliasing technique works because `--override-input` simply maps input names to store paths or flake references. When nix-unit's flake.nix references `inputs.treefmt-nix`, it receives the same `/nix/store/...` path as our `inputs.treefmt`, since both point to `github:numtide/treefmt-nix`.
 
 ### References
 
 - Issue: nix-community/nix-unit#224 (<https://github.com/nix-community/nix-unit/issues/224>)
 - Related: nix-community/nix-unit#213 (<https://github.com/nix-community/nix-unit/issues/213>)
-- Implementation: `flake.nix:142-153`
+- Implementation: `flake.nix:142-158`
 
 ---
 
