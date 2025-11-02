@@ -145,12 +145,16 @@
           sanitizeInput =
             input:
               if builtins.isAttrs input && input ? outPath then input.outPath else input;
-          # Pass all inputs including nix-unit, plus treefmt-nix alias for nix-unit's dependency
+          # Pass all inputs including nix-unit, plus aliases and nested overrides
           nixUnitInputs =
             (builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]))
             // {
               # nix-unit expects an input named 'treefmt-nix', but we call it 'treefmt'
               treefmt-nix = sanitizeInput inputs.treefmt;
+              # Override nix-unit's own flake-parts dependency to use ours
+              "nix-unit/flake-parts" = sanitizeInput inputs.flake-parts;
+              "nix-unit/nixpkgs" = sanitizeInput inputs.nixpkgs;
+              "nix-unit/treefmt-nix" = sanitizeInput inputs.treefmt;
             };
         in {
           package = inputs.nix-unit.packages.${system}.default;
