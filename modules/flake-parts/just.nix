@@ -313,12 +313,12 @@ in {
             enable = true;
             justfile = lib.concatStringsSep "\n" [
               (mkRecipe "build-all" "Build all flake outputs using flake-iter" [
-                  "${lib.getExe sysCfg.flakeIterPackage} build"
+                  "${lib.getExe' sysCfg.flakeIterPackage "flake-iter"} build"
                 ]
                 false)
               ""
               (mkRecipe "build-all-verbose" "Build all flake outputs with verbose output" [
-                  "${lib.getExe sysCfg.flakeIterPackage} build --verbose"
+                  "${lib.getExe' sysCfg.flakeIterPackage "flake-iter"} build --verbose"
                 ]
                 false)
             ];
