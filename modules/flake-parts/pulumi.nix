@@ -46,6 +46,7 @@ in {
           pulumi-bin
           nodejs
           pnpm
+          jq
           (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
         ];
         defaultText = lib.literalExpression ''
@@ -53,6 +54,7 @@ in {
             pulumi-bin
             nodejs
             pnpm
+            jq
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
           ]
         '';
