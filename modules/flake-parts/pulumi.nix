@@ -78,7 +78,6 @@ in {
             jq
             just
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
-            nodePackages.ts-node
             nodePackages.typescript
           ];
           env = {
