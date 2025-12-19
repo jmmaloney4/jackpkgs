@@ -13,6 +13,7 @@
       just = import ./just.nix {jackpkgsInputs = inputs;};
       pre-commit = import ./pre-commit.nix {jackpkgsInputs = inputs;};
       shell = import ./devshell.nix {jackpkgsInputs = inputs;};
+      pnpm = import ./pnpm.nix {jackpkgsInputs = inputs;};
       pulumi = import ./pulumi.nix {jackpkgsInputs = inputs;};
       quarto = import ./quarto.nix {jackpkgsInputs = inputs;};
       python = import ./python.nix {jackpkgsInputs = inputs;};

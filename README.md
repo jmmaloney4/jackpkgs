@@ -75,6 +75,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
 - `pre-commit` — pre-commit-hooks (treefmt + nbstripout for `.ipynb`).
 - `shell` — shared dev shell output to include via `inputsFrom`.
+- `pnpm` — provides a minimal CI devshell for pnpm operations.
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
 - `python` — opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
@@ -98,6 +99,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     inputs.jackpkgs.flakeModules.just
     inputs.jackpkgs.flakeModules.pre-commit
     inputs.jackpkgs.flakeModules.shell
+    inputs.jackpkgs.flakeModules.pnpm
     inputs.jackpkgs.flakeModules.pulumi
     inputs.jackpkgs.flakeModules.quarto
     inputs.jackpkgs.flakeModules.python
@@ -142,6 +144,12 @@ flake-parts.lib.mkFlake { inherit inputs; } {
   - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
   - The shell aggregates dev environments from `just-flake`, `flake-root`, `pre-commit`, and `treefmt`.
   - Conditionally includes `pulumi` devShell fragment when `jackpkgs.pulumi.enable` is true.
+
+- pnpm (`modules/flake-parts/pnpm.nix`)
+  - Provides CI devshell: `devShells.ci-pnpm` with minimal dependencies for pnpm operations in CI.
+  - Options under `jackpkgs.pnpm`:
+    - `enable` (bool, default `true`)
+    - `ci.packages` (list of packages, default `[nodejs pnpm jq]`) - Packages included in ci-pnpm devshell
 
 - pulumi (`modules/flake-parts/pulumi.nix`)
   - Provides Pulumi CLI in a devShell fragment: `config.jackpkgs.outputs.pulumiDevShell`.
