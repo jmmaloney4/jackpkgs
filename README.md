@@ -73,7 +73,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `default` — imports all modules below.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
-- `pre-commit` — pre-commit-hooks (treefmt + nbstripout for `.ipynb`).
+- `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy).
 - `shell` — shared dev shell output to include via `inputsFrom`.
 - `pnpm` — provides a minimal CI devshell for pnpm operations.
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
@@ -135,10 +135,11 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `iamOrg` (nullable string, default `null`) — GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
-  - Enables pre-commit with `treefmt` and `nbstripout` for `.ipynb`.
+  - Enables pre-commit with `treefmt`, `nbstripout` for `.ipynb`, and `mypy`.
   - Options under `jackpkgs.pre-commit`:
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
     - `nbstripoutPackage` (default `pkgs.nbstripout`)
+    - `mypyPackage` (default `pkgs.mypy`)
 
 - shell (`modules/flake-parts/devshell.nix`)
   - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
