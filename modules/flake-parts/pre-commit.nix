@@ -38,6 +38,12 @@ in {
           defaultText = "pkgs.nbstripout";
           description = "nbstripout package to use.";
         };
+        mypyPackage = mkOption {
+          type = types.package;
+          default = pkgs.mypy;
+          defaultText = "pkgs.mypy";
+          description = "mypy package to use.";
+        };
       };
     });
   };
@@ -59,6 +65,12 @@ in {
           enable = true;
           entry = "${lib.getExe sysCfg.nbstripoutPackage}";
           files = "\\.ipynb$";
+        };
+        settings.hooks.mypy = {
+          enable = true;
+          entry = "${lib.getExe sysCfg.mypyPackage}";
+          files = "\\.py$";
+          exclude = "(^nix/|/node_modules/|/dist/|/__pycache__/)";
         };
       };
     };
