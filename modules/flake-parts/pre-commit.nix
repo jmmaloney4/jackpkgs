@@ -42,13 +42,12 @@ in {
           type = types.package;
           default = let
             pythonDefaultEnv =
-              attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] config null;
+              attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
           in
             if pythonDefaultEnv != null
             then pythonDefaultEnv
             else pkgs.mypy;
-          defaultText =
-            "`jackpkgs.python.environments.default` (when defined) or `pkgs.mypy`";
+          defaultText = "`jackpkgs.python.environments.default` (when defined) or `pkgs.mypy`";
           description = "mypy package to use.";
         };
       };
