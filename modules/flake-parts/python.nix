@@ -133,6 +133,20 @@ in {
         description = "Editable Python shell hook fragment to include in `inputsFrom`.";
       };
 
+      options.jackpkgs.outputs.pythonEnvironments = mkOption {
+        type = types.attrsOf types.package;
+        default = {};
+        readOnly = true;
+        description = "Built Python environments keyed by jackpkgs.python.environments entries.";
+      };
+
+      options.jackpkgs.outputs.pythonDefaultEnv = mkOption {
+        type = types.nullOr types.package;
+        default = null;
+        readOnly = true;
+        description = "Default Python environment derivation when `jackpkgs.python.environments.default` exists.";
+      };
+
       options.jackpkgs.python = {
         pythonPackage = mkOption {
           type = types.package;
@@ -410,6 +424,12 @@ in {
       jackpkgs.shell.inputsFrom = [
         config.jackpkgs.outputs.pythonEditableHook
       ];
+
+      jackpkgs.outputs.pythonEnvironments = pythonEnvs;
+      jackpkgs.outputs.pythonDefaultEnv =
+        if cfg.environments ? default
+        then pythonEnvs.default
+        else null;
 
       # Ensure uv is available in the devshell when python module is enabled
       jackpkgs.shell.packages = lib.mkIf cfg.enable [pkgs.uv];

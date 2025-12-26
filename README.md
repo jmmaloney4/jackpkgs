@@ -73,7 +73,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `default` — imports all modules below.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
-- `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy).
+- `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy; picks up `jackpkgs.python.environments.default` automatically when defined).
 - `shell` — shared dev shell output to include via `inputsFrom`.
 - `pnpm` — provides a minimal CI devshell for pnpm operations.
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
@@ -139,7 +139,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
   - Options under `jackpkgs.pre-commit`:
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
     - `nbstripoutPackage` (default `pkgs.nbstripout`)
-    - `mypyPackage` (default `pkgs.mypy`)
+    - `mypyPackage` (defaults to the package produced by `jackpkgs.python.environments.default` when defined—editable or not—otherwise `pkgs.mypy`)
 
 - shell (`modules/flake-parts/devshell.nix`)
   - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
@@ -186,6 +186,8 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - Packages: non-editable envs appear under `packages.<env.name>`
     - Module args: `_module.args.pythonWorkspace` (always exposed)
     - DevShell: editable environment automatically included when defined
+    - `jackpkgs.outputs.pythonEnvironments`: attrset of built env derivations keyed by `jackpkgs.python.environments`
+    - `jackpkgs.outputs.pythonDefaultEnv`: derivation for `jackpkgs.python.environments.default` when present
   - Examples:
     ```nix
     # Minimal - uses all dependencies from uv.lock

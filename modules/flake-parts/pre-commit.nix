@@ -4,7 +4,7 @@
   lib,
   ...
 }: let
-  inherit (lib) mkIf;
+  inherit (lib) mkIf attrByPath;
   cfg = config.jackpkgs.pre-commit;
 in {
   imports = [
@@ -40,8 +40,15 @@ in {
         };
         mypyPackage = mkOption {
           type = types.package;
-          default = pkgs.mypy;
-          defaultText = "pkgs.mypy";
+          default = let
+            pythonDefaultEnv =
+              attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] config null;
+          in
+            if pythonDefaultEnv != null
+            then pythonDefaultEnv
+            else pkgs.mypy;
+          defaultText =
+            "`jackpkgs.python.environments.default` (when defined) or `pkgs.mypy`";
           description = "mypy package to use.";
         };
       };
