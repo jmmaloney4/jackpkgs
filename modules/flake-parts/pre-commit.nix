@@ -63,11 +63,13 @@ in {
         settings.hooks.treefmt.package = sysCfg.treefmtPackage;
         settings.hooks.nbstripout = {
           enable = true;
+          package = sysCfg.nbstripoutPackage;
           entry = "${lib.getExe sysCfg.nbstripoutPackage}";
           files = "\\.ipynb$";
         };
         settings.hooks.mypy = {
           enable = true;
+          package = sysCfg.mypyPackage;
           entry = "${lib.getExe sysCfg.mypyPackage}";
           files = "\\.py$";
           excludes = ["^nix/" "/node_modules/" "/dist/" "/__pycache__/"];
