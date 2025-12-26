@@ -135,14 +135,12 @@ in {
 
       options.jackpkgs.outputs.pythonEnvironments = mkOption {
         type = types.attrsOf types.package;
-        default = {};
         readOnly = true;
         description = "Built Python environments keyed by jackpkgs.python.environments entries.";
       };
 
       options.jackpkgs.outputs.pythonDefaultEnv = mkOption {
         type = types.nullOr types.package;
-        default = null;
         readOnly = true;
         description = "Default Python environment derivation when `jackpkgs.python.environments.default` exists.";
       };
