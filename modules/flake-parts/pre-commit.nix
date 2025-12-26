@@ -70,7 +70,7 @@ in {
           enable = true;
           entry = "${lib.getExe sysCfg.mypyPackage}";
           files = "\\.py$";
-          exclude = "(^nix/|/node_modules/|/dist/|/__pycache__/)";
+          excludes = ["^nix/" "/node_modules/" "/dist/" "/__pycache__/"];
         };
       };
     };
