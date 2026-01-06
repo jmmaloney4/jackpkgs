@@ -141,7 +141,7 @@ in {
 
       options.jackpkgs.outputs.pythonDefaultEnv = mkOption {
         type = types.nullOr types.package;
-        readOnly = true;
+        default = null;
         description = "Default Python environment derivation when `jackpkgs.python.environments.default` exists.";
       };
 
@@ -156,15 +156,15 @@ in {
     });
   };
 
-  config = mkIf cfg.enable {
+  config = {
     perSystem = {
       pkgs,
       lib,
       config,
       inputs,
       ...
-    }: let
-      sysCfg = config.jackpkgs.python;
+    }: mkIf cfg.enable (let
+        sysCfg = config.jackpkgs.python;
       # Resolve paths relative to the consumer project root
       rawProjectRoot = config._module.args.jackpkgsProjectRoot or (config.jackpkgs.projectRoot or inputs.self.outPath);
       projectRootString = builtins.toString rawProjectRoot;
@@ -424,6 +424,7 @@ in {
       ];
 
       jackpkgs.outputs.pythonEnvironments = pythonEnvs;
+      # Override pythonDefaultEnv when default environment exists
       jackpkgs.outputs.pythonDefaultEnv =
         if cfg.environments ? default
         then pythonEnvs.default
@@ -447,6 +448,6 @@ in {
           cfg.environments
         )
       );
-    };
+    });
   };
 }
