@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Implemented (2026-01-08)
 
 ## Context
 
@@ -356,4 +356,4 @@ Expose `lib.mkPythonCheck`, `lib.mkTypescriptCheck` utilities instead of configu
 
 Author: Claude
 Date: 2026-01-08
-PR: TBD
+Commit: 55106929b782
