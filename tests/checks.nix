@@ -46,15 +46,13 @@
   };
 
   perSystemArgs = projectRoot: {
-    pkgs,
-    lib,
-    ...
-  }: {
-    _module.args = {
-      pythonWorkspace = mkPythonWorkspaceStub pkgs;
-      jackpkgsProjectRoot = projectRoot;
+    perSystem = {pkgs, ...}: {
+      _module.args = {
+        pythonWorkspace = mkPythonWorkspaceStub pkgs;
+        jackpkgsProjectRoot = projectRoot;
+      };
+      jackpkgs.python.pythonPackage = pkgs.python312;
     };
-    jackpkgs.python.pythonPackage = pkgs.python312;
   };
 
   baseModule = {
