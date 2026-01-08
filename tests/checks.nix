@@ -33,6 +33,8 @@
     then lib.last attrs.args
     else "";
 
+  pkgsForSystem = inputs.nixpkgs.legacyPackages.${system};
+
   mkPythonWorkspaceStub = pkgs: {
     defaultSpec = {};
     mkEnv = {
@@ -45,12 +47,12 @@
       '';
   };
 
-  perSystemArgs = projectRoot: {
-    perSystem = {pkgs, ...}: {
-      _module.args = {
-        pythonWorkspace = mkPythonWorkspaceStub pkgs;
-        jackpkgsProjectRoot = projectRoot;
-      };
+  pythonWorkspaceStub = mkPythonWorkspaceStub pkgsForSystem;
+
+  argsModule = projectRoot: {
+    _module.args = {
+      pythonWorkspace = pythonWorkspaceStub;
+      jackpkgsProjectRoot = projectRoot;
     };
   };
 
@@ -79,7 +81,7 @@
     configModule,
     projectRoot ? pythonWorkspace,
   }:
-    getChecks [baseModule configModule (perSystemArgs projectRoot)];
+    getChecks [baseModule configModule (argsModule projectRoot)];
 
   hasInfixAll = needles: haystack: lib.all (n: lib.hasInfix n haystack) needles;
   hasChecksNamed = checks: names: lib.all (name: checks ? name) names;
