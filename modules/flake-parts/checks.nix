@@ -4,8 +4,9 @@
   lib,
   ...
 }: let
-  inherit (lib) mkIf mkOption types mkEnableOption;
+  inherit (lib) mkOption types mkEnableOption;
   cfg = config.jackpkgs.checks;
+  pythonCfg = config.jackpkgs.python or {};
 in {
   options = {
     jackpkgs.checks = {
@@ -126,6 +127,8 @@ in {
       pkgs,
       lib,
       config,
+      pythonWorkspace ? null,
+      jackpkgsProjectRoot ? null,
       ...
     }: let
       # ============================================================
@@ -160,8 +163,8 @@ in {
       # Python Workspace Discovery
       # ============================================================
 
-      pythonCfg = config.jackpkgs.python or {};
-      pythonWorkspace = config._module.args.pythonWorkspace or null;
+      pythonPerSystemCfg = config.jackpkgs.python or {};
+      pythonWorkspaceArg = pythonWorkspace;
 
       # Discover Python workspace members from pyproject.toml
       discoverPythonMembers = workspaceRoot: pyprojectPath: let
@@ -199,45 +202,78 @@ in {
 
       # Build Python environment with dev tools for CI checks
       pythonEnvWithDevTools =
-        if pythonWorkspace != null
+        if pythonWorkspaceArg != null
         then
-          pythonWorkspace.mkEnv {
+          pythonWorkspaceArg.mkEnv {
             name = "python-ci-checks";
-            spec = pythonWorkspace.defaultSpec;
+            spec = pythonWorkspaceArg.defaultSpec;
           }
         else null;
 
       # Extract Python version from environment for PYTHONPATH
       pythonVersion =
-        if pythonCfg ? pythonPackage && pythonCfg.pythonPackage != null
-        then pythonCfg.pythonPackage.pythonVersion or "3.12"
+        if pythonPerSystemCfg ? pythonPackage && pythonPerSystemCfg.pythonPackage != null
+        then pythonPerSystemCfg.pythonPackage.pythonVersion or "3.12"
         else "3.12";
 
       # ============================================================
       # TypeScript Workspace Discovery
       # ============================================================
 
-      pulumiCfg = config.jackpkgs.pulumi or {};
       projectRoot =
-        config._module.args.jackpkgsProjectRoot
-        or config.jackpkgs.projectRoot
-        or inputs.self.outPath;
+        if jackpkgsProjectRoot != null
+        then jackpkgsProjectRoot
+        else config.jackpkgs.projectRoot or inputs.self.outPath;
 
       # Discover pnpm workspace packages from pnpm-workspace.yaml
       discoverPnpmPackages = workspaceRoot: let
         yamlPath = workspaceRoot + "/pnpm-workspace.yaml";
         yamlExists = builtins.pathExists yamlPath;
-
-        # Convert YAML to JSON using remarshal (IFD)
-        jsonFile =
-          pkgs.runCommand "pnpm-workspace.json" {
-            buildInputs = [pkgs.remarshal];
-          } ''
-            remarshal -if yaml -of json < ${yamlPath} > $out
-          '';
-
-        workspaceData = builtins.fromJSON (builtins.readFile jsonFile);
-        packageGlobs = workspaceData.packages or [];
+        yamlLines =
+          if yamlExists
+          then lib.splitString "\n" (builtins.readFile yamlPath)
+          else [];
+        trimLine = line: let
+          match = builtins.match "^[[:space:]]*(.*[^[:space:]])?[[:space:]]*$" line;
+          head =
+            if match == null
+            then null
+            else lib.head match;
+        in
+          if head == null
+          then ""
+          else head;
+        parsePackageLine = line: let
+          match = builtins.match "^[[:space:]]*-[[:space:]]*\"?([^\"#]+)\"?.*$" line;
+          head =
+            if match == null
+            then null
+            else lib.head match;
+        in
+          if head == null
+          then null
+          else head;
+        parsed =
+          lib.foldl' (
+            acc: line: let
+              trimmed = trimLine line;
+              isPackagesKey = builtins.match "^packages:[[:space:]]*(#.*)?$" trimmed != null;
+              isTopLevelKey = builtins.match "^[^[:space:]]+:[[:space:]]*.*$" trimmed != null;
+              pkg = parsePackageLine line;
+            in
+              if isPackagesKey
+              then acc // {inPackages = true;}
+              else if acc.inPackages && isTopLevelKey
+              then acc // {inPackages = false;}
+              else if acc.inPackages && pkg != null
+              then acc // {packages = acc.packages ++ [pkg];}
+              else acc
+          ) {
+            inPackages = false;
+            packages = [];
+          }
+          yamlLines;
+        packageGlobs = parsed.packages or [];
 
         # Expand globs like "tools/*" -> ["tools/hello", "tools/ocr"]
         expandGlob = glob:
@@ -274,82 +310,90 @@ in {
       # Python Checks
       # ============================================================
 
-      pythonChecks = lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvWithDevTools != null) {
-        # pytest check
-        python-pytest = mkIf cfg.python.pytest.enable (mkCheck {
-          name = "python-pytest";
-          buildInputs = [pythonEnvWithDevTools];
-          setupCommands = ''
-            export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
-            export COVERAGE_FILE=$TMPDIR/.coverage
-          '';
-          checkCommands = forEachWorkspaceMember {
-            workspaceRoot = pythonCfg.workspaceRoot;
-            members = pythonWorkspaceMembers;
-            perMemberCommand = "pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs}";
-          };
-        });
-
-        # mypy check
-        python-mypy = mkIf cfg.python.mypy.enable (mkCheck {
-          name = "python-mypy";
-          buildInputs = [pythonEnvWithDevTools];
-          setupCommands = ''
-            export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
-            export MYPY_CACHE_DIR=$TMPDIR/.mypy_cache
-          '';
-          checkCommands = forEachWorkspaceMember {
-            workspaceRoot = pythonCfg.workspaceRoot;
-            members = pythonWorkspaceMembers;
-            perMemberCommand = "mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .";
-          };
-        });
-
-        # ruff check
-        python-ruff = mkIf cfg.python.ruff.enable (mkCheck {
-          name = "python-ruff";
-          buildInputs = [pythonEnvWithDevTools];
-          checkCommands = forEachWorkspaceMember {
-            workspaceRoot = pythonCfg.workspaceRoot;
-            members = pythonWorkspaceMembers;
-            perMemberCommand = "ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .";
-          };
-        });
-      };
+      pythonChecks =
+        lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvWithDevTools != null)
+        (
+          lib.optionalAttrs cfg.python.pytest.enable {
+            # pytest check
+            python-pytest = mkCheck {
+              name = "python-pytest";
+              buildInputs = [pythonEnvWithDevTools];
+              setupCommands = ''
+                export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+                export COVERAGE_FILE=$TMPDIR/.coverage
+              '';
+              checkCommands = forEachWorkspaceMember {
+                workspaceRoot = pythonCfg.workspaceRoot;
+                members = pythonWorkspaceMembers;
+                perMemberCommand = "pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs}";
+              };
+            };
+          }
+          // lib.optionalAttrs cfg.python.mypy.enable {
+            # mypy check
+            python-mypy = mkCheck {
+              name = "python-mypy";
+              buildInputs = [pythonEnvWithDevTools];
+              setupCommands = ''
+                export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+                export MYPY_CACHE_DIR=$TMPDIR/.mypy_cache
+              '';
+              checkCommands = forEachWorkspaceMember {
+                workspaceRoot = pythonCfg.workspaceRoot;
+                members = pythonWorkspaceMembers;
+                perMemberCommand = "mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .";
+              };
+            };
+          }
+          // lib.optionalAttrs cfg.python.ruff.enable {
+            # ruff check
+            python-ruff = mkCheck {
+              name = "python-ruff";
+              buildInputs = [pythonEnvWithDevTools];
+              checkCommands = forEachWorkspaceMember {
+                workspaceRoot = pythonCfg.workspaceRoot;
+                members = pythonWorkspaceMembers;
+                perMemberCommand = "ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .";
+              };
+            };
+          }
+        );
 
       # ============================================================
       # TypeScript Checks
       # ============================================================
 
-      typescriptChecks = lib.optionalAttrs (cfg.enable && cfg.typescript.enable && tsPackages != []) {
-        # tsc check
-        typescript-tsc = mkIf cfg.typescript.tsc.enable (mkCheck {
-          name = "typescript-tsc";
-          buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
-          checkCommands =
-            lib.concatMapStringsSep "\n" (pkg: ''
-                          echo "Type-checking ${pkg}..."
+      typescriptChecks =
+        lib.optionalAttrs (cfg.enable && cfg.typescript.enable && tsPackages != [])
+        (lib.optionalAttrs cfg.typescript.tsc.enable {
+          # tsc check
+          typescript-tsc = mkCheck {
+            name = "typescript-tsc";
+            buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
+            checkCommands =
+              lib.concatMapStringsSep "\n" (pkg: ''
+                            echo "Type-checking ${pkg}..."
 
-                          # Validate node_modules exists
-                          if [ ! -d "${projectRoot}/${pkg}/node_modules" ]; then
-                            cat >&2 << 'EOF'
-              ERROR: node_modules not found for package: ${pkg}
+                            # Validate node_modules exists
+                            if [ ! -d "${projectRoot}/${pkg}/node_modules" ]; then
+                              cat >&2 << 'EOF'
+                ERROR: node_modules not found for package: ${pkg}
 
-              TypeScript checks require node_modules to be present.
-              Please run: pnpm install
+                TypeScript checks require node_modules to be present.
+                Please run: pnpm install
 
-              Or disable TypeScript checks:
-                jackpkgs.checks.typescript.enable = false;
-              EOF
-                            exit 1
-                          fi
+                Or disable TypeScript checks:
+                  jackpkgs.checks.typescript.enable = false;
+                EOF
+                              exit 1
+                            fi
 
-                          cd ${projectRoot}/${pkg}
-                          tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
-            '')
-            tsPackages;
+                            cd ${projectRoot}/${pkg}
+                            tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
+              '')
+              tsPackages;
+          };
         });
-      };
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [

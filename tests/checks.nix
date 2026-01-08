@@ -16,13 +16,43 @@
   pythonWorkspaceDefaultPyproject =
     builtins.toPath (builtins.toString pythonWorkspaceDefault + "/pyproject.toml");
 
-  mkFlake = modules:
-    flakeParts.mkFlake {inherit inputs;} {
+  optionsModule = {lib, ...}: let
+    inherit (lib) mkOption types;
+  in {
+    options.jackpkgs = {
+      python = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+        };
+
+        workspaceRoot = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+        };
+
+        pyprojectPath = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+        };
+      };
+
+      pulumi = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+        };
+      };
+    };
+  };
+
+  evalFlake = modules:
+    flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = modules ++ [checksModule];
+      imports = [optionsModule] ++ modules ++ [checksModule];
     };
 
-  getChecks = modules: (mkFlake modules).checks.${system} or {};
+  getChecks = modules: ((evalFlake modules).config.perSystem system).checks or {};
 
   getBuildCommand = drv: let
     attrs = drv.drvAttrs or {};
@@ -32,8 +62,6 @@
     else if attrs ? args
     then lib.last attrs.args
     else "";
-
-  pkgsForSystem = inputs.nixpkgs.legacyPackages.${system};
 
   mkPythonWorkspaceStub = pkgs: {
     defaultSpec = {};
@@ -47,12 +75,10 @@
       '';
   };
 
-  pythonWorkspaceStub = mkPythonWorkspaceStub pkgsForSystem;
-
-  argsModule = projectRoot: {
-    _module.args = {
-      pythonWorkspace = pythonWorkspaceStub;
-      jackpkgsProjectRoot = projectRoot;
+  perSystemArgs = projectRoot: {
+    perSystem = {pkgs, ...}: {
+      _module.args.pythonWorkspace = mkPythonWorkspaceStub pkgs;
+      _module.args.jackpkgsProjectRoot = projectRoot;
     };
   };
 
@@ -67,27 +93,36 @@
     pythonWorkspaceRoot ? pythonWorkspace,
     pyprojectPath ? pythonWorkspacePyproject,
     extraConfig ? {},
-  }:
-    {
-      jackpkgs.python.enable = pythonEnable;
-      jackpkgs.python.workspaceRoot = pythonWorkspaceRoot;
-      jackpkgs.python.pyprojectPath = pyprojectPath;
-      jackpkgs.pulumi.enable = pulumiEnable;
-    }
-    // lib.optionalAttrs (checksEnable != null) {jackpkgs.checks.enable = checksEnable;}
-    // extraConfig;
+  }: let
+    baseConfig = {
+      jackpkgs = {
+        python = {
+          enable = pythonEnable;
+          workspaceRoot = pythonWorkspaceRoot;
+          pyprojectPath = pyprojectPath;
+        };
+        pulumi.enable = pulumiEnable;
+      };
+    };
+    withChecksEnable =
+      lib.optionalAttrs (checksEnable != null) {jackpkgs.checks.enable = checksEnable;};
+  in
+    lib.recursiveUpdate (lib.recursiveUpdate baseConfig withChecksEnable) extraConfig;
 
   mkChecks = {
     configModule,
     projectRoot ? pythonWorkspace,
-  }:
-    getChecks [baseModule configModule (argsModule projectRoot)];
+  }: let
+    eval = evalFlake [baseModule configModule (perSystemArgs projectRoot)];
+    perSystemCfg = eval.config.perSystem system;
+  in
+    perSystemCfg.checks or {};
 
   hasInfixAll = needles: haystack: lib.all (n: lib.hasInfix n haystack) needles;
-  hasChecksNamed = checks: names: lib.all (name: checks ? name) names;
-  missingChecksNamed = checks: names: lib.all (name: !(checks ? name)) names;
-  hasCheck = checks: name: checks ? name;
-  missingCheck = checks: name: !(checks ? name);
+  hasChecksNamed = checks: names: lib.all (name: lib.hasAttr name checks) names;
+  missingChecksNamed = checks: names: lib.all (name: !(lib.hasAttr name checks)) names;
+  hasCheck = checks: name: lib.hasAttr name checks;
+  missingCheck = checks: name: !(lib.hasAttr name checks);
 in {
   testChecksEnabledByPythonDefault = let
     checks = mkChecks {
