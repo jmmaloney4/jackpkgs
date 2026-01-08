@@ -51,7 +51,6 @@
         pythonWorkspace = mkPythonWorkspaceStub pkgs;
         jackpkgsProjectRoot = projectRoot;
       };
-      jackpkgs.python.pythonPackage = pkgs.python312;
     };
   };
 
