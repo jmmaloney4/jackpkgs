@@ -170,6 +170,9 @@
             optionalLines = import ./tests/optionalLines.nix {
               inherit lib testHelpers;
             };
+            checks = import ./tests/checks.nix {
+              inherit inputs lib;
+            };
           };
         };
 

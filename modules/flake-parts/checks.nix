@@ -9,25 +9,29 @@
 in {
   options = {
     jackpkgs.checks = {
-      enable = mkEnableOption "jackpkgs CI checks" // {
-        default =
-          (config.jackpkgs.python.enable or false)
-          || (config.jackpkgs.pulumi.enable or false);
-        description = ''
-          Enable CI checks for jackpkgs projects. Automatically enabled when
-          Python or Pulumi modules are enabled.
-        '';
-      };
+      enable =
+        mkEnableOption "jackpkgs CI checks"
+        // {
+          default =
+            (config.jackpkgs.python.enable or false)
+            || (config.jackpkgs.pulumi.enable or false);
+          description = ''
+            Enable CI checks for jackpkgs projects. Automatically enabled when
+            Python or Pulumi modules are enabled.
+          '';
+        };
 
       # Python ecosystem checks
       python = {
-        enable = mkEnableOption "Python CI checks" // {
-          default = config.jackpkgs.python.enable or false;
-          description = ''
-            Enable Python CI checks (pytest, mypy, ruff). Automatically enabled
-            when the Python module is enabled.
-          '';
-        };
+        enable =
+          mkEnableOption "Python CI checks"
+          // {
+            default = config.jackpkgs.python.enable or false;
+            description = ''
+              Enable Python CI checks (pytest, mypy, ruff). Automatically enabled
+              when the Python module is enabled.
+            '';
+          };
 
         pytest = {
           enable = mkOption {
@@ -77,13 +81,15 @@ in {
 
       # TypeScript ecosystem checks
       typescript = {
-        enable = mkEnableOption "TypeScript CI checks" // {
-          default = config.jackpkgs.pulumi.enable or false;
-          description = ''
-            Enable TypeScript CI checks (tsc). Automatically enabled when the
-            Pulumi module is enabled.
-          '';
-        };
+        enable =
+          mkEnableOption "TypeScript CI checks"
+          // {
+            default = config.jackpkgs.pulumi.enable or false;
+            description = ''
+              Enable TypeScript CI checks (tsc). Automatically enabled when the
+              Pulumi module is enabled.
+            '';
+          };
 
         tsc = {
           enable = mkOption {
@@ -125,7 +131,6 @@ in {
       # ============================================================
       # Helper Functions
       # ============================================================
-
       # Generic check factory
       mkCheck = {
         name,
@@ -321,26 +326,28 @@ in {
         typescript-tsc = mkIf cfg.typescript.tsc.enable (mkCheck {
           name = "typescript-tsc";
           buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
-          checkCommands = lib.concatMapStringsSep "\n" (pkg: ''
-            echo "Type-checking ${pkg}..."
+          checkCommands =
+            lib.concatMapStringsSep "\n" (pkg: ''
+                          echo "Type-checking ${pkg}..."
 
-            # Validate node_modules exists
-            if [ ! -d "${projectRoot}/${pkg}/node_modules" ]; then
-              cat >&2 << 'EOF'
-ERROR: node_modules not found for package: ${pkg}
+                          # Validate node_modules exists
+                          if [ ! -d "${projectRoot}/${pkg}/node_modules" ]; then
+                            cat >&2 << 'EOF'
+              ERROR: node_modules not found for package: ${pkg}
 
-TypeScript checks require node_modules to be present.
-Please run: pnpm install
+              TypeScript checks require node_modules to be present.
+              Please run: pnpm install
 
-Or disable TypeScript checks:
-  jackpkgs.checks.typescript.enable = false;
-EOF
-              exit 1
-            fi
+              Or disable TypeScript checks:
+                jackpkgs.checks.typescript.enable = false;
+              EOF
+                            exit 1
+                          fi
 
-            cd ${projectRoot}/${pkg}
-            tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
-          '') tsPackages;
+                          cd ${projectRoot}/${pkg}
+                          tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
+            '')
+            tsPackages;
         });
       };
     in
