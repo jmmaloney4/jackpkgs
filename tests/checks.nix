@@ -19,7 +19,7 @@
   mkFlake = modules:
     flakeParts.mkFlake {inherit inputs;} {
       systems = [system];
-      imports = [checksModule] ++ modules;
+      imports = modules ++ [checksModule];
     };
 
   getChecks = modules: (mkFlake modules).checks.${system} or {};
