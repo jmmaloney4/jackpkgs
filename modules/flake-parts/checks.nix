@@ -274,7 +274,8 @@ in {
           then ""
           else head;
         parsePackageLine = line: let
-          match = builtins.match "^[[:space:]]*-[[:space:]]*\"?([^\"#]+)\"?.*$" line;
+          # Match package lines with double quotes, single quotes, or unquoted
+          match = builtins.match "^[[:space:]]*-[[:space:]]*[\"']?([^\"'#]+)[\"']?.*$" line;
           head =
             if match == null
             then null
