@@ -155,7 +155,7 @@ in {
       }:
         lib.concatMapStringsSep "\n" (member: ''
           echo "Checking ${member}..."
-          (cd ${workspaceRoot}/${member} && ${perMemberCommand})
+          (cd "${workspaceRoot}/${member}" && ${perMemberCommand})
         '')
         members;
 
@@ -376,7 +376,7 @@ in {
 
                             # Validate node_modules exists
                             if [ ! -d "${projectRoot}/${pkg}/node_modules" ]; then
-                              cat >&2 << 'EOF'
+                              cat >&2 << EOF
                 ERROR: node_modules not found for package: ${pkg}
 
                 TypeScript checks require node_modules to be present.
@@ -388,7 +388,7 @@ in {
                               exit 1
                             fi
 
-                            cd ${projectRoot}/${pkg}
+                            cd "${projectRoot}/${pkg}"
                             tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
               '')
               tsPackages;
