@@ -159,6 +159,22 @@ in {
         '')
         members;
 
+      # Expand workspace globs like "tools/*" -> ["tools/hello", "tools/ocr"]
+      # Used by both Python and TypeScript workspace discovery
+      expandWorkspaceGlob = workspaceRoot: glob:
+        if lib.hasSuffix "/*" glob
+        then let
+          dir = lib.removeSuffix "/*" glob;
+          fullPath = workspaceRoot + "/${dir}";
+          entries =
+            if builtins.pathExists fullPath
+            then builtins.readDir fullPath
+            else {};
+          subdirs = lib.filterAttrs (_: type: type == "directory") entries;
+        in
+          map (name: "${dir}/${name}") (lib.attrNames subdirs)
+        else [glob];
+
       # ============================================================
       # Python Workspace Discovery
       # ============================================================
@@ -171,22 +187,7 @@ in {
         pyproject = builtins.fromTOML (builtins.readFile pyprojectPath);
         memberGlobs = pyproject.tool.uv.workspace.members or ["."];
 
-        # Expand globs like "tools/*" -> ["tools/hello", "tools/ocr"]
-        expandGlob = glob:
-          if lib.hasSuffix "/*" glob
-          then let
-            dir = lib.removeSuffix "/*" glob;
-            fullPath = workspaceRoot + "/${dir}";
-            entries =
-              if builtins.pathExists fullPath
-              then builtins.readDir fullPath
-              else {};
-            subdirs = lib.filterAttrs (_: type: type == "directory") entries;
-          in
-            map (name: "${dir}/${name}") (lib.attrNames subdirs)
-          else [glob];
-
-        allMembers = lib.flatten (map expandGlob memberGlobs);
+        allMembers = lib.flatten (map (expandWorkspaceGlob workspaceRoot) memberGlobs);
 
         # Filter for directories with pyproject.toml
         hasProject = member:
@@ -283,22 +284,7 @@ in {
           yamlLines;
         packageGlobs = parsed.packages or [];
 
-        # Expand globs like "tools/*" -> ["tools/hello", "tools/ocr"]
-        expandGlob = glob:
-          if lib.hasSuffix "/*" glob
-          then let
-            dir = lib.removeSuffix "/*" glob;
-            fullPath = workspaceRoot + "/${dir}";
-            entries =
-              if builtins.pathExists fullPath
-              then builtins.readDir fullPath
-              else {};
-            subdirs = lib.filterAttrs (_: type: type == "directory") entries;
-          in
-            map (name: "${dir}/${name}") (lib.attrNames subdirs)
-          else [glob];
-
-        allPackages = lib.flatten (map expandGlob packageGlobs);
+        allPackages = lib.flatten (map (expandWorkspaceGlob workspaceRoot) packageGlobs);
 
         # Filter for directories with package.json
         hasPackageJson = pkg:
