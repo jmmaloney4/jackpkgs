@@ -217,7 +217,11 @@ in {
       # Extract Python version from environment for PYTHONPATH
       pythonVersion =
         if pythonPerSystemCfg ? pythonPackage && pythonPerSystemCfg.pythonPackage != null
-        then pythonPerSystemCfg.pythonPackage.pythonVersion or "3.12"
+        then
+          # Prefer version attribute (more standard) over pythonVersion
+          pythonPerSystemCfg.pythonPackage.pythonVersion
+            or (lib.versions.majorMinor pythonPerSystemCfg.pythonPackage.version)
+          or "3.12"
         else "3.12";
 
       # ============================================================
