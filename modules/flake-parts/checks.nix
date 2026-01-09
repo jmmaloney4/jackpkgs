@@ -159,12 +159,23 @@ in {
         '')
         members;
 
+      # Validate workspace paths to prevent path traversal attacks
+      # Rejects paths containing ".." or starting with "/"
+      validateWorkspacePath = path:
+        if lib.hasInfix ".." path
+        then throw "Invalid workspace path '${path}': contains '..' (path traversal not allowed for security)"
+        else if lib.hasPrefix "/" path
+        then throw "Invalid workspace path '${path}': absolute paths not allowed (must be relative to workspace root)"
+        else path;
+
       # Expand workspace globs like "tools/*" -> ["tools/hello", "tools/ocr"]
       # Used by both Python and TypeScript workspace discovery
-      expandWorkspaceGlob = workspaceRoot: glob:
-        if lib.hasSuffix "/*" glob
+      expandWorkspaceGlob = workspaceRoot: glob: let
+        validatedGlob = validateWorkspacePath glob;
+      in
+        if lib.hasSuffix "/*" validatedGlob
         then let
-          dir = lib.removeSuffix "/*" glob;
+          dir = lib.removeSuffix "/*" validatedGlob;
           fullPath = workspaceRoot + "/${dir}";
           entries =
             if builtins.pathExists fullPath
@@ -173,7 +184,7 @@ in {
           subdirs = lib.filterAttrs (_: type: type == "directory") entries;
         in
           map (name: "${dir}/${name}") (lib.attrNames subdirs)
-        else [glob];
+        else [validatedGlob];
 
       # ============================================================
       # Python Workspace Discovery
@@ -199,8 +210,9 @@ in {
       pythonWorkspaceMembers =
         if pythonCfg.enable or false && pythonCfg ? workspaceRoot && pythonCfg ? pyprojectPath && pythonCfg.workspaceRoot != null && pythonCfg.pyprojectPath != null
         then let
-          # Resolve pyprojectPath relative to workspaceRoot (pyprojectPath is a string like "./pyproject.toml")
-          resolvedPyprojectPath = pythonCfg.workspaceRoot + "/${pythonCfg.pyprojectPath}";
+          # Validate and resolve pyprojectPath (string like "./pyproject.toml")
+          validatedPath = validateWorkspacePath pythonCfg.pyprojectPath;
+          resolvedPyprojectPath = pythonCfg.workspaceRoot + "/${validatedPath}";
         in
           discoverPythonMembers pythonCfg.workspaceRoot resolvedPyprojectPath
         else [];
