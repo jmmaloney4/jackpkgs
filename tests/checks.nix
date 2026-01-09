@@ -11,10 +11,9 @@
   pnpmWorkspace = ./fixtures/checks/pnpm-workspace;
   pnpmNoWorkspace = ./fixtures/checks/no-pnpm;
 
-  pythonWorkspacePyproject =
-    builtins.toPath (builtins.toString pythonWorkspace + "/pyproject.toml");
-  pythonWorkspaceDefaultPyproject =
-    builtins.toPath (builtins.toString pythonWorkspaceDefault + "/pyproject.toml");
+  # pyprojectPath is a string relative path, not a path object
+  pythonWorkspacePyproject = "./pyproject.toml";
+  pythonWorkspaceDefaultPyproject = "./pyproject.toml";
 
   optionsModule = {lib, ...}: let
     inherit (lib) mkOption types;
@@ -32,7 +31,7 @@
         };
 
         pyprojectPath = mkOption {
-          type = types.nullOr types.path;
+          type = types.nullOr types.str;
           default = null;
         };
       };
