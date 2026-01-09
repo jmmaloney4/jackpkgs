@@ -272,7 +272,7 @@ in {
         in
           if head == null
           then null
-          else head;
+          else trimLine head; # Trim trailing whitespace from unquoted values
         parsed =
           lib.foldl' (
             acc: line: let
