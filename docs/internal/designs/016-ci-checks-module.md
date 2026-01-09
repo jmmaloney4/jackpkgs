@@ -135,8 +135,8 @@ checks.python-pytest = mkIf cfg.python.pytest.enable (
   } ''
     export PYTHONPATH="${pythonEnv}/lib/python3.12/site-packages:$PYTHONPATH"
     export COVERAGE_FILE=$TMPDIR/.coverage
-    ${lib.concatMapStringsSep "\n" 
-      (pkg: "(cd ${workspace}/${pkg} && pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs})")
+    ${lib.concatMapStringsSep "\n"
+      (pkg: "(cd \"${workspaceRoot}/${pkg}\" && pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs})")
       discoveredWorkspaceMembers}
     touch $out
   ''
@@ -161,11 +161,11 @@ checks.typescript-tsc = mkIf cfg.typescript.tsc.enable (
     ${lib.concatMapStringsSep "\n"
       (pkg: ''
         echo "Type-checking ${pkg}..."
-        if [ ! -d "${workspace}/${pkg}/node_modules" ]; then
+        if [ ! -d "${projectRoot}/${pkg}/node_modules" ]; then
           echo "ERROR: node_modules not found in ${pkg}. Run 'pnpm install' first."
           exit 1
         fi
-        (cd ${workspace}/${pkg} && tsc --noEmit)
+        (cd "${projectRoot}/${pkg}" && tsc --noEmit)
       '')
       discoveredTsPackages}
     touch $out

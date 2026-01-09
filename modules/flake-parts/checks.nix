@@ -219,10 +219,9 @@ in {
       pythonVersion =
         if pythonPerSystemCfg ? pythonPackage && pythonPerSystemCfg.pythonPackage != null
         then
-          # Prefer version attribute (more standard) over pythonVersion
+          # Prefer pythonVersion, fall back to deriving from version, then default
           pythonPerSystemCfg.pythonPackage.pythonVersion
-            or (lib.versions.majorMinor pythonPerSystemCfg.pythonPackage.version)
-          or "3.12"
+            or (lib.versions.majorMinor pythonPerSystemCfg.pythonPackage.version or "3.12")
         else "3.12";
 
       # ============================================================
