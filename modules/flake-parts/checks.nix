@@ -196,8 +196,12 @@ in {
 
       # Discover workspace members if Python module is enabled
       pythonWorkspaceMembers =
-        if pythonCfg.enable or false && pythonCfg ? workspaceRoot && pythonCfg ? pyprojectPath
-        then discoverPythonMembers pythonCfg.workspaceRoot pythonCfg.pyprojectPath
+        if pythonCfg.enable or false && pythonCfg ? workspaceRoot && pythonCfg ? pyprojectPath && pythonCfg.workspaceRoot != null && pythonCfg.pyprojectPath != null
+        then let
+          # Resolve pyprojectPath relative to workspaceRoot (pyprojectPath is a string like "./pyproject.toml")
+          resolvedPyprojectPath = pythonCfg.workspaceRoot + "/${pythonCfg.pyprojectPath}";
+        in
+          discoverPythonMembers pythonCfg.workspaceRoot resolvedPyprojectPath
         else [];
 
       # Build Python environment with dev tools for CI checks
