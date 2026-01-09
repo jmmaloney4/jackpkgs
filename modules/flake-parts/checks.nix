@@ -316,7 +316,7 @@ in {
       # ============================================================
 
       pythonChecks =
-        lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvWithDevTools != null)
+        lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvWithDevTools != null && pythonWorkspaceMembers != [])
         (
           lib.optionalAttrs cfg.python.pytest.enable {
             # pytest check
