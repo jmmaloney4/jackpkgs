@@ -104,7 +104,11 @@ in {
             default = null;
             description = ''
               List of packages to type-check. If null, packages will be
-              auto-discovered from pnpm-workspace.yaml.
+              auto-discovered from pnpm-workspace.yaml using a simple parser.
+
+              Explicit configuration is recommended for complex pnpm-workspace.yaml
+              files (e.g., those using YAML anchors, multi-line strings, or
+              inline arrays). Auto-discovery supports basic list syntax only.
             '';
             example = ["infra" "tools/hello"];
           };
@@ -246,6 +250,12 @@ in {
         else config.jackpkgs.projectRoot or inputs.self.outPath;
 
       # Discover pnpm workspace packages from pnpm-workspace.yaml
+      # YAML Parser Limitations: This is a simple line-by-line parser that supports
+      # basic YAML list syntax under 'packages:' key. It handles quoted/unquoted strings,
+      # comments, and simple indentation. It does NOT support: YAML anchors/aliases,
+      # multi-line strings, inline arrays, or complex nested structures.
+      # For complex pnpm-workspace.yaml files, use explicit configuration via
+      # jackpkgs.checks.typescript.tsc.packages option.
       discoverPnpmPackages = workspaceRoot: let
         yamlPath = workspaceRoot + "/pnpm-workspace.yaml";
         yamlExists = builtins.pathExists yamlPath;
