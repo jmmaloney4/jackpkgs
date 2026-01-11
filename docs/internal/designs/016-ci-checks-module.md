@@ -252,6 +252,56 @@ This allows:
 
 ---
 
+## Best Practices
+
+### TypeScript Package Discovery
+
+**Recommended: Use explicit package lists** for reliability and maintainability.
+
+```nix
+jackpkgs.checks.typescript.tsc = {
+  enable = true;
+  packages = ["infra" "tools/hello" "apps/web"];  # Explicit and clear
+};
+```
+
+**Auto-discovery is available** but best-effort. Use when:
+- Your `pnpm-workspace.yaml` uses only basic syntax (simple lists, standard globs)
+- You want zero-config convenience for simple projects
+- You're willing to fall back to explicit config if auto-discovery fails
+
+**When to avoid auto-discovery:**
+- Complex YAML features (anchors, multi-line strings, inline arrays)
+- Paths with embedded quotes or apostrophes in package names
+- Need for guaranteed reliability in CI pipelines
+
+### Python Dev Tool Dependencies
+
+Python checks require `mypy`, `pytest`, and `ruff` to be available in the workspace environment.
+
+**Recommended pattern:** Create a dedicated workspace member for dev tools:
+
+```toml
+# tools/dev-tools/pyproject.toml (or libs/dev-tools/pyproject.toml)
+[project]
+name = "myproject-dev-tools"
+dependencies = ["mypy>=1.8", "pytest>=8.0", "ruff>=0.1"]
+```
+
+Include it in your workspace:
+
+```toml
+# pyproject.toml (workspace root)
+[tool.uv.workspace]
+members = ["libs/*", "tools/dev-tools"]
+```
+
+The checks module automatically uses `workspace.deps.default`, which includes all workspace dependencies.
+
+**Why not workspace-level dependency-groups?** Due to uv2nix/pyproject-nix limitations, workspace-level `[dependency-groups]` don't translate to Nix environment specs. The dedicated package pattern is the reliable solution.
+
+---
+
 ## Alternatives Considered
 
 ### Alternative A — Keep Checks Project-Local

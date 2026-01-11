@@ -103,12 +103,19 @@ in {
             type = types.nullOr (types.listOf types.str);
             default = null;
             description = ''
-              List of packages to type-check. If null, packages will be
-              auto-discovered from pnpm-workspace.yaml using a simple parser.
+              List of packages to type-check.
 
-              Explicit configuration is recommended for complex pnpm-workspace.yaml
-              files (e.g., those using YAML anchors, multi-line strings, or
-              inline arrays). Auto-discovery supports basic list syntax only.
+              RECOMMENDED: Explicitly list packages for reliability and clarity.
+              Example: packages = ["infra" "tools/hello" "apps/web"];
+
+              If null, packages will be auto-discovered from pnpm-workspace.yaml
+              using a simple parser. Auto-discovery is best-effort and supports
+              only basic YAML list syntax (quoted/unquoted strings, comments,
+              simple globs).
+
+              Auto-discovery does NOT support: YAML anchors/aliases, multi-line
+              strings, inline arrays, or paths with embedded quotes/apostrophes.
+              For complex workspace configurations, use explicit listing.
             '';
             example = ["infra" "tools/hello"];
           };
@@ -185,7 +192,7 @@ in {
             if builtins.pathExists fullPath
             then builtins.readDir fullPath
             else {};
-          subdirs = lib.filterAttrs (_: type: type == "directory") entries;
+          subdirs = lib.filterAttrs (name: type: type == "directory" && name != "." && name != "..") entries;
         in
           map (name: "${dir}/${name}") (lib.attrNames subdirs)
         else [validatedGlob];
@@ -215,6 +222,8 @@ in {
         if pythonCfg.enable or false && pythonCfg ? workspaceRoot && pythonCfg ? pyprojectPath && pythonCfg.workspaceRoot != null && pythonCfg.pyprojectPath != null
         then let
           # Validate and resolve pyprojectPath (string like "./pyproject.toml")
+          # Security: validateWorkspacePath rejects ".." and absolute paths to prevent
+          # reading arbitrary files outside the workspace (e.g., "../../../../etc/passwd")
           validatedPath = validateWorkspacePath pythonCfg.pyprojectPath;
           resolvedPyprojectPath = pythonCfg.workspaceRoot + "/${validatedPath}";
         in
@@ -253,7 +262,8 @@ in {
       # YAML Parser Limitations: This is a simple line-by-line parser that supports
       # basic YAML list syntax under 'packages:' key. It handles quoted/unquoted strings,
       # comments, and simple indentation. It does NOT support: YAML anchors/aliases,
-      # multi-line strings, inline arrays, or complex nested structures.
+      # multi-line strings, inline arrays, complex nested structures, or paths with
+      # embedded quotes/apostrophes (e.g., paths like "foo's-bar" will fail).
       # For complex pnpm-workspace.yaml files, use explicit configuration via
       # jackpkgs.checks.typescript.tsc.packages option.
       discoverPnpmPackages = workspaceRoot: let
