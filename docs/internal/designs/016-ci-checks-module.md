@@ -128,16 +128,21 @@ The module MUST:
 5. **Handle coverage files** - Redirect to `$TMPDIR`
 
 ```nix
-# Conceptual implementation
+# Conceptual implementation - shows approach, not exact code
 checks.python-pytest = mkIf cfg.python.pytest.enable (
   pkgs.runCommand "python-pytest" {
     buildInputs = [pythonWithDevTools];
   } ''
-    export PYTHONPATH="${pythonEnv}/lib/python3.12/site-packages:$PYTHONPATH"
+    # Configure PYTHONPATH dynamically based on Python version
+    export PYTHONPATH="${pythonEnv}/lib/python${pythonVersion}/site-packages:$PYTHONPATH"
     export COVERAGE_FILE=$TMPDIR/.coverage
-    ${lib.concatMapStringsSep "\n"
-      (pkg: "(cd \"${workspaceRoot}/${pkg}\" && pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs})")
-      discoveredWorkspaceMembers}
+
+    # Execute per workspace member to avoid module name conflicts
+    ${forEachWorkspaceMember {
+      workspaceRoot = ...;
+      members = discoveredWorkspaceMembers;
+      perMemberCommand = "pytest ${extraArgs}";
+    }}
     touch $out
   ''
 );
@@ -153,21 +158,18 @@ The module MUST:
 4. **Handle per-package tsconfig** - Each package may have its own configuration
 
 ```nix
-# Conceptual implementation
+# Conceptual implementation - shows approach, not exact code
 checks.typescript-tsc = mkIf cfg.typescript.tsc.enable (
   pkgs.runCommand "typescript-tsc" {
     buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
   } ''
-    ${lib.concatMapStringsSep "\n"
-      (pkg: ''
-        echo "Type-checking ${pkg}..."
-        if [ ! -d "${projectRoot}/${pkg}/node_modules" ]; then
-          echo "ERROR: node_modules not found in ${pkg}. Run 'pnpm install' first."
-          exit 1
-        fi
-        (cd "${projectRoot}/${pkg}" && tsc --noEmit)
-      '')
-      discoveredTsPackages}
+    # For each discovered TypeScript package:
+    # - Check node_modules exists (fail with helpful message if missing)
+    # - Run tsc --noEmit for type checking
+    ${forEachPackage discoveredTsPackages (pkg: ''
+      validate_node_modules "${pkg}"
+      tsc --noEmit ${extraArgs}
+    '')}
     touch $out
   ''
 );

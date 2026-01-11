@@ -110,11 +110,11 @@ in {
 
               If null, packages will be auto-discovered from pnpm-workspace.yaml
               using a simple parser. Auto-discovery is best-effort and supports
-              only basic YAML list syntax (quoted/unquoted strings, comments,
-              simple globs).
+              only basic YAML list syntax (single-quoted, double-quoted, or unquoted
+              strings, comments, simple globs).
 
               Auto-discovery does NOT support: YAML anchors/aliases, multi-line
-              strings, inline arrays, or paths with embedded quotes/apostrophes.
+              strings, inline arrays, or paths with unescaped quotes inside values.
               For complex workspace configurations, use explicit listing.
             '';
             example = ["infra" "tools/hello"];
@@ -166,7 +166,7 @@ in {
       }:
         lib.concatMapStringsSep "\n" (member: ''
           echo "Checking ${member}..."
-          (cd "${workspaceRoot}/${member}" && ${perMemberCommand})
+          (cd ${lib.escapeShellArg "${workspaceRoot}/${member}"} && ${perMemberCommand})
         '')
         members;
 
@@ -260,10 +260,11 @@ in {
 
       # Discover pnpm workspace packages from pnpm-workspace.yaml
       # YAML Parser Limitations: This is a simple line-by-line parser that supports
-      # basic YAML list syntax under 'packages:' key. It handles quoted/unquoted strings,
-      # comments, and simple indentation. It does NOT support: YAML anchors/aliases,
-      # multi-line strings, inline arrays, complex nested structures, or paths with
-      # embedded quotes/apostrophes (e.g., paths like "foo's-bar" will fail).
+      # basic YAML list syntax under 'packages:' key. It handles single-quoted, double-quoted,
+      # and unquoted strings, comments, and simple indentation. It does NOT support: YAML
+      # anchors/aliases, multi-line strings, inline arrays, complex nested structures, or
+      # paths with unescaped quotes/apostrophes inside values (e.g., paths like foo"bar or
+      # unquoted foo's-bar will fail; properly quoted "foo's-bar" or 'foo"bar' work fine).
       # For complex pnpm-workspace.yaml files, use explicit configuration via
       # jackpkgs.checks.typescript.tsc.packages option.
       discoverPnpmPackages = workspaceRoot: let
@@ -285,11 +286,18 @@ in {
           else head;
         parsePackageLine = line: let
           # Match package lines with double quotes, single quotes, or unquoted
-          match = builtins.match "^[[:space:]]*-[[:space:]]*[\"']?([^\"'#]+)[\"']?.*$" line;
+          # Tries three patterns in order: double-quoted, single-quoted, unquoted
+          doubleQuoted = builtins.match "^[[:space:]]*-[[:space:]]*\"([^\"]+)\".*$" line;
+          singleQuoted = builtins.match "^[[:space:]]*-[[:space:]]*'([^']+)'.*$" line;
+          unquoted = builtins.match "^[[:space:]]*-[[:space:]]*([^#\"']+).*$" line;
           head =
-            if match == null
-            then null
-            else lib.head match;
+            if doubleQuoted != null
+            then lib.head doubleQuoted
+            else if singleQuoted != null
+            then lib.head singleQuoted
+            else if unquoted != null
+            then lib.head unquoted
+            else null;
         in
           if head == null
           then null
@@ -298,7 +306,7 @@ in {
           lib.foldl' (
             acc: line: let
               trimmed = trimLine line;
-              isPackagesKey = builtins.match "^packages:[[:space:]]*(#.*)?$" trimmed != null;
+              isPackagesKey = builtins.match "^packages:([[:space:]]*(#.*)?)?$" trimmed != null;
               isTopLevelKey = builtins.match "^[^[:space:]]+:[[:space:]]*.*$" trimmed != null;
               pkg = parsePackageLine line;
             in
@@ -401,7 +409,7 @@ in {
                             echo "Type-checking ${pkg}..."
 
                             # Validate node_modules exists
-                            if [ ! -d "${projectRoot}/${pkg}/node_modules" ]; then
+                            if [ ! -d ${lib.escapeShellArg "${projectRoot}/${pkg}/node_modules"} ]; then
                               cat >&2 << EOF
                 ERROR: node_modules not found for package: ${pkg}
 
@@ -414,7 +422,7 @@ in {
                               exit 1
                             fi
 
-                            cd "${projectRoot}/${pkg}"
+                            cd ${lib.escapeShellArg "${projectRoot}/${pkg}"}
                             tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
               '')
               tsPackages;
