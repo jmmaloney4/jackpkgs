@@ -588,11 +588,13 @@ in {
     };
     script = getBuildCommand checks.javascript-jest;
   in {
-    expr = hasInfixAll [
-      "Linking node_modules"
-      "ln -s"
-      "/lib/node_modules"
-    ] script;
+    expr =
+      hasInfixAll [
+        "Linking node_modules"
+        "ln -s"
+        "/lib/node_modules"
+      ]
+      script;
     expected = true;
   };
 }
