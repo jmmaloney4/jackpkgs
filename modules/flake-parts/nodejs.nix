@@ -69,8 +69,10 @@ in {
     }: let
       # Select Node.js package based on version option
       nodejsPackage =
-        if cfg.version == 18 then pkgs.nodejs_18
-        else if cfg.version == 20 then pkgs.nodejs_20
+        if cfg.version == 18
+        then pkgs.nodejs_18
+        else if cfg.version == 20
+        then pkgs.nodejs_20
         else pkgs.nodejs_22; # Default to 22
 
       # Configure dream2nix to build the workspace
@@ -94,7 +96,6 @@ in {
       # Extract node_modules from dream2nix output
       # dream2nix structure: packages.${system}.default.lib.node_modules
       nodeModules = dreamOutputs.packages.${system}.default.lib.node_modules or null;
-
     in {
       # Expose node_modules for consumption by checks
       jackpkgs.outputs.nodeModules = nodeModules;
@@ -105,7 +106,7 @@ in {
           nodejsPackage
           pkgs.pnpm
         ];
-        
+
         shellHook = ''
           # Add node_modules/.bin to PATH for easy access to binaries
           export PATH="$PWD/node_modules/.bin:$PATH"

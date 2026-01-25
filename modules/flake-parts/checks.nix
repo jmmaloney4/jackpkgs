@@ -232,7 +232,7 @@ in {
         then ""
         else ''
           echo "Linking node_modules from ${nodeModules}..."
-          
+
           # Link root node_modules
           if [ -d "${nodeModules}/lib/node_modules" ]; then
              # dream2nix often puts modules in lib/node_modules
@@ -245,14 +245,15 @@ in {
 
           # Link package-level node_modules (if they exist in the derivation structure)
           ${lib.concatMapStringsSep "\n" (pkg: ''
-            mkdir -p ${pkg}
-            # Check for nested node_modules in the store output (common in monorepos)
-            if [ -d "${nodeModules}/lib/node_modules/${pkg}/node_modules" ]; then
-              ln -s "${nodeModules}/lib/node_modules/${pkg}/node_modules" "${pkg}/node_modules"
-            elif [ -d "${nodeModules}/${pkg}/node_modules" ]; then
-              ln -s "${nodeModules}/${pkg}/node_modules" "${pkg}/node_modules"
-            fi
-          '') packages}
+              mkdir -p ${pkg}
+              # Check for nested node_modules in the store output (common in monorepos)
+              if [ -d "${nodeModules}/lib/node_modules/${pkg}/node_modules" ]; then
+                ln -s "${nodeModules}/lib/node_modules/${pkg}/node_modules" "${pkg}/node_modules"
+              elif [ -d "${nodeModules}/${pkg}/node_modules" ]; then
+                ln -s "${nodeModules}/${pkg}/node_modules" "${pkg}/node_modules"
+              fi
+            '')
+            packages}
         '';
 
       # Expand workspace globs like "tools/*" -> ["tools/hello", "tools/ocr"]
@@ -497,11 +498,11 @@ in {
                 ERROR: node_modules not found for package: ${pkg}
 
                 TypeScript checks require node_modules to be present.
-                
+
                 Solution 1 (Pure Nix - Recommended):
                   Enable the Node.js module to automatically build node_modules:
                   jackpkgs.nodejs.enable = true;
-                
+
                 Solution 2 (Impure/Local):
                   Run 'pnpm install' locally before running checks.
 
@@ -521,38 +522,38 @@ in {
       # ============================================================
       # Jest Checks
       # ============================================================
-      
-      jestChecks = 
-        lib.optionalAttrs (cfg.enable && cfg.jest.enable && jestPackages != []) {
-          javascript-jest = mkCheck {
-             name = "javascript-jest";
-             buildInputs = [ pkgs.nodejs ];
-             setupCommands = linkNodeModules cfg.jest.nodeModules projectRoot jestPackages;
-             checkCommands = lib.concatMapStringsSep "\n" (pkg: ''
-               echo "Testing ${pkg}..."
-               cd "${projectRoot}/${pkg}"
-               
-               # Check if jest exists in linked node_modules (pure) or local (impure)
-               JEST_BIN=""
-               if [ -f "node_modules/.bin/jest" ]; then
-                 JEST_BIN="./node_modules/.bin/jest"
-               elif [ -f "../../node_modules/.bin/jest" ]; then
-                 JEST_BIN="../../node_modules/.bin/jest"
-               elif [ -f "node_modules/jest/bin/jest.js" ]; then
-                  JEST_BIN="node node_modules/jest/bin/jest.js"
-               fi
-               
-               if [ -n "$JEST_BIN" ]; then
-                 $JEST_BIN ${lib.escapeShellArgs cfg.jest.extraArgs}
-               else
-                  echo "WARNING: Jest binary not found for ${pkg}, skipping."
-                  # Don't fail the build if jest isn't set up for this specific package
-                  # (some packages in workspace might not have tests)
-               fi
-             '') jestPackages;
-          };
-        };
 
+      jestChecks = lib.optionalAttrs (cfg.enable && cfg.jest.enable && jestPackages != []) {
+        javascript-jest = mkCheck {
+          name = "javascript-jest";
+          buildInputs = [pkgs.nodejs];
+          setupCommands = linkNodeModules cfg.jest.nodeModules projectRoot jestPackages;
+          checkCommands =
+            lib.concatMapStringsSep "\n" (pkg: ''
+              echo "Testing ${pkg}..."
+              cd "${projectRoot}/${pkg}"
+
+              # Check if jest exists in linked node_modules (pure) or local (impure)
+              JEST_BIN=""
+              if [ -f "node_modules/.bin/jest" ]; then
+                JEST_BIN="./node_modules/.bin/jest"
+              elif [ -f "../../node_modules/.bin/jest" ]; then
+                JEST_BIN="../../node_modules/.bin/jest"
+              elif [ -f "node_modules/jest/bin/jest.js" ]; then
+                 JEST_BIN="node node_modules/jest/bin/jest.js"
+              fi
+
+              if [ -n "$JEST_BIN" ]; then
+                $JEST_BIN ${lib.escapeShellArgs cfg.jest.extraArgs}
+              else
+                 echo "WARNING: Jest binary not found for ${pkg}, skipping."
+                 # Don't fail the build if jest isn't set up for this specific package
+                 # (some packages in workspace might not have tests)
+              fi
+            '')
+            jestPackages;
+        };
+      };
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [
