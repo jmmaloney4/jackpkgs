@@ -99,6 +99,15 @@ in {
             description = "Enable TypeScript type checking with tsc";
           };
 
+          nodeModules = mkOption {
+            type = types.nullOr types.package;
+            default = config.jackpkgs.outputs.nodeModules or null;
+            description = ''
+              Derivation containing the `node_modules` structure to link before running checks.
+              Typically provided automatically by `jackpkgs.nodejs`.
+            '';
+          };
+
           packages = mkOption {
             type = types.nullOr (types.listOf types.str);
             default = null;
@@ -126,6 +135,43 @@ in {
             description = "Extra arguments to pass to tsc";
             example = ["--strict"];
           };
+        };
+      };
+
+      # Jest check
+      jest = {
+        enable =
+          mkEnableOption "Jest CI checks"
+          // {
+            default = config.jackpkgs.nodejs.enable or false;
+            description = ''
+              Enable Jest test runner. Automatically enabled when the Node.js module is enabled.
+            '';
+          };
+
+        nodeModules = mkOption {
+          type = types.nullOr types.package;
+          default = config.jackpkgs.outputs.nodeModules or null;
+          description = ''
+            Derivation containing the `node_modules` structure to link before running checks.
+            Typically provided automatically by `jackpkgs.nodejs`.
+          '';
+        };
+
+        packages = mkOption {
+          type = types.nullOr (types.listOf types.str);
+          default = null;
+          description = ''
+            List of packages to test with Jest.
+            If null, uses same discovery as tsc (pnpm-workspace.yaml).
+          '';
+        };
+
+        extraArgs = mkOption {
+          type = types.listOf types.str;
+          default = [];
+          description = "Extra arguments to pass to Jest";
+          example = ["--coverage" "--verbose"];
         };
       };
 
@@ -178,6 +224,36 @@ in {
         else if lib.hasPrefix "/" path
         then throw "Invalid workspace path '${path}': absolute paths not allowed (must be relative to workspace root)"
         else path;
+
+      # Link node_modules into the sandbox
+      # Strategy: Link root node_modules, then iterate through packages and link their node_modules if present in the store
+      linkNodeModules = nodeModules: workspaceRoot: packages:
+        if nodeModules == null
+        then ""
+        else ''
+          echo "Linking node_modules from ${nodeModules}..."
+          
+          # Link root node_modules
+          if [ -d "${nodeModules}/lib/node_modules" ]; then
+             # dream2nix often puts modules in lib/node_modules
+             ln -s "${nodeModules}/lib/node_modules" node_modules
+          elif [ -d "${nodeModules}/node_modules" ]; then
+             ln -s "${nodeModules}/node_modules" node_modules
+          else
+             echo "WARNING: Could not find node_modules in provided derivation"
+          fi
+
+          # Link package-level node_modules (if they exist in the derivation structure)
+          ${lib.concatMapStringsSep "\n" (pkg: ''
+            mkdir -p ${pkg}
+            # Check for nested node_modules in the store output (common in monorepos)
+            if [ -d "${nodeModules}/lib/node_modules/${pkg}/node_modules" ]; then
+              ln -s "${nodeModules}/lib/node_modules/${pkg}/node_modules" "${pkg}/node_modules"
+            elif [ -d "${nodeModules}/${pkg}/node_modules" ]; then
+              ln -s "${nodeModules}/${pkg}/node_modules" "${pkg}/node_modules"
+            fi
+          '') packages}
+        '';
 
       # Expand workspace globs like "tools/*" -> ["tools/hello", "tools/ocr"]
       # Used by both Python and TypeScript workspace discovery
@@ -340,6 +416,12 @@ in {
         then cfg.typescript.tsc.packages
         else discoverPnpmPackages projectRoot;
 
+      # Determine Jest packages
+      jestPackages =
+        if cfg.jest.packages != null
+        then cfg.jest.packages
+        else discoverPnpmPackages projectRoot;
+
       # ============================================================
       # Python Checks
       # ============================================================
@@ -404,17 +486,24 @@ in {
           typescript-tsc = mkCheck {
             name = "typescript-tsc";
             buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
+            setupCommands = linkNodeModules cfg.typescript.tsc.nodeModules projectRoot tsPackages;
             checkCommands =
               lib.concatMapStringsSep "\n" (pkg: ''
                             echo "Type-checking ${pkg}..."
 
                             # Validate node_modules exists
-                            if [ ! -d ${lib.escapeShellArg "${projectRoot}/${pkg}/node_modules"} ]; then
+                            if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg "${projectRoot}/${pkg}/node_modules"} ]; then
                               cat >&2 << EOF
                 ERROR: node_modules not found for package: ${pkg}
 
                 TypeScript checks require node_modules to be present.
-                Please run: pnpm install
+                
+                Solution 1 (Pure Nix - Recommended):
+                  Enable the Node.js module to automatically build node_modules:
+                  jackpkgs.nodejs.enable = true;
+                
+                Solution 2 (Impure/Local):
+                  Run 'pnpm install' locally before running checks.
 
                 Or disable TypeScript checks:
                   jackpkgs.checks.typescript.enable = false;
@@ -428,11 +517,48 @@ in {
               tsPackages;
           };
         });
+
+      # ============================================================
+      # Jest Checks
+      # ============================================================
+      
+      jestChecks = 
+        lib.optionalAttrs (cfg.enable && cfg.jest.enable && jestPackages != []) {
+          javascript-jest = mkCheck {
+             name = "javascript-jest";
+             buildInputs = [ pkgs.nodejs ];
+             setupCommands = linkNodeModules cfg.jest.nodeModules projectRoot jestPackages;
+             checkCommands = lib.concatMapStringsSep "\n" (pkg: ''
+               echo "Testing ${pkg}..."
+               cd "${projectRoot}/${pkg}"
+               
+               # Check if jest exists in linked node_modules (pure) or local (impure)
+               JEST_BIN=""
+               if [ -f "node_modules/.bin/jest" ]; then
+                 JEST_BIN="./node_modules/.bin/jest"
+               elif [ -f "../../node_modules/.bin/jest" ]; then
+                 JEST_BIN="../../node_modules/.bin/jest"
+               elif [ -f "node_modules/jest/bin/jest.js" ]; then
+                  JEST_BIN="node node_modules/jest/bin/jest.js"
+               fi
+               
+               if [ -n "$JEST_BIN" ]; then
+                 $JEST_BIN ${lib.escapeShellArgs cfg.jest.extraArgs}
+               else
+                  echo "WARNING: Jest binary not found for ${pkg}, skipping."
+                  # Don't fail the build if jest isn't set up for this specific package
+                  # (some packages in workspace might not have tests)
+               fi
+             '') jestPackages;
+          };
+        };
+
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [
         {checks = pythonChecks;}
         {checks = typescriptChecks;}
+        {checks = jestChecks;}
       ];
   };
 }

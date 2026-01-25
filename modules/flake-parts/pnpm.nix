@@ -15,7 +15,7 @@ in {
     inherit (jackpkgsInputs.flake-parts.lib) mkDeferredModuleOption;
   in {
     jackpkgs.pnpm = {
-      enable = mkEnableOption "jackpkgs-pnpm" // {default = true;};
+      enable = mkEnableOption "jackpkgs-pnpm (DEPRECATED: use jackpkgs.nodejs)" // {default = false;};
     };
 
     perSystem = mkDeferredModuleOption ({
