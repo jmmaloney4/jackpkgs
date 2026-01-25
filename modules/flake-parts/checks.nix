@@ -227,30 +227,30 @@ in {
 
       # Link node_modules into the sandbox
       # Strategy: Link root node_modules, then iterate through packages and link their node_modules if present in the store
-      linkNodeModules = nodeModules: workspaceRoot: packages:
+      linkNodeModules = nodeModules: packages:
         if nodeModules == null
         then ""
         else ''
-          echo "Linking node_modules from ${nodeModules}..."
+          echo "Linking node_modules from ${lib.escapeShellArg nodeModules}..."
 
           # Link root node_modules
-          if [ -d "${nodeModules}/lib/node_modules" ]; then
+          if [ -d "${lib.escapeShellArg nodeModules}/lib/node_modules" ]; then
              # dream2nix often puts modules in lib/node_modules
-             ln -s "${nodeModules}/lib/node_modules" node_modules
-          elif [ -d "${nodeModules}/node_modules" ]; then
-             ln -s "${nodeModules}/node_modules" node_modules
+             ln -sfn "${lib.escapeShellArg nodeModules}/lib/node_modules" node_modules
+          elif [ -d "${lib.escapeShellArg nodeModules}/node_modules" ]; then
+             ln -sfn "${lib.escapeShellArg nodeModules}/node_modules" node_modules
           else
              echo "WARNING: Could not find node_modules in provided derivation"
           fi
 
           # Link package-level node_modules (if they exist in the derivation structure)
           ${lib.concatMapStringsSep "\n" (pkg: ''
-              mkdir -p ${pkg}
+              mkdir -p ${lib.escapeShellArg pkg}
               # Check for nested node_modules in the store output (common in monorepos)
-              if [ -d "${nodeModules}/lib/node_modules/${pkg}/node_modules" ]; then
-                ln -s "${nodeModules}/lib/node_modules/${pkg}/node_modules" "${pkg}/node_modules"
-              elif [ -d "${nodeModules}/${pkg}/node_modules" ]; then
-                ln -s "${nodeModules}/${pkg}/node_modules" "${pkg}/node_modules"
+              if [ -d "${lib.escapeShellArg nodeModules}/lib/node_modules/${lib.escapeShellArg pkg}/node_modules" ]; then
+                ln -sfn "${lib.escapeShellArg nodeModules}/lib/node_modules/${lib.escapeShellArg pkg}/node_modules" "${lib.escapeShellArg pkg}/node_modules"
+              elif [ -d "${lib.escapeShellArg nodeModules}/${lib.escapeShellArg pkg}/node_modules" ]; then
+                ln -sfn "${lib.escapeShellArg nodeModules}/${lib.escapeShellArg pkg}/node_modules" "${lib.escapeShellArg pkg}/node_modules"
               fi
             '')
             packages}
@@ -487,13 +487,18 @@ in {
           typescript-tsc = mkCheck {
             name = "typescript-tsc";
             buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
-            setupCommands = linkNodeModules cfg.typescript.tsc.nodeModules projectRoot tsPackages;
+            setupCommands = ''
+              # Copy source to writeable directory
+              cp -r ${lib.escapeShellArg projectRoot}/. .
+              chmod -R +w .
+              ${linkNodeModules cfg.typescript.tsc.nodeModules tsPackages}
+            '';
             checkCommands =
               lib.concatMapStringsSep "\n" (pkg: ''
-                            echo "Type-checking ${pkg}..."
+                            echo "Type-checking ${lib.escapeShellArg pkg}..."
 
                             # Validate node_modules exists
-                            if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg "${projectRoot}/${pkg}/node_modules"} ]; then
+                            if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg "${pkg}/node_modules"} ]; then
                               cat >&2 << EOF
                 ERROR: node_modules not found for package: ${pkg}
 
@@ -512,8 +517,9 @@ in {
                               exit 1
                             fi
 
-                            cd ${lib.escapeShellArg "${projectRoot}/${pkg}"}
+                            cd ${lib.escapeShellArg pkg}
                             tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
+                            cd - >/dev/null
               '')
               tsPackages;
           };
@@ -527,11 +533,16 @@ in {
         javascript-jest = mkCheck {
           name = "javascript-jest";
           buildInputs = [pkgs.nodejs];
-          setupCommands = linkNodeModules cfg.jest.nodeModules projectRoot jestPackages;
+          setupCommands = ''
+            # Copy source to writeable directory
+            cp -r ${lib.escapeShellArg projectRoot}/. .
+            chmod -R +w .
+            ${linkNodeModules cfg.jest.nodeModules jestPackages}
+          '';
           checkCommands =
             lib.concatMapStringsSep "\n" (pkg: ''
-              echo "Testing ${pkg}..."
-              cd "${projectRoot}/${pkg}"
+              echo "Testing ${lib.escapeShellArg pkg}..."
+              cd ${lib.escapeShellArg pkg}
 
               # Check if jest exists in linked node_modules (pure) or local (impure)
               JEST_BIN=""
@@ -550,6 +561,7 @@ in {
                  # Don't fail the build if jest isn't set up for this specific package
                  # (some packages in workspace might not have tests)
               fi
+              cd - >/dev/null
             '')
             jestPackages;
         };
