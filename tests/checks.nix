@@ -538,4 +538,61 @@ in {
       && lib.hasInfix "Type-checking libs/core" script;
     expected = true;
   };
+
+  testJestEnabled = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        extraConfig.jackpkgs.checks.enable = true;
+        extraConfig.jackpkgs.checks.jest.enable = true;
+        extraConfig.jackpkgs.checks.jest.packages = ["packages/app"];
+      };
+      projectRoot = pnpmWorkspace;
+    };
+  in {
+    expr = hasCheck checks "javascript-jest";
+    expected = true;
+  };
+
+  testJestScript = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        extraConfig.jackpkgs.checks.enable = true;
+        extraConfig.jackpkgs.checks.jest.enable = true;
+        extraConfig.jackpkgs.checks.jest.packages = ["packages/app"];
+        extraConfig.jackpkgs.checks.jest.extraArgs = ["--coverage"];
+      };
+      projectRoot = pnpmWorkspace;
+    };
+    script = getBuildCommand checks.javascript-jest;
+  in {
+    expr = hasInfixAll ["Testing packages/app" "jest" "--coverage"] script;
+    expected = true;
+  };
+
+  testNodeModulesLinking = let
+    # Create a dummy derivation to simulate nodeModules
+    dummyNodeModules = builtins.derivation {
+      name = "dummy-node-modules";
+      system = "x86_64-linux";
+      builder = "/bin/sh";
+      args = ["-c" "mkdir -p $out"];
+    };
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        extraConfig.jackpkgs.checks.enable = true;
+        extraConfig.jackpkgs.checks.jest.enable = true;
+        extraConfig.jackpkgs.checks.jest.packages = ["packages/app"];
+        extraConfig.jackpkgs.checks.jest.nodeModules = dummyNodeModules;
+      };
+      projectRoot = pnpmWorkspace;
+    };
+    script = getBuildCommand checks.javascript-jest;
+  in {
+    expr = hasInfixAll [
+      "Linking node_modules"
+      "ln -s"
+      "/lib/node_modules"
+    ] script;
+    expected = true;
+  };
 }
