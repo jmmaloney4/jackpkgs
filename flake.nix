@@ -51,6 +51,10 @@
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    dream2nix = {
+      url = "github:nix-community/dream2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     uv2nix = {
       url = "github:adisbladis/uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";
