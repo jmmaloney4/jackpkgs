@@ -63,82 +63,124 @@ When `environment.editable = true` AND `environment.spec = null`:
 When `environment.editable = false` OR `environment.spec` is explicitly set:
 - Behavior remains unchanged (use provided spec or `workspace.deps.default`)
 
-### Implementation Approach
+### Key Insight: Understanding uv2nix's `deps` Structure
 
-#### Option A: Derive All-Members Spec from uv2nix Workspace (Recommended)
-
-The uv2nix `workspace` object exposes member information. We can extract package names from the workspace and build a spec that includes all members.
+After analyzing the uv2nix source code, the `workspace.deps` attribute provides:
 
 ```nix
-# Extract all workspace member package names
-# workspace.members is an attrset of { <package-name> = <package-derivation>; }
-allMembersSpec = lib.mapAttrs (name: _: []) workspace.members;
+deps = {
+  # All workspace members with their optional-dependencies and dev-dependencies
+  all = { "member-1" = ["dev" "test" ...]; "member-2" = [...]; ... };
+  
+  # All workspace members with their optional-dependencies only
+  optionals = { "member-1" = [...]; "member-2" = [...]; ... };
+  
+  # All workspace members with their dev-dependencies (groups) only
+  groups = { "member-1" = [...]; "member-2" = [...]; ... };
+  
+  # All workspace members with their default-groups (tool.uv.default-groups)
+  default = { "member-1" = [...]; "member-2" = [...]; ... };
+};
+```
 
-# For editable environments with null spec, merge all members into default spec
-editableDefaultSpec = workspace.deps.default // allMembersSpec;
+**Critical finding:** `deps.default` already includes ALL workspace members — each member is a key in the attrset, mapped to its `default-groups` (empty list `[]` if none defined).
+
+### Root Cause Analysis
+
+The bug occurs when users provide an **explicit `spec`** that doesn't include all workspace members:
+
+```nix
+environments.dev = {
+  editable = true;
+  # User only specifies some packages, missing cavins-trident
+  spec = { "cavins-nautilus" = ["dev"]; };
+};
+```
+
+In this case:
+1. The editable overlay is applied to all members (default `members = null` means all)
+2. But `cavins-trident` is NOT in the spec, so it's not directly installed
+3. If `cavins-trident` is a transitive dependency, it gets installed from the Nix store (non-editable)
+4. Result: `import cavins.trident` resolves to the stale store copy
+
+### Implementation Approach
+
+#### Option A: Always Merge All Members into Editable Spec (Recommended)
+
+When `editable = true`, automatically merge all workspace members into the final spec, regardless of whether `spec` is null or explicitly provided.
+
+```nix
+# Extract all workspace members from deps (any of deps.default/all/optionals/groups works)
+allMembersSpec = lib.mapAttrs (_name: _: []) workspace.deps.default;
+
+mkEditableEnv = { name, spec ? null, ... }: let
+  userSpec = if spec == null then defaultSpec else spec;
+  # ALWAYS merge all members for editable environments
+  finalSpec = allMembersSpec // userSpec;  # User overrides take precedence
+  ...
 ```
 
 **Pros:**
-- Uses authoritative source (uv2nix workspace object)
-- No file parsing required in our module
-- Handles dynamic workspace configurations correctly
+- Prevents stale import bugs completely
+- Uses stable uv2nix API (`deps.default`)
+- User-provided extras are preserved (they override the base `[]`)
+- No new options required
 
 **Cons:**
-- Relies on uv2nix internal structure (`workspace.members`)
-- May need to verify this API is stable
+- Slightly larger environments (all members installed)
+- May install members the user explicitly didn't want (rare case)
 
-#### Option B: Parse pyproject.toml Workspace Members Directly
+#### Option B: Merge Only When `spec = null`
 
-Read `tool.uv.workspace.members` globs from pyproject.toml, resolve them to directories, parse each member's `pyproject.toml` for `project.name`.
+Only auto-include all members when user doesn't provide an explicit spec.
 
 **Pros:**
-- No dependency on uv2nix internals
-- Explicit and auditable
+- Respects explicit user configuration
 
 **Cons:**
-- Significant implementation complexity (glob resolution, file I/O)
-- Duplicates logic that uv2nix already performs
-- Potential for drift if uv2nix interprets workspace differently
+- Doesn't fix the bug when users provide partial specs
+- Users must remember to include all members manually
 
-#### Option C: New Configuration Option (Opt-in)
+#### Option C: Add `editableAutoIncludeMembers` Option
 
-Add `editableIncludeAllWorkspaceMembers = true` option that users must explicitly enable.
+Add an opt-out option for the merge behavior.
+
+```nix
+environments.dev = {
+  editable = true;
+  editableAutoIncludeMembers = true;  # default: true
+  spec = { ... };
+};
+```
 
 **Pros:**
-- No behavior change for existing users
-- Explicit opt-in
+- Fixes the bug by default
+- Power users can opt out if needed
 
 **Cons:**
-- Users must discover and enable this option
-- The "right" default for editable envs is to include all members
+- More API surface
+- Opt-out case is rare
 
-### Chosen Approach: Option A with Fallback
+### Chosen Approach: Option A (Always Merge)
 
-We will use **Option A** (derive from `workspace.members`) because:
-1. It's the most reliable — uses the same source of truth as uv2nix
-2. Minimal implementation complexity
-3. Automatic behavior matches user expectations for "editable"
+We will use **Option A** because:
+1. It completely eliminates the stale import bug
+2. Uses stable, documented uv2nix API (`workspace.deps`)
+3. The behavior matches user expectations for "editable environment"
+4. Users who need a subset can use the `members` option to control the editable overlay
 
-If `workspace.members` is not available (API change), we will fall back to the current behavior and emit a warning.
+The `members` option (which controls the editable overlay) already allows users to restrict which packages get editable treatment. For users who truly want a minimal environment, this provides the escape hatch.
 
 ### Detailed Implementation
 
-#### 1. Extract Workspace Members
+#### 1. Extract All Workspace Members
 
 ```nix
-# In the mkEditableEnv function or supporting definitions
-workspaceMembers = workspace.members or {};
-allMembersSpec = lib.mapAttrs (_name: _drv: []) workspaceMembers;
+# All workspace members with empty extras (base case)
+allMembersSpec = lib.mapAttrs (_name: _: []) workspace.deps.default;
 ```
 
-#### 2. Define Editable Default Spec
-
-```nix
-# Merge default deps with all workspace members (members override to ensure inclusion)
-editableDefaultSpec = defaultSpec // allMembersSpec;
-```
-
-#### 3. Update mkEditableEnv Logic
+#### 2. Update mkEditableEnv Logic
 
 ```nix
 mkEditableEnv = {
@@ -147,15 +189,14 @@ mkEditableEnv = {
   members ? null,
   root ? null,
 }: let
-  # For editable environments, default spec includes all workspace members
-  finalSpec =
-    if spec == null
-    then editableDefaultSpec  # Changed from: defaultSpec
-    else spec;
+  userSpec = if spec == null then defaultSpec else spec;
+  # For editable environments, ALWAYS include all workspace members
+  # User-provided extras override the base empty list
+  finalSpec = allMembersSpec // userSpec;
   # ... rest unchanged
 ```
 
-#### 4. Keep Non-Editable Unchanged
+#### 3. Keep Non-Editable Unchanged
 
 ```nix
 mkEnv = { name, spec ? null }: let
@@ -163,17 +204,16 @@ mkEnv = { name, spec ? null }: let
   # ...
 ```
 
-### API Verification
+### Why This Works
 
-Need to verify uv2nix exposes `workspace.members`. Based on uv2nix source:
-- `loadWorkspace` returns a workspace object
-- The workspace object has `deps.default` (confirmed in use)
-- Need to check for `members` attribute or equivalent
+Given:
+- `allMembersSpec = { "member-a" = []; "member-b" = []; "member-c" = []; }`
+- `userSpec = { "member-a" = ["dev" "test"]; }`
 
-If `members` is not directly exposed, alternatives:
-- Use `workspace.deps.all` if available
-- Parse the lock file for workspace member names
-- Fall back to current behavior with documentation
+Result:
+- `finalSpec = { "member-a" = ["dev" "test"]; "member-b" = []; "member-c" = []; }`
+
+All members are installed, and `member-a` gets its requested extras. The editable overlay (controlled by `members`) then ensures all local packages are installed from the checkout.
 
 ### Edge Cases
 
@@ -213,10 +253,11 @@ If `workspace.members` is empty (single-package project), `allMembersSpec` is `{
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| `workspace.members` API changes | Low | Medium | Add fallback to current behavior with warning |
+| `workspace.deps` API changes | Very Low | Medium | This is a documented, stable uv2nix API; fallback to current behavior if needed |
 | Namespace package collisions | Medium | Low | Document; add optional warning; future: namespace config |
 | Performance regression (larger envs) | Low | Low | Only affects editable envs; acceptable trade-off |
-| Users want subset of members editable | Low | Low | Can still provide explicit `spec` to override |
+| Users want subset of members installed | Low | Low | Use `members` option to control editable overlay; rare use case |
+| Unexpected extras from merge | Very Low | Low | User-provided extras override base; document merge semantics |
 
 ## Alternatives Considered
 
@@ -281,46 +322,93 @@ environments.dev = {
 **Cons:**
 - `members` controls overlay application, not spec — conflating them is confusing
 - Doesn't address the root cause (spec vs overlay distinction)
+- Would be a semantic change to an existing option
 
 **Why not chosen:** The `members` option has a different purpose; better to fix spec default directly.
 
+### Alternative E — Merge Only When `spec = null`
+
+**Approach:** Only auto-include all members when user doesn't provide an explicit spec (current behavior + fix for null case).
+
+```nix
+finalSpec = if spec == null then defaultSpec else spec;  # Keep current
+```
+
+**Pros:**
+- Minimal change to existing behavior
+- Respects explicit user configuration completely
+
+**Cons:**
+- Doesn't fix the bug when users provide partial specs (the exact scenario reported)
+- Users must manually enumerate all members when customizing extras
+- Error-prone — easy to miss a member
+
+**Why not chosen:** This is essentially the current behavior. The bug occurs precisely when users provide partial specs, which this alternative doesn't address.
+
 ## Implementation Plan
 
-### Phase 1: Investigate uv2nix API
+### Phase 1: Implementation (Verified API)
 
-1. Verify `workspace.members` or equivalent is exposed by uv2nix
-2. If not available, determine best alternative (parse lock file, request upstream)
-3. Document findings
+The uv2nix API has been verified via source code review:
+- `workspace.deps.default` is an attrset of all workspace members
+- Each key is a package name, each value is a list of default-groups
+- This is a stable, documented API
 
-### Phase 2: Implementation
+Implementation steps in `modules/flake-parts/python.nix`:
 
-1. Update `modules/flake-parts/python.nix`:
-   - Extract `workspaceMembers` from `workspace` object
-   - Create `allMembersSpec` and `editableDefaultSpec`
-   - Update `mkEditableEnv` to use `editableDefaultSpec` when `spec = null`
-   - Add fallback/warning if `workspace.members` unavailable
+1. **Add `allMembersSpec` definition after `defaultSpec`:**
+   ```nix
+   defaultSpec = workspace.deps.default;
+   
+   # All workspace members with empty extras (for editable merge)
+   allMembersSpec = lib.mapAttrs (_name: _: []) defaultSpec;
+   ```
 
-2. Update environment building in `pythonEnvs`:
-   - Ensure editable environments use the new default spec logic
+2. **Update `mkEditableEnv` to merge all members:**
+   ```nix
+   mkEditableEnv = {
+     name,
+     spec ? null,
+     members ? null,
+     root ? null,
+   }: let
+     userSpec = if spec == null then defaultSpec else spec;
+     # For editable environments, always include all workspace members
+     finalSpec = allMembersSpec // userSpec;
+     # ... rest unchanged
+   ```
 
-### Phase 3: Testing
+3. **No changes to `mkEnv`** (non-editable behavior unchanged)
 
-1. Add test fixture with multi-member workspace
-2. Verify editable env includes all members in spec
-3. Verify non-editable env behavior unchanged
-4. Test explicit spec override still works
+### Phase 2: Testing
 
-### Phase 4: Documentation
+1. Use existing test fixture `tests/fixtures/checks/python-workspace/`
+2. Add nix-unit test to verify:
+   - Editable env spec includes all members even with partial user spec
+   - Non-editable env respects user spec without merging
+   - User-provided extras are preserved after merge
 
-1. Update ADR-003 (Python Flake-Parts Module) with new editable spec behavior
-2. Update README with explanation of editable env behavior
-3. Add troubleshooting entry for namespace package collisions
+### Phase 3: Documentation
+
+1. Update ADR-003 (Python Flake-Parts Module):
+   - Document editable spec merge behavior
+   - Add example showing partial spec with full member coverage
+
+2. Update README:
+   - Clarify "editable environment" semantics
+   - Document that all workspace members are always included
+
+3. Add troubleshooting entry:
+   - Namespace package collisions
+   - How to restrict editable members via `members` option
 
 ### Rollout Considerations
 
-- **Breaking change:** No — only changes default behavior for editable + null spec
-- **Migration:** None required for most users; fixes the bug automatically
-- **Rollback:** Revert commit; provide explicit spec in consumer projects as workaround
+- **Breaking change:** Potentially — editable environments will now include all workspace members
+- **Impact:** Environments may be slightly larger; unlikely to break existing configs
+- **Migration:** None required; existing configs get the fix automatically
+- **Escape hatch:** Use `members` option to restrict which packages get editable treatment
+- **Rollback:** Revert commit; provide full explicit spec in consumer projects as workaround
 
 ## Related
 
