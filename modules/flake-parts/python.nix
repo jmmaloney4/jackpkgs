@@ -8,6 +8,7 @@
   cfg = config.jackpkgs.python;
 in {
   imports = [
+    (import ./pkgs.nix {inherit jackpkgsInputs;})
     jackpkgsInputs.flake-root.flakeModule
   ];
 
@@ -181,8 +182,8 @@ in {
       options.jackpkgs.python = {
         pythonPackage = mkOption {
           type = types.package;
-          default = pkgs.python312;
-          defaultText = "pkgs.python312";
+          default = config.jackpkgs.pkgs.python312;
+          defaultText = "config.jackpkgs.pkgs.python312";
           description = "Python package to use as base interpreter.";
         };
       };

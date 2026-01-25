@@ -9,6 +9,7 @@
   defaultExcludes = ["**/node_modules/**" "**/dist/**" "**/.direnv/**" ".jj/**" "/nix/**" ".venv/**"];
 in {
   imports = [
+    (import ./pkgs.nix {inherit jackpkgsInputs;})
     jackpkgsInputs.flake-root.flakeModule
     jackpkgsInputs.treefmt.flakeModule
   ];
@@ -30,8 +31,8 @@ in {
       options.jackpkgs.fmt = {
         treefmtPackage = mkOption {
           type = types.package;
-          default = pkgs.treefmt;
-          defaultText = "pkgs.treefmt";
+          default = config.jackpkgs.pkgs.treefmt;
+          defaultText = "config.jackpkgs.pkgs.treefmt";
           description = "treefmt package to use.";
         };
         projectRootFile = mkOption {

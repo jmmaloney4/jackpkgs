@@ -12,6 +12,7 @@
   inherit (justfileHelpers) mkRecipe mkRecipeWithParams optionalLines;
 in {
   imports = [
+    (import ./pkgs.nix {inherit jackpkgsInputs;})
     jackpkgsInputs.just-flake.flakeModule
   ];
 
@@ -48,6 +49,7 @@ in {
     };
 
     perSystem = mkDeferredModuleOption ({
+      config,
       inputs',
       lib,
       pkgs,
@@ -57,14 +59,14 @@ in {
       options.jackpkgs.just = {
         direnvPackage = mkOption {
           type = types.package;
-          default = pkgs.direnv;
-          defaultText = "pkgs.direnv";
+          default = config.jackpkgs.pkgs.direnv;
+          defaultText = "config.jackpkgs.pkgs.direnv";
           description = "direnv package to use.";
         };
         fdPackage = mkOption {
           type = types.package;
-          default = pkgs.fd;
-          defaultText = "pkgs.fd";
+          default = config.jackpkgs.pkgs.fd;
+          defaultText = "config.jackpkgs.pkgs.fd";
           description = "fd package to use for finding files.";
         };
         flakeIterPackage = mkOption {
@@ -75,40 +77,40 @@ in {
         };
         googleCloudSdkPackage = mkOption {
           type = types.package;
-          default = pkgs.google-cloud-sdk;
-          defaultText = "pkgs.google-cloud-sdk";
+          default = config.jackpkgs.pkgs.google-cloud-sdk;
+          defaultText = "config.jackpkgs.pkgs.google-cloud-sdk";
           description = "google-cloud-sdk package to use.";
         };
         jqPackage = mkOption {
           type = types.package;
-          default = pkgs.jq;
-          defaultText = "pkgs.jq";
+          default = config.jackpkgs.pkgs.jq;
+          defaultText = "config.jackpkgs.pkgs.jq";
           description = "jq package to use.";
         };
         nbstripoutPackage = mkOption {
           type = types.package;
-          default = pkgs.nbstripout;
-          defaultText = "pkgs.nbstripout";
+          default = config.jackpkgs.pkgs.nbstripout;
+          defaultText = "config.jackpkgs.pkgs.nbstripout";
           description = "nbstripout package to use.";
         };
         preCommitPackage = mkOption {
           type = types.package;
-          default = pkgs.pre-commit;
-          defaultText = "pkgs.pre-commit";
+          default = config.jackpkgs.pkgs.pre-commit;
+          defaultText = "config.jackpkgs.pkgs.pre-commit";
           description = "pre-commit package to use.";
         };
         pulumiPackage = mkOption {
           type = types.package;
-          default = pkgs.pulumi;
-          defaultText = "pkgs.pulumi";
+          default = config.jackpkgs.pkgs.pulumi;
+          defaultText = "config.jackpkgs.pkgs.pulumi";
           description = "pulumi package to use.";
         };
 
         # Shared release script utilities
         releaseUtils = mkOption {
           type = types.package;
-          default = pkgs.writeShellScriptBin "release-utils" (builtins.readFile ./release-utils.sh);
-          defaultText = "pkgs.writeShellScriptBin \"release-utils\" (builtins.readFile ./release-utils.sh)";
+          default = config.jackpkgs.pkgs.writeShellScriptBin "release-utils" (builtins.readFile ./release-utils.sh);
+          defaultText = "config.jackpkgs.pkgs.writeShellScriptBin \"release-utils\" (builtins.readFile ./release-utils.sh)";
           description = "Shared utilities for release scripts.";
         };
       };
