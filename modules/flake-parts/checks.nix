@@ -149,10 +149,11 @@ in {
       mkCheck = {
         name,
         buildInputs ? [],
+        nativeBuildInputs ? [],
         setupCommands ? "",
         checkCommands,
       }:
-        pkgs.runCommand name {inherit buildInputs;} ''
+        pkgs.runCommand name {inherit buildInputs nativeBuildInputs;} ''
           ${setupCommands}
           ${checkCommands}
           touch $out
@@ -239,6 +240,15 @@ in {
             spec = pythonWorkspaceArg.defaultSpec;
           }
         else null;
+
+      # Prefer the consumer project's configured default Python env when available.
+      # This typically includes dev tools (pytest/mypy/ruff) via the workspace spec.
+      jackpkgsOutputs = config.jackpkgs.outputs or {};
+      pythonDefaultEnv = jackpkgsOutputs.pythonDefaultEnv or null;
+      pythonEnvForChecks =
+        if pythonDefaultEnv != null
+        then pythonDefaultEnv
+        else pythonEnvWithDevTools;
 
       # Extract Python version from environment for PYTHONPATH
       pythonVersion =
@@ -345,21 +355,21 @@ in {
       # ============================================================
 
       pythonChecks =
-        lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvWithDevTools != null && pythonWorkspaceMembers != [])
+        lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvForChecks != null && pythonWorkspaceMembers != [])
         (
           lib.optionalAttrs cfg.python.pytest.enable {
             # pytest check
             python-pytest = mkCheck {
               name = "python-pytest";
-              buildInputs = [pythonEnvWithDevTools];
+              nativeBuildInputs = [pythonEnvForChecks];
               setupCommands = ''
-                export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+                export PYTHONPATH="${pythonEnvForChecks}/lib/python${pythonVersion}/site-packages"
                 export COVERAGE_FILE=$TMPDIR/.coverage
               '';
               checkCommands = forEachWorkspaceMember {
                 workspaceRoot = pythonCfg.workspaceRoot;
                 members = pythonWorkspaceMembers;
-                perMemberCommand = "pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs}";
+                perMemberCommand = "${lib.getExe' pythonEnvForChecks "pytest"} ${lib.escapeShellArgs cfg.python.pytest.extraArgs}";
               };
             };
           }
@@ -367,15 +377,15 @@ in {
             # mypy check
             python-mypy = mkCheck {
               name = "python-mypy";
-              buildInputs = [pythonEnvWithDevTools];
+              nativeBuildInputs = [pythonEnvForChecks];
               setupCommands = ''
-                export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+                export PYTHONPATH="${pythonEnvForChecks}/lib/python${pythonVersion}/site-packages"
                 export MYPY_CACHE_DIR=$TMPDIR/.mypy_cache
               '';
               checkCommands = forEachWorkspaceMember {
                 workspaceRoot = pythonCfg.workspaceRoot;
                 members = pythonWorkspaceMembers;
-                perMemberCommand = "mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .";
+                perMemberCommand = "${lib.getExe' pythonEnvForChecks "mypy"} ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .";
               };
             };
           }
@@ -383,11 +393,11 @@ in {
             # ruff check
             python-ruff = mkCheck {
               name = "python-ruff";
-              buildInputs = [pythonEnvWithDevTools];
+              nativeBuildInputs = [pythonEnvForChecks];
               checkCommands = forEachWorkspaceMember {
                 workspaceRoot = pythonCfg.workspaceRoot;
                 members = pythonWorkspaceMembers;
-                perMemberCommand = "ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .";
+                perMemberCommand = "${lib.getExe' pythonEnvForChecks "ruff"} check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .";
               };
             };
           }
