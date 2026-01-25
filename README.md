@@ -179,8 +179,10 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `pythonPackage` (package, default `pkgs.python312`)
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
     - `setuptools.packages` (list of str)
-    - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru }`)
-      - **`spec`**: optional (defaults to `workspace.deps.default`) — explicit dependency specification for customization (e.g., `workspace.deps.default // { "my-pkg" = ["dev"]; }`)
+    - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru, includeOptionalDependencies, includeGroups }`)
+      - **`spec`**: optional — explicit dependency specification for customization (overrides all other spec options)
+      - **`includeOptionalDependencies`**: bool (default `false`) — include all `[project.optional-dependencies]` (e.g., `dev`, `test`) from workspace members
+      - **`includeGroups`**: bool (default `false`) — include all `[dependency-groups]` (PEP 735) and `[tool.uv.dev-dependencies]`
       - **`editable`**: at most one environment may have `editable = true`; automatically included in devshell
   - Outputs:
     - Packages: non-editable envs appear under `packages.<env.name>`
@@ -190,27 +192,42 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `jackpkgs.outputs.pythonDefaultEnv`: derivation for `jackpkgs.python.environments.default` when present
   - Examples:
     ```nix
-    # Minimal - uses all dependencies from uv.lock
+    # Minimal - production dependencies only
     jackpkgs.python = {
       enable = true;
       workspaceRoot = ./.;
-      environments.dev = {
-        name = "python-dev";
-        editable = true;  # Automatically in devshell
+      environments.default = {
+        name = "python-prod";
       };
     };
-    
-    # With customization - add extras to specific packages
-    perSystem = { pythonWorkspace, ... }: {
-      jackpkgs.python = {
-        enable = true;
-        workspaceRoot = ./.;
-        environments.dev = {
+
+    # Development environment with optional dependencies
+    jackpkgs.python = {
+      enable = true;
+      workspaceRoot = ./.;
+      environments = {
+        default.name = "python-prod";
+        dev = {
           name = "python-dev";
-          editable = true;
-          spec = pythonWorkspace.defaultSpec // {
-            "my-package" = ["dev" "test"];
-          };
+          editable = true;  # Automatically in devshell
+          # Include [project.optional-dependencies].dev, .test, etc.
+          includeOptionalDependencies = true;
+          # Include [dependency-groups] (PEP 735)
+          includeGroups = true;
+        };
+      };
+    };
+
+    # CI environment for checks (includes dev tools like mypy, pytest)
+    jackpkgs.python = {
+      enable = true;
+      workspaceRoot = ./.;
+      environments = {
+        default.name = "python-prod";
+        ci = {
+          name = "python-ci";
+          # Non-editable for CI with all dev dependencies
+          includeOptionalDependencies = true;
         };
       };
     };

@@ -231,25 +231,53 @@ in {
         else [];
 
       # Build Python environment with dev tools for CI checks
-      pythonEnvWithDevTools =
-        if pythonWorkspaceArg != null
-        then let
-          configuredEnvs = pythonPerSystemCfg.environments or {};
-          # Try to reuse an existing environment if it includes optional dependencies (so we have test runners etc)
-          # and is NOT editable (to ensure reproducibility/stability for CI).
-          reusableEnvName = lib.findFirst (name:
-            let env = configuredEnvs.${name};
-            in (env.includeOptionalDependencies or false)
-               && (!env.editable)
-          ) null (lib.attrNames configuredEnvs);
-        in
-          if reusableEnvName != null
-          then config.jackpkgs.outputs.pythonEnvironments.${reusableEnvName}
-          else
-            pythonWorkspaceArg.mkEnv {
-              name = "python-ci-checks";
-              spec = pythonWorkspaceArg.defaultSpec;
-            }
+      # Priority order:
+      # 1. Use explicitly defined 'dev' environment if it exists
+      # 2. Use any environment with includeOptionalDependencies = true AND editable = false
+      # 3. Create a new environment with all optional dependencies enabled
+      pythonEnvWithDevTools = let
+        # Get configured environments
+        configuredEnvs = pythonCfg.environments or {};
+        pythonEnvOutputs = config.jackpkgs.outputs.pythonEnvironments or {};
+
+        isEditableEnv = envCfg: envCfg != null && (envCfg.editable or false);
+        isNonEditableEnv = envCfg: envCfg != null && !isEditableEnv envCfg;
+
+        # Check if a 'dev' environment is configured
+        hasDevEnv = configuredEnvs ? dev;
+        devEnvConfig = configuredEnvs.dev or null;
+
+        # Find any environment with optional dependencies included
+        # MUST verify that the environment is NOT editable, as editable environments
+        # are not suitable for CI checks (reproducibility issues).
+        envWithOptionals = lib.findFirst
+          (envName:
+            (configuredEnvs.${envName}.includeOptionalDependencies or false)
+            && isNonEditableEnv (configuredEnvs.${envName} or null)
+          )
+          null
+          (lib.attrNames configuredEnvs);
+
+        # Get the appropriate environment based on priority
+        selectedEnv =
+          if hasDevEnv && isNonEditableEnv devEnvConfig
+          then pythonEnvOutputs.dev or null
+          else if envWithOptionals != null
+          then pythonEnvOutputs.${envWithOptionals} or null
+          else null;
+      in
+        if selectedEnv != null
+        then selectedEnv
+        else if pythonWorkspaceArg != null
+        then
+          # Create environment with all optional dependencies for CI
+          pythonWorkspaceArg.mkEnv {
+            name = "python-ci-checks";
+            spec = pythonWorkspaceArg.computeSpec {
+              includeOptionalDependencies = true;
+              includeGroups = true;
+            };
+          }
         else null;
 
       # Extract Python version from environment for PYTHONPATH

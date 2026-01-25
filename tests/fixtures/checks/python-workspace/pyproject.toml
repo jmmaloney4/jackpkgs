@@ -1,5 +1,9 @@
 [project]
 name = "python-workspace"
+version = "0.1.0"
 
 [tool.uv.workspace]
 members = ["packages/*", "tools/*"]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "mypy>=1.11"]

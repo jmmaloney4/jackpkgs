@@ -1,2 +1,8 @@
 [project]
 name = "pkg-a"
+version = "0.1.0"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest", "mypy"]
+test = ["pytest-cov"]
