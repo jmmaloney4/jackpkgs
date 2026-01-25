@@ -248,6 +248,9 @@
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };
+            fmt = import ./tests/fmt.nix {
+              inherit inputs lib;
+            };
           };
         };
 

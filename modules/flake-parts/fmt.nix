@@ -45,6 +45,71 @@ in {
           default = defaultExcludes.treefmt;
           description = "Excludes for treefmt. User-provided excludes will be appended to the defaults.";
         };
+
+        # nbqa options for formatting Python code in notebooks
+        nbqa = {
+          enable = mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Enable nbqa-based formatting for Jupyter notebooks and Quarto files.
+              Uses ruff to format and lint Python code within notebooks.
+            '';
+          };
+
+          includes = mkOption {
+            type = types.listOf types.str;
+            default = ["*.ipynb" "*.qmd"];
+            description = "File patterns to include for notebook formatting.";
+          };
+
+          nbqaPackage = mkOption {
+            type = types.package;
+            default = pkgs.nbqa;
+            defaultText = "pkgs.nbqa";
+            description = "nbqa package to use.";
+          };
+
+          ruffPackage = mkOption {
+            type = types.nullOr types.package;
+            default = pkgs.ruff;
+            defaultText = "pkgs.ruff";
+            description = ''
+              Package providing ruff for notebook formatting.
+              Set to null to use the ruff from your Python environment via ruffCommand.
+            '';
+          };
+
+          ruffCommand = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = ''
+              Custom ruff command path. Takes precedence over ruffPackage when set.
+              Use this to specify a ruff from your Python environment, e.g.,
+              "$\{config.packages.my-python-env}/bin/ruff".
+            '';
+          };
+
+          ruffFormatOptions = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = ''
+              Extra options to pass to ruff format.
+              Example: ["--line-length=88" "--target-version=py312"]
+            '';
+            example = ["--line-length=88" "--target-version=py312"];
+          };
+
+          ruffCheckOptions = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = ''
+              Extra options to pass to ruff check.
+              Example: ["--line-length=88" "--target-version=py312" "--select=I,E,F"]
+            '';
+            example = ["--line-length=88" "--target-version=py312" "--select=I,E,F"];
+          };
+        };
       };
     });
   };
@@ -57,6 +122,34 @@ in {
       ...
     }: let
       sysCfg = config.jackpkgs.fmt;
+      nbqaCfg = sysCfg.nbqa;
+
+      # Determine ruff command path
+      ruffCmd =
+        if nbqaCfg.ruffCommand != null
+        then nbqaCfg.ruffCommand
+        else if nbqaCfg.ruffPackage != null
+        then "${nbqaCfg.ruffPackage}/bin/ruff"
+        else "ruff"; # fallback to PATH
+
+      # Build nbqa formatter configurations
+      nbqaFormatters = lib.optionalAttrs nbqaCfg.enable {
+        # Jupyter notebooks - formatting with ruff format
+        python-notebook-format = {
+          command = "${nbqaCfg.nbqaPackage}/bin/nbqa";
+          # Use nbqa in shell mode with pinned ruff path
+          options = ["--nbqa-shell" "${ruffCmd} format"] ++ nbqaCfg.ruffFormatOptions ++ ["--"];
+          includes = nbqaCfg.includes;
+        };
+
+        # Jupyter notebooks - linting with ruff check (includes import sorting)
+        python-notebook-lint = {
+          command = "${nbqaCfg.nbqaPackage}/bin/nbqa";
+          # Shell mode avoids nbqa's import requirement for ruff
+          options = ["--nbqa-shell" "${ruffCmd} check --fix"] ++ nbqaCfg.ruffCheckOptions ++ ["--"];
+          includes = nbqaCfg.includes;
+        };
+      };
     in {
       formatter = lib.mkDefault config.treefmt.build.wrapper;
       treefmt.config = let
@@ -127,6 +220,9 @@ in {
           enable = true;
           inherit excludes;
         };
+
+        # Custom formatters (nbqa for notebooks)
+        settings.formatter = nbqaFormatters;
       };
     };
   };
