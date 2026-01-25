@@ -17,6 +17,24 @@ in {
   in {
     jackpkgs.shell = {
       enable = mkEnableOption "jackpkgs-devshell" // {default = true;};
+
+      welcome = {
+        enable = mkEnableOption "welcome message on shell entry" // {default = true;};
+        showJustHint = mkEnableOption "hint about just --list" // {default = true;};
+        message = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          example = "Welcome to my project!";
+          description = ''
+            Custom welcome message to display on shell entry.
+            If null, only the just hint is shown (if enabled).
+          '';
+        };
+      };
+
+      direnv = {
+        hideEnvDiff = mkEnableOption "hiding direnv environment variable diff output" // {default = true;};
+      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -54,6 +72,14 @@ in {
     }: let
       sysCfg = config.jackpkgs.shell;
       gcpProfile = lib.attrByPath ["jackpkgs" "gcp" "profile"] null config;
+
+      # Build the welcome shellHook based on options
+      welcomeHook = lib.optionalString cfg.welcome.enable (
+        lib.concatStringsSep "\n" (
+          lib.optional (cfg.welcome.message != null) ''echo "${cfg.welcome.message}"''
+          ++ lib.optional cfg.welcome.showJustHint ''echo "Run 'just --list' to see available commands"''
+        )
+      );
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell {
         inputsFrom =
@@ -65,10 +91,18 @@ in {
           ]
           ++ sysCfg.inputsFrom;
         packages = sysCfg.packages;
-        shellHook = lib.optionalString (gcpProfile != null) ''
-          export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/${gcpProfile}"
-          mkdir -p "$CLOUDSDK_CONFIG"
-        '';
+
+        # GCP profile isolation - must come before other shell hooks
+        shellHook =
+          (lib.optionalString (gcpProfile != null) ''
+            export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/${gcpProfile}"
+            mkdir -p "$CLOUDSDK_CONFIG"
+          '')
+          + welcomeHook;
+
+        # Hide direnv environment variable diff output
+        # This sets DIRENV_LOG_FORMAT to empty, silencing the verbose export lines
+        DIRENV_LOG_FORMAT = lib.mkIf cfg.direnv.hideEnvDiff "";
       };
     };
   };
