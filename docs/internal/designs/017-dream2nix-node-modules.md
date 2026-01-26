@@ -526,17 +526,29 @@ export PATH="$PWD/node_modules/.bin:$PATH"  # Filesystem path
 
 ### Recommended Solution
 
-When `nodeModules` is available from dream2nix, use the Nix store path directly:
+When `nodeModules` is available from dream2nix, use the Nix store path in shellHook.
+
+**Important:** You cannot use `builtins.pathExists` to check the structure at Nix evaluation
+time because the derivation hasn't been built yet (store path doesn't exist). The path
+existence checks must happen at runtime (when shellHook executes or when check scripts run).
 
 ```nix
 shellHook = lib.optionalString (nodeModules != null) ''
-  # Use dream2nix-built binaries from Nix store (pure)
-  export PATH="${nodeModules}/lib/node_modules/.bin:$PATH"
+  # Use dream2nix-built binaries from Nix store (pure, preferred)
+  # Check at runtime which structure dream2nix used (can't check at eval time!)
+  if [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
+    export PATH="${nodeModules}/lib/node_modules/.bin:$PATH"
+  elif [ -d "${nodeModules}/node_modules/.bin" ]; then
+    export PATH="${nodeModules}/node_modules/.bin:$PATH"
+  fi
 '' + ''
   # Fallback for impure builds (pnpm install)
   export PATH="$PWD/node_modules/.bin:$PATH"
 '';
 ```
+
+The key insight: we can **construct** the Nix store path at evaluation time (string interpolation),
+but we must **check if it exists** at runtime (in shell scripts).
 
 ### Future Enhancement: Node.js Bin Environment
 

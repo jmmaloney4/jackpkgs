@@ -96,17 +96,6 @@ in {
       # Extract node_modules from dream2nix output
       # dream2nix structure: packages.${system}.default.lib.node_modules
       nodeModules = dreamOutputs.packages.${system}.default.lib.node_modules or null;
-
-      # Derive the .bin path from nodeModules at Nix evaluation time
-      # dream2nix typically uses lib/node_modules structure
-      nodeModulesBinPath =
-        if nodeModules != null then
-          if builtins.pathExists "${nodeModules}/lib/node_modules/.bin"
-          then "${nodeModules}/lib/node_modules/.bin"
-          else if builtins.pathExists "${nodeModules}/node_modules/.bin"
-          then "${nodeModules}/node_modules/.bin"
-          else null
-        else null;
     in {
       # Expose node_modules for consumption by checks
       jackpkgs.outputs.nodeModules = nodeModules;
@@ -118,10 +107,18 @@ in {
           pkgs.pnpm
         ];
 
+        # NOTE: We check for .bin paths at runtime (shellHook execution time), not at
+        # Nix evaluation time, because the derivation doesn't exist yet during eval.
+        # builtins.pathExists would always return false for unbuilt store paths.
         shellHook = ''
-          ${lib.optionalString (nodeModulesBinPath != null) ''
+          ${lib.optionalString (nodeModules != null) ''
             # Use dream2nix-built binaries from Nix store (pure, preferred)
-            export PATH="${nodeModulesBinPath}:$PATH"
+            # Check at runtime which structure dream2nix used
+            if [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
+              export PATH="${nodeModules}/lib/node_modules/.bin:$PATH"
+            elif [ -d "${nodeModules}/node_modules/.bin" ]; then
+              export PATH="${nodeModules}/node_modules/.bin:$PATH"
+            fi
           ''}
           # Fallback: Add local node_modules/.bin for impure builds (pnpm install)
           # This allows the devshell to work even without dream2nix-built node_modules
