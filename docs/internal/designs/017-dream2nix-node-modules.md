@@ -505,6 +505,80 @@ Commit `node_modules` to the repository.
 
 ---
 
+## Design Question: Binary Exposure Strategy
+
+### Problem
+
+The current `nodejs.nix` devshell uses `PATH="$PWD/node_modules/.bin:$PATH"` in shellHook, which:
+1. Relies on runtime filesystem state (impure `pnpm install`)
+2. Differs from how Python (uv2nix) exposes binaries
+
+Compare with Python:
+```nix
+# Python (uv2nix) - Pure Nix approach
+export PATH="${editableEnv}/bin:$PATH"  # Nix store path
+```
+
+```nix
+# Node.js (current) - Impure approach
+export PATH="$PWD/node_modules/.bin:$PATH"  # Filesystem path
+```
+
+### Recommended Solution
+
+When `nodeModules` is available from dream2nix, use the Nix store path directly:
+
+```nix
+shellHook = lib.optionalString (nodeModules != null) ''
+  # Use dream2nix-built binaries from Nix store (pure)
+  export PATH="${nodeModules}/lib/node_modules/.bin:$PATH"
+'' + ''
+  # Fallback for impure builds (pnpm install)
+  export PATH="$PWD/node_modules/.bin:$PATH"
+'';
+```
+
+### Future Enhancement: Node.js Bin Environment
+
+For full parity with Python, create a wrapper derivation that exposes binaries in `$out/bin/`:
+
+```nix
+# Similar to pythonEditableHook pattern
+nodeBinEnv = pkgs.runCommand "node-bin-env" {} ''
+  mkdir -p $out/bin
+  for bin in ${nodeModules}/lib/node_modules/.bin/*; do
+    name="$(basename "$bin")"
+    # Create wrapper that ensures node is available
+    cat > "$out/bin/$name" << EOF
+#!/usr/bin/env bash
+exec ${lib.getExe nodejsPackage} "$bin" "\$@"
+EOF
+    chmod +x "$out/bin/$name"
+  done
+'';
+
+# Then in devshell:
+packages = [ nodeBinEnv ];  # No shellHook PATH manipulation needed
+```
+
+This would:
+1. Make binaries proper Nix derivations
+2. Allow `nix run .#jest` style invocations
+3. Match the uv2nix pattern exactly
+4. Work in CI without PATH manipulation
+
+### Trade-offs
+
+| Approach | Purity | Simplicity | Compatibility |
+|----------|--------|------------|---------------|
+| Current (`$PWD/node_modules/.bin`) | Low | High | Works with impure pnpm install |
+| Nix store path in shellHook | Medium | High | Requires dream2nix |
+| Bin wrapper derivation | High | Medium | Requires dream2nix |
+
+**Recommendation:** Implement the shellHook Nix store path approach now (medium complexity, medium purity), with the bin wrapper as a future enhancement for full parity.
+
+---
+
 ## Related
 
 - **ADR-016: CI Checks Module** - Parent design for checks infrastructure

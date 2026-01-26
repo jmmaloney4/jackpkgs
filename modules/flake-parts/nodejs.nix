@@ -96,6 +96,17 @@ in {
       # Extract node_modules from dream2nix output
       # dream2nix structure: packages.${system}.default.lib.node_modules
       nodeModules = dreamOutputs.packages.${system}.default.lib.node_modules or null;
+
+      # Derive the .bin path from nodeModules at Nix evaluation time
+      # dream2nix typically uses lib/node_modules structure
+      nodeModulesBinPath =
+        if nodeModules != null then
+          if builtins.pathExists "${nodeModules}/lib/node_modules/.bin"
+          then "${nodeModules}/lib/node_modules/.bin"
+          else if builtins.pathExists "${nodeModules}/node_modules/.bin"
+          then "${nodeModules}/node_modules/.bin"
+          else null
+        else null;
     in {
       # Expose node_modules for consumption by checks
       jackpkgs.outputs.nodeModules = nodeModules;
@@ -108,7 +119,12 @@ in {
         ];
 
         shellHook = ''
-          # Add node_modules/.bin to PATH for easy access to binaries
+          ${lib.optionalString (nodeModulesBinPath != null) ''
+            # Use dream2nix-built binaries from Nix store (pure, preferred)
+            export PATH="${nodeModulesBinPath}:$PATH"
+          ''}
+          # Fallback: Add local node_modules/.bin for impure builds (pnpm install)
+          # This allows the devshell to work even without dream2nix-built node_modules
           export PATH="$PWD/node_modules/.bin:$PATH"
         '';
       };
