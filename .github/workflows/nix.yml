@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  packages: write
 jobs:
   nix:
     uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
