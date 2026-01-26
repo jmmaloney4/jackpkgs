@@ -565,14 +565,16 @@ in {
     };
     script = getBuildCommand checks.javascript-jest;
   in {
-    expr = hasInfixAll [
-      "Testing packages/app"
-      "jest"
-      "--coverage"
-      "cp -R"
-      "chmod -R +w"
-      "cd src"
-    ] script;
+    expr =
+      hasInfixAll [
+        "Testing packages/app"
+        "jest"
+        "--coverage"
+        "cp -R"
+        "chmod -R +w"
+        "cd src"
+      ]
+      script;
     expected = true;
   };
 
@@ -595,12 +597,14 @@ in {
     };
     script = getBuildCommand checks.javascript-jest;
   in {
-    expr = hasInfixAll [
-      "Linking node_modules"
-      "ln -sfn"
-      "/lib/node_modules"
-      "cp -R"
-    ] script;
+    expr =
+      hasInfixAll [
+        "Linking node_modules"
+        "ln -sfn"
+        "/lib/node_modules"
+        "cp -R"
+      ]
+      script;
     expected = true;
   };
 }

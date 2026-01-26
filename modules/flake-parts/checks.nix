@@ -537,13 +537,13 @@ in {
           typescript-tsc = mkCheck {
             name = "typescript-tsc";
             buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
-          setupCommands = ''
-            # Copy source to writeable directory
-            cp -R ${lib.escapeShellArg projectRoot} src
-            chmod -R +w src
-            cd src
-            ${linkNodeModules cfg.typescript.tsc.nodeModules tsPackages}
-          '';
+            setupCommands = ''
+              # Copy source to writeable directory
+              cp -R ${lib.escapeShellArg projectRoot} src
+              chmod -R +w src
+              cd src
+              ${linkNodeModules cfg.typescript.tsc.nodeModules tsPackages}
+            '';
             checkCommands =
               lib.concatMapStringsSep "\n" (pkg: ''
                             echo "Type-checking ${lib.escapeShellArg pkg}..."
