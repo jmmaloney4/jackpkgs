@@ -585,28 +585,45 @@ in {
             chmod -R +w src
             cd src
             ${linkNodeModules cfg.jest.nodeModules jestPackages}
+
+            # Save root directory for consistent path resolution across all package depths
+            WORKSPACE_ROOT="$PWD"
+            export WORKSPACE_ROOT
+
+            # Add root node_modules/.bin to PATH (mirrors nodejs.nix devShell pattern)
+            # This allows binaries like jest to be found regardless of package depth
+            if [ -d "$WORKSPACE_ROOT/node_modules/.bin" ]; then
+              export PATH="$WORKSPACE_ROOT/node_modules/.bin:$PATH"
+            fi
           '';
           checkCommands =
             lib.concatMapStringsSep "\n" (pkg: ''
               echo "Testing ${lib.escapeShellArg pkg}..."
               cd ${lib.escapeShellArg pkg}
 
-              # Check if jest exists in linked node_modules (pure) or local (impure)
+              # Locate jest binary using multiple strategies:
+              # 1. Package-local node_modules/.bin/jest (workspace package has own jest)
+              # 2. Root node_modules via PATH (hoisted dependencies, most common)
+              # 3. Package-local node_modules/jest/bin/jest.js (alternative jest location)
+              # 4. Root node_modules/jest/bin/jest.js (fallback for non-.bin installs)
               JEST_BIN=""
               if [ -f "node_modules/.bin/jest" ]; then
                 JEST_BIN="./node_modules/.bin/jest"
-              elif [ -f "../../node_modules/.bin/jest" ]; then
-                JEST_BIN="../../node_modules/.bin/jest"
+              elif command -v jest >/dev/null 2>&1; then
+                # Found via PATH (root node_modules/.bin added in setup)
+                JEST_BIN="jest"
               elif [ -f "node_modules/jest/bin/jest.js" ]; then
-                 JEST_BIN="node node_modules/jest/bin/jest.js"
+                JEST_BIN="node node_modules/jest/bin/jest.js"
+              elif [ -f "$WORKSPACE_ROOT/node_modules/jest/bin/jest.js" ]; then
+                JEST_BIN="node $WORKSPACE_ROOT/node_modules/jest/bin/jest.js"
               fi
 
               if [ -n "$JEST_BIN" ]; then
                 $JEST_BIN ${lib.escapeShellArgs cfg.jest.extraArgs}
               else
-                 echo "WARNING: Jest binary not found for ${pkg}, skipping."
-                 # Don't fail the build if jest isn't set up for this specific package
-                 # (some packages in workspace might not have tests)
+                echo "WARNING: Jest binary not found for ${pkg}, skipping."
+                # Don't fail the build if jest isn't set up for this specific package
+                # (some packages in workspace might not have tests)
               fi
               cd - >/dev/null
             '')
