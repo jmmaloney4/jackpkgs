@@ -569,8 +569,9 @@ in {
       "Testing packages/app"
       "jest"
       "--coverage"
-      "cp -r"
+      "cp -R"
       "chmod -R +w"
+      "cd src"
     ] script;
     expected = true;
   };
@@ -598,7 +599,7 @@ in {
       "Linking node_modules"
       "ln -sfn"
       "/lib/node_modules"
-      "cp -r"
+      "cp -R"
     ] script;
     expected = true;
   };
