@@ -227,33 +227,47 @@ in {
 
       # Link node_modules into the sandbox
       # Strategy: Link root node_modules, then iterate through packages and link their node_modules if present in the store
+      #
+      # Path Behavior Documentation for pnpm workspaces (e.g. zeus, yard):
+      # dream2nix mirrors the workspace structure in the store.
+      # - Root dependencies: <store>/lib/node_modules/node_modules
+      # - Package dependencies: <store>/lib/node_modules/<package>/node_modules
+      #
+      # We symlink these back to the source tree so tools like tsc/jest find them naturally.
       linkNodeModules = nodeModules: packages:
         if nodeModules == null
         then ""
         else ''
-          echo "Linking node_modules from ${lib.escapeShellArg nodeModules}..."
+          nm_store="${lib.escapeShellArg nodeModules}"
+          echo "Linking node_modules from $nm_store..."
 
-          # Link root node_modules
-          if [ -d ${lib.escapeShellArg nodeModules}/lib/node_modules ]; then
-             # dream2nix often puts modules in lib/node_modules
-             ln -sfn ${lib.escapeShellArg nodeModules}/lib/node_modules node_modules
-          elif [ -d ${lib.escapeShellArg nodeModules}/node_modules ]; then
-             ln -sfn ${lib.escapeShellArg nodeModules}/node_modules node_modules
+          # Detect dream2nix output structure (lib/node_modules vs node_modules)
+          if [ -d "$nm_store/lib/node_modules" ]; then
+             nm_root="$nm_store/lib/node_modules"
+          elif [ -d "$nm_store/node_modules" ]; then
+             nm_root="$nm_store/node_modules"
           else
-             echo "WARNING: Could not find node_modules in provided derivation"
+             echo "WARNING: Could not find node_modules in provided derivation: $nm_store"
+             nm_root=""
           fi
 
-          # Link package-level node_modules (if they exist in the derivation structure)
-          ${lib.concatMapStringsSep "\n" (pkg: ''
-              mkdir -p ${lib.escapeShellArg pkg}
-              # Check for nested node_modules in the store output (common in monorepos)
-              if [ -d ${lib.escapeShellArg nodeModules}/lib/node_modules/${lib.escapeShellArg pkg}/node_modules ]; then
-                ln -sfn ${lib.escapeShellArg nodeModules}/lib/node_modules/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
-              elif [ -d ${lib.escapeShellArg nodeModules}/${lib.escapeShellArg pkg}/node_modules ]; then
-                ln -sfn ${lib.escapeShellArg nodeModules}/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
+          if [ -n "$nm_root" ]; then
+            # Link root node_modules
+            ln -sfn "$nm_root" node_modules
+
+            # Link package-level node_modules
+            ${lib.concatMapStringsSep "\n" (pkg: ''
+              pkg_dir=${lib.escapeShellArg pkg}
+              mkdir -p "$pkg_dir"
+
+              # Check for nested node_modules in the store output
+              # pnpm workspaces often have nested node_modules for each package
+              if [ -d "$nm_root/$pkg_dir/node_modules" ]; then
+                ln -sfn "$nm_root/$pkg_dir/node_modules" "$pkg_dir/node_modules"
               fi
             '')
             packages}
+          fi
         '';
 
       # Expand workspace globs like "tools/*" -> ["tools/hello", "tools/ocr"]
@@ -591,21 +605,13 @@ in {
             cd src
             ${linkNodeModules cfg.jest.nodeModules jestPackages}
 
-            # Save root directory for consistent path resolution across all package depths
+            # Save root directory for absolute path resolution
             WORKSPACE_ROOT="$PWD"
             export WORKSPACE_ROOT
 
-            ${lib.optionalString (cfg.jest.nodeModules != null) ''
-              # Discover Jest binary from Nix store at runtime
-              # (Can't use builtins.pathExists at eval time - derivation doesn't exist yet)
-              # We construct the paths at eval time but check existence at runtime
-              if [ -x ${lib.escapeShellArg "${cfg.jest.nodeModules}/lib/node_modules/.bin/jest"} ]; then
-                JEST_FROM_NIX=${lib.escapeShellArg "${cfg.jest.nodeModules}/lib/node_modules/.bin/jest"}
-              elif [ -x ${lib.escapeShellArg "${cfg.jest.nodeModules}/node_modules/.bin/jest"} ]; then
-                JEST_FROM_NIX=${lib.escapeShellArg "${cfg.jest.nodeModules}/node_modules/.bin/jest"}
-              fi
-              export JEST_FROM_NIX
-            ''}
+            # Add root node_modules binaries to PATH (e.g. jest)
+            # This allows jest to be found regardless of the working directory
+            export PATH="$PWD/node_modules/.bin:$PATH"
           '';
           checkCommands =
             lib.concatMapStringsSep "\n" (pkg: ''
@@ -619,12 +625,10 @@ in {
               # 4. Package-local node_modules/jest/bin/jest.js (alternative location)
               # 5. Linked root node_modules/jest/bin/jest.js (fallback)
               JEST_BIN=""
-              if [ -n "''${JEST_FROM_NIX:-}" ]; then
-                JEST_BIN="$JEST_FROM_NIX"
-              elif [ -x "node_modules/.bin/jest" ]; then
+              if command -v jest >/dev/null 2>&1; then
+                JEST_BIN="jest"
+              elif [ -f "node_modules/.bin/jest" ]; then
                 JEST_BIN="./node_modules/.bin/jest"
-              elif [ -x "$WORKSPACE_ROOT/node_modules/.bin/jest" ]; then
-                JEST_BIN="$WORKSPACE_ROOT/node_modules/.bin/jest"
               elif [ -f "node_modules/jest/bin/jest.js" ]; then
                 JEST_BIN="node node_modules/jest/bin/jest.js"
               elif [ -f "$WORKSPACE_ROOT/node_modules/jest/bin/jest.js" ]; then
