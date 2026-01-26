@@ -102,6 +102,12 @@ in {
               default = {};
               description = "Arbitrary metadata for tooling; unused by the module.";
             };
+
+            includeOptionalDependencies = mkOption {
+              type = types.bool;
+              default = false;
+              description = "Whether to include optional dependencies in the environment.";
+            };
           };
         }));
         default = {};

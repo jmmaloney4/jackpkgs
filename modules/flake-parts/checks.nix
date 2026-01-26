@@ -233,11 +233,23 @@ in {
       # Build Python environment with dev tools for CI checks
       pythonEnvWithDevTools =
         if pythonWorkspaceArg != null
-        then
-          pythonWorkspaceArg.mkEnv {
-            name = "python-ci-checks";
-            spec = pythonWorkspaceArg.defaultSpec;
-          }
+        then let
+          configuredEnvs = pythonPerSystemCfg.environments or {};
+          # Try to reuse an existing environment if it includes optional dependencies (so we have test runners etc)
+          # and is NOT editable (to ensure reproducibility/stability for CI).
+          reusableEnvName = lib.findFirst (name:
+            let env = configuredEnvs.${name};
+            in (env.includeOptionalDependencies or false)
+               && (!env.editable)
+          ) null (lib.attrNames configuredEnvs);
+        in
+          if reusableEnvName != null
+          then config.jackpkgs.outputs.pythonEnvironments.${reusableEnvName}
+          else
+            pythonWorkspaceArg.mkEnv {
+              name = "python-ci-checks";
+              spec = pythonWorkspaceArg.defaultSpec;
+            }
         else null;
 
       # Extract Python version from environment for PYTHONPATH
