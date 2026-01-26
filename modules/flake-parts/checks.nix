@@ -101,7 +101,7 @@ in {
 
           nodeModules = mkOption {
             type = types.nullOr types.package;
-            default = config.jackpkgs.outputs.nodeModules or null;
+            default = null;
             description = ''
               Derivation containing the `node_modules` structure to link before running checks.
               Typically provided automatically by `jackpkgs.nodejs`.
@@ -556,7 +556,7 @@ in {
               cp -R ${lib.escapeShellArg projectRoot} src
               chmod -R +w src
               cd src
-              ${linkNodeModules cfg.typescript.tsc.nodeModules tsPackages}
+              ${linkNodeModules (cfg.typescript.tsc.nodeModules or config.jackpkgs.outputs.nodeModules) tsPackages}
             '';
             checkCommands =
               lib.concatMapStringsSep "\n" (pkg: ''
@@ -603,7 +603,7 @@ in {
             cp -R ${lib.escapeShellArg projectRoot} src
             chmod -R +w src
             cd src
-            ${linkNodeModules cfg.jest.nodeModules jestPackages}
+            ${linkNodeModules (cfg.jest.nodeModules or config.jackpkgs.outputs.nodeModules) jestPackages}
 
             # Save root directory for absolute path resolution
             WORKSPACE_ROOT="$PWD"
