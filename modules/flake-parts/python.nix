@@ -8,6 +8,7 @@
   cfg = config.jackpkgs.python;
 in {
   imports = [
+    (import ./pkgs.nix {inherit jackpkgsInputs;})
     jackpkgsInputs.flake-root.flakeModule
   ];
 

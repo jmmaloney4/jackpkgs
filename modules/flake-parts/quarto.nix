@@ -8,6 +8,7 @@
   cfg = config.jackpkgs.quarto;
 in {
   imports = [
+    (import ./pkgs.nix {inherit jackpkgsInputs;})
   ];
 
   options = let

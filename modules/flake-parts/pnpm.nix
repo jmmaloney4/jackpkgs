@@ -8,6 +8,7 @@
   cfg = config.jackpkgs.pnpm;
 in {
   imports = [
+    (import ./pkgs.nix {inherit jackpkgsInputs;})
   ];
 
   options = let
