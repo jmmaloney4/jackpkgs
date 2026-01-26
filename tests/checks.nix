@@ -437,6 +437,7 @@ in {
         "cp -R"
         "chmod -R +w"
         "cd src"
+        "export PATH=\"$PWD/node_modules/.bin:$PATH\""
       ]
       script;
     expected = true;
