@@ -71,7 +71,7 @@ Notes:
 This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModules` sourced from `modules/flake-parts/`:
 
 - `default` — imports all modules below.
-- `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs (automatically imported by other modules).
+- `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs (imported automatically by modules that use `config.jackpkgs.pkgs`).
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
 - `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy; picks up `jackpkgs.python.environments.default` automatically when defined).
@@ -132,7 +132,7 @@ in {
 
 - pkgs (`modules/flake-parts/pkgs.nix`)
   - Exposes `jackpkgs.pkgs` (per-system, type `pkgs`, default `pkgs`).
-  - All jackpkgs modules use `config.jackpkgs.pkgs` for package defaults.
+  - Modules with package defaults use `config.jackpkgs.pkgs`.
   - Set this to your overlayed nixpkgs to propagate overlays to all jackpkgs package defaults.
 
 - core (`modules/flake-parts/project-root.nix`)
