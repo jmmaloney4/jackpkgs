@@ -12,7 +12,6 @@
   inherit (justfileHelpers) mkRecipe mkRecipeWithParams optionalLines;
 in {
   imports = [
-    (import ./pkgs.nix {inherit jackpkgsInputs;})
     jackpkgsInputs.just-flake.flakeModule
   ];
 
