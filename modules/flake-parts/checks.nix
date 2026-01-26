@@ -468,6 +468,19 @@ in {
         then cfg.jest.packages
         else discoverPnpmPackages projectRoot;
 
+      # Derive Jest binary path from nodeModules derivation at Nix evaluation time
+      # This is more Nix-forward than runtime PATH discovery
+      jestBinFromNodeModules =
+        if cfg.jest.nodeModules != null
+        then
+          # dream2nix typically uses lib/node_modules structure
+          if builtins.pathExists "${cfg.jest.nodeModules}/lib/node_modules/.bin/jest"
+          then "${cfg.jest.nodeModules}/lib/node_modules/.bin/jest"
+          else if builtins.pathExists "${cfg.jest.nodeModules}/node_modules/.bin/jest"
+          then "${cfg.jest.nodeModules}/node_modules/.bin/jest"
+          else null
+        else null;
+
       # ============================================================
       # Python Checks
       # ============================================================
@@ -589,34 +602,39 @@ in {
             # Save root directory for consistent path resolution across all package depths
             WORKSPACE_ROOT="$PWD"
             export WORKSPACE_ROOT
-
-            # Add root node_modules/.bin to PATH (mirrors nodejs.nix devShell pattern)
-            # This allows binaries like jest to be found regardless of package depth
-            if [ -d "$WORKSPACE_ROOT/node_modules/.bin" ]; then
-              export PATH="$WORKSPACE_ROOT/node_modules/.bin:$PATH"
-            fi
           '';
-          checkCommands =
+          checkCommands = let
+            # Use Nix-derived jest path if available, otherwise fall back to runtime discovery
+            jestCommand =
+              if jestBinFromNodeModules != null
+              then ''
+                # Jest binary path derived from nodeModules derivation at Nix evaluation time
+                JEST_BIN=${lib.escapeShellArg jestBinFromNodeModules}
+              ''
+              else ''
+                # Runtime discovery fallback (for impure builds or when nodeModules not provided)
+                # Locate jest binary using multiple strategies:
+                # 1. Package-local node_modules/.bin/jest (workspace package has own jest)
+                # 2. Root node_modules/.bin/jest (hoisted dependencies)
+                # 3. Package-local node_modules/jest/bin/jest.js (alternative location)
+                # 4. Root node_modules/jest/bin/jest.js (fallback)
+                JEST_BIN=""
+                if [ -f "node_modules/.bin/jest" ]; then
+                  JEST_BIN="./node_modules/.bin/jest"
+                elif [ -f "$WORKSPACE_ROOT/node_modules/.bin/jest" ]; then
+                  JEST_BIN="$WORKSPACE_ROOT/node_modules/.bin/jest"
+                elif [ -f "node_modules/jest/bin/jest.js" ]; then
+                  JEST_BIN="node node_modules/jest/bin/jest.js"
+                elif [ -f "$WORKSPACE_ROOT/node_modules/jest/bin/jest.js" ]; then
+                  JEST_BIN="node $WORKSPACE_ROOT/node_modules/jest/bin/jest.js"
+                fi
+              '';
+          in
             lib.concatMapStringsSep "\n" (pkg: ''
               echo "Testing ${lib.escapeShellArg pkg}..."
               cd ${lib.escapeShellArg pkg}
 
-              # Locate jest binary using multiple strategies:
-              # 1. Package-local node_modules/.bin/jest (workspace package has own jest)
-              # 2. Root node_modules via PATH (hoisted dependencies, most common)
-              # 3. Package-local node_modules/jest/bin/jest.js (alternative jest location)
-              # 4. Root node_modules/jest/bin/jest.js (fallback for non-.bin installs)
-              JEST_BIN=""
-              if [ -f "node_modules/.bin/jest" ]; then
-                JEST_BIN="./node_modules/.bin/jest"
-              elif command -v jest >/dev/null 2>&1; then
-                # Found via PATH (root node_modules/.bin added in setup)
-                JEST_BIN="jest"
-              elif [ -f "node_modules/jest/bin/jest.js" ]; then
-                JEST_BIN="node node_modules/jest/bin/jest.js"
-              elif [ -f "$WORKSPACE_ROOT/node_modules/jest/bin/jest.js" ]; then
-                JEST_BIN="node $WORKSPACE_ROOT/node_modules/jest/bin/jest.js"
-              fi
+              ${jestCommand}
 
               if [ -n "$JEST_BIN" ]; then
                 $JEST_BIN ${lib.escapeShellArgs cfg.jest.extraArgs}
