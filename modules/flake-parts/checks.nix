@@ -234,11 +234,11 @@ in {
           echo "Linking node_modules from ${lib.escapeShellArg nodeModules}..."
 
           # Link root node_modules
-          if [ -d "${lib.escapeShellArg nodeModules}/lib/node_modules" ]; then
+          if [ -d ${lib.escapeShellArg nodeModules}/lib/node_modules ]; then
              # dream2nix often puts modules in lib/node_modules
-             ln -sfn "${lib.escapeShellArg nodeModules}/lib/node_modules" node_modules
-          elif [ -d "${lib.escapeShellArg nodeModules}/node_modules" ]; then
-             ln -sfn "${lib.escapeShellArg nodeModules}/node_modules" node_modules
+             ln -sfn ${lib.escapeShellArg nodeModules}/lib/node_modules node_modules
+          elif [ -d ${lib.escapeShellArg nodeModules}/node_modules ]; then
+             ln -sfn ${lib.escapeShellArg nodeModules}/node_modules node_modules
           else
              echo "WARNING: Could not find node_modules in provided derivation"
           fi
@@ -247,10 +247,10 @@ in {
           ${lib.concatMapStringsSep "\n" (pkg: ''
               mkdir -p ${lib.escapeShellArg pkg}
               # Check for nested node_modules in the store output (common in monorepos)
-              if [ -d "${lib.escapeShellArg nodeModules}/lib/node_modules/${lib.escapeShellArg pkg}/node_modules" ]; then
-                ln -sfn "${lib.escapeShellArg nodeModules}/lib/node_modules/${lib.escapeShellArg pkg}/node_modules" "${lib.escapeShellArg pkg}/node_modules"
-              elif [ -d "${lib.escapeShellArg nodeModules}/${lib.escapeShellArg pkg}/node_modules" ]; then
-                ln -sfn "${lib.escapeShellArg nodeModules}/${lib.escapeShellArg pkg}/node_modules" "${lib.escapeShellArg pkg}/node_modules"
+              if [ -d ${lib.escapeShellArg nodeModules}/lib/node_modules/${lib.escapeShellArg pkg}/node_modules ]; then
+                ln -sfn ${lib.escapeShellArg nodeModules}/lib/node_modules/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
+              elif [ -d ${lib.escapeShellArg nodeModules}/${lib.escapeShellArg pkg}/node_modules ]; then
+                ln -sfn ${lib.escapeShellArg nodeModules}/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
               fi
             '')
             packages}
@@ -489,8 +489,9 @@ in {
             buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
             setupCommands = ''
               # Copy source to writeable directory
-              cp -r ${lib.escapeShellArg projectRoot}/. .
-              chmod -R +w .
+              cp -R ${lib.escapeShellArg projectRoot} src
+              chmod -R +w src
+              cd src
               ${linkNodeModules cfg.typescript.tsc.nodeModules tsPackages}
             '';
             checkCommands =
@@ -498,7 +499,7 @@ in {
                             echo "Type-checking ${lib.escapeShellArg pkg}..."
 
                             # Validate node_modules exists
-                            if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg "${pkg}/node_modules"} ]; then
+                            if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg pkg}/node_modules ]; then
                               cat >&2 << EOF
                 ERROR: node_modules not found for package: ${pkg}
 
@@ -535,8 +536,9 @@ in {
           buildInputs = [pkgs.nodejs];
           setupCommands = ''
             # Copy source to writeable directory
-            cp -r ${lib.escapeShellArg projectRoot}/. .
-            chmod -R +w .
+            cp -R ${lib.escapeShellArg projectRoot} src
+            chmod -R +w src
+            cd src
             ${linkNodeModules cfg.jest.nodeModules jestPackages}
           '';
           checkCommands =
