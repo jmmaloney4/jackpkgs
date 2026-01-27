@@ -110,15 +110,14 @@ in {
         # NOTE: We check for .bin paths at runtime (shellHook execution time), not at
         # Nix evaluation time, because the derivation doesn't exist yet during eval.
         # builtins.pathExists would always return false for unbuilt store paths.
+        # Per ADR-017 Appendix C: dream2nix nodejs-granular outputs binaries at
+        # <store>/lib/node_modules/.bin (no extra node_modules level at root)
         shellHook = ''
           node_modules_bin=""
           ${lib.optionalString (nodeModules != null) ''
             # Use dream2nix-built binaries from Nix store (pure, preferred)
-            # Check at runtime which structure dream2nix used
             if [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
               node_modules_bin="${nodeModules}/lib/node_modules/.bin"
-            elif [ -d "${nodeModules}/lib/node_modules/node_modules/.bin" ]; then
-              node_modules_bin="${nodeModules}/lib/node_modules/node_modules/.bin"
             elif [ -d "${nodeModules}/node_modules/.bin" ]; then
               node_modules_bin="${nodeModules}/node_modules/.bin"
             fi
