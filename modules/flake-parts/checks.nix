@@ -250,7 +250,7 @@ in {
             # includeGroups explicitly true, or null with editable=false (defaults to false, but we want true for CI)
             # Since we're checking non-editable envs, includeGroups=null means it defaults to false
             # So we need explicit includeGroups=true
-            (envCfg.includeGroups or false) == true
+            (envCfg.includeGroups or false)
           );
 
         # Check if a 'dev' environment is configured

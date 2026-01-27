@@ -139,15 +139,13 @@ in {
           dev = {
             name = "python-dev";
             editable = true;
-            # Include all optional-dependencies (e.g., [project.optional-dependencies].dev)
-            includeOptionalDependencies = true;
             # Include all dependency-groups (e.g., [dependency-groups].dev)
             includeGroups = true;
           };
           ci = {
             name = "python-ci";
             # Non-editable environment for CI checks with dev dependencies
-            includeOptionalDependencies = true;
+            includeGroups = true;
             # Or use explicit spec for fine-grained control:
             # spec = { "my-package" = ["dev" "test"]; };
           };
