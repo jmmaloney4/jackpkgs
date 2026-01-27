@@ -261,7 +261,7 @@ in {
 
             # Link package-level node_modules
             ${lib.concatMapStringsSep "\n" (pkg: ''
-              pkg_dir=${lib.escapeShellArg pkg}
+              pkg_dir=${pkg}
               mkdir -p "$pkg_dir"
 
               # Check for nested node_modules in the store output
