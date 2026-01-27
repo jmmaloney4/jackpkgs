@@ -603,6 +603,11 @@ in {
       # Jest Checks
       # ============================================================
 
+      jestNodeModules =
+        if cfg.jest.nodeModules != null
+        then cfg.jest.nodeModules
+        else config.jackpkgs.outputs.nodeModules or null;
+
       jestChecks = lib.optionalAttrs (cfg.enable && cfg.jest.enable && jestPackages != []) {
         javascript-jest = mkCheck {
           name = "javascript-jest";
@@ -612,20 +617,21 @@ in {
             cp -R ${lib.escapeShellArg projectRoot} src
             chmod -R +w src
             cd src
-            ${linkNodeModules (
-                if cfg.jest.nodeModules != null
-                then cfg.jest.nodeModules
-                else config.jackpkgs.outputs.nodeModules or null
-              )
-              jestPackages}
+            ${linkNodeModules jestNodeModules jestPackages}
 
             # Save root directory for absolute path resolution
             WORKSPACE_ROOT="$PWD"
             export WORKSPACE_ROOT
-
-            # Add root node_modules binaries to PATH (e.g. jest)
-            # This allows jest to be found regardless of the working directory
-            export PATH="$PWD/node_modules/.bin:$PATH"
+            ${lib.optionalString (jestNodeModules != null) ''
+              # Add Nix store node_modules binaries to PATH (trusted only)
+              # This allows jest to be found regardless of the working directory
+              nm_store=${jestNodeModules}
+              if [ -d "$nm_store/lib/node_modules/.bin" ]; then
+                export PATH="$nm_store/lib/node_modules/.bin:$PATH"
+              elif [ -d "$nm_store/node_modules/.bin" ]; then
+                export PATH="$nm_store/node_modules/.bin:$PATH"
+              fi
+            ''}
           '';
           checkCommands =
             lib.concatMapStringsSep "\n" (pkg: ''
