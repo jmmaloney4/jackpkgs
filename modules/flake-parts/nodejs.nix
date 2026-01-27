@@ -52,8 +52,8 @@ in {
       };
 
       options.jackpkgs.outputs.nodejsDevShell = mkOption {
-        type = types.package;
-        readOnly = true;
+        type = types.nullOr types.package;
+        default = null;
         description = "Node.js devShell fragment to include in `inputsFrom`.";
       };
     });
@@ -133,9 +133,9 @@ in {
       };
 
       # Auto-configure main devshell
-      jackpkgs.shell.inputsFrom = [
-        config.jackpkgs.outputs.nodejsDevShell
-      ];
+      jackpkgs.shell.inputsFrom =
+        lib.optional (config.jackpkgs.outputs.nodejsDevShell != null)
+        config.jackpkgs.outputs.nodejsDevShell;
     };
   };
 }

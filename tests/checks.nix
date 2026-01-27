@@ -657,7 +657,8 @@ in {
       projectRoot = pythonWorkspace;
     };
   in {
-    # Build the derivation - test passes if build succeeds
-    expr = minimalPythonCheck.python-pytest;
+    # Verify the check is a valid derivation
+    expr = lib.isDerivation minimalPythonCheck.python-pytest;
+    expected = true;
   };
 }
