@@ -252,15 +252,19 @@ in {
   };
 
   # ============================================================
-  # À La Carte Import Tests - pkgs module must be explicitly imported
+  # À La Carte Import Tests - Consumers must explicitly import pkgsModule
   # ============================================================
+  #
+  # When using à la carte imports, individual modules (quarto, fmt, just, etc.)
+  # do NOT import pkgsModule themselves. Consumers must explicitly import
+  # pkgsModule to use the jackpkgs.pkgs option, as documented in the README.
 
-  # Test that importing pkgsModule with quartoModule works
+  # Test that consumers must explicitly import pkgsModule when using quartoModule
   testALaCarteImportWorks = let
     perSystem = getPerSystem [
-      pkgsModule
+      pkgsModule # Consumer must explicitly import this
       shellModule
-      quartoModule
+      quartoModule # Does NOT import pkgsModule itself
       {
         perSystem = {pkgs, ...}: {
           jackpkgs.pkgs = mkMockPkgs pkgs;
@@ -272,11 +276,11 @@ in {
     expected = "overlayed-quarto";
   };
 
-  # Test that importing pkgsModule with fmtModule works
+  # Test that consumers must explicitly import pkgsModule when using fmtModule
   testALaCarteImportFmt = let
     perSystem = getPerSystem [
-      pkgsModule
-      fmtModule
+      pkgsModule # Consumer must explicitly import this
+      fmtModule # Does NOT import pkgsModule itself
       {
         perSystem = {pkgs, ...}: {
           jackpkgs.pkgs = mkMockPkgs pkgs;
@@ -288,11 +292,11 @@ in {
     expected = "overlayed-treefmt";
   };
 
-  # Test that importing pkgsModule with justModule works
+  # Test that consumers must explicitly import pkgsModule when using justModule
   testALaCarteImportJust = let
     perSystem = getPerSystem [
-      pkgsModule
-      justModule
+      pkgsModule # Consumer must explicitly import this
+      justModule # Does NOT import pkgsModule itself
       {
         perSystem = {pkgs, ...}: {
           jackpkgs.pkgs = mkMockPkgs pkgs;
