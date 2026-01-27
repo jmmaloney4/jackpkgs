@@ -173,6 +173,9 @@
             checks = import ./tests/checks.nix {
               inherit inputs lib;
             };
+            fmt = import ./tests/fmt.nix {
+              inherit inputs lib;
+            };
           };
         };
 
