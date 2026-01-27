@@ -242,7 +242,7 @@ in {
         if nodeModules == null
         then ""
         else ''
-          nm_store=${lib.escapeShellArg nodeModules}
+          nm_store=${nodeModules}
           echo "Linking node_modules from $nm_store..."
 
           # Detect dream2nix output structure (lib/node_modules vs node_modules)
