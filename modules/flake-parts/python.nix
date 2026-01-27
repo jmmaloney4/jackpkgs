@@ -94,19 +94,38 @@ in {
             spec = mkOption {
               type = types.nullOr types.unspecified;
               default = null;
-              description = "Custom dependency spec (overrides extras-based spec).";
+              description = ''
+                Custom dependency spec (overrides all other spec-related options).
+                When null, the spec is computed based on includeOptionalDependencies
+                and includeGroups options.
+
+                Format: attrset where keys are package names and values are lists of extras.
+                Example: { "my-package" = ["dev" "test"]; }
+              '';
+            };
+
+            includeGroups = mkOption {
+              type = types.nullOr types.bool;
+              default = null;
+              description = ''
+                Include all dependency groups defined in [dependency-groups] sections
+                (PEP 735) or [tool.uv.dev-dependencies] of workspace members.
+
+                When null (default), the effective value depends on environment intent:
+                - editable = true: defaults to true (dev dependencies included)
+                - editable = false: defaults to false (production dependencies only)
+
+                Explicitly set to true or false to override the default behavior.
+
+                This is the recommended way to include development dependencies like
+                pytest, mypy, type stubs, etc.
+              '';
             };
 
             passthru = mkOption {
               type = types.attrs;
               default = {};
               description = "Arbitrary metadata for tooling; unused by the module.";
-            };
-
-            includeOptionalDependencies = mkOption {
-              type = types.bool;
-              default = false;
-              description = "Whether to include optional dependencies in the environment.";
             };
           };
         }));
@@ -115,12 +134,20 @@ in {
         example = {
           default = {
             name = "python-env";
-            spec = {}; # workspace.deps.default // { "my-package" = ["extras"]; }
+            # Production environment with only required dependencies
           };
           dev = {
             name = "python-dev";
             editable = true;
-            spec = {}; # workspace.deps.default // { "my-package" = ["dev"]; }
+            # Include all dependency-groups (e.g., [dependency-groups].dev)
+            includeGroups = true;
+          };
+          ci = {
+            name = "python-ci";
+            # Non-editable environment for CI checks with dev dependencies
+            includeGroups = true;
+            # Or use explicit spec for fine-grained control:
+            # spec = { "my-package" = ["dev" "test"]; };
           };
         };
       };
@@ -296,6 +323,18 @@ in {
 
         defaultSpec = workspace.deps.default;
 
+        # Compute environment-specific specs based on options
+        # uv2nix provides pre-configured dependency specifications:
+        # - workspace.deps.default: No dependency-groups (production only)
+        # - workspace.deps.groups: All dependency-groups enabled (PEP 735)
+        #
+        # Note: PEP 621 optional-dependencies are not supported.
+        # Use PEP 735 dependency-groups for development dependencies.
+        computeSpec = {includeGroups ? false}:
+          if includeGroups
+          then workspace.deps.groups
+          else workspace.deps.default;
+
         # Extension: Virtual environment post-processing for better UX
         # Not documented in uv2nix, but provides:
         # - mainProgram metadata for better `nix run` experience
@@ -359,25 +398,44 @@ in {
           addMainProgram (editableSet.mkVirtualEnv name finalSpec);
 
         pythonWorkspace = {
-          inherit workspace pythonSet defaultSpec;
+          inherit workspace pythonSet defaultSpec computeSpec;
           inherit mkEnv mkEditableEnv mkEnvForSpec;
         };
 
         pythonEnvs =
           lib.mapAttrs (
-            envKey: envCfg:
+            envKey: envCfg: let
+              # Compute effectiveIncludeGroups:
+              # - If includeGroups is explicitly set (non-null), use that value
+              # - Otherwise, default to true for editable envs, false for non-editable
+              effectiveIncludeGroups =
+                if envCfg.includeGroups != null
+                then envCfg.includeGroups
+                else envCfg.editable;
+
+              # Compute the final spec:
+              # 1. If explicit spec is provided, use it
+              # 2. Otherwise, compute based on effectiveIncludeGroups
+              finalSpec =
+                if envCfg.spec != null
+                then envCfg.spec
+                else
+                  computeSpec {
+                    includeGroups = effectiveIncludeGroups;
+                  };
+            in
               if envCfg.editable
               then
                 pythonWorkspace.mkEditableEnv {
                   name = envCfg.name;
-                  spec = envCfg.spec;
+                  spec = finalSpec;
                   members = envCfg.members;
                   root = envCfg.editableRoot;
                 }
               else
                 pythonWorkspace.mkEnv {
                   name = envCfg.name;
-                  spec = envCfg.spec;
+                  spec = finalSpec;
                 }
           )
           cfg.environments;

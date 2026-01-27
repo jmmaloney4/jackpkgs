@@ -231,25 +231,58 @@ in {
         else [];
 
       # Build Python environment with dev tools for CI checks
-      pythonEnvWithDevTools =
-        if pythonWorkspaceArg != null
-        then let
-          configuredEnvs = pythonPerSystemCfg.environments or {};
-          # Try to reuse an existing environment if it includes optional dependencies (so we have test runners etc)
-          # and is NOT editable (to ensure reproducibility/stability for CI).
-          reusableEnvName = lib.findFirst (name:
-            let env = configuredEnvs.${name};
-            in (env.includeOptionalDependencies or false)
-               && (!env.editable)
-          ) null (lib.attrNames configuredEnvs);
-        in
-          if reusableEnvName != null
-          then config.jackpkgs.outputs.pythonEnvironments.${reusableEnvName}
-          else
-            pythonWorkspaceArg.mkEnv {
-              name = "python-ci-checks";
-              spec = pythonWorkspaceArg.defaultSpec;
-            }
+      # Priority order:
+      # 1. Use explicitly defined 'dev' environment if it's non-editable and has groups enabled
+      # 2. Use any non-editable environment with includeGroups enabled
+      # 3. Create a new environment with all dependency groups enabled
+      pythonEnvWithDevTools = let
+        # Get configured environments
+        configuredEnvs = pythonCfg.environments or {};
+        pythonEnvOutputs = config.jackpkgs.outputs.pythonEnvironments or {};
+
+        isEditableEnv = envCfg: envCfg != null && (envCfg.editable or false);
+        isNonEditableEnv = envCfg: envCfg != null && !isEditableEnv envCfg;
+
+        # Check if an environment is suitable for CI (non-editable + groups enabled)
+        isCiEnvCandidate = envCfg:
+          isNonEditableEnv envCfg
+          && (
+            # includeGroups explicitly true, or null with editable=false (defaults to false, but we want true for CI)
+            # Since we're checking non-editable envs, includeGroups=null means it defaults to false
+            # So we need explicit includeGroups=true
+            (envCfg.includeGroups or false)
+          );
+
+        # Check if a 'dev' environment is configured
+        hasDevEnv = configuredEnvs ? dev;
+        devEnvConfig = configuredEnvs.dev or null;
+
+        # Find any environment with groups enabled
+        envWithGroups =
+          lib.findFirst
+          (envName: isCiEnvCandidate (configuredEnvs.${envName} or null))
+          null
+          (lib.attrNames configuredEnvs);
+
+        # Get the appropriate environment based on priority
+        selectedEnv =
+          if hasDevEnv && isCiEnvCandidate devEnvConfig
+          then pythonEnvOutputs.dev or null
+          else if envWithGroups != null
+          then pythonEnvOutputs.${envWithGroups} or null
+          else null;
+      in
+        if selectedEnv != null
+        then selectedEnv
+        else if pythonWorkspaceArg != null
+        then
+          # Create environment with all dependency groups for CI
+          pythonWorkspaceArg.mkEnv {
+            name = "python-ci-checks";
+            spec = pythonWorkspaceArg.computeSpec {
+              includeGroups = true;
+            };
+          }
         else null;
 
       # Extract Python version from environment for PYTHONPATH

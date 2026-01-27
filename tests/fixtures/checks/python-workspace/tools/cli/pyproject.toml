@@ -1,2 +1,7 @@
 [project]
 name = "cli"
+version = "0.1.0"
+dependencies = []
+
+[dependency-groups]
+dev = ["types-requests"]
