@@ -52,15 +52,16 @@ The `members` option controls which packages get the editable overlay applied, b
 
 ## Decision
 
-We WILL modify the default spec logic for editable environments to **automatically include all workspace members** when `spec` is null/unset.
+We WILL modify the spec logic for editable environments to **automatically merge all workspace members** into the final spec. This applies whether or not a `spec` is explicitly provided by the user.
 
-### Design Choice: Automatic for Editable Only
+### Design Choice: Always Merge for Editable Environments
 
-When `environment.editable = true` AND `environment.spec = null`:
-- The spec defaults to `workspace.deps.default` **merged with** all workspace members
+When `environment.editable = true`:
+- All workspace members are automatically merged into the final spec
+- User-provided `spec` extras are preserved (they override the base empty list `[]`)
 - This ensures all local packages are installed from the checkout, not the Nix store
 
-When `environment.editable = false` OR `environment.spec` is explicitly set:
+When `environment.editable = false`:
 - Behavior remains unchanged (use provided spec or `workspace.deps.default`)
 
 ### Key Insight: Understanding uv2nix's `deps` Structure
@@ -241,7 +242,7 @@ If `workspace.members` is empty (single-package project), `allMembersSpec` is `{
 - **Eliminates stale import bugs**: Editable environments always use local checkout for all workspace members
 - **Better DX**: "Editable environment" means what users expect — all local code is live
 - **Zero additional configuration**: Works automatically when `editable = true`
-- **Backwards compatible**: Only affects editable environments with null spec
+- **Non-editable environments unchanged**: Only editable environments are affected; non-editable behavior is fully preserved
 
 ### Trade-offs
 
