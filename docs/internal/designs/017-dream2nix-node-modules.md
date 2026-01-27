@@ -692,15 +692,10 @@ Unlike Python's `pip install -e .`, there's no step where your workspace package
 
 ## Appendix B: What Lives Where (Linking Strategy Deep Dive)
 
-> **Open Question (I5/I8):** There is a discrepancy between the documented dream2nix
-> output structure and the current implementation. The inline code comments in `checks.nix`
-> state that packages live at `<store>/lib/node_modules/node_modules/`, but the linking
-> code and `nodejs.nix` shellHook check paths one level higher (`<store>/lib/node_modules/`).
->
-> This needs verification against actual dream2nix output. If the comment is correct,
-> then `linkNodeModules` should link to `$nm_root/node_modules` (not `$nm_root`), and
-> `nodejs.nix` should check `.../lib/node_modules/node_modules/.bin`. The diagram below
-> assumes the *current code behavior*, not the documented structure.
+> **Note:** The dream2nix output structure was verified in Appendix C. The structure is
+> `<store>/lib/node_modules/.bin` for binaries and `<store>/lib/node_modules/<pkg>/node_modules`
+> for package-level dependencies. There is **no** extra `node_modules` level at root.
+> The implementation and documentation now reflect this verified structure.
 
 ### Overview Diagram
 

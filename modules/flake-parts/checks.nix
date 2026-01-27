@@ -571,31 +571,31 @@ in {
             '';
             checkCommands =
               lib.concatMapStringsSep "\n" (pkg: ''
-                            echo "Type-checking ${lib.escapeShellArg pkg}..."
+                                            echo "Type-checking ${lib.escapeShellArg pkg}..."
 
-                            # Validate node_modules exists
-                            if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg pkg}/node_modules ]; then
-                              cat >&2 << 'EOF'
-                ERROR: node_modules not found for package: ${lib.escapeShellArg pkg}
+                                            # Validate node_modules exists
+                                            if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg pkg}/node_modules ]; then
+                                              echo "ERROR: node_modules not found for package: ${lib.escapeShellArg pkg}" >&2
+                                              cat >&2 <<'EOF'
 
-                TypeScript checks require node_modules to be present.
+                                TypeScript checks require node_modules to be present.
 
-                Solution 1 (Pure Nix - Recommended):
-                  Enable the Node.js module to automatically build node_modules:
-                  jackpkgs.nodejs.enable = true;
+                                Solution 1 (Pure Nix - Recommended):
+                                  Enable the Node.js module to automatically build node_modules:
+                                  jackpkgs.nodejs.enable = true;
 
-                Solution 2 (Impure/Local):
-                  Run 'pnpm install' locally before running checks.
+                                Solution 2 (Impure/Local):
+                                  Run 'pnpm install' locally before running checks.
 
-                Or disable TypeScript checks:
-                  jackpkgs.checks.typescript.enable = false;
+                                Or disable TypeScript checks:
+                                  jackpkgs.checks.typescript.enable = false;
                 EOF
-                              exit 1
-                            fi
+                                              exit 1
+                                            fi
 
-                            cd ${lib.escapeShellArg pkg}
-                            tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
-                            cd - >/dev/null
+                                            cd ${lib.escapeShellArg pkg}
+                                            tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
+                                            cd - >/dev/null
               '')
               tsPackages;
           };
@@ -634,26 +634,29 @@ in {
                 export PATH="$nm_store/node_modules/.bin:$PATH"
               fi
             ''}
+
+            # Locate jest binary from trusted sources only (once for all packages)
+            # 1. PATH (includes Nix store paths from nodeModules derivation)
+            # 2. Linked node_modules from Nix store (never from source tree)
+            if command -v jest >/dev/null 2>&1; then
+              JEST_BIN="jest"
+            else
+              JEST_BIN=""
+            fi
+            export JEST_BIN
           '';
           checkCommands =
             lib.concatMapStringsSep "\n" (pkg: ''
               echo "Testing ${lib.escapeShellArg pkg}..."
               cd ${lib.escapeShellArg pkg}
 
-              # Locate jest binary from trusted sources only:
-              # 1. PATH (includes Nix store paths from nodeModules derivation)
-              # 2. Linked node_modules from Nix store (never from source tree)
-              JEST_BIN=""
-              if command -v jest >/dev/null 2>&1; then
-                JEST_BIN="jest"
+              # Use jest binary found in setupCommands
+              if [ -n "$JEST_BIN" ]; then
+                $JEST_BIN ${lib.escapeShellArgs cfg.jest.extraArgs}
               else
                 echo "WARNING: Jest binary not found for ${lib.escapeShellArg pkg}, skipping."
                 # Don't fail the build if jest isn't set up for this specific package
                 # (some packages in workspace might not have tests)
-              fi
-
-              if [ -n "$JEST_BIN" ]; then
-                $JEST_BIN ${lib.escapeShellArgs cfg.jest.extraArgs}
               fi
               cd - >/dev/null
             '')
