@@ -625,7 +625,6 @@ in {
     };
   in {
     # Build the derivation - test passes if build succeeds
-    expr = lib.isDerivation minimalPythonCheck.python-pytest;
-    expected = true;
+    expr = minimalPythonCheck.python-pytest;
   };
 }
