@@ -1,4 +1,4 @@
-# ADR-017: Python Dependency Groups for CI Checks (PEP 735 Only)
+# ADR-018: Python Dependency Groups for CI Checks (PEP 735 Only)
 
 ## Status
 
