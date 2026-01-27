@@ -117,6 +117,8 @@ in {
             # Check at runtime which structure dream2nix used
             if [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
               node_modules_bin="${nodeModules}/lib/node_modules/.bin"
+            elif [ -d "${nodeModules}/lib/node_modules/node_modules/.bin" ]; then
+              node_modules_bin="${nodeModules}/lib/node_modules/node_modules/.bin"
             elif [ -d "${nodeModules}/node_modules/.bin" ]; then
               node_modules_bin="${nodeModules}/node_modules/.bin"
             fi
