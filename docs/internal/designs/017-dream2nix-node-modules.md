@@ -172,15 +172,20 @@ jackpkgs.checks.typescript = {
 typescript-tsc = mkCheck {
   name = "typescript-tsc";
   buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
-  setupCommands = lib.optionalString (cfg.typescript.tsc.nodeModules != null) ''
+  setupCommands = ''
+    # Copy source to writeable directory
+    cp -R ${lib.escapeShellArg projectRoot} src
+    chmod -R +w src
+    cd src
+
     # Link node_modules from the provided derivation
     # This handles both root-level and per-package node_modules
-    ${linkNodeModules cfg.typescript.tsc.nodeModules projectRoot tsPackages}
+    ${linkNodeModules cfg.typescript.tsc.nodeModules tsPackages}
   '';
   checkCommands =
     lib.concatMapStringsSep "\n" (pkg: ''
       echo "Type-checking ${pkg}..."
-      cd ${lib.escapeShellArg "${projectRoot}/${pkg}"}
+      cd ${lib.escapeShellArg pkg}
       tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
     '')
     tsPackages;
