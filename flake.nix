@@ -17,6 +17,10 @@
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
     flake-root.url = "github:srid/flake-root";
+    flake-compat = {
+      url = "github:NixOS/flake-compat";
+      flake = false;
+    };
     gitignore = {
       url = "github:hercules-ci/gitignore.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -38,6 +42,7 @@
       url = "github:cachix/pre-commit-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.gitignore.follows = "gitignore";
+      inputs.flake-compat.follows = "flake-compat";
       # inputs.flake-utils.inputs.systems.follows = "systems";
     };
     pyproject-nix = {
@@ -59,6 +64,7 @@
       url = "github:nix-community/dream2nix";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.purescript-overlay.inputs.flake-compat.follows = "flake-compat";
     };
     uv2nix = {
       url = "github:pyproject-nix/uv2nix";
