@@ -565,6 +565,7 @@ in {
     };
     script = getBuildCommand checks.javascript-jest;
   in {
+    # Note: When nodeModules is null, no PATH export is generated (security: no source-tree binaries)
     expr =
       hasInfixAll [
         "Testing packages/app"
@@ -573,9 +574,41 @@ in {
         "cp -R"
         "chmod -R +w"
         "cd src"
-        "export PATH=\"$PWD/node_modules/.bin:$PATH\""
       ]
       script;
+    expected = true;
+  };
+
+  # Test that PATH is set to Nix store binaries when nodeModules is provided
+  testJestScriptWithNodeModules = let
+    # Create a dummy derivation to simulate nodeModules
+    dummyNodeModules = builtins.derivation {
+      name = "dummy-node-modules";
+      system = "x86_64-linux";
+      builder = "/bin/sh";
+      args = ["-c" "mkdir -p $out"];
+    };
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        extraConfig.jackpkgs.checks.enable = true;
+        extraConfig.jackpkgs.checks.jest.enable = true;
+        extraConfig.jackpkgs.checks.jest.packages = ["packages/app"];
+        extraConfig.jackpkgs.checks.jest.nodeModules = dummyNodeModules;
+      };
+      projectRoot = pnpmWorkspace;
+    };
+    script = getBuildCommand checks.javascript-jest;
+  in {
+    # Verify PATH is set to Nix store binaries (trusted only, not source tree)
+    expr =
+      hasInfixAll [
+        "Testing packages/app"
+        "/lib/node_modules/.bin"
+        "export PATH="
+      ]
+      script
+      # Also verify source-tree PATH is NOT added
+      && !(lib.hasInfix "$PWD/node_modules/.bin" script);
     expected = true;
   };
 
