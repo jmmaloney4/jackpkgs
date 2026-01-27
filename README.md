@@ -186,10 +186,9 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `pythonPackage` (package, default `pkgs.python312`)
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
     - `setuptools.packages` (list of str)
-    - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru, includeOptionalDependencies, includeGroups }`)
+    - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru, includeGroups }`)
       - **`spec`**: optional — explicit dependency specification for customization (overrides all other spec options)
-      - **`includeOptionalDependencies`**: bool (default `false`) — include all `[project.optional-dependencies]` (e.g., `dev`, `test`) from workspace members
-      - **`includeGroups`**: bool (default `false`) — include all `[dependency-groups]` (PEP 735) and `[tool.uv.dev-dependencies]`
+      - **`includeGroups`**: nullable bool (default `null`) — include all `[dependency-groups]` (PEP 735) and `[tool.uv.dev-dependencies]` from workspace members. When `null`, defaults to `true` for editable environments and `false` for non-editable environments.
       - **`editable`**: at most one environment may have `editable = true`; automatically included in devshell
   - Outputs:
     - Packages: non-editable envs appear under `packages.<env.name>`
@@ -208,7 +207,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
       };
     };
 
-    # Development environment with optional dependencies
+    # Development environment with dependency groups
     jackpkgs.python = {
       enable = true;
       workspaceRoot = ./.;
@@ -217,10 +216,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
         dev = {
           name = "python-dev";
           editable = true;  # Automatically in devshell
-          # Include [project.optional-dependencies].dev, .test, etc.
-          includeOptionalDependencies = true;
-          # Include [dependency-groups] (PEP 735)
-          includeGroups = true;
+          # includeGroups defaults to true for editable environments
         };
       };
     };
@@ -234,7 +230,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
         ci = {
           name = "python-ci";
           # Non-editable for CI with all dev dependencies
-          includeOptionalDependencies = true;
+          includeGroups = true;
         };
       };
     };

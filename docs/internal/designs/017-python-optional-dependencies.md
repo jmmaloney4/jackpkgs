@@ -1,8 +1,8 @@
-# ADR-017: Python Optional Dependencies for CI Checks
+# ADR-017: Python Dependency Groups for CI Checks (PEP 735 Only)
 
 ## Status
 
-Implemented (2026-01-25)
+Implemented (2026-01-25), Updated (2026-01-26)
 
 ## Context
 
@@ -20,10 +20,10 @@ This creates a gap where CI checks either:
 
 ### Real-World Impact
 
-In consumer projects with type stubs in `[project.optional-dependencies].dev`:
+In consumer projects with type stubs in `[dependency-groups]`:
 
 ```toml
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8.0.0",
     "mypy>=1.11.0",
@@ -45,37 +45,49 @@ error: Library stubs not installed for "authlib.integrations.requests_client"  [
 
 ## Decision
 
-### Leverage uv2nix's Built-in Dependency Specs
+### Leverage uv2nix's PEP 735 Dependency Groups
 
-uv2nix provides four pre-configured dependency specifications:
+This module supports **PEP 735 dependency groups only**. PEP 621 optional dependencies are not supported.
 
-- `workspace.deps.default` — No optional-dependencies or dependency-groups (production)
-- `workspace.deps.optionals` — All optional-dependencies enabled
+uv2nix provides two relevant dependency specifications:
+
+- `workspace.deps.default` — No dependency-groups (production only)
 - `workspace.deps.groups` — All dependency-groups enabled (PEP 735)
-- `workspace.deps.all` — All optional-dependencies AND dependency-groups enabled
 
-### New Environment Options
+### Dependency Groups Across Workspace Members
 
-Add two boolean options to environment configuration:
+When using uv workspaces, dependency groups are **aggregated across all workspace members**:
+
+- `workspace.deps.groups` includes all `[dependency-groups]` and `[tool.uv.dev-dependencies]` from:
+  - The workspace root `pyproject.toml`
+  - All local workspace member projects
+
+This means defining `[dependency-groups].dev` at the workspace root makes those dependencies available to all member projects, which is the recommended pattern for shared dev dependencies (pytest, mypy, ruff, type stubs, etc.).
+
+### New Environment Option: `includeGroups`
+
+Add a tri-state boolean option to environment configuration:
 
 ```nix
 environments.dev = {
   name = "python-dev";
   editable = true;
-  includeOptionalDependencies = true;  # Uses workspace.deps.optionals
-  includeGroups = true;                 # Uses workspace.deps.groups
+  includeGroups = null;  # Default: true for editable, false for non-editable
 };
 ```
 
-When both are set, uses `workspace.deps.all`. When neither is set, uses `workspace.deps.default`.
+When `includeGroups` is:
+- `null` (default): Follows environment intent (true for editable, false for non-editable)
+- `true`: Explicitly includes all dependency groups
+- `false`: Explicitly excludes all dependency groups
 
 ### Automatic CI Environment Selection
 
 The checks module (`checks.nix`) automatically selects the best environment for CI:
 
-1. **Priority 1**: Use explicitly defined 'dev' environment if it exists (non-editable)
-2. **Priority 2**: Use any environment with `includeOptionalDependencies = true`
-3. **Priority 3**: Create a new environment with all optional dependencies enabled
+1. **Priority 1**: Use explicitly defined 'dev' environment if it's non-editable and has `includeGroups = true`
+2. **Priority 2**: Use any non-editable environment with `includeGroups = true`
+3. **Priority 3**: Create a new environment with all dependency groups enabled
 
 ### API
 
@@ -85,18 +97,17 @@ The checks module (`checks.nix`) automatically selects the best environment for 
 jackpkgs.python.environments = {
   default = {
     name = "my-project";
-    # Production deps only (default behavior)
+    # Production deps only (includeGroups defaults to false for non-editable)
   };
   dev = {
     name = "my-project-dev";
     editable = true;
-    includeOptionalDependencies = true;  # [project.optional-dependencies]
-    includeGroups = true;                 # [dependency-groups]
+    # includeGroups defaults to true for editable environments
   };
   ci = {
     name = "my-project-ci";
     # Non-editable for CI with dev deps
-    includeOptionalDependencies = true;
+    includeGroups = true;  # Explicitly enable for CI
   };
 };
 ```
@@ -118,56 +129,60 @@ environments.custom = {
 
 ### python.nix Changes
 
-1. Added `includeOptionalDependencies` option (bool, default false)
-2. Added `includeGroups` option (bool, default false)
-3. Added `computeSpec` function that maps options to workspace.deps variants
-4. Updated `pythonEnvs` to use `computeSpec` when `spec` is null
+1. Removed `includeOptionalDependencies` option (PEP 621 not supported)
+2. Changed `includeGroups` from bool to nullable bool (default `null`)
+3. Added `effectiveIncludeGroups` computation: defaults to true for editable, false for non-editable
+4. Updated `computeSpec` function to only accept `includeGroups` parameter
 5. Exposed `computeSpec` in `pythonWorkspace` for external use
 
 ### checks.nix Changes
 
-1. Updated `pythonEnvWithDevTools` to prefer user-defined dev environments
-2. Falls back to creating environment with `computeSpec { includeOptionalDependencies = true; includeGroups = true; }`
+1. Updated `pythonEnvWithDevTools` to use `isCiEnvCandidate` predicate (non-editable + `includeGroups = true`)
+2. Falls back to creating environment with `computeSpec { includeGroups = true; }`
 3. Skips editable environments for CI (they can't be used in pure Nix builds)
 
 ## Consequences
 
 ### Benefits
 
-1. **Zero-config for common case** — Set `includeOptionalDependencies = true` for dev environments
-2. **Works with standard Python packaging** — Uses PEP 621 optional-dependencies and PEP 735 dependency-groups
+1. **Opinionated defaults** — Editable envs automatically include dev deps, production envs don't
+2. **Works with standard Python packaging** — Uses PEP 735 dependency-groups
 3. **CI automatically uses dev deps** — The checks module prefers environments with dev dependencies
 4. **Fine-grained control available** — Users can still use explicit `spec` for edge cases
 5. **Leverages uv2nix infrastructure** — No custom parsing or dependency resolution needed
+6. **Workspace-level dev dependencies** — Define shared dev dependencies once at workspace root
 
 ### Trade-offs
 
-1. **All-or-nothing** — Can't select specific extras (e.g., just "dev" but not "test")
+1. **All-or-nothing** — Can't select specific groups (e.g., just "dev" but not "test")
    - Mitigation: Use explicit `spec` for fine-grained control
 2. **Implicit behavior in checks.nix** — Auto-selects dev environment
    - Mitigation: Clear priority order documented; users can override
+3. **PEP 621 not supported** — Only PEP 735 dependency groups
+   - Mitigation: PEP 735 is the modern standard for dev dependencies; most projects should migrate
 
 ## Alternatives Considered
 
-### Alternative A: Parse pyproject.toml for specific extras
+### Alternative A: Support both PEP 621 and PEP 735
 
 ```nix
-extras = ["dev", "test"];  # Parse and merge specific optional-dependencies
+includeOptionalDependencies = true;  # PEP 621
+includeGroups = true;                # PEP 735
+```
+
+**Pros:** Maximum flexibility
+**Cons:** Confusing API with two similar options; PEP 621 optional-dependencies are for package consumers, not maintainers
+**Why not chosen:** PEP 735 is the recommended standard for development dependencies; simpler API with single option
+
+### Alternative B: Parse pyproject.toml for specific groups
+
+```nix
+groups = ["dev", "test"];  # Parse and merge specific dependency groups
 ```
 
 **Pros:** Fine-grained control
-**Cons:** Requires TOML parsing, each package may have different extras, complex implementation
+**Cons:** Requires TOML parsing, each package may have different groups, complex implementation
 **Why not chosen:** uv2nix already provides pre-built specs; complexity not justified
-
-### Alternative B: Automatically include dev deps for editable envs
-
-```nix
-# If editable = true, automatically include dev deps
-```
-
-**Pros:** Zero-config
-**Cons:** Implicit behavior may surprise users; some editable envs may not want dev deps
-**Why not chosen:** Too magical; explicit options are clearer
 
 ### Alternative C: Require dedicated dev-tools package (ADR-016 pattern)
 
@@ -184,5 +199,5 @@ extras = ["dev", "test"];  # Parse and merge specific optional-dependencies
 ---
 
 Author: Claude (Cursor)
-Date: 2026-01-25
+Date: 2026-01-25, Updated: 2026-01-26
 PR: cursor/python-optional-dependencies-03e8

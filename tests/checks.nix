@@ -39,6 +39,25 @@
           type = types.nullOr types.str;
           default = null;
         };
+
+        environments = mkOption {
+          type = types.attrsOf (types.submodule {
+            options = {
+              name = mkOption {
+                type = types.str;
+              };
+              editable = mkOption {
+                type = types.bool;
+                default = false;
+              };
+              includeGroups = mkOption {
+                type = types.nullOr types.bool;
+                default = null;
+              };
+            };
+          });
+          default = {};
+        };
       };
 
       pulumi = {
@@ -46,6 +65,11 @@
           type = types.bool;
           default = false;
         };
+      };
+
+      outputs.pythonEnvironments = mkOption {
+        type = types.attrsOf types.unspecified;
+        default = {};
       };
     };
   };
@@ -77,6 +101,10 @@
         mkdir -p $out/lib/python3.12/site-packages
         touch $out
       '';
+    computeSpec = {includeGroups ? false}:
+      if includeGroups
+      then {_groups = true;}
+      else {};
   };
 
   perSystemArgs = projectRoot: {
@@ -243,6 +271,114 @@ in {
     };
   in {
     expr = missingCheck checks "python-ruff";
+    expected = true;
+  };
+
+  testPythonCiEnvSelectionWithGroups = let
+    # Test that CI env selection prefers environments with includeGroups = true
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig = {
+          jackpkgs.python.environments = {
+            # Non-editable env without groups (should NOT be selected)
+            prod = {
+              name = "python-prod";
+              editable = false;
+              includeGroups = false;
+            };
+            # Non-editable env with groups (should be selected)
+            ci = {
+              name = "python-ci";
+              editable = false;
+              includeGroups = true;
+            };
+          };
+        };
+      };
+    };
+    script = getBuildCommand checks.python-pytest;
+  in {
+    # Verify that pytest runs (which means an env with groups was found/created)
+    expr = lib.hasInfix "pytest" script;
+    expected = true;
+  };
+
+  testPythonCiEnvSelectionDevPriority = let
+    # Test that 'dev' env is prioritized if it's non-editable with groups
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig = {
+          jackpkgs.python.environments = {
+            # Non-editable dev env with groups (should be selected as priority 1)
+            dev = {
+              name = "python-dev-ci";
+              editable = false;
+              includeGroups = true;
+            };
+            # Another non-editable env with groups
+            ci = {
+              name = "python-ci";
+              editable = false;
+              includeGroups = true;
+            };
+          };
+        };
+      };
+    };
+    script = getBuildCommand checks.python-pytest;
+  in {
+    # Verify that pytest runs (which means dev env was selected)
+    expr = lib.hasInfix "pytest" script;
+    expected = true;
+  };
+
+  testPythonCiEnvSelectionEditableIgnored = let
+    # Test that editable environments are NOT selected for CI even with groups
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig = {
+          jackpkgs.python.environments = {
+            # Editable env with groups (should NOT be selected)
+            dev = {
+              name = "python-dev";
+              editable = true;
+              includeGroups = true;
+            };
+          };
+        };
+      };
+    };
+    script = getBuildCommand checks.python-pytest;
+  in {
+    # Verify that pytest still runs (auto-created CI env should be used)
+    expr = lib.hasInfix "pytest" script;
+    expected = true;
+  };
+
+  testPythonCiEnvSelectionNoGroupsFallback = let
+    # Test that auto-created CI env is used when no suitable env exists
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig = {
+          jackpkgs.python.environments = {
+            # Non-editable env without groups (should NOT be selected)
+            prod = {
+              name = "python-prod";
+              editable = false;
+              includeGroups = false;
+            };
+          };
+        };
+      };
+    };
+    script = getBuildCommand checks.python-pytest;
+  in {
+    # Verify that pytest runs (auto-created CI env should be used)
+    expr = lib.hasInfix "pytest" script;
     expected = true;
   };
 

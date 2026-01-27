@@ -104,29 +104,21 @@ in {
               '';
             };
 
-            includeOptionalDependencies = mkOption {
-              type = types.bool;
-              default = false;
-              description = ''
-                Include all optional dependencies defined in [project.optional-dependencies]
-                sections of workspace members' pyproject.toml files.
-
-                This enables all optional dependency groups (e.g., "dev", "test", "docs").
-                For production environments, leave this false.
-                For development/CI environments, set to true to include dev tools like
-                mypy, pytest, type stubs, etc.
-              '';
-            };
-
             includeGroups = mkOption {
-              type = types.bool;
-              default = false;
+              type = types.nullOr types.bool;
+              default = null;
               description = ''
                 Include all dependency groups defined in [dependency-groups] sections
                 (PEP 735) or [tool.uv.dev-dependencies] of workspace members.
 
-                This is useful for including development dependencies that are defined
-                using uv's dependency-groups feature rather than optional-dependencies.
+                When null (default), the effective value depends on environment intent:
+                - editable = true: defaults to true (dev dependencies included)
+                - editable = false: defaults to false (production dependencies only)
+
+                Explicitly set to true or false to override the default behavior.
+
+                This is the recommended way to include development dependencies like
+                pytest, mypy, type stubs, etc.
               '';
             };
 
@@ -334,20 +326,14 @@ in {
         defaultSpec = workspace.deps.default;
 
         # Compute environment-specific specs based on options
-        # uv2nix provides four pre-configured specs:
-        # - workspace.deps.default: No optional-dependencies or dependency-groups
-        # - workspace.deps.optionals: All optional-dependencies enabled
-        # - workspace.deps.groups: All dependency-groups enabled
-        # - workspace.deps.all: All optional-dependencies AND dependency-groups enabled
-        computeSpec = {
-          includeOptionalDependencies ? false,
-          includeGroups ? false,
-        }:
-          if includeOptionalDependencies && includeGroups
-          then workspace.deps.all
-          else if includeOptionalDependencies
-          then workspace.deps.optionals
-          else if includeGroups
+        # uv2nix provides pre-configured dependency specifications:
+        # - workspace.deps.default: No dependency-groups (production only)
+        # - workspace.deps.groups: All dependency-groups enabled (PEP 735)
+        #
+        # Note: PEP 621 optional-dependencies are not supported.
+        # Use PEP 735 dependency-groups for development dependencies.
+        computeSpec = {includeGroups ? false}:
+          if includeGroups
           then workspace.deps.groups
           else workspace.deps.default;
 
@@ -421,15 +407,23 @@ in {
         pythonEnvs =
           lib.mapAttrs (
             envKey: envCfg: let
+              # Compute effectiveIncludeGroups:
+              # - If includeGroups is explicitly set (non-null), use that value
+              # - Otherwise, default to true for editable envs, false for non-editable
+              effectiveIncludeGroups =
+                if envCfg.includeGroups != null
+                then envCfg.includeGroups
+                else envCfg.editable;
+
               # Compute the final spec:
               # 1. If explicit spec is provided, use it
-              # 2. Otherwise, compute based on includeOptionalDependencies/includeGroups
+              # 2. Otherwise, compute based on effectiveIncludeGroups
               finalSpec =
                 if envCfg.spec != null
                 then envCfg.spec
                 else
                   computeSpec {
-                    inherit (envCfg) includeOptionalDependencies includeGroups;
+                    includeGroups = effectiveIncludeGroups;
                   };
             in
               if envCfg.editable
