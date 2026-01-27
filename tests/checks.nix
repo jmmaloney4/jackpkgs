@@ -444,7 +444,7 @@ in {
     expr =
       hasInfixAll [
         "node_modules not found"
-        "pnpm install"
+        "jackpkgs.nodejs.enable = true"
         "jackpkgs.checks.typescript.enable = false"
       ]
       script;
