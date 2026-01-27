@@ -758,6 +758,123 @@ export PATH="$PWD/node_modules/.bin:$PATH"
 - Shell's PATH includes linked `node_modules/.bin`
 - `command -v vitest` finds binary from trusted Nix store path
 
+### Binary Resolution Strategy in CI Checks
+
+The checks implementation uses a **multi-stage binary resolution strategy** that prioritizes security and determinism:
+
+#### Stage 1: Setup Phase (One-time)
+
+```bash
+# Only if vitestNodeModules is provided (from dream2nix)
+export PATH="${vitestNodeModules}/lib/node_modules/.bin:$PATH"
+
+# Use shell's binary resolution to find vitest (once for all packages)
+if command -v vitest >/dev/null 2>&1; then
+  VITEST_BIN="vitest"
+else
+  VITEST_BIN=""
+fi
+export VITEST_BIN
+```
+
+**Why cache the binary path?**
+- Avoids re-searching PATH for every package (performance)
+- Ensures same binary used across all test runs (determinism)
+- Single point of failure detection (warn once, not per-package)
+
+#### Stage 2: Resolution Priority
+
+The shell's `command -v` searches PATH in order:
+
+```
+1. ${vitestNodeModules}/lib/node_modules/.bin  (Nix store - FIRST)
+   ↓
+2. ${linked_node_modules}/.bin  (Workspace root symlink)
+   ↓
+3. Any other PATH entries
+   ↓
+4. Stops at FIRST match found
+```
+
+**Key security property:** Nix store entries appear FIRST in PATH, preventing source tree pollution:
+
+```bash
+# ❌ Even if $PWD/node_modules/.bin/vitest exists (or is malicious),
+#    it is NEVER executed because:
+#    - PATH has Nix store version first
+#    - command -v stops at first match
+#    - Nix store is immutable and content-addressed
+
+# ✅ This is validated by testVitestScriptWithNodeModules:
+#    - Asserts /lib/node_modules/.bin IS in PATH
+#    - Asserts $PWD/node_modules/.bin is NOT in PATH
+```
+
+#### Stage 3: Per-Package Execution
+
+```bash
+# Use resolved binary (from setupCommands)
+$VITEST_BIN ${extraArgs}
+
+# Or skip gracefully if not found
+# WARNING: Vitest binary not found, skipping.
+```
+
+#### Design Implications
+
+| Scenario | Behavior | Rationale |
+|----------|----------|-----------|
+| `vitestNodeModules` provided | Uses Nix store binary (pure) | Reproducible, immutable |
+| `vitestNodeModules = null` | Uses workspace `node_modules` (impure) | Fallback for dev environments |
+| Binary NOT found | Skips package with warning | Some packages may not have tests |
+| Multiple packages | Same binary for all | Consistent across workspace |
+
+#### Comparison with DevShells
+
+DevShells (`nodejs.nix`) have different priorities:
+
+```bash
+# DevShell: Prefer Nix store BUT allow impure fallback
+export PATH="${nodeModules}/lib/node_modules/.bin:$PATH"  # First
+export PATH="$PWD/node_modules/.bin:$PATH"               # Fallback
+```
+
+**Why different?**
+- DevShells support developers who run `pnpm install` (impure)
+- Checks must be pure and reproducible (Nix sandbox)
+- Checks fail if dependencies unavailable (no silent fallback)
+
+#### Edge Cases and Testing
+
+**Not currently tested but worth considering:**
+
+1. **Binary exists in multiple places** - Which is used?
+   ```bash
+   # With current strategy: Nix store version (first in PATH)
+   # Test would verify: testVitestBinaryResolutionPriority
+   ```
+
+2. **Impure build fallback** - When vitestNodeModules is null
+   ```bash
+   # Must rely on $PWD/node_modules (from pnpm install)
+   # Checks would fail in pure Nix sandbox
+   # Test would verify: testVitestImpureFallback
+   ```
+
+3. **Per-package node_modules** - Some pnpm configurations hoist differently
+   ```bash
+   # Current strategy uses global PATH (works for most cases)
+   # Per-package versions in packages/*/node_modules/.bin are NOT found
+   # This is likely intentional but not documented
+   ```
+
+4. **Missing binary handling** - Graceful degradation
+   ```bash
+   # Currently: Skips package with warning
+   # Alternative: Could fail the entire check (stricter)
+   # Decision: Skip allows mixed test coverage in workspaces
+   ```
+
 ### Key Insight: Symlinks Enable Purity
 
 The linking strategy provides the best of both worlds:
