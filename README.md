@@ -143,6 +143,13 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 
 - checks (`modules/flake-parts/checks.nix`)
   - Adds CI checks for Python (pytest/mypy/ruff) and TypeScript (tsc).
+  - **Python CI Environment Selection:**
+    - Automatically selects a suitable environment for CI checks (non-editable with dependency groups).
+    - Priority order:
+      1. Use `dev` environment if it's non-editable and has `includeGroups = true`
+      2. Use any non-editable environment with `includeGroups = true`
+      3. Auto-create a temporary CI environment with all dependency groups enabled
+    - Editable environments are never used for CI (they can't be used in pure Nix builds).
   - Options under `jackpkgs.checks` (selected):
     - `enable` (bool, default auto-enabled with Python/Pulumi)
     - `python.enable`, `python.pytest.enable`, `python.mypy.enable`, `python.ruff.enable`
@@ -178,6 +185,23 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 - python (`modules/flake-parts/python.nix`)
   - Opinionated Python envs using uv2nix; publishes env packages and exposes workspace helpers.
   - Supports both standard projects (with `[project]`) and workspace-only repos (with `[tool.uv.workspace]` only).
+  - **Environment Types:**
+    - **Development (editable)**: `editable = true` — Used in devshells for local development. Source code changes are immediately reflected. Automatically includes dependency groups by default (`includeGroups` defaults to `true`). Only one editable environment is allowed per flake.
+    - **CI (non-editable with groups)**: `editable = false`, `includeGroups = true` — Used for hermetic CI checks (pytest, mypy, ruff). Non-editable ensures reproducible builds. Includes all dependency groups (dev tools, type stubs, etc.). The `checks` module automatically selects or creates a CI environment.
+    - **Production (non-editable without groups)**: `editable = false`, `includeGroups = false` (or `null`) — Minimal environment with only production dependencies. Suitable for deployment. Published as `packages.<env.name>`.
+  - **Dependency Groups (PEP 735):**
+    - This module supports **PEP 735 dependency groups only** (not PEP 621 optional-dependencies).
+    - Dependency groups are **aggregated across all workspace members**: `workspace.deps.groups` includes all `[dependency-groups]` and `[tool.uv.dev-dependencies]` from the workspace root and all local member projects.
+    - Define shared dev dependencies (pytest, mypy, ruff, type stubs) at the workspace root for all members to use.
+    - Example `pyproject.toml` structure:
+      ```toml
+      [tool.uv.workspace]
+      members = ["packages/*", "tools/*"]
+
+      [dependency-groups]
+      dev = ["pytest>=8.0", "mypy>=1.11", "ruff>=0.1.0"]
+      test = ["pytest-cov", "types-requests"]
+      ```
   - Options under `jackpkgs.python` (selected):
     - `enable` (bool, default `false`)
     - `pyprojectPath` (str, default `./pyproject.toml`)
@@ -188,8 +212,11 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `setuptools.packages` (list of str)
     - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru, includeGroups }`)
       - **`spec`**: optional — explicit dependency specification for customization (overrides all other spec options)
-      - **`includeGroups`**: nullable bool (default `null`) — include all `[dependency-groups]` (PEP 735) and `[tool.uv.dev-dependencies]` from workspace members. When `null`, defaults to `true` for editable environments and `false` for non-editable environments.
-      - **`editable`**: at most one environment may have `editable = true`; automatically included in devshell
+      - **`includeGroups`**: nullable bool (default `null`) — include all `[dependency-groups]` (PEP 735) and `[tool.uv.dev-dependencies]` from workspace members.
+        - When `null` (default): follows environment intent — `true` for editable envs, `false` for non-editable envs
+        - When `true`: explicitly include all dependency groups (dev tools, type stubs, etc.)
+        - When `false`: explicitly exclude dependency groups (production-only)
+      - **`editable`**: bool (default `false`) — create editable install with workspace members. At most one environment may have `editable = true`; automatically included in devshell.
   - Outputs:
     - Packages: non-editable envs appear under `packages.<env.name>`
     - Module args: `_module.args.pythonWorkspace` (always exposed)
@@ -204,10 +231,12 @@ flake-parts.lib.mkFlake { inherit inputs; } {
       workspaceRoot = ./.;
       environments.default = {
         name = "python-prod";
+        # editable = false (default)
+        # includeGroups = null → defaults to false for non-editable
       };
     };
 
-    # Development environment with dependency groups
+    # Development environment (editable, includes dev dependencies by default)
     jackpkgs.python = {
       enable = true;
       workspaceRoot = ./.;
@@ -216,12 +245,13 @@ flake-parts.lib.mkFlake { inherit inputs; } {
         dev = {
           name = "python-dev";
           editable = true;  # Automatically in devshell
-          # includeGroups defaults to true for editable environments
+          # includeGroups = null → defaults to true for editable
+          # Includes all [dependency-groups] from workspace members
         };
       };
     };
 
-    # CI environment for checks (includes dev tools like mypy, pytest)
+    # CI environment for checks (non-editable, explicitly includes dev tools)
     jackpkgs.python = {
       enable = true;
       workspaceRoot = ./.;
@@ -229,8 +259,21 @@ flake-parts.lib.mkFlake { inherit inputs; } {
         default.name = "python-prod";
         ci = {
           name = "python-ci";
-          # Non-editable for CI with all dev dependencies
-          includeGroups = true;
+          editable = false;  # Non-editable for reproducible CI
+          includeGroups = true;  # Explicitly include dev tools (pytest, mypy, ruff)
+        };
+      };
+    };
+
+    # Custom: editable without dev dependencies (rare use case)
+    jackpkgs.python = {
+      enable = true;
+      workspaceRoot = ./.;
+      environments = {
+        dev = {
+          name = "python-dev-minimal";
+          editable = true;
+          includeGroups = false;  # Override default: no dev dependencies
         };
       };
     };
