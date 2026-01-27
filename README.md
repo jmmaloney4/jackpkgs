@@ -141,6 +141,13 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `nbstripoutPackage` (default `pkgs.nbstripout`)
     - `mypyPackage` (defaults to the package produced by `jackpkgs.python.environments.default` when defined—editable or not—otherwise `pkgs.mypy`)
 
+- checks (`modules/flake-parts/checks.nix`)
+  - Adds CI checks for Python (pytest/mypy/ruff) and TypeScript (tsc).
+  - Options under `jackpkgs.checks` (selected):
+    - `enable` (bool, default auto-enabled with Python/Pulumi)
+    - `python.enable`, `python.pytest.enable`, `python.mypy.enable`, `python.ruff.enable`
+    - `typescript.enable`, `typescript.tsc.packages`, `typescript.tsc.extraArgs`
+
 - shell (`modules/flake-parts/devshell.nix`)
   - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
   - The shell aggregates dev environments from `just-flake`, `flake-root`, `pre-commit`, and `treefmt`.
