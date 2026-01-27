@@ -249,32 +249,22 @@ in {
           nm_store=${nodeModules}
           echo "Linking node_modules from $nm_store..."
 
-          # Detect dream2nix output structure (lib/node_modules vs node_modules)
-          if [ -d "$nm_store/lib/node_modules" ]; then
-             nm_root="$nm_store/lib/node_modules"
-          elif [ -d "$nm_store/node_modules" ]; then
-             nm_root="$nm_store/node_modules"
-          else
-             echo "WARNING: Could not find node_modules in provided derivation: $nm_store"
-             nm_root=""
-          fi
+          # dream2nix pnpm2nix module outputs to lib/node_modules (see ADR-017 Appendix C)
+          nm_root="$nm_store/lib/node_modules"
 
-          if [ -n "$nm_root" ]; then
-            # Link root node_modules
-            ln -sfn "$nm_root" node_modules
+          # Link root node_modules
+          ln -sfn "$nm_root" node_modules
 
-            # Link package-level node_modules
-            ${lib.concatMapStringsSep "\n" (pkg: ''
-              mkdir -p ${lib.escapeShellArg pkg}
+          # Link package-level node_modules
+          ${lib.concatMapStringsSep "\n" (pkg: ''
+            mkdir -p ${lib.escapeShellArg pkg}
 
-              # Check for nested node_modules in the store output
-              # pnpm workspaces often have nested node_modules for each package
-              if [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
-                ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
-              fi
-            '')
-            packages}
-          fi
+            # Link nested node_modules for pnpm workspace packages
+            if [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
+              ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
+            fi
+          '')
+          packages}
         '';
 
       # Expand workspace globs like "tools/*" -> ["tools/hello", "tools/ocr"]
@@ -576,20 +566,19 @@ in {
 
                                             # Validate node_modules exists
                                             if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg pkg}/node_modules ]; then
-                                              echo "ERROR: node_modules not found for package: ${lib.escapeShellArg pkg}" >&2
                                               cat >&2 <<'EOF'
+                ERROR: node_modules not found for package: ${lib.escapeShellArg pkg}
 
-                                TypeScript checks require node_modules to be present.
+                TypeScript checks require node_modules to be present.
 
-                                Solution 1 (Pure Nix - Recommended):
-                                  Enable the Node.js module to automatically build node_modules:
-                                  jackpkgs.nodejs.enable = true;
+                Enable the Node.js module to build node_modules via dream2nix:
 
-                                Solution 2 (Impure/Local):
-                                  Run 'pnpm install' locally before running checks.
+                    jackpkgs.nodejs.enable = true;
 
-                                Or disable TypeScript checks:
-                                  jackpkgs.checks.typescript.enable = false;
+                This provides a pure, reproducible node_modules derivation that works
+                in Nix sandbox builds. See ADR-017 for configuration details.
+
+                To disable TypeScript checks: jackpkgs.checks.typescript.enable = false;
                 EOF
                                               exit 1
                                             fi
