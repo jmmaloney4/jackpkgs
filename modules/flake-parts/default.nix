@@ -9,6 +9,7 @@
       default = import ./all.nix {jackpkgsInputs = inputs;};
 
       # Don't forget to update all.nix too!
+      pkgs = import ./pkgs.nix {jackpkgsInputs = inputs;};
       fmt = import ./fmt.nix {jackpkgsInputs = inputs;};
       just = import ./just.nix {jackpkgsInputs = inputs;};
       pre-commit = import ./pre-commit.nix {jackpkgsInputs = inputs;};

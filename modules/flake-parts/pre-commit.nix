@@ -34,8 +34,8 @@ in {
         };
         nbstripoutPackage = mkOption {
           type = types.package;
-          default = pkgs.nbstripout;
-          defaultText = "pkgs.nbstripout";
+          default = config.jackpkgs.pkgs.nbstripout;
+          defaultText = "config.jackpkgs.pkgs.nbstripout";
           description = "nbstripout package to use.";
         };
         mypyPackage = mkOption {
@@ -46,8 +46,8 @@ in {
           in
             if pythonDefaultEnv != null
             then pythonDefaultEnv
-            else pkgs.mypy;
-          defaultText = "`jackpkgs.python.environments.default` (when defined) or `pkgs.mypy`";
+            else config.jackpkgs.pkgs.mypy;
+          defaultText = "`jackpkgs.python.environments.default` (when defined) or `config.jackpkgs.pkgs.mypy`";
           description = "mypy package to use.";
         };
       };

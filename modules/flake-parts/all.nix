@@ -1,5 +1,7 @@
 {jackpkgsInputs}: {inputs, ...}: {
   imports = [
+    # pkgs.nix is imported here once; individual modules do NOT import it to avoid duplicate declarations
+    (import ./pkgs.nix {inherit jackpkgsInputs;})
     (import ./project-root.nix {inherit jackpkgsInputs;})
     (import ./python.nix {inherit jackpkgsInputs;})
     (import ./devshell.nix {inherit jackpkgsInputs;})

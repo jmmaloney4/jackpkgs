@@ -70,7 +70,8 @@ Notes:
 
 This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModules` sourced from `modules/flake-parts/`:
 
-- `default` — imports all modules below.
+- `default` — imports all modules below (including `pkgs`).
+- `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
 - `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy; picks up `jackpkgs.python.environments.default` automatically when defined).
@@ -95,6 +96,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 flake-parts.lib.mkFlake { inherit inputs; } {
   systems = import inputs.systems;
   imports = [
+    inputs.jackpkgs.flakeModules.pkgs  # Required when using jackpkgs.pkgs with overlayed nixpkgs
     inputs.jackpkgs.flakeModules.fmt
     inputs.jackpkgs.flakeModules.just
     inputs.jackpkgs.flakeModules.pre-commit
@@ -107,7 +109,34 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 }
 ```
 
+Note: When importing modules à la carte, include `flakeModules.pkgs` if you want to set `jackpkgs.pkgs` to propagate overlayed nixpkgs. The `default` module includes it automatically.
+
+### Using overlayed nixpkgs
+
+When you set `_module.args.pkgs` to provide an overlayed nixpkgs, jackpkgs modules won't see those overlays by default (due to module evaluation order). To propagate your overlays to all jackpkgs package defaults, also set `jackpkgs.pkgs`:
+
+```nix
+perSystem = { system, ... }: let
+  overlayedPkgs = import inputs.nixpkgs {
+    inherit system;
+    overlays = [
+      (self: super: {
+        deno = super.deno.overrideAttrs (_: { doCheck = false; });
+      })
+    ];
+  };
+in {
+  _module.args.pkgs = overlayedPkgs;
+  jackpkgs.pkgs = overlayedPkgs;  # Propagates to all jackpkgs module defaults
+};
+```
+
 ### Module reference (concise)
+
+- pkgs (`modules/flake-parts/pkgs.nix`)
+  - Exposes `jackpkgs.pkgs` (per-system, type `pkgs`, default `pkgs`).
+  - Modules with package defaults use `config.jackpkgs.pkgs`.
+  - Set this to your overlayed nixpkgs to propagate overlays to all jackpkgs package defaults.
 
 - core (`modules/flake-parts/project-root.nix`)
   - Exposes `jackpkgs.projectRoot` (path, default `inputs.self.outPath`).
@@ -116,7 +145,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 - fmt (`modules/flake-parts/fmt.nix`)
   - Enables treefmt and sets `formatter = config.treefmt.build.wrapper`.
   - Options under `jackpkgs.fmt`:
-    - `treefmtPackage` (package, default `pkgs.treefmt`)
+    - `treefmtPackage` (package, default `config.jackpkgs.pkgs.treefmt`)
     - `projectRootFile` (str, default `config.flake-root.projectRootFile`)
     - `excludes` (list of str, default `["**/node_modules/**" "**/dist/**"]`)
   - Enables formatters: Alejandra (Nix), Biome (JS/TS), HuJSON, latexindent, Ruff (check + format), Rustfmt, Yamlfmt.
@@ -138,8 +167,8 @@ flake-parts.lib.mkFlake { inherit inputs; } {
   - Enables pre-commit with `treefmt`, `nbstripout` for `.ipynb`, and `mypy`.
   - Options under `jackpkgs.pre-commit`:
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
-    - `nbstripoutPackage` (default `pkgs.nbstripout`)
-    - `mypyPackage` (defaults to the package produced by `jackpkgs.python.environments.default` when defined—editable or not—otherwise `pkgs.mypy`)
+    - `nbstripoutPackage` (default `config.jackpkgs.pkgs.nbstripout`)
+    - `mypyPackage` (defaults to the package produced by `jackpkgs.python.environments.default` when defined—editable or not—otherwise `config.jackpkgs.pkgs.mypy`)
 
 - checks (`modules/flake-parts/checks.nix`)
   - Adds CI checks for Python (pytest/mypy/ruff) and TypeScript (tsc).
@@ -179,8 +208,8 @@ flake-parts.lib.mkFlake { inherit inputs; } {
   - Provides Quarto tooling in a devShell fragment: `config.jackpkgs.outputs.quartoDevShell`.
   - Options under `jackpkgs.quarto`:
     - `enable` (bool, default `true`)
-    - `quartoPackage` (package, default `pkgs.quarto`)
-    - `pythonEnv` (package, default `pkgs.python3Packages.python`)
+    - `quartoPackage` (package, default `config.jackpkgs.pkgs.quarto`)
+    - `pythonEnv` (package, default `config.jackpkgs.pkgs.python3Packages.python`)
 
 - python (`modules/flake-parts/python.nix`)
   - Opinionated Python envs using uv2nix; publishes env packages and exposes workspace helpers.
@@ -207,7 +236,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     - `pyprojectPath` (str, default `./pyproject.toml`)
     - `uvLockPath` (str, default `./uv.lock`)
     - `workspaceRoot` (str, default `.`)
-    - `pythonPackage` (package, default `pkgs.python312`)
+    - `pythonPackage` (package, default `config.jackpkgs.pkgs.python312`)
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
     - `setuptools.packages` (list of str)
     - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru, includeGroups }`)

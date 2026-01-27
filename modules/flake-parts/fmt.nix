@@ -30,8 +30,8 @@ in {
       options.jackpkgs.fmt = {
         treefmtPackage = mkOption {
           type = types.package;
-          default = pkgs.treefmt;
-          defaultText = "pkgs.treefmt";
+          default = config.jackpkgs.pkgs.treefmt;
+          defaultText = "config.jackpkgs.pkgs.treefmt";
           description = "treefmt package to use.";
         };
         projectRootFile = mkOption {

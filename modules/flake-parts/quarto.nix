@@ -39,14 +39,15 @@ in {
       options.jackpkgs.quarto = {
         quartoPackage = mkOption {
           type = types.package;
-          default = pkgs.quarto;
-          defaultText = "pkgs.quarto";
+          default = config.jackpkgs.pkgs.quarto;
+          defaultText = "config.jackpkgs.pkgs.quarto";
           description = "Quarto package to use.";
         };
 
         pythonEnv = mkOption {
           type = types.package;
-          default = pkgs.python3Packages.python;
+          default = config.jackpkgs.pkgs.python3Packages.python;
+          defaultText = "config.jackpkgs.pkgs.python3Packages.python";
           description = "Python environment to use for Quarto.";
         };
       };

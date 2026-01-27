@@ -42,7 +42,7 @@ in {
 
       options.jackpkgs.pulumi.ci.packages = mkOption {
         type = with types; listOf package;
-        default = with pkgs; [
+        default = with config.jackpkgs.pkgs; [
           pulumi-bin
           nodejs
           pnpm
@@ -50,7 +50,7 @@ in {
           (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
         ];
         defaultText = lib.literalExpression ''
-          with pkgs; [
+          with config.jackpkgs.pkgs; [
             pulumi-bin
             nodejs
             pnpm

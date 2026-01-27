@@ -26,13 +26,13 @@ in {
     }: {
       options.jackpkgs.pnpm.ci.packages = mkOption {
         type = with types; listOf package;
-        default = with pkgs; [
+        default = with config.jackpkgs.pkgs; [
           nodejs
           pnpm
           jq
         ];
         defaultText = lib.literalExpression ''
-          with pkgs; [
+          with config.jackpkgs.pkgs; [
             nodejs
             pnpm
             jq
