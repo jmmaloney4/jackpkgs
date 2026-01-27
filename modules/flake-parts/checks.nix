@@ -220,13 +220,15 @@ in {
         '')
         members;
 
-      # Validate workspace paths to prevent path traversal attacks
-      # Rejects paths containing ".." or starting with "/"
+      # Validate workspace paths to prevent path traversal and injection attacks
+      # Rejects paths containing "..", starting with "/", or containing newlines
       validateWorkspacePath = path:
         if lib.hasInfix ".." path
         then throw "Invalid workspace path '${path}': contains '..' (path traversal not allowed for security)"
         else if lib.hasPrefix "/" path
         then throw "Invalid workspace path '${path}': absolute paths not allowed (must be relative to workspace root)"
+        else if lib.hasInfix "\n" path
+        then throw "Invalid workspace path: contains newline (command injection not allowed)"
         else path;
 
       # Link node_modules into the sandbox
@@ -261,13 +263,12 @@ in {
 
             # Link package-level node_modules
             ${lib.concatMapStringsSep "\n" (pkg: ''
-              pkg_dir=${pkg}
-              mkdir -p "$pkg_dir"
+              mkdir -p ${lib.escapeShellArg pkg}
 
               # Check for nested node_modules in the store output
               # pnpm workspaces often have nested node_modules for each package
-              if [ -d "$nm_root/$pkg_dir/node_modules" ]; then
-                ln -sfn "$nm_root/$pkg_dir/node_modules" "$pkg_dir/node_modules"
+              if [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
+                ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
               fi
             '')
             packages}
