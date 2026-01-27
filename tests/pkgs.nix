@@ -15,6 +15,7 @@
   quartoModule = import ../modules/flake-parts/quarto.nix {jackpkgsInputs = inputs;};
   justModule = import ../modules/flake-parts/just.nix {jackpkgsInputs = inputs;};
   pythonModule = import ../modules/flake-parts/python.nix {jackpkgsInputs = inputs;};
+  shellModule = import ../modules/flake-parts/devshell.nix {jackpkgsInputs = inputs;};
 
   # Base module to disable strict checking
   baseModule = {
@@ -106,6 +107,8 @@ in {
   # Test that quarto module uses jackpkgs.pkgs for quartoPackage default
   testQuartoUsesJackpkgsPkgs = let
     perSystem = getPerSystem [
+      pkgsModule
+      shellModule
       quartoModule
       {
         perSystem = {pkgs, ...}: {
@@ -121,6 +124,7 @@ in {
   # Test that fmt module uses jackpkgs.pkgs for treefmtPackage default
   testFmtUsesJackpkgsPkgs = let
     perSystem = getPerSystem [
+      pkgsModule
       fmtModule
       {
         perSystem = {pkgs, ...}: {
@@ -136,6 +140,7 @@ in {
   # Test that just module uses jackpkgs.pkgs for direnvPackage default
   testJustUsesJackpkgsPkgs = let
     perSystem = getPerSystem [
+      pkgsModule
       justModule
       {
         perSystem = {pkgs, ...}: {
@@ -151,6 +156,8 @@ in {
   # Test that python module uses jackpkgs.pkgs for pythonPackage default
   testPythonUsesJackpkgsPkgs = let
     perSystem = getPerSystem [
+      pkgsModule
+      shellModule
       pythonModule
       {
         perSystem = {pkgs, ...}: {
@@ -169,7 +176,7 @@ in {
 
   # Test that quarto uses standard pkgs when jackpkgs.pkgs is not set
   testQuartoDefaultsToStandardPkgs = let
-    perSystem = getPerSystem [quartoModule];
+    perSystem = getPerSystem [pkgsModule shellModule quartoModule];
     pkg = perSystem.jackpkgs.quarto.quartoPackage;
   in {
     # Should not have our test marker
@@ -179,7 +186,7 @@ in {
 
   # Test that fmt uses standard pkgs when jackpkgs.pkgs is not set
   testFmtDefaultsToStandardPkgs = let
-    perSystem = getPerSystem [fmtModule];
+    perSystem = getPerSystem [pkgsModule fmtModule];
     pkg = perSystem.jackpkgs.fmt.treefmtPackage;
   in {
     expr = pkg ? _jackpkgsTestMarker;
@@ -198,6 +205,8 @@ in {
       name = "custom-quarto";
     };
     perSystem = getPerSystem [
+      pkgsModule
+      shellModule
       quartoModule
       {
         perSystem = {pkgs, ...}: {
@@ -218,6 +227,8 @@ in {
   # Test that all modules see the same jackpkgs.pkgs value
   testAllModulesShareSamePkgs = let
     perSystem = getPerSystem [
+      pkgsModule
+      shellModule
       fmtModule
       quartoModule
       justModule
@@ -241,12 +252,14 @@ in {
   };
 
   # ============================================================
-  # À La Carte Import Tests - pkgs module imported via individual modules
+  # À La Carte Import Tests - pkgs module must be explicitly imported
   # ============================================================
 
-  # Test that importing just quartoModule (which imports pkgsModule) works
+  # Test that importing pkgsModule with quartoModule works
   testALaCarteImportWorks = let
     perSystem = getPerSystem [
+      pkgsModule
+      shellModule
       quartoModule
       {
         perSystem = {pkgs, ...}: {
@@ -259,9 +272,10 @@ in {
     expected = "overlayed-quarto";
   };
 
-  # Test that importing just fmtModule (which imports pkgsModule) works
+  # Test that importing pkgsModule with fmtModule works
   testALaCarteImportFmt = let
     perSystem = getPerSystem [
+      pkgsModule
       fmtModule
       {
         perSystem = {pkgs, ...}: {
@@ -274,9 +288,10 @@ in {
     expected = "overlayed-treefmt";
   };
 
-  # Test that importing just justModule (which imports pkgsModule) works
+  # Test that importing pkgsModule with justModule works
   testALaCarteImportJust = let
     perSystem = getPerSystem [
+      pkgsModule
       justModule
       {
         perSystem = {pkgs, ...}: {
