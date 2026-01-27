@@ -250,5 +250,4 @@ in {
     expr = lib.all (m: m != null) markers;
     expected = true;
   };
-
 }
