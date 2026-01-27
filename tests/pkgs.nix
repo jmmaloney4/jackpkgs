@@ -15,10 +15,6 @@
   quartoModule = import ../modules/flake-parts/quarto.nix {jackpkgsInputs = inputs;};
   justModule = import ../modules/flake-parts/just.nix {jackpkgsInputs = inputs;};
   pythonModule = import ../modules/flake-parts/python.nix {jackpkgsInputs = inputs;};
-  pnpmModule = import ../modules/flake-parts/pnpm.nix {jackpkgsInputs = inputs;};
-  pulumiModule = import ../modules/flake-parts/pulumi.nix {jackpkgsInputs = inputs;};
-  preCommitModule = import ../modules/flake-parts/pre-commit.nix {jackpkgsInputs = inputs;};
-  devshellModule = import ../modules/flake-parts/devshell.nix {jackpkgsInputs = inputs;};
 
   # Base module to disable strict checking
   baseModule = {
