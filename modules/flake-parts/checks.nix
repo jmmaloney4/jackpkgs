@@ -141,14 +141,14 @@ in {
         };
       };
 
-      # Jest check
-      jest = {
+      # Vitest check
+      vitest = {
         enable =
-          mkEnableOption "Jest CI checks"
+          mkEnableOption "Vitest CI checks"
           // {
             default = config.jackpkgs.nodejs.enable or false;
             description = ''
-              Enable Jest test runner. Automatically enabled when the Node.js module is enabled.
+              Enable Vitest test runner. Automatically enabled when the Node.js module is enabled.
             '';
           };
 
@@ -167,7 +167,7 @@ in {
           type = types.nullOr (types.listOf types.str);
           default = null;
           description = ''
-            List of packages to test with Jest.
+            List of packages to test with Vitest.
             If null, uses same discovery as tsc (pnpm-workspace.yaml).
           '';
         };
@@ -175,8 +175,8 @@ in {
         extraArgs = mkOption {
           type = types.listOf types.str;
           default = [];
-          description = "Extra arguments to pass to Jest";
-          example = ["--coverage" "--verbose"];
+          description = "Extra arguments to pass to Vitest";
+          example = ["--coverage" "--reporter=verbose"];
         };
       };
 
@@ -241,7 +241,7 @@ in {
       # - Package dependencies: <store>/lib/node_modules/<packageName>/node_modules
       # Note: There is NO extra node_modules level at root (i.e., NOT <store>/lib/node_modules/node_modules)
       #
-      # We symlink these back to the source tree so tools like tsc/jest find them naturally.
+      # We symlink these back to the source tree so tools like tsc/vitest find them naturally.
       linkNodeModules = nodeModules: packages:
         if nodeModules == null
         then ""
@@ -257,14 +257,14 @@ in {
 
           # Link package-level node_modules
           ${lib.concatMapStringsSep "\n" (pkg: ''
-            mkdir -p ${lib.escapeShellArg pkg}
+              mkdir -p ${lib.escapeShellArg pkg}
 
-            # Link nested node_modules for pnpm workspace packages
-            if [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
-              ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
-            fi
-          '')
-          packages}
+              # Link nested node_modules for pnpm workspace packages
+              if [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
+                ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
+              fi
+            '')
+            packages}
         '';
 
       # Expand workspace globs like "tools/*" -> ["tools/hello", "tools/ocr"]
@@ -473,10 +473,10 @@ in {
         then map validateWorkspacePath cfg.typescript.tsc.packages
         else discoverPnpmPackages projectRoot;
 
-      # Determine Jest packages
-      jestPackages =
-        if cfg.jest.packages != null
-        then map validateWorkspacePath cfg.jest.packages
+      # Determine Vitest packages
+      vitestPackages =
+        if cfg.vitest.packages != null
+        then map validateWorkspacePath cfg.vitest.packages
         else discoverPnpmPackages projectRoot;
 
       # NOTE: We cannot use builtins.pathExists on nodeModules paths at Nix evaluation
@@ -592,59 +592,59 @@ in {
         });
 
       # ============================================================
-      # Jest Checks
+      # Vitest Checks
       # ============================================================
 
-      jestNodeModules =
-        if cfg.jest.nodeModules != null
-        then cfg.jest.nodeModules
+      vitestNodeModules =
+        if cfg.vitest.nodeModules != null
+        then cfg.vitest.nodeModules
         else config.jackpkgs.outputs.nodeModules or null;
 
-      jestChecks = lib.optionalAttrs (cfg.enable && cfg.jest.enable && jestPackages != []) {
-        javascript-jest = mkCheck {
-          name = "javascript-jest";
+      vitestChecks = lib.optionalAttrs (cfg.enable && cfg.vitest.enable && vitestPackages != []) {
+        javascript-vitest = mkCheck {
+          name = "javascript-vitest";
           buildInputs = [pkgs.nodejs];
           setupCommands = ''
             # Copy source to writeable directory
             cp -R ${lib.escapeShellArg projectRoot} src
             chmod -R +w src
             cd src
-            ${linkNodeModules jestNodeModules jestPackages}
+            ${linkNodeModules vitestNodeModules vitestPackages}
 
             # Save root directory for absolute path resolution
             WORKSPACE_ROOT="$PWD"
             export WORKSPACE_ROOT
-            ${lib.optionalString (jestNodeModules != null) ''
+            ${lib.optionalString (vitestNodeModules != null) ''
               # Add Nix store node_modules binaries to PATH (see ADR-017 Appendix C)
-              export PATH="${jestNodeModules}/lib/node_modules/.bin:$PATH"
+              export PATH="${vitestNodeModules}/lib/node_modules/.bin:$PATH"
             ''}
 
-            # Locate jest binary from trusted sources only (once for all packages)
+            # Locate vitest binary from trusted sources only (once for all packages)
             # 1. PATH (includes Nix store paths from nodeModules derivation)
             # 2. Linked node_modules from Nix store (never from source tree)
-            if command -v jest >/dev/null 2>&1; then
-              JEST_BIN="jest"
+            if command -v vitest >/dev/null 2>&1; then
+              VITEST_BIN="vitest"
             else
-              JEST_BIN=""
+              VITEST_BIN=""
             fi
-            export JEST_BIN
+            export VITEST_BIN
           '';
           checkCommands =
             lib.concatMapStringsSep "\n" (pkg: ''
               echo "Testing ${lib.escapeShellArg pkg}..."
               cd ${lib.escapeShellArg pkg}
 
-              # Use jest binary found in setupCommands
-              if [ -n "$JEST_BIN" ]; then
-                $JEST_BIN ${lib.escapeShellArgs cfg.jest.extraArgs}
+              # Use vitest binary found in setupCommands
+              if [ -n "$VITEST_BIN" ]; then
+                $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
               else
-                echo "WARNING: Jest binary not found for ${lib.escapeShellArg pkg}, skipping."
-                # Don't fail the build if jest isn't set up for this specific package
+                echo "WARNING: Vitest binary not found for ${lib.escapeShellArg pkg}, skipping."
+                # Don't fail the build if vitest isn't set up for this specific package
                 # (some packages in workspace might not have tests)
               fi
               cd - >/dev/null
             '')
-            jestPackages;
+            vitestPackages;
         };
       };
     in
@@ -652,7 +652,7 @@ in {
       lib.mkMerge [
         {checks = pythonChecks;}
         {checks = typescriptChecks;}
-        {checks = jestChecks;}
+        {checks = vitestChecks;}
       ];
   };
 }

@@ -539,37 +539,37 @@ in {
     expected = true;
   };
 
-  testJestEnabled = let
+  testVitestEnabled = let
     checks = mkChecks {
       configModule = mkConfigModule {
         extraConfig.jackpkgs.checks.enable = true;
-        extraConfig.jackpkgs.checks.jest.enable = true;
-        extraConfig.jackpkgs.checks.jest.packages = ["packages/app"];
+        extraConfig.jackpkgs.checks.vitest.enable = true;
+        extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
       };
       projectRoot = pnpmWorkspace;
     };
   in {
-    expr = hasCheck checks "javascript-jest";
+    expr = hasCheck checks "javascript-vitest";
     expected = true;
   };
 
-  testJestScript = let
+  testVitestScript = let
     checks = mkChecks {
       configModule = mkConfigModule {
         extraConfig.jackpkgs.checks.enable = true;
-        extraConfig.jackpkgs.checks.jest.enable = true;
-        extraConfig.jackpkgs.checks.jest.packages = ["packages/app"];
-        extraConfig.jackpkgs.checks.jest.extraArgs = ["--coverage"];
+        extraConfig.jackpkgs.checks.vitest.enable = true;
+        extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
+        extraConfig.jackpkgs.checks.vitest.extraArgs = ["--coverage"];
       };
       projectRoot = pnpmWorkspace;
     };
-    script = getBuildCommand checks.javascript-jest;
+    script = getBuildCommand checks.javascript-vitest;
   in {
     # Note: When nodeModules is null, no PATH export is generated (security: no source-tree binaries)
     expr =
       hasInfixAll [
         "Testing packages/app"
-        "jest"
+        "vitest"
         "--coverage"
         "cp -R"
         "chmod -R +w"
@@ -580,7 +580,7 @@ in {
   };
 
   # Test that PATH is set to Nix store binaries when nodeModules is provided
-  testJestScriptWithNodeModules = let
+  testVitestScriptWithNodeModules = let
     # Create a dummy derivation to simulate nodeModules
     dummyNodeModules = builtins.derivation {
       name = "dummy-node-modules";
@@ -591,13 +591,13 @@ in {
     checks = mkChecks {
       configModule = mkConfigModule {
         extraConfig.jackpkgs.checks.enable = true;
-        extraConfig.jackpkgs.checks.jest.enable = true;
-        extraConfig.jackpkgs.checks.jest.packages = ["packages/app"];
-        extraConfig.jackpkgs.checks.jest.nodeModules = dummyNodeModules;
+        extraConfig.jackpkgs.checks.vitest.enable = true;
+        extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
+        extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
       };
       projectRoot = pnpmWorkspace;
     };
-    script = getBuildCommand checks.javascript-jest;
+    script = getBuildCommand checks.javascript-vitest;
   in {
     # Verify PATH is set to Nix store binaries (trusted only, not source tree)
     expr =
@@ -623,13 +623,13 @@ in {
     checks = mkChecks {
       configModule = mkConfigModule {
         extraConfig.jackpkgs.checks.enable = true;
-        extraConfig.jackpkgs.checks.jest.enable = true;
-        extraConfig.jackpkgs.checks.jest.packages = ["packages/app"];
-        extraConfig.jackpkgs.checks.jest.nodeModules = dummyNodeModules;
+        extraConfig.jackpkgs.checks.vitest.enable = true;
+        extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
+        extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
       };
       projectRoot = pnpmWorkspace;
     };
-    script = getBuildCommand checks.javascript-jest;
+    script = getBuildCommand checks.javascript-vitest;
   in {
     expr =
       hasInfixAll [

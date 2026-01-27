@@ -601,7 +601,7 @@ packages = [ nodeBinEnv ];  # No shellHook PATH manipulation needed
 
 This would:
 1. Make binaries proper Nix derivations
-2. Allow `nix run .#jest` style invocations
+2. Allow `nix run .#vitest` style invocations
 3. Match the uv2nix pattern exactly
 4. Work in CI without PATH manipulation
 
@@ -718,7 +718,7 @@ Unlike Python's `pip install -e .`, there's no step where your workspace package
 │  /nix/store/xxx-node_modules/                                   │
 │    lib/node_modules/                                            │
 │      .bin/                                                      │
-│        jest → ../jest/bin/jest.js                               │
+│        vitest → ../vitest/bin/vitest.mjs                               │
 │        tsc → ../typescript/bin/tsc                              │
 │        eslint → ../eslint/bin/eslint.js                         │
 │      lodash/                                                    │
@@ -756,7 +756,7 @@ export PATH="$PWD/node_modules/.bin:$PATH"
 
 - `linkNodeModules` creates `node_modules` symlink → Nix store
 - Shell's PATH includes linked `node_modules/.bin`
-- `command -v jest` finds binary from trusted Nix store path
+- `command -v vitest` finds binary from trusted Nix store path
 
 ### Key Insight: Symlinks Enable Purity
 
