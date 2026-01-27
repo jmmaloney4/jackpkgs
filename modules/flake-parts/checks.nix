@@ -15,10 +15,11 @@ in {
         // {
           default =
             (config.jackpkgs.python.enable or false)
-            || (config.jackpkgs.pulumi.enable or false);
+            || (config.jackpkgs.pulumi.enable or false)
+            || (config.jackpkgs.nodejs.enable or false);
           description = ''
             Enable CI checks for jackpkgs projects. Automatically enabled when
-            Python or Pulumi modules are enabled.
+            Python, Pulumi, or Node.js modules are enabled.
           '';
         };
 

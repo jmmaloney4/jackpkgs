@@ -151,7 +151,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
       3. Auto-create a temporary CI environment with all dependency groups enabled
     - Editable environments are never used for CI (they can't be used in pure Nix builds).
   - Options under `jackpkgs.checks` (selected):
-    - `enable` (bool, default auto-enabled with Python/Pulumi)
+    - `enable` (bool, default auto-enabled with Python/Pulumi/Node.js)
     - `python.enable`, `python.pytest.enable`, `python.mypy.enable`, `python.ruff.enable`
     - `typescript.enable`, `typescript.tsc.packages`, `typescript.tsc.extraArgs`
 
