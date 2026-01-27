@@ -86,6 +86,7 @@ export PATH="${pythonEnvs.editable}/bin:$PATH"
 ## Related
 
 - ADR-004: Project Root Resolution for flake-parts Modules (workspaceRoot is resolved to a Nix path at evaluation time and passed to uv2nix)
+- ADR-017: dream2nix for Pure Node.js Dependency Management (contrasts why Node.js doesn't need editable environments — see Appendix A)
 - uv2nix workspace docs and overlay implementation (editable overlays and path requirements)
 
 ---

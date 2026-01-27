@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+In Progress (Phase 1)
 
 ## Context
 
@@ -194,26 +194,47 @@ For pnpm workspaces, `node_modules` structure varies:
 1. **Hoisted dependencies** - Shared dependencies at workspace root
 2. **Per-package node_modules** - Package-specific dependencies with symlinks
 
-The linking function must handle both:
+The linking function must handle both, and also detect which output structure dream2nix used:
 
 ```nix
-# Helper to link node_modules into the sandbox
-linkNodeModules = nodeModules: projectRoot: packages: ''
-  # Link root node_modules if it exists in the derivation
-  if [ -d "${nodeModules}/node_modules" ]; then
-    ln -sfn "${nodeModules}/node_modules" "${projectRoot}/node_modules"
-  fi
+# Helper to link node_modules into the sandbox (from checks.nix)
+linkNodeModules = nodeModules: packages:
+  if nodeModules == null
+  then ""
+  else ''
+    nm_store=${lib.escapeShellArg nodeModules}
+    echo "Linking node_modules from $nm_store..."
 
-  # Link per-package node_modules
-  ${lib.concatMapStringsSep "\n" (pkg: ''
-    pkg_node_modules="${nodeModules}/${pkg}/node_modules"
-    if [ -d "$pkg_node_modules" ]; then
-      mkdir -p "${projectRoot}/${pkg}"
-      ln -sfn "$pkg_node_modules" "${projectRoot}/${pkg}/node_modules"
+    # Detect dream2nix output structure (lib/node_modules vs node_modules)
+    if [ -d "$nm_store/lib/node_modules" ]; then
+       nm_root="$nm_store/lib/node_modules"
+    elif [ -d "$nm_store/node_modules" ]; then
+       nm_root="$nm_store/node_modules"
+    else
+       echo "WARNING: Could not find node_modules in provided derivation: $nm_store"
+       nm_root=""
     fi
-  '') packages}
-'';
+
+    if [ -n "$nm_root" ]; then
+      # Link root node_modules
+      ln -sfn "$nm_root" node_modules
+
+      # Link package-level node_modules
+      ${lib.concatMapStringsSep "\n" (pkg: ''
+        pkg_dir=${lib.escapeShellArg pkg}
+        mkdir -p "$pkg_dir"
+
+        # Check for nested node_modules in the store output
+        # pnpm workspaces often have nested node_modules for each package
+        if [ -d "$nm_root/$pkg_dir/node_modules" ]; then
+          ln -sfn "$nm_root/$pkg_dir/node_modules" "$pkg_dir/node_modules"
+        fi
+      '') packages}
+    fi
+  '';
 ```
+
+See **Appendix B** for a detailed explanation of what lives where (including an open question about path depth).
 
 ### dream2nix Configuration for pnpm Workspaces
 
@@ -593,14 +614,202 @@ This would:
 
 ## Related
 
+- **ADR-005: uv2nix Editable vs Non-Editable Environments** - Python's approach to editable installs (contrast with Appendix A)
 - **ADR-016: CI Checks Module** - Parent design for checks infrastructure
 - **ADR-013: CI DevShells** - Related pattern for minimal CI environments
 - **dream2nix documentation** - https://nix-community.github.io/dream2nix/
 - **pnpm workspace docs** - https://pnpm.io/workspaces
-- **Issue** - jackpkgs PR discussing this problem
+
+---
+
+## Appendix A: Why Node.js Doesn't Need "Editable Environments"
+
+### Python's Editable Mode (uv2nix)
+
+Python has two distinct environment modes (see ADR-005):
+
+| Mode | Use Case | Where Code Lives |
+|------|----------|------------------|
+| **Non-editable** | CI, packages | All code baked into Nix store derivation |
+| **Editable** | Developer shells | Workspace packages path-installed; changes reflect immediately |
+
+The editable overlay in uv2nix performs `pip install -e .` style installs — your local `.py` files are imported directly, not copied to the store. This is crucial because:
+
+- Python imports modules by file path at runtime
+- Developers need instant feedback when editing code
+- Without editable mode, you'd rebuild the Nix derivation on every code change
+
+### Node.js: Always "Editable" by Design
+
+Node.js doesn't need this distinction because of fundamental differences in how the ecosystem works:
+
+**1. Dependencies ≠ Your Code**
+
+`node_modules` contains *only third-party dependencies*, not your workspace code. Your TypeScript/JavaScript source files are never "installed" into `node_modules`.
+
+**2. Import Resolution**
+
+Node/TypeScript resolves imports differently based on the path:
+
+```typescript
+// Resolved from YOUR source files (working directory)
+import { foo } from "./src/utils";
+import { bar } from "../shared/types";
+
+// Resolved from node_modules (Nix store via symlink)
+import _ from "lodash";
+import * as aws from "@pulumi/aws";
+```
+
+**3. No "Installation" of Your Own Code**
+
+Unlike Python's `pip install -e .`, there's no step where your workspace packages get installed. Tools read your source files directly from disk.
+
+### Comparison Table
+
+| Aspect | Python | Node.js |
+|--------|--------|---------|
+| Your code location | Installed into env (editable or not) | Always read from working directory |
+| Third-party deps | In Nix store (via uv2nix) | In Nix store (via dream2nix) |
+| "Editable" concept | Required for dev workflow | Not applicable |
+| Mode switching | Yes (editable vs non-editable) | No (single mode) |
+
+### The Node.js Analogy
+
+| Python editable | Node.js equivalent |
+|-----------------|-------------------|
+| Workspace packages path-installed, editable | Your source files are *always* read from disk |
+| Third-party deps from Nix store | `node_modules` symlinked from Nix store |
+
+**Conclusion:** Node.js is effectively always "editable" for your own code and always "non-editable" for dependencies. There's no mode switch needed.
+
+---
+
+## Appendix B: What Lives Where (Linking Strategy Deep Dive)
+
+> **Open Question (I5/I8):** There is a discrepancy between the documented dream2nix
+> output structure and the current implementation. The inline code comments in `checks.nix`
+> state that packages live at `<store>/lib/node_modules/node_modules/`, but the linking
+> code and `nodejs.nix` shellHook check paths one level higher (`<store>/lib/node_modules/`).
+>
+> This needs verification against actual dream2nix output. If the comment is correct,
+> then `linkNodeModules` should link to `$nm_root/node_modules` (not `$nm_root`), and
+> `nodejs.nix` should check `.../lib/node_modules/node_modules/.bin`. The diagram below
+> assumes the *current code behavior*, not the documented structure.
+
+### Overview Diagram
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                     Your Working Directory                      │
+├────────────────────────────────────────────────────────────────┤
+│  src/                    ← Your code (always editable)          │
+│  packages/foo/           ← Your workspace packages              │
+│  packages/foo/src/       ← Package source (read from disk)      │
+│                                                                  │
+│  node_modules/ → symlink ─────────────────────────┐             │
+│  packages/foo/node_modules/ → symlink ────────────┤             │
+└────────────────────────────────────────────────────│────────────┘
+                                                     │
+                                                     ▼
+┌────────────────────────────────────────────────────────────────┐
+│                         Nix Store                               │
+├────────────────────────────────────────────────────────────────┤
+│  /nix/store/xxx-node_modules/                                   │
+│    lib/node_modules/                                            │
+│      .bin/                                                      │
+│        jest → ../jest/bin/jest.js                               │
+│        tsc → ../typescript/bin/tsc                              │
+│        eslint → ../eslint/bin/eslint.js                         │
+│      lodash/                                                    │
+│      typescript/                                                │
+│      @types/node/                                               │
+│      packages/foo/node_modules/  ← Per-package deps             │
+│        some-local-dep/                                          │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### Location Summary
+
+| Location | Contents | Mutable? | Source |
+|----------|----------|----------|--------|
+| **Nix Store** | `node_modules` derivation (all deps + binaries) | No (immutable) | Built by dream2nix from `pnpm-lock.yaml` |
+| **Working Directory** | Symlinks to Nix store paths | Yes (recreated) | Created at runtime by `linkNodeModules` |
+| **Working Directory** | Your source code | Yes (editable) | Your files, read directly by tools |
+| **Local (impure)** | `node_modules/` from `pnpm install` | Yes | Only for devs without dream2nix configured |
+
+### How Binaries Get on $PATH
+
+**In DevShells (`nodejs.nix`):**
+
+```bash
+# Priority 1: Pure Nix store path (if dream2nix configured)
+if [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
+  export PATH="${nodeModules}/lib/node_modules/.bin:$PATH"
+fi
+
+# Priority 2: Fallback for impure builds
+export PATH="$PWD/node_modules/.bin:$PATH"
+```
+
+**In CI Checks (`checks.nix`):**
+
+- `linkNodeModules` creates `node_modules` symlink → Nix store
+- Shell's PATH includes linked `node_modules/.bin`
+- `command -v jest` finds binary from trusted Nix store path
+
+### Key Insight: Symlinks Enable Purity
+
+The linking strategy provides the best of both worlds:
+
+1. **Dependencies are immutable** — stored in Nix store, content-addressed, cacheable
+2. **Tools work normally** — they see `node_modules` in the expected location
+3. **No file copying** — symlinks are cheap and instant
+4. **Source stays editable** — your code is never copied to the store
+
+This is why Node.js doesn't need Python's complex editable/non-editable distinction: the symlink-based approach inherently separates "your code" (mutable, in working directory) from "dependencies" (immutable, in Nix store).
+
+---
+
+## Appendix C: dream2nix Layout Investigation (pnpm2nix module)
+
+This appendix documents the dream2nix source investigation performed against the exact
+revision pinned in this repository's `flake.lock`:
+
+- `dream2nix` rev: `69eb01fa0995e1e90add49d8ca5bcba213b0416f`
+
+At this revision, the Node.js module used by the `pnpm-lock` translator is
+`nodejs-granular` (the same module used by `nodejs-package-lock`). The layout for the
+`node_modules` derivation is determined by this module, not by the translator itself.
+
+### Evidence from dream2nix source
+
+- `modules/dream2nix/nodejs-granular/installPhase.nix` copies the build's
+  `$nodeModules` into `$out/lib/node_modules` and then sets `nodeModules=$out/lib/node_modules`.
+- `modules/dream2nix/nodejs-granular/configurePhase.nix` uses `$nodeModules/.bin` and
+  sets `NODE_PATH="$nodeModules/$packageName/node_modules"`.
+- `modules/dream2nix/nodejs-granular/devShell.nix` references:
+  - `nodeModulesDir = $out/lib/node_modules/${packageName}/node_modules`
+  - `binDir = $out/lib/node_modules/.bin`
+
+### Resulting layout
+
+```
+<store>/lib/node_modules/.bin
+<store>/lib/node_modules/<packageName>/node_modules
+```
+
+### Implications for this ADR and open issues
+
+- The layout above **does not** contain an extra `node_modules` level at the root
+  (i.e., `<store>/lib/node_modules/node_modules` is not expected).
+- This supports keeping the `.bin` lookup at `.../lib/node_modules/.bin`.
+- If we want to link a workspace root `node_modules`, it should likely point at the
+  root package's `node_modules` (e.g., `<store>/lib/node_modules/<rootPackageName>/node_modules`),
+  not at `<store>/lib/node_modules/node_modules`.
 
 ---
 
 Author: Claude
 Date: 2026-01-25
-PR: (pending)
+PR: #119
