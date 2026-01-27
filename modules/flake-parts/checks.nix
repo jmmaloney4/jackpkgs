@@ -477,13 +477,13 @@ in {
       # Determine TypeScript packages to check
       tsPackages =
         if cfg.typescript.tsc.packages != null
-        then cfg.typescript.tsc.packages
+        then map validateWorkspacePath cfg.typescript.tsc.packages
         else discoverPnpmPackages projectRoot;
 
       # Determine Jest packages
       jestPackages =
         if cfg.jest.packages != null
-        then cfg.jest.packages
+        then map validateWorkspacePath cfg.jest.packages
         else discoverPnpmPackages projectRoot;
 
       # NOTE: We cannot use builtins.pathExists on nodeModules paths at Nix evaluation
