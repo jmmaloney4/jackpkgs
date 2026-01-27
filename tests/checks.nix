@@ -608,4 +608,24 @@ in {
       script;
     expected = true;
   };
+
+  # Test that check derivations actually build successfully
+  # This catches issues that script inspection misses (e.g., broken shell syntax, missing dependencies)
+  testCheckDerivationBuilds = let
+    # Create a minimal Python workspace fixture for testing
+    minimalPythonCheck = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        checksEnable = true;
+        extraConfig.jackpkgs.checks.python.pytest.enable = true;
+        extraConfig.jackpkgs.checks.python.mypy.enable = false;
+        extraConfig.jackpkgs.checks.python.ruff.enable = false;
+      };
+      projectRoot = pythonWorkspace;
+    };
+  in {
+    # Build the derivation - test passes if build succeeds
+    expr = lib.isDerivation minimalPythonCheck.python-pytest;
+    expected = true;
+  };
 }

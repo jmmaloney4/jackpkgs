@@ -105,6 +105,8 @@ in {
             description = ''
               Derivation containing the `node_modules` structure to link before running checks.
               Typically provided automatically by `jackpkgs.nodejs`.
+
+              When null, falls back to config.jackpkgs.outputs.nodeModules if available.
             '';
           };
 
@@ -151,10 +153,12 @@ in {
 
         nodeModules = mkOption {
           type = types.nullOr types.package;
-          default = config.jackpkgs.outputs.nodeModules or null;
+          default = null;
           description = ''
             Derivation containing the `node_modules` structure to link before running checks.
             Typically provided automatically by `jackpkgs.nodejs`.
+
+            When null, falls back to config.jackpkgs.outputs.nodeModules if available.
           '';
         };
 
@@ -238,7 +242,7 @@ in {
         if nodeModules == null
         then ""
         else ''
-          nm_store="${lib.escapeShellArg nodeModules}"
+          nm_store=${lib.escapeShellArg nodeModules}
           echo "Linking node_modules from $nm_store..."
 
           # Detect dream2nix output structure (lib/node_modules vs node_modules)
@@ -556,7 +560,12 @@ in {
               cp -R ${lib.escapeShellArg projectRoot} src
               chmod -R +w src
               cd src
-              ${linkNodeModules (cfg.typescript.tsc.nodeModules or config.jackpkgs.outputs.nodeModules) tsPackages}
+              ${linkNodeModules (
+                  if cfg.typescript.tsc.nodeModules != null
+                  then cfg.typescript.tsc.nodeModules
+                  else config.jackpkgs.outputs.nodeModules or null
+                )
+                tsPackages}
             '';
             checkCommands =
               lib.concatMapStringsSep "\n" (pkg: ''
@@ -564,8 +573,8 @@ in {
 
                             # Validate node_modules exists
                             if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg pkg}/node_modules ]; then
-                              cat >&2 << EOF
-                ERROR: node_modules not found for package: ${pkg}
+                              cat >&2 << 'EOF'
+                ERROR: node_modules not found for package: ${lib.escapeShellArg pkg}
 
                 TypeScript checks require node_modules to be present.
 
@@ -603,7 +612,12 @@ in {
             cp -R ${lib.escapeShellArg projectRoot} src
             chmod -R +w src
             cd src
-            ${linkNodeModules (cfg.jest.nodeModules or config.jackpkgs.outputs.nodeModules) jestPackages}
+            ${linkNodeModules (
+                if cfg.jest.nodeModules != null
+                then cfg.jest.nodeModules
+                else config.jackpkgs.outputs.nodeModules or null
+              )
+              jestPackages}
 
             # Save root directory for absolute path resolution
             WORKSPACE_ROOT="$PWD"
@@ -618,29 +632,20 @@ in {
               echo "Testing ${lib.escapeShellArg pkg}..."
               cd ${lib.escapeShellArg pkg}
 
-              # Locate jest binary using multiple strategies (checked at runtime):
-              # 1. Nix store path from nodeModules derivation (pure, preferred)
-              # 2. Package-local node_modules/.bin/jest (workspace package has own jest)
-              # 3. Linked root node_modules/.bin/jest (hoisted dependencies)
-              # 4. Package-local node_modules/jest/bin/jest.js (alternative location)
-              # 5. Linked root node_modules/jest/bin/jest.js (fallback)
+              # Locate jest binary from trusted sources only:
+              # 1. PATH (includes Nix store paths from nodeModules derivation)
+              # 2. Linked node_modules from Nix store (never from source tree)
               JEST_BIN=""
               if command -v jest >/dev/null 2>&1; then
                 JEST_BIN="jest"
-              elif [ -f "node_modules/.bin/jest" ]; then
-                JEST_BIN="./node_modules/.bin/jest"
-              elif [ -f "node_modules/jest/bin/jest.js" ]; then
-                JEST_BIN="node node_modules/jest/bin/jest.js"
-              elif [ -f "$WORKSPACE_ROOT/node_modules/jest/bin/jest.js" ]; then
-                JEST_BIN="node $WORKSPACE_ROOT/node_modules/jest/bin/jest.js"
+              else
+                echo "WARNING: Jest binary not found for ${lib.escapeShellArg pkg}, skipping."
+                # Don't fail the build if jest isn't set up for this specific package
+                # (some packages in workspace might not have tests)
               fi
 
               if [ -n "$JEST_BIN" ]; then
                 $JEST_BIN ${lib.escapeShellArgs cfg.jest.extraArgs}
-              else
-                echo "WARNING: Jest binary not found for ${pkg}, skipping."
-                # Don't fail the build if jest isn't set up for this specific package
-                # (some packages in workspace might not have tests)
               fi
               cd - >/dev/null
             '')
