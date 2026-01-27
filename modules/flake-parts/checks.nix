@@ -615,14 +615,8 @@ in {
             WORKSPACE_ROOT="$PWD"
             export WORKSPACE_ROOT
             ${lib.optionalString (jestNodeModules != null) ''
-              # Add Nix store node_modules binaries to PATH (trusted only)
-              # This allows jest to be found regardless of the working directory
-              nm_store=${jestNodeModules}
-              if [ -d "$nm_store/lib/node_modules/.bin" ]; then
-                export PATH="$nm_store/lib/node_modules/.bin:$PATH"
-              elif [ -d "$nm_store/node_modules/.bin" ]; then
-                export PATH="$nm_store/node_modules/.bin:$PATH"
-              fi
+              # Add Nix store node_modules binaries to PATH (see ADR-017 Appendix C)
+              export PATH="${jestNodeModules}/lib/node_modules/.bin:$PATH"
             ''}
 
             # Locate jest binary from trusted sources only (once for all packages)
