@@ -8,7 +8,6 @@
   cfg = config.jackpkgs.pre-commit;
 in {
   imports = [
-    (import ./pkgs.nix {inherit jackpkgsInputs;})
     jackpkgsInputs.pre-commit-hooks.flakeModule
   ];
 

@@ -70,8 +70,8 @@ Notes:
 
 This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModules` sourced from `modules/flake-parts/`:
 
-- `default` — imports all modules below.
-- `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs (imported automatically by modules that use `config.jackpkgs.pkgs`).
+- `default` — imports all modules below (including `pkgs`).
+- `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
 - `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy; picks up `jackpkgs.python.environments.default` automatically when defined).
@@ -96,6 +96,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 flake-parts.lib.mkFlake { inherit inputs; } {
   systems = import inputs.systems;
   imports = [
+    inputs.jackpkgs.flakeModules.pkgs  # Required when using jackpkgs.pkgs with overlayed nixpkgs
     inputs.jackpkgs.flakeModules.fmt
     inputs.jackpkgs.flakeModules.just
     inputs.jackpkgs.flakeModules.pre-commit
@@ -107,6 +108,8 @@ flake-parts.lib.mkFlake { inherit inputs; } {
   ];
 }
 ```
+
+Note: When importing modules à la carte, include `flakeModules.pkgs` if you want to set `jackpkgs.pkgs` to propagate overlayed nixpkgs. The `default` module includes it automatically.
 
 ### Using overlayed nixpkgs
 

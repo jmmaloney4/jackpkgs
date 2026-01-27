@@ -8,7 +8,6 @@
   cfg = config.jackpkgs.pulumi;
 in {
   imports = [
-    (import ./pkgs.nix {inherit jackpkgsInputs;})
   ];
 
   options = let

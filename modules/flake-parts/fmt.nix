@@ -9,7 +9,6 @@
   defaultExcludes = ["**/node_modules/**" "**/dist/**" "**/.direnv/**" ".jj/**" "/nix/**" ".venv/**"];
 in {
   imports = [
-    (import ./pkgs.nix {inherit jackpkgsInputs;})
     jackpkgsInputs.flake-root.flakeModule
     jackpkgsInputs.treefmt.flakeModule
   ];
