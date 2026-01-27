@@ -234,10 +234,11 @@ in {
       # Link node_modules into the sandbox
       # Strategy: Link root node_modules, then iterate through packages and link their node_modules if present in the store
       #
-      # Path Behavior Documentation for pnpm workspaces (e.g. zeus, yard):
-      # dream2nix mirrors the workspace structure in the store.
-      # - Root dependencies: <store>/lib/node_modules/node_modules
-      # - Package dependencies: <store>/lib/node_modules/<package>/node_modules
+      # Path Behavior Documentation for pnpm workspaces (per ADR-017 Appendix C):
+      # dream2nix nodejs-granular module outputs dependencies at:
+      # - Root binaries: <store>/lib/node_modules/.bin
+      # - Package dependencies: <store>/lib/node_modules/<packageName>/node_modules
+      # Note: There is NO extra node_modules level at root (i.e., NOT <store>/lib/node_modules/node_modules)
       #
       # We symlink these back to the source tree so tools like tsc/jest find them naturally.
       linkNodeModules = nodeModules: packages:
