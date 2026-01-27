@@ -111,18 +111,23 @@ in {
         # Nix evaluation time, because the derivation doesn't exist yet during eval.
         # builtins.pathExists would always return false for unbuilt store paths.
         shellHook = ''
+          node_modules_bin=""
           ${lib.optionalString (nodeModules != null) ''
             # Use dream2nix-built binaries from Nix store (pure, preferred)
             # Check at runtime which structure dream2nix used
             if [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
-              export PATH="${nodeModules}/lib/node_modules/.bin:$PATH"
+              node_modules_bin="${nodeModules}/lib/node_modules/.bin"
             elif [ -d "${nodeModules}/node_modules/.bin" ]; then
-              export PATH="${nodeModules}/node_modules/.bin:$PATH"
+              node_modules_bin="${nodeModules}/node_modules/.bin"
             fi
           ''}
-          # Fallback: Add local node_modules/.bin for impure builds (pnpm install)
-          # This allows the devshell to work even without dream2nix-built node_modules
-          export PATH="$PWD/node_modules/.bin:$PATH"
+          if [ -n "$node_modules_bin" ]; then
+            export PATH="$node_modules_bin:$PATH"
+          else
+            # Fallback: Add local node_modules/.bin for impure builds (pnpm install)
+            # This allows the devshell to work even without dream2nix-built node_modules
+            export PATH="$PWD/node_modules/.bin:$PATH"
+          fi
         '';
       };
 
