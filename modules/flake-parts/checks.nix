@@ -405,7 +405,7 @@ in {
         workspaceGlobs =
           if builtins.isList workspaces
           then workspaces
-          else if workspaces != []
+          else if workspaces != null
           then throw "jackpkgs: package.json 'workspaces' field must be a list of strings. Object syntax (e.g. { packages = [...] }) is not supported."
           else [];
 
