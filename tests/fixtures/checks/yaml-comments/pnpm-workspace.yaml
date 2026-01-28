@@ -1,6 +1,0 @@
-# pnpm workspace configuration
-packages:
-  - "packages/*" # All packages
-  - tools/cli # CLI tool
-  # - disabled/package
-  - apps/*

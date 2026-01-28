@@ -1,0 +1,7 @@
+{
+  "name": "npm-workspace-fixture",
+  "workspaces": [
+    "packages/*",
+    "tools/*"
+  ]
+}
