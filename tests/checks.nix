@@ -8,13 +8,8 @@
 
   pythonWorkspace = ./fixtures/checks/python-workspace;
   pythonWorkspaceDefault = ./fixtures/checks/python-workspace-default;
-  pnpmWorkspace = ./fixtures/checks/pnpm-workspace;
-  pnpmNoWorkspace = ./fixtures/checks/no-pnpm;
-
-  # YAML parser test fixtures
-  yamlTrailingWs = ./fixtures/checks/yaml-trailing-ws;
-  yamlComments = ./fixtures/checks/yaml-comments;
-  yamlMixedQuotes = ./fixtures/checks/yaml-mixed-quotes;
+  npmWorkspace = ./fixtures/checks/npm-workspace;
+  npmNoWorkspace = ./fixtures/checks/no-npm;
 
   # pyprojectPath is a string relative path, not a path object
   pythonWorkspacePyproject = "./pyproject.toml";
@@ -171,7 +166,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
-      projectRoot = pnpmNoWorkspace;
+      projectRoot = npmNoWorkspace;
     };
   in {
     expr = hasCheck checks "typescript-tsc";
@@ -186,7 +181,7 @@ in {
         checksEnable = false;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
-      projectRoot = pnpmNoWorkspace;
+      projectRoot = npmNoWorkspace;
     };
   in {
     expr = missingChecksNamed checks ["python-pytest" "python-mypy" "python-ruff" "typescript-tsc"];
@@ -388,7 +383,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.extraArgs = ["--pretty" "false"];
       };
-      projectRoot = pnpmWorkspace;
+      projectRoot = npmWorkspace;
     };
     script = getBuildCommand checks.typescript-tsc;
   in {
@@ -408,7 +403,7 @@ in {
   testTypescriptMissingWorkspace = let
     checks = mkChecks {
       configModule = mkConfigModule {pulumiEnable = true;};
-      projectRoot = pnpmNoWorkspace;
+      projectRoot = npmNoWorkspace;
     };
   in {
     expr = missingCheck checks "typescript-tsc";
@@ -421,7 +416,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra" "tools/hello"];
       };
-      projectRoot = pnpmNoWorkspace;
+      projectRoot = npmNoWorkspace;
     };
     script = getBuildCommand checks.typescript-tsc;
   in {
@@ -437,7 +432,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
-      projectRoot = pnpmNoWorkspace;
+      projectRoot = npmNoWorkspace;
     };
     script = getBuildCommand checks.typescript-tsc;
   in {
@@ -451,94 +446,6 @@ in {
     expected = true;
   };
 
-  # YAML Parser Smoke Tests
-  # These tests verify the YAML parser handles common edge cases correctly
-
-  testYamlParserTrailingWhitespace = let
-    # Test that trailing whitespace is trimmed from package paths
-    # This was a bug fixed in commit 1ea2e81
-    checks = mkChecks {
-      configModule = mkConfigModule {
-        pulumiEnable = true;
-      };
-      projectRoot = yamlTrailingWs;
-    };
-    script = getBuildCommand checks.typescript-tsc;
-  in {
-    expr =
-      # Verify parser correctly discovers packages despite trailing whitespace in YAML
-      hasInfixAll [
-        "Type-checking packages/pkg1"
-        "Type-checking packages/pkg2"
-        "Type-checking tools/cli"
-        "Type-checking apps/main"
-      ]
-      script;
-    expected = true;
-  };
-
-  testYamlParserWithComments = let
-    # Test that comments are properly ignored
-    checks = mkChecks {
-      configModule = mkConfigModule {
-        pulumiEnable = true;
-      };
-      projectRoot = yamlComments;
-    };
-    script = getBuildCommand checks.typescript-tsc;
-  in {
-    expr =
-      # Should find packages, tools, apps
-      hasInfixAll [
-        "Type-checking packages/pkg1"
-        "Type-checking packages/pkg2"
-        "Type-checking tools/cli"
-        "Type-checking apps/main"
-        "Type-checking apps/web"
-      ]
-      script
-      # Should NOT include commented-out package
-      && !lib.hasInfix "disabled/package" script;
-    expected = true;
-  };
-
-  testYamlParserMixedQuoting = let
-    # Test that unquoted, double-quoted, and single-quoted strings work
-    checks = mkChecks {
-      configModule = mkConfigModule {
-        pulumiEnable = true;
-      };
-      projectRoot = yamlMixedQuotes;
-    };
-  in {
-    expr = hasChecksNamed checks ["typescript-tsc"];
-    expected = true;
-  };
-
-  testYamlParserGlobExpansion = let
-    # Test that globs like "packages/*" are expanded correctly
-    checks = mkChecks {
-      configModule = mkConfigModule {
-        pulumiEnable = true;
-      };
-      projectRoot = yamlMixedQuotes;
-    };
-    script = getBuildCommand checks.typescript-tsc;
-  in {
-    expr =
-      # packages/* should expand to packages/pkg1 and packages/pkg2
-      lib.hasInfix "Type-checking packages/pkg1" script
-      && lib.hasInfix "Type-checking packages/pkg2" script
-      # tools/* should expand to tools/cli
-      && lib.hasInfix "Type-checking tools/cli" script
-      # apps/* should expand to apps/main and apps/web
-      && lib.hasInfix "Type-checking apps/main" script
-      && lib.hasInfix "Type-checking apps/web" script
-      # libs/core should be included as-is (no glob)
-      && lib.hasInfix "Type-checking libs/core" script;
-    expected = true;
-  };
-
   testVitestEnabled = let
     checks = mkChecks {
       configModule = mkConfigModule {
@@ -546,7 +453,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.enable = true;
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
       };
-      projectRoot = pnpmWorkspace;
+      projectRoot = npmWorkspace;
     };
   in {
     expr = hasCheck checks "javascript-vitest";
@@ -561,7 +468,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.extraArgs = ["--coverage"];
       };
-      projectRoot = pnpmWorkspace;
+      projectRoot = npmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {
@@ -595,7 +502,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
       };
-      projectRoot = pnpmWorkspace;
+      projectRoot = npmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {
@@ -627,7 +534,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
       };
-      projectRoot = pnpmWorkspace;
+      projectRoot = npmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {

@@ -9,7 +9,6 @@
     (import ./just.nix {inherit jackpkgsInputs;})
     (import ./pre-commit.nix {inherit jackpkgsInputs;})
     (import ./nodejs.nix {inherit jackpkgsInputs;})
-    (import ./pnpm.nix {inherit jackpkgsInputs;})
     (import ./pulumi.nix {inherit jackpkgsInputs;})
     (import ./quarto.nix {inherit jackpkgsInputs;})
     (import ./checks.nix {inherit jackpkgsInputs;})
