@@ -41,7 +41,8 @@ We will switch `jackpkgs` to use **npm** and **`package-lock.json`** exclusively
 
 ## Migration Guide for Consumers (`zeus`, `yard`, etc.)
 
-1.  **Remove pnpm**: Delete `pnpm-lock.yaml` and `pnpm-workspace.yaml` (unless Pulumi requires workspace config, but npm uses `package.json` workspaces).
+1.  **Remove pnpm**: Delete `pnpm-lock.yaml` and `pnpm-workspace.yaml`.
+    *   **Note**: Pulumi projects typically rely on Node resolution logic, which works natively with npm workspaces. You generally do *not* need `pnpm-workspace.yaml` unless you have custom scripts explicitly parsing it. Pulumi YAML runtime configuration may reference package managers but typically auto-detects based on the lockfile.
 2.  **Configure npm workspaces**: Ensure root `package.json` has a `workspaces` field matching the old pnpm config.
     ```json
     "workspaces": [
@@ -68,3 +69,25 @@ We will switch `jackpkgs` to use **npm** and **`package-lock.json`** exclusively
 
 ### Failure Mode
 Projects trying to use `pnpm` with the new `jackpkgs` version will fail (missing `pnpm` binary, ignored `pnpm-lock.yaml`). This meets the "fail fast" requirement.
+
+## Appendix A: Pulumi & Package Management
+
+### Nix within Pulumi
+Pulumi does not natively support Nix for package management. It relies on standard language package managers (npm, pip, go mod).
+*   **Detection**: Pulumi detects the package manager via lockfiles (`package-lock.json`).
+*   **Install**: Pulumi runs `npm install` if `node_modules` is missing.
+*   **Execution**: Pulumi executes the Node.js runtime (e.g., `node bin/index.js`).
+
+`jackpkgs` uses `dream2nix` to ensure that dependencies are built hermetically and provided to the environment. Switching to `package-lock.json` improves this integration because `dream2nix`'s legacy translator handles standard npm structures more reliably than pnpm's symlinked structures.
+
+### Plugins & Hermeticity
+Pulumi has two components: the **SDK** (npm package) and the **Binary Plugin** (Go binary).
+*   **SDK**: Managed via `npm` (and thus `jackpkgs`/`dream2nix`).
+*   **Plugins**: Managed by the Pulumi CLI, which downloads binaries matching the SDK version.
+
+**Why we don't manage plugins with Nix**:
+Managing plugins via Nix introduces a "Double Update Problem" where the `package.json` SDK version and the Nix derivation hash must be manually synchronized. This is fragile and high-maintenance.
+
+**Our Approach**:
+1.  **Self-Management**: Let Pulumi download plugins to `~/.pulumi/plugins` on first run.
+2.  **Consistency**: Use `PULUMI_IGNORE_AMBIENT_PLUGINS=1` in our devshells. This forces Pulumi to ignore global system plugins (e.g. in `/usr/local/bin`) and only use the specific version downloaded for the project, ensuring the binary exactly matches the SDK version defined in `package-lock.json`.
