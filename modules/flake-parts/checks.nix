@@ -231,7 +231,7 @@ in {
       # Link node_modules into the sandbox
       # Strategy: Link root node_modules, then iterate through packages and link their node_modules if present in the store
       #
-      # Path Behavior Documentation for pnpm workspaces (per ADR-017 Appendix C):
+      # Path Behavior Documentation for dream2nix (per ADR-017 Appendix C):
       # dream2nix nodejs-granular module outputs dependencies at:
       # - Root binaries: <store>/lib/node_modules/.bin
       # - Package dependencies: <store>/lib/node_modules/<packageName>/node_modules
@@ -245,7 +245,7 @@ in {
           nm_store=${nodeModules}
           echo "Linking node_modules from $nm_store..."
 
-          # dream2nix pnpm2nix module outputs to lib/node_modules (see ADR-017 Appendix C)
+          # dream2nix module outputs to lib/node_modules (see ADR-017 Appendix C)
           nm_root="$nm_store/lib/node_modules"
 
           # Link root node_modules
@@ -255,7 +255,7 @@ in {
           ${lib.concatMapStringsSep "\n" (pkg: ''
               mkdir -p ${lib.escapeShellArg pkg}
 
-              # Link nested node_modules for pnpm workspace packages
+              # Link nested node_modules for workspace packages
               if [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
                 ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
               fi
