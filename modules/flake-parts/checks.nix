@@ -121,7 +121,8 @@ in {
               Example: packages = ["infra" "tools/hello" "apps/web"];
 
               If null, packages will be auto-discovered from package.json "workspaces"
-              field. Auto-discovery supports glob patterns (e.g. "packages/*").
+              field. Auto-discovery supports simple wildcard patterns (e.g. "packages/*")
+              but does NOT support full recursive globs (e.g. "packages/**").
 
               For complex workspace configurations, use explicit listing.
             '';
@@ -402,6 +403,8 @@ in {
         workspaceGlobs =
           if builtins.isList workspaces
           then workspaces
+          else if workspaces != []
+          then throw "jackpkgs: package.json 'workspaces' field must be a list of strings. Object syntax (e.g. { packages = [...] }) is not supported."
           else [];
 
         allPackages = lib.flatten (map (expandWorkspaceGlob workspaceRoot) workspaceGlobs);
