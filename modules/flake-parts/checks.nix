@@ -247,7 +247,14 @@ in {
           echo "Linking node_modules from $nm_store..."
 
           # dream2nix module outputs to lib/node_modules (see ADR-017 Appendix C)
-          nm_root="$nm_store/lib/node_modules"
+          # With nodejs-granular and project name "default" (from nodejs.nix),
+          # dependencies are likely in lib/node_modules/default/node_modules.
+          # We check for that first, then fall back to lib/node_modules.
+          if [ -d "$nm_store/lib/node_modules/default/node_modules" ]; then
+             nm_root="$nm_store/lib/node_modules/default/node_modules"
+          else
+             nm_root="$nm_store/lib/node_modules"
+          fi
 
           # Link root node_modules
           ln -sfn "$nm_root" node_modules
