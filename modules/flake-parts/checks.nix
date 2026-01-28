@@ -393,13 +393,16 @@ in {
           if jsonExists
           then builtins.fromJSON (builtins.readFile jsonPath)
           else {};
-        
+
         # package.json workspaces can be a list of strings
         # (We don't support the object syntax { packages = [...] } which is rarely used)
         workspaces = packageJson.workspaces or [];
-        
+
         # Handle case where workspaces is not a list (e.g. if it's missing or wrong type)
-        workspaceGlobs = if builtins.isList workspaces then workspaces else [];
+        workspaceGlobs =
+          if builtins.isList workspaces
+          then workspaces
+          else [];
 
         allPackages = lib.flatten (map (expandWorkspaceGlob workspaceRoot) workspaceGlobs);
 
