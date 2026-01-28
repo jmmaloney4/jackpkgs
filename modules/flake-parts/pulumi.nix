@@ -45,7 +45,6 @@ in {
         default = with config.jackpkgs.pkgs; [
           pulumi-bin
           nodejs
-          pnpm
           jq
           (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
         ];
@@ -53,7 +52,6 @@ in {
           with config.jackpkgs.pkgs; [
             pulumi-bin
             nodejs
-            pnpm
             jq
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
           ]
@@ -76,7 +74,6 @@ in {
           packages = with pkgs; [
             pulumi-bin
             nodejs
-            pnpm
             jq
             just
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
