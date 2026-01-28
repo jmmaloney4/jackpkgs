@@ -466,7 +466,7 @@ in {
         extraConfig.jackpkgs.checks.enable = true;
         extraConfig.jackpkgs.checks.vitest.enable = true;
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
-        extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
+        extraConfig.jackpkgs.checks.vitest.extraArgs = ["--coverage"];
       };
       projectRoot = npmWorkspace;
     };
@@ -502,7 +502,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
       };
-      projectRoot = pnpmWorkspace;
+      projectRoot = npmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {
@@ -534,7 +534,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
       };
-      projectRoot = pnpmWorkspace;
+      projectRoot = npmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {
