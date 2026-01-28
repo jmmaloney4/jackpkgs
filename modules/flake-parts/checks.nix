@@ -120,13 +120,9 @@ in {
               RECOMMENDED: Explicitly list packages for reliability and clarity.
               Example: packages = ["infra" "tools/hello" "apps/web"];
 
-              If null, packages will be auto-discovered from pnpm-workspace.yaml
-              using a simple parser. Auto-discovery is best-effort and supports
-              only basic YAML list syntax (single-quoted, double-quoted, or unquoted
-              strings, comments, simple globs).
+              If null, packages will be auto-discovered from package.json "workspaces"
+              field. Auto-discovery supports glob patterns (e.g. "packages/*").
 
-              Auto-discovery does NOT support: YAML anchors/aliases, multi-line
-              strings, inline arrays, or paths with unescaped quotes inside values.
               For complex workspace configurations, use explicit listing.
             '';
             example = ["infra" "tools/hello"];
@@ -168,7 +164,7 @@ in {
           default = null;
           description = ''
             List of packages to test with Vitest.
-            If null, uses same discovery as tsc (pnpm-workspace.yaml).
+            If null, uses same discovery as tsc (package.json workspaces).
           '';
         };
 
@@ -388,79 +384,30 @@ in {
         then jackpkgsProjectRoot
         else config.jackpkgs.projectRoot or inputs.self.outPath;
 
-      # Discover pnpm workspace packages from pnpm-workspace.yaml
-      # YAML Parser Limitations: This is a simple line-by-line parser that supports
-      # basic YAML list syntax under 'packages:' key. It handles single-quoted, double-quoted,
-      # and unquoted strings, comments, and simple indentation. It does NOT support: YAML
-      # anchors/aliases, multi-line strings, inline arrays, complex nested structures, or
-      # paths with unescaped quotes/apostrophes inside values (e.g., paths like foo"bar or
-      # unquoted foo's-bar will fail; properly quoted "foo's-bar" or 'foo"bar' work fine).
-      # For complex pnpm-workspace.yaml files, use explicit configuration via
-      # jackpkgs.checks.typescript.tsc.packages option.
-      discoverPnpmPackages = workspaceRoot: let
-        yamlPath = workspaceRoot + "/pnpm-workspace.yaml";
-        yamlExists = builtins.pathExists yamlPath;
-        yamlLines =
-          if yamlExists
-          then lib.splitString "\n" (builtins.readFile yamlPath)
-          else [];
-        trimLine = line: let
-          match = builtins.match "^[[:space:]]*(.*[^[:space:]])?[[:space:]]*$" line;
-          head =
-            if match == null
-            then null
-            else lib.head match;
-        in
-          if head == null
-          then ""
-          else head;
-        parsePackageLine = line: let
-          # Match package lines with double quotes, single quotes, or unquoted
-          # Tries three patterns in order: double-quoted, single-quoted, unquoted
-          doubleQuoted = builtins.match "^[[:space:]]*-[[:space:]]*\"([^\"]+)\".*$" line;
-          singleQuoted = builtins.match "^[[:space:]]*-[[:space:]]*'([^']+)'.*$" line;
-          unquoted = builtins.match "^[[:space:]]*-[[:space:]]*([^#\"']+).*$" line;
-          head =
-            if doubleQuoted != null
-            then lib.head doubleQuoted
-            else if singleQuoted != null
-            then lib.head singleQuoted
-            else if unquoted != null
-            then lib.head unquoted
-            else null;
-        in
-          if head == null
-          then null
-          else trimLine head; # Trim trailing whitespace from unquoted values
-        parsed =
-          lib.foldl' (
-            acc: line: let
-              trimmed = trimLine line;
-              isPackagesKey = builtins.match "^packages:([[:space:]]*(#.*)?)?$" trimmed != null;
-              isTopLevelKey = builtins.match "^[^[:space:]]+:[[:space:]]*.*$" trimmed != null;
-              pkg = parsePackageLine line;
-            in
-              if isPackagesKey
-              then acc // {inPackages = true;}
-              else if acc.inPackages && isTopLevelKey
-              then acc // {inPackages = false;}
-              else if acc.inPackages && pkg != null
-              then acc // {packages = acc.packages ++ [pkg];}
-              else acc
-          ) {
-            inPackages = false;
-            packages = [];
-          }
-          yamlLines;
-        packageGlobs = parsed.packages or [];
+      # Discover npm workspace packages from package.json
+      # Supports 'workspaces' field (list of globs).
+      discoverNpmPackages = workspaceRoot: let
+        jsonPath = workspaceRoot + "/package.json";
+        jsonExists = builtins.pathExists jsonPath;
+        packageJson =
+          if jsonExists
+          then builtins.fromJSON (builtins.readFile jsonPath)
+          else {};
+        
+        # package.json workspaces can be a list of strings
+        # (We don't support the object syntax { packages = [...] } which is rarely used)
+        workspaces = packageJson.workspaces or [];
+        
+        # Handle case where workspaces is not a list (e.g. if it's missing or wrong type)
+        workspaceGlobs = if builtins.isList workspaces then workspaces else [];
 
-        allPackages = lib.flatten (map (expandWorkspaceGlob workspaceRoot) packageGlobs);
+        allPackages = lib.flatten (map (expandWorkspaceGlob workspaceRoot) workspaceGlobs);
 
         # Filter for directories with package.json
         hasPackageJson = pkg:
           builtins.pathExists (workspaceRoot + "/${pkg}/package.json");
       in
-        if yamlExists
+        if jsonExists
         then lib.filter hasPackageJson allPackages
         else [];
 
@@ -468,13 +415,13 @@ in {
       tsPackages =
         if cfg.typescript.tsc.packages != null
         then map validateWorkspacePath cfg.typescript.tsc.packages
-        else discoverPnpmPackages projectRoot;
+        else discoverNpmPackages projectRoot;
 
       # Determine Vitest packages
       vitestPackages =
         if cfg.vitest.packages != null
         then map validateWorkspacePath cfg.vitest.packages
-        else discoverPnpmPackages projectRoot;
+        else discoverNpmPackages projectRoot;
 
       # NOTE: We cannot use builtins.pathExists on nodeModules paths at Nix evaluation
       # time because the derivation doesn't exist yet (it's built later). The path
