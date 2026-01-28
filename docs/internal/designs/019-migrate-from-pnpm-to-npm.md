@@ -1,7 +1,7 @@
 # ADR: Migrate from pnpm to npm (package-lock)
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 `jackpkgs` currently defaults to and encourages `pnpm` for Node.js projects, including complex monorepos like `zeus` and `yard`. However, the `nodejs` module relies on `dream2nix`'s legacy API to build these environments. We have discovered that **`dream2nix` (legacy) does not implement a `pnpm-lock` translator**, causing build failures (see Issue #126).
