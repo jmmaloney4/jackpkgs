@@ -28,13 +28,7 @@ in {
         type = types.path;
         default = config.jackpkgs.projectRoot or inputs.self.outPath;
         defaultText = "config.jackpkgs.projectRoot or inputs.self.outPath";
-        description = "Root of the Node.js project (containing package.json/pnpm-lock.yaml).";
-      };
-
-      packageManager = mkOption {
-        type = types.enum ["pnpm"];
-        default = "pnpm";
-        description = "Package manager to use (currently only pnpm is supported).";
+        description = "Root of the Node.js project (containing package.json/package-lock.json).";
       };
     };
 
@@ -85,7 +79,7 @@ in {
             name = "default";
             relPath = "";
             subsystem = "nodejs";
-            translator = "pnpm-lock";
+            translator = "package-lock";
             subsystemInfo = {
               nodejs = cfg.version;
             };
@@ -101,36 +95,35 @@ in {
       jackpkgs.outputs.nodeModules = nodeModules;
 
       # Create devshell fragment
-      jackpkgs.outputs.nodejsDevShell = pkgs.mkShell {
-        packages = [
-          nodejsPackage
-          pkgs.pnpm
-        ];
+        jackpkgs.outputs.nodejsDevShell = pkgs.mkShell {
+          packages = [
+            nodejsPackage
+          ];
 
-        # NOTE: We check for .bin paths at runtime (shellHook execution time), not at
-        # Nix evaluation time, because the derivation doesn't exist yet during eval.
-        # builtins.pathExists would always return false for unbuilt store paths.
-        # Per ADR-017 Appendix C: dream2nix nodejs-granular outputs binaries at
-        # <store>/lib/node_modules/.bin (no extra node_modules level at root)
-        shellHook = ''
-          node_modules_bin=""
-          ${lib.optionalString (nodeModules != null) ''
-            # Use dream2nix-built binaries from Nix store (pure, preferred)
-            if [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
-              node_modules_bin="${nodeModules}/lib/node_modules/.bin"
-            elif [ -d "${nodeModules}/node_modules/.bin" ]; then
-              node_modules_bin="${nodeModules}/node_modules/.bin"
+          # NOTE: We check for .bin paths at runtime (shellHook execution time), not at
+          # Nix evaluation time, because the derivation doesn't exist yet during eval.
+          # builtins.pathExists would always return false for unbuilt store paths.
+          # Per ADR-017 Appendix C: dream2nix nodejs-granular outputs binaries at
+          # <store>/lib/node_modules/.bin (no extra node_modules level at root)
+          shellHook = ''
+            node_modules_bin=""
+            ${lib.optionalString (nodeModules != null) ''
+              # Use dream2nix-built binaries from Nix store (pure, preferred)
+              if [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
+                node_modules_bin="${nodeModules}/lib/node_modules/.bin"
+              elif [ -d "${nodeModules}/node_modules/.bin" ]; then
+                node_modules_bin="${nodeModules}/node_modules/.bin"
+              fi
+            ''}
+            if [ -n "$node_modules_bin" ]; then
+              export PATH="$node_modules_bin:$PATH"
+            else
+              # Fallback: Add local node_modules/.bin for impure builds (npm install)
+              # This allows the devshell to work even without dream2nix-built node_modules
+              export PATH="$PWD/node_modules/.bin:$PATH"
             fi
-          ''}
-          if [ -n "$node_modules_bin" ]; then
-            export PATH="$node_modules_bin:$PATH"
-          else
-            # Fallback: Add local node_modules/.bin for impure builds (pnpm install)
-            # This allows the devshell to work even without dream2nix-built node_modules
-            export PATH="$PWD/node_modules/.bin:$PATH"
-          fi
-        '';
-      };
+          '';
+        };
 
       # Auto-configure main devshell
       jackpkgs.shell.inputsFrom =
