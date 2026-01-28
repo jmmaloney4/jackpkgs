@@ -332,14 +332,11 @@ in {
         isNonEditableEnv = envCfg: envCfg != null && !isEditableEnv envCfg;
 
         # Check if an environment is suitable for CI (non-editable + groups enabled)
+        # Note: envCfg.includeGroups can be null, true, or false (nullOr bool type).
+        # Using `== true` correctly handles all cases: null→false, true→true, false→false.
         isCiEnvCandidate = envCfg:
           isNonEditableEnv envCfg
-          && (
-            # includeGroups explicitly true, or null with editable=false (defaults to false, but we want true for CI)
-            # Since we're checking non-editable envs, includeGroups=null means it defaults to false
-            # So we need explicit includeGroups=true
-            (envCfg.includeGroups or false)
-          );
+          && (envCfg.includeGroups or null) == true;
 
         # Check if a 'dev' environment is configured
         hasDevEnv = configuredEnvs ? dev;
