@@ -1,8 +1,8 @@
 {
-  "name": "my-project",
-  "version": "0.1.0",
-  "private": true,
-  "workspaces": [
-    "packages/*"
-  ]
+	"name": "my-project",
+	"version": "0.1.0",
+	"private": true,
+	"workspaces": [
+		"packages/*"
+	]
 }
