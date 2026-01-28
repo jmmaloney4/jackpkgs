@@ -91,3 +91,37 @@ Managing plugins via Nix introduces a "Double Update Problem" where the `package
 **Our Approach**:
 1.  **Self-Management**: Let Pulumi download plugins to `~/.pulumi/plugins` on first run.
 2.  **Consistency**: Use `PULUMI_IGNORE_AMBIENT_PLUGINS=1` in our devshells. This forces Pulumi to ignore global system plugins (e.g. in `/usr/local/bin`) and only use the specific version downloaded for the project, ensuring the binary exactly matches the SDK version defined in `package-lock.json`.
+
+## Appendix B: Dream2nix & Node Modules Structure
+
+### Granular Builder Output
+The `dream2nix` `nodejs-granular` builder (used by `jackpkgs`) does **not** output a flat `node_modules` at the top level of the store path. Instead, it nests dependencies under the package name to support multiple packages in the same environment.
+
+Source reference: [`modules/dream2nix/nodejs-granular/devShell.nix`](https://github.com/nix-community/dream2nix/blob/main/modules/dream2nix/nodejs-granular/devShell.nix) defines the node modules path as:
+```nix
+nodeModulesDir = "${nodeModulesDrv}/lib/node_modules/${packageName}/node_modules";
+```
+
+### Implications for Jackpkgs
+In `modules/flake-parts/nodejs.nix`, we configure the project name as `"default"`:
+```nix
+subsystemInfo = {
+  # ...
+  packageName = "default";
+};
+```
+
+This results in the following store path structure for our `nodeModules` derivation:
+```
+<store-path>/lib/node_modules/default/node_modules/<dependency>
+```
+
+Our `checks.nix` logic handles this by checking for the nested path first:
+```bash
+if [ -d "$nm_store/lib/node_modules/default/node_modules" ]; then
+   nm_root="$nm_store/lib/node_modules/default/node_modules"
+else
+   nm_root="$nm_store/lib/node_modules"
+fi
+```
+This ensures that when we symlink `node_modules` in the sandbox, we are pointing to the directory containing the actual dependencies (`react`, `typescript`, etc.), not just a directory containing a single `default` folder.
