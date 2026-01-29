@@ -62,7 +62,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     dream2nix = {
-      url = "github:nix-community/dream2nix";
+      url = "github:nix-community/dream2nix/legacy";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.pyproject-nix.follows = "pyproject-nix";
       inputs.purescript-overlay.inputs.flake-compat.follows = "flake-compat";
