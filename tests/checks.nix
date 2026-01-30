@@ -4,6 +4,7 @@
 }: let
   system = "x86_64-linux";
   flakeParts = inputs.flake-parts.lib;
+  libModule = import ../modules/flake-parts/lib.nix {jackpkgsInputs = inputs;};
   checksModule = import ../modules/flake-parts/checks.nix {jackpkgsInputs = inputs;};
 
   pythonWorkspace = ./fixtures/checks/python-workspace;
@@ -72,7 +73,7 @@
   evalFlake = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = [optionsModule] ++ modules ++ [checksModule];
+      imports = [optionsModule libModule] ++ modules ++ [checksModule];
     };
 
   getChecks = modules: ((evalFlake modules).config.perSystem system).checks or {};
