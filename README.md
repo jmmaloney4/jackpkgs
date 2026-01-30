@@ -365,8 +365,8 @@ jackpkgs.python = {
     };
   };
 };
-# Note: With this setup, pre-commit uses pythonDefaultEnv which lacks mypy.
-# Override mypyPackage in perSystem if needed, or use the simple setup above.
+# Note: With this setup, pre-commit uses the 'default' environment which lacks mypy.
+# To fix, override `mypyPackage`, e.g.: `jackpkgs.pre-commit.mypyPackage = config.jackpkgs.outputs.pythonEnvironments.dev;`
 ```
 
 **Why is this necessary?**
