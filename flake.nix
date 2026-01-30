@@ -64,8 +64,7 @@
     dream2nix = {
       url = "github:nix-community/dream2nix/legacy";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.pyproject-nix.follows = "pyproject-nix";
-      inputs.purescript-overlay.inputs.flake-compat.follows = "flake-compat";
+      inputs.all-cabal-json.flake = false;
     };
     uv2nix = {
       url = "github:pyproject-nix/uv2nix";
