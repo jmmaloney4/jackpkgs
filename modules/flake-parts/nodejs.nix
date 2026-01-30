@@ -74,9 +74,8 @@ in {
         name = "node-modules";
         src = cfg.projectRoot;
         nodejs = nodejsPackage;
-        npmDeps = pkgs.importNpmLock {
-          npmRoot = cfg.projectRoot;
-          packageLock = cfg.projectRoot + "/package-lock.json";
+        npmDeps = pkgs.npmDeps {
+          src = cfg.projectRoot + "/package-lock.json";
         };
         installPhase = ''
           cp -R node_modules $out
