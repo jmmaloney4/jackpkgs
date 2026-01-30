@@ -30,6 +30,10 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    jupyenv = {
+      url = "github:jmmaloney4/jupyenv";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     just-flake = {
       url = "github:juspay/just-flake";
     };
