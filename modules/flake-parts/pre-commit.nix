@@ -5,6 +5,7 @@
   ...
 }: let
   inherit (lib) mkIf attrByPath;
+  inherit (jackpkgsInputs.self.lib) defaultExcludes;
   cfg = config.jackpkgs.pre-commit;
 in {
   imports = [
@@ -78,7 +79,7 @@ in {
           package = sysCfg.mypyPackage;
           entry = lib.getExe' sysCfg.mypyPackage "mypy";
           files = "\\.py$";
-          excludes = ["^nix/" "/node_modules/" "/dist/" "/__pycache__/"];
+          excludes = defaultExcludes.preCommit;
         };
       };
     };

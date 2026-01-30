@@ -44,4 +44,51 @@ with pkgs.lib; rec {
     in
       elem system pls)
     attrs;
+
+  # Default exclude patterns for code quality tools.
+  #
+  # Note: treefmt uses glob patterns, while mypy uses regular expressions.
+  # References:
+  # - https://treefmt.com/latest/getting-started/configure/ (excludes are glob patterns)
+  # - https://mypy.readthedocs.io/en/stable/config_file.html (exclude is a regex)
+  #
+  # Example:
+  #
+  # myLib.defaultExcludes.treefmt
+  # => ["**/node_modules/**" "**/dist/**" "**/.direnv/**" "**/.jj/**" "**/.venv/**" "**/__pycache__/**" "/nix/**"]
+  #
+  # myLib.defaultExcludes.preCommit
+  # => ["/node_modules/" "/dist/" "/.direnv/" "/.jj/" "/.venv/" "/__pycache__/" "^nix/"]
+  defaultExcludeDirs = [
+    {name = "node_modules";}
+    {name = "dist";}
+    {name = ".direnv";}
+    {name = ".jj";}
+    {name = ".venv";}
+    {name = "__pycache__";}
+    {
+      name = "nix";
+      rootOnly = true;
+    }
+  ];
+
+  treefmtExcludesFromDirs = dirs:
+    map (dir: let
+      rootOnly = dir.rootOnly or false;
+    in
+      if rootOnly then "/${dir.name}/**" else "**/${dir.name}/**")
+    dirs;
+
+  preCommitExcludesFromDirs = dirs:
+    map (dir: let
+      rootOnly = dir.rootOnly or false;
+      name = escapeRegex dir.name;
+    in
+      if rootOnly then "^${name}/" else "/${name}/")
+    dirs;
+
+  defaultExcludes = {
+    treefmt = treefmtExcludesFromDirs defaultExcludeDirs;
+    preCommit = preCommitExcludesFromDirs defaultExcludeDirs;
+  };
 }
