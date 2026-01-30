@@ -61,11 +61,6 @@
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    dream2nix = {
-      url = "github:nix-community/dream2nix/legacy";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.all-cabal-json.url = "path:./empty-flake";
-    };
     uv2nix = {
       url = "github:pyproject-nix/uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";

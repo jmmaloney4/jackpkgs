@@ -2,6 +2,7 @@
   inputs,
   config,
   lib,
+  jackpkgsLib,
   ...
 }: let
   inherit (lib) mkOption types mkEnableOption;
@@ -230,15 +231,13 @@ in {
         else path;
 
       # Link node_modules into the sandbox
-      # Strategy: Link root node_modules, then iterate through packages and link their node_modules if present in the store
+      # Strategy: Link root node_modules, then iterate through packages and link their
+      # node_modules if present in the store (primarily for legacy dream2nix layouts).
       #
-      # Path Behavior Documentation for dream2nix (per ADR-017 Appendix C):
-      # dream2nix nodejs-granular module outputs dependencies at:
-      # - Root binaries: <store>/lib/node_modules/.bin
-      # - Package dependencies: <store>/lib/node_modules/<packageName>/node_modules
-      # Note: There is NO extra node_modules level at root (i.e., NOT <store>/lib/node_modules/node_modules)
-      #
-      # We symlink these back to the source tree so tools like tsc/vitest find them naturally.
+      # Supported layouts:
+      # - buildNpmPackage: <store>/node_modules
+      # - dream2nix (nodejs-granular): <store>/lib/node_modules/default/node_modules
+      # - dream2nix (npm wrapper): <store>/lib/node_modules
       linkNodeModules = nodeModules: packages:
         if nodeModules == null
         then ""
@@ -246,10 +245,15 @@ in {
           nm_store=${nodeModules}
           echo "Linking node_modules from $nm_store..."
 
-          # dream2nix module outputs to lib/node_modules (see ADR-017 Appendix C)
-          # With nodejs-granular and project name "default" (from nodejs.nix),
-          # dependencies are in lib/node_modules/default/node_modules.
-          nm_root="$nm_store/lib/node_modules/default/node_modules"
+          # Detect layout
+          ${jackpkgsLib.nodejs.findNodeModulesRoot "nm_root" "$nm_store"}
+
+          if [ -z "$nm_root" ]; then
+            echo "ERROR: Unable to find node_modules in $nm_store" >&2
+            echo "Expected one of: node_modules/, lib/node_modules/, or lib/node_modules/default/node_modules/" >&2
+            echo "Enable Node.js module or provide custom nodeModules via jackpkgs.checks.typescript.tsc.nodeModules" >&2
+            exit 1
+          fi
 
           # Link root node_modules
           ln -sfn "$nm_root" node_modules
@@ -523,12 +527,12 @@ in {
 
                 TypeScript checks require node_modules to be present.
 
-                Enable the Node.js module to build node_modules via dream2nix:
+                Enable the Node.js module to build node_modules via buildNpmPackage:
 
                     jackpkgs.nodejs.enable = true;
 
                 This provides a pure, reproducible node_modules derivation that works
-                in Nix sandbox builds. See ADR-017 for configuration details.
+                in Nix sandbox builds. See ADR-020 for configuration details.
 
                 To disable TypeScript checks: jackpkgs.checks.typescript.enable = false;
                 EOF
@@ -567,8 +571,11 @@ in {
             WORKSPACE_ROOT="$PWD"
             export WORKSPACE_ROOT
             ${lib.optionalString (vitestNodeModules != null) ''
-              # Add Nix store node_modules binaries to PATH (see ADR-017 Appendix C)
-              export PATH="${vitestNodeModules}/lib/node_modules/.bin:$PATH"
+              # Add Nix store node_modules binaries to PATH
+              ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" vitestNodeModules}
+              if [ -n "$nm_bin" ]; then
+                export PATH="$nm_bin:$PATH"
+              fi
             ''}
 
             # Locate vitest binary from trusted sources only (once for all packages)

@@ -2,6 +2,7 @@
   inputs,
   config,
   lib,
+  jackpkgsLib,
   ...
 }: let
   inherit (lib) mkIf;
@@ -16,7 +17,7 @@ in {
     inherit (jackpkgsInputs.flake-parts.lib) mkDeferredModuleOption;
   in {
     jackpkgs.nodejs = {
-      enable = mkEnableOption "jackpkgs-nodejs (opinionated Node.js envs via dream2nix)" // {default = false;};
+      enable = mkEnableOption "jackpkgs-nodejs (opinionated Node.js envs via buildNpmPackage)" // {default = false;};
 
       version = mkOption {
         type = types.enum [18 20 22];
@@ -42,7 +43,7 @@ in {
       options.jackpkgs.outputs.nodeModules = mkOption {
         type = types.nullOr types.package;
         default = null;
-        description = "The node_modules derivation built by dream2nix.";
+        description = "The node_modules derivation built by buildNpmPackage.";
       };
 
       options.jackpkgs.outputs.nodejsDevShell = mkOption {
@@ -69,27 +70,18 @@ in {
         then pkgs.nodejs_20
         else pkgs.nodejs_22; # Default to 22
 
-      # Configure dream2nix to build the workspace
-      dreamOutputs = jackpkgsInputs.dream2nix.lib.makeFlakeOutputs {
-        systems = [system];
-        config.projectRoot = cfg.projectRoot;
-        source = cfg.projectRoot;
-        projects = {
-          default = {
-            name = "default";
-            relPath = "";
-            subsystem = "nodejs";
-            translator = "package-lock";
-            subsystemInfo = {
-              nodejs = cfg.version;
-            };
-          };
-        };
+      # Build node_modules using buildNpmPackage
+      nodeModules = pkgs.buildNpmPackage {
+        pname = "node-modules";
+        version = "1.0.0";
+        src = cfg.projectRoot;
+        nodejs = nodejsPackage;
+        npmDeps = pkgs.importNpmLock {npmRoot = cfg.projectRoot;};
+        npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+        installPhase = ''
+          cp -R node_modules $out
+        ''; # See ADR-020 Appendix A: Custom installPhase preserves flat <store>/node_modules/ structure for API stability
       };
-
-      # Extract node_modules from dream2nix output
-      # dream2nix structure: packages.${system}.default.lib.node_modules
-      nodeModules = dreamOutputs.packages.${system}.default.lib.node_modules or null;
     in {
       # Expose node_modules for consumption by checks
       jackpkgs.outputs.nodeModules = nodeModules;
@@ -103,23 +95,18 @@ in {
         # NOTE: We check for .bin paths at runtime (shellHook execution time), not at
         # Nix evaluation time, because the derivation doesn't exist yet during eval.
         # builtins.pathExists would always return false for unbuilt store paths.
-        # Per ADR-017 Appendix C: dream2nix nodejs-granular outputs binaries at
-        # <store>/lib/node_modules/.bin (no extra node_modules level at root)
         shellHook = ''
           node_modules_bin=""
           ${lib.optionalString (nodeModules != null) ''
-            # Use dream2nix-built binaries from Nix store (pure, preferred)
-            if [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
-              node_modules_bin="${nodeModules}/lib/node_modules/.bin"
-            elif [ -d "${nodeModules}/node_modules/.bin" ]; then
-              node_modules_bin="${nodeModules}/node_modules/.bin"
-            fi
+            # Use Nix-built binaries from the node_modules derivation (pure, preferred)
+            # TODO: Remove dream2nix fallback paths after migration period (see ADR-020)
+            ${jackpkgsLib.nodejs.findNodeModulesBin "node_modules_bin" nodeModules}
           ''}
           if [ -n "$node_modules_bin" ]; then
             export PATH="$node_modules_bin:$PATH"
           else
             # Fallback: Add local node_modules/.bin for impure builds (npm install)
-            # This allows the devshell to work even without dream2nix-built node_modules
+            # This allows the devshell to work even without Nix-built node_modules
             export PATH="$PWD/node_modules/.bin:$PATH"
           fi
         '';
