@@ -75,8 +75,9 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
 - `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy; picks up `jackpkgs.python.environments.default` automatically when defined).
-- `shell` — shared dev shell output to include via `inputsFrom`.
-- `checks` — CI checks for Python (pytest/mypy/ruff) and TypeScript (tsc, vitest).
+ - `shell` — shared dev shell output to include via `inputsFrom`.
+ - `checks` — CI checks for Python (pytest/mypy/ruff) and TypeScript (tsc, vitest).
+ - `nodejs` — builds `node_modules` via `buildNpmPackage` and exposes a Node.js devShell fragment.
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
 - `nodejs` — builds `node_modules` via `buildNpmPackage` and exposes a Node.js devShell fragment.

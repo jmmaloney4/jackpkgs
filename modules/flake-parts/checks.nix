@@ -252,7 +252,9 @@ in {
           elif [ -d "$nm_store/lib/node_modules" ]; then
             nm_root="$nm_store/lib/node_modules"
           else
-            echo "ERROR: Unknown node_modules layout in $nm_store" >&2
+            echo "ERROR: Unable to find node_modules in $nm_store" >&2
+            echo "Expected one of: node_modules/, lib/node_modules/, or lib/node_modules/default/node_modules/" >&2
+            echo "Enable Node.js module or provide custom nodeModules via jackpkgs.checks.typescript.tsc.nodeModules" >&2
             exit 1
           fi
 
