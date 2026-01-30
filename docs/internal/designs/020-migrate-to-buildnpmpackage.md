@@ -348,8 +348,6 @@ nodeModules = pkgs.symlinkJoin {
 3. **Test backwards compatibility:**
    - Verify checks.nix still works if consumer provides custom nodeModules
     - Verify error messages are helpful
-  '';
-}
 
 ## Appendix A: installPhase Strategy Analysis
 
