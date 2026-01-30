@@ -2,6 +2,7 @@
   inputs,
   config,
   lib,
+  jackpkgsLib,
   ...
 }: let
   inherit (lib) mkOption types mkEnableOption;
@@ -245,13 +246,9 @@ in {
           echo "Linking node_modules from $nm_store..."
 
           # Detect layout
-          if [ -d "$nm_store/node_modules" ]; then
-            nm_root="$nm_store/node_modules"
-          elif [ -d "$nm_store/lib/node_modules/default/node_modules" ]; then
-            nm_root="$nm_store/lib/node_modules/default/node_modules"
-          elif [ -d "$nm_store/lib/node_modules" ]; then
-            nm_root="$nm_store/lib/node_modules"
-          else
+          ${jackpkgsLib.nodejs.findNodeModulesRoot "nm_root" "$nm_store"}
+
+          if [ -z "$nm_root" ]; then
             echo "ERROR: Unable to find node_modules in $nm_store" >&2
             echo "Expected one of: node_modules/, lib/node_modules/, or lib/node_modules/default/node_modules/" >&2
             echo "Enable Node.js module or provide custom nodeModules via jackpkgs.checks.typescript.tsc.nodeModules" >&2
@@ -575,12 +572,9 @@ in {
             export WORKSPACE_ROOT
             ${lib.optionalString (vitestNodeModules != null) ''
               # Add Nix store node_modules binaries to PATH
-              if [ -d "${vitestNodeModules}/node_modules/.bin" ]; then
-                export PATH="${vitestNodeModules}/node_modules/.bin:$PATH"
-              elif [ -d "${vitestNodeModules}/lib/node_modules/.bin" ]; then
-                export PATH="${vitestNodeModules}/lib/node_modules/.bin:$PATH"
-              elif [ -d "${vitestNodeModules}/lib/node_modules/default/node_modules/.bin" ]; then
-                export PATH="${vitestNodeModules}/lib/node_modules/default/node_modules/.bin:$PATH"
+              ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" vitestNodeModules}
+              if [ -n "$nm_bin" ]; then
+                export PATH="$nm_bin:$PATH"
               fi
             ''}
 

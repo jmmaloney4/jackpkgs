@@ -2,6 +2,7 @@
   inputs,
   config,
   lib,
+  jackpkgsLib,
   ...
 }: let
   inherit (lib) mkIf;
@@ -99,13 +100,7 @@ in {
           ${lib.optionalString (nodeModules != null) ''
             # Use Nix-built binaries from the node_modules derivation (pure, preferred)
             # TODO: Remove dream2nix fallback paths after migration period (see ADR-020)
-            if [ -d "${nodeModules}/node_modules/.bin" ]; then
-              node_modules_bin="${nodeModules}/node_modules/.bin"
-            elif [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
-              node_modules_bin="${nodeModules}/lib/node_modules/.bin"
-            elif [ -d "${nodeModules}/lib/node_modules/default/node_modules/.bin" ]; then
-              node_modules_bin="${nodeModules}/lib/node_modules/default/node_modules/.bin"
-            fi
+            ${jackpkgsLib.nodejs.findNodeModulesBin "node_modules_bin" nodeModules}
           ''}
           if [ -n "$node_modules_bin" ]; then
             export PATH="$node_modules_bin:$PATH"
