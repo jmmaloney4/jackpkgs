@@ -347,14 +347,170 @@ nodeModules = pkgs.symlinkJoin {
 
 3. **Test backwards compatibility:**
    - Verify checks.nix still works if consumer provides custom nodeModules
-   - Verify error messages are helpful
+    - Verify error messages are helpful
+  '';
+}
 
-## Migration & Rollout
+## Appendix A: installPhase Strategy Analysis
 
-- **Breaking change:** No breaking changes to consumer API
-- **Internal change:** Implementation detail only
-- **Migration required:** None for consumers
-- **Rollback:** If issues discovered, revert to dream2nix commit
+### Context
+
+During implementation, we identified two approaches for `buildNpmPackage` `installPhase`:
+
+1. **Option 1 (Chosen):** Simple `node_modules` extraction
+2. **Option 2:** Use default buildNpmPackage `installPhase`
+
+This appendix documents the trade-offs between these approaches.
+
+### Option 1: Simple node_modules Extraction (Chosen)
+
+```nix
+nodeModules = pkgs.buildNpmPackage {
+  pname = "node-modules";
+  version = "1.0.0";
+  src = cfg.projectRoot;
+  nodejs = nodejsPackage;
+  npmDeps = pkgs.importNpmLock { npmRoot = cfg.projectRoot; };
+  npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+  installPhase = ''
+    cp -R node_modules $out
+  '';
+};
+```
+
+**Output structure:** `<store>/node_modules/`
+
+**What this does:**
+- Extracts `node_modules` directory directly to `$out`
+- Simple, minimal code
+- Provides exactly what checks module needs (dependencies for tsc/vitest)
+
+**Benefits:**
+1. **Matches checks.nix expectations** — Already expects `$out/node_modules/` for linking
+2. **No API changes** — Consumers get same output structure
+3. **Faster builds** — Skips buildNpmPackage's default `npm pack` analysis
+4. **Minimal overhead** — Only builds dependencies, not project itself
+5. **Stable structure** — `$out/node_modules/` is stable and predictable
+
+**Limitations:**
+1. **No binaries installed** — Package.json `bin` field is not processed
+2. **No man pages** — Package.json `man` field is ignored
+3. **Not a proper Nix package** — Doesn't follow nixpkgs packaging conventions
+
+**Why chosen:**
+- jackpkgs' primary use case is providing `node_modules` for CI checks (tsc, vitest)
+- Checks module calls binaries via `node_modules/.bin`, not `$out/bin`
+- Consumers wanting a full npm package can use nixpkgs `buildNpmPackage` directly
+- Maintains API stability across dream2nix → buildNpmPackage migration
+
+### Option 2: Default buildNpmPackage installPhase
+
+```nix
+nodeModules = pkgs.buildNpmPackage {
+  pname = "node-modules";
+  version = "1.0.0";
+  src = cfg.projectRoot;
+  nodejs = nodejsPackage;
+  npmDeps = pkgs.importNpmLock { npmRoot = cfg.projectRoot; };
+  npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+  # No custom installPhase — use buildNpmPackage default
+};
+```
+
+**Output structure:** `<store>/lib/node_modules/default/node_modules/`
+
+**What this does:**
+- Uses buildNpmPackage's default `installPhase`
+- Runs `npm pack --json --dry-run` to determine package contents
+- Installs package.json `bin` to `$out/bin/` and `man` to `$out/share/man/`
+- Installs project files (as determined by `npm pack`) to `$out/lib/node_modules/<package-name>/`
+
+**Benefits:**
+1. **Proper Nix package** — Follows nixpkgs packaging conventions
+2. **Binaries available** — Package.json `bin` installed to `$out/bin/`
+3. **Man pages** — Package.json `man` installed to `$out/share/man/`
+4. **Standard behavior** — Consumers familiar with nixpkgs buildNpmPackage
+
+**Trade-offs:**
+1. **Output structure change** — Nested: `$out/lib/node_modules/default/node_modules/`
+2. **checks.nix needs updates** — Must detect/buildNpmPackage's nested structure
+3. **Complex PATH logic** — Binaries at `$out/bin/`, node_modules at `$out/lib/node_modules/default/node_modules/`
+4. **May build project** — Could run project's build script (unnecessary for checks)
+5. **API instability** — Consumers expecting `$out/node_modules/` would break
+6. **More complex detection** — Multiple possible paths to check in devshell/checks
+
+**Why not chosen:**
+- jackpkgs checks module doesn't need `$out/bin/` binaries
+- tsc/vitest checks call binaries via `node_modules/.bin`
+- Adds complexity for current use case (CI checks)
+- Breaks API stability for minimal benefit
+- Consumers wanting binaries can use buildNpmPackage directly
+
+### Ramifications of Option 2
+
+**For checks.nix:**
+```nix
+# Current expects:
+nm_root="$nm_store/node_modules"
+
+# Would need:
+nm_root="$nm_store/lib/node_modules/default/node_modules"
+```
+- `linkNodeModules` needs new path detection logic
+- Fallback for flat structure (Option 1) would still be needed
+
+**For devshell PATH:**
+```nix
+# Binaries at:
+$out/bin/  # buildNpmPackage standard
+
+# node_modules at:
+$out/lib/node_modules/default/node_modules/
+
+# Would need multiple fallbacks:
+if [ -d "${nodeModules}/lib/node_modules/default/node_modules/.bin" ]; then
+  node_modules_bin="${nodeModules}/lib/node_modules/default/node_modules/.bin"
+elif [ -d "${nodeModules}/node_modules/.bin" ]; then
+  node_modules_bin="${nodeModules}/node_modules/.bin"
+fi
+```
+- More complex PATH detection
+- Multiple paths to maintain (legacy + new)
+
+**For consumers:**
+```nix
+# Current API (stable):
+config.jackpkgs.outputs.nodeModules = jackpkgs-nodejs.outputs.${system}.default
+
+# Option 2 changes internal structure:
+# Before: jackpkgs-nodejs -> <store>/node_modules/
+# After:  jackpkgs-nodejs -> <store>/lib/node_modules/default/node_modules/
+```
+- Any consumer manually referencing path would break
+- Unstable internal API (shouldn't happen, but risk exists)
+
+**For build time:**
+- buildNpmPackage may run project's `build` script
+- We only need dependencies for tsc/vitest
+- Could slow down builds unnecessarily
+- No way to disable build without custom phases
+
+### Recommendation
+
+**Keep Option 1** (simple `node_modules` extraction). This is the chosen approach for ADR-020 implementation.
+
+**Rationale:**
+- Perfect fit for jackpkgs checks module use case
+- Stable API (`$out/node_modules/`) across dream2nix → buildNpmPackage migration
+- Minimal code, simple debugging
+- Faster builds (no unnecessary project builds)
+- Consumers wanting full buildNpmPackage behavior can use it directly
+
+**Future consideration:**
+If jackpkgs adds npm package distribution support, we could:
+- Add option: `jackpkgs.nodejs.buildMode = "deps" | "full"`
+- "deps" = Option 1 (current, for checks module)
+- "full" = Option 2 (proper Nix package with binaries)
 
 ## Related
 
