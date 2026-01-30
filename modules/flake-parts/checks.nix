@@ -75,7 +75,7 @@ in {
 
           extraArgs = mkOption {
             type = types.listOf types.str;
-            default = [];
+            default = ["--no-cache"];
             description = "Extra arguments to pass to ruff";
             example = ["--no-cache"];
           };
