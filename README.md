@@ -166,6 +166,7 @@ in {
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
   - Enables pre-commit with `treefmt`, `nbstripout` for `.ipynb`, and `mypy`.
+  - **Important:** For the mypy hook to work, `mypy` must be available in the Python environment. See [Common Patterns: Dev Tools with Pre-commit](#common-patterns-dev-tools-with-pre-commit) below.
   - Options under `jackpkgs.pre-commit`:
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
     - `nbstripoutPackage` (default `config.jackpkgs.pkgs.nbstripout`)
@@ -310,6 +311,78 @@ in {
       };
     };
     ```
+
+#### Common Patterns: Dev Tools with Pre-commit
+
+When using the pre-commit module with Python projects, the mypy hook requires `mypy` to be available in your Python environment. Here's how to set this up properly:
+
+**Step 1: Add dev tools to your `pyproject.toml`**
+
+Define development dependencies using PEP 735 dependency groups:
+
+```toml
+[dependency-groups]
+dev = [
+    "mypy>=1.11",
+    "pytest>=8.0",
+    "ruff>=0.1.0",
+    "types-requests",  # type stubs for better mypy coverage
+]
+```
+
+**Step 2: Configure your environment with `includeGroups = true`**
+
+The key is to ensure your `default` environment (used by pre-commit) includes dependency groups:
+
+```nix
+# Simple setup: single environment with dev tools
+jackpkgs.python = {
+  enable = true;
+  workspaceRoot = ./.;
+  environments.default = {
+    name = "python-default";
+    includeGroups = true;  # Include dev dependencies for pre-commit hooks
+  };
+};
+```
+
+Or with separate environments for dev and production:
+
+```nix
+# Separate environments: editable dev + production default
+jackpkgs.python = {
+  enable = true;
+  workspaceRoot = ./.;
+  environments = {
+    default = {
+      name = "python-prod";
+      # Production-only (includeGroups defaults to false)
+    };
+    dev = {
+      name = "python-dev";
+      editable = true;
+      # Dev dependencies automatically included (includeGroups defaults to true for editable)
+    };
+  };
+};
+# Note: With this setup, pre-commit uses pythonDefaultEnv which lacks mypy.
+# Override mypyPackage in perSystem if needed, or use the simple setup above.
+```
+
+**Why is this necessary?**
+
+- The pre-commit module uses `pythonDefaultEnv` for the mypy hook
+- Non-editable environments default to `includeGroups = false` (production-only)
+- You must explicitly set `includeGroups = true` to include dev dependencies
+- Alternatively, use an editable environment which defaults to `includeGroups = true`
+
+**Environment Pattern Summary:**
+
+| Pattern | `editable` | `includeGroups` | Pre-commit works? |
+|---------|------------|-----------------|-------------------|
+| Production | `false` | `false` (default) | No (no mypy) |
+| Development | `true` | `true` (default) | Yes |
+| CI/Pre-commit | `false` | `true` (explicit) | Yes |
 
 #### Path resolution (project root)
 
