@@ -258,6 +258,16 @@ in {
     expected = true;
   };
 
+  testPythonRuffDefaultHasNoCache = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.python-ruff;
+  in {
+    expr = hasInfixAll ["ruff check" "--no-cache"] script;
+    expected = true;
+  };
+
   testPythonDisableRuff = let
     checks = mkChecks {
       configModule = mkConfigModule {
