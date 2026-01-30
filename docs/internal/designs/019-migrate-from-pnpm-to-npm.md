@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-`jackpkgs` currently defaults to and encourages `pnpm` for Node.js projects, including complex monorepos like `zeus` and `yard`. However, the `nodejs` module relies on `dream2nix`'s legacy API to build these environments. We have discovered that **`dream2nix` (legacy) does not implement a `pnpm-lock` translator**, causing build failures (see Issue #126).
+`jackpkgs` currently defaults to and encourages `pnpm` for Node.js projects, including complex monorepos like `zeus` and `yard`. At the time of this decision, the `nodejs` module relied on `dream2nix`'s legacy API to build these environments. We discovered that **`dream2nix` (legacy) does not implement a `pnpm-lock` translator**, causing build failures (see Issue #126).
 
 Options considered:
 1.  **Port to `dream2nix` v2**: Requires a complete architectural rewrite of the `nodejs` module (~200+ lines, loss of auto-discovery), deemed too high effort/risk (see Issue #125).
@@ -15,7 +15,7 @@ Options considered:
 We will switch `jackpkgs` to use **npm** and **`package-lock.json`** exclusively. We will remove all `pnpm` support to enforce a single, working standard across all consumer projects.
 
 ### Rationale
-*   **Compatibility**: `package-lock` is natively supported by `dream2nix`'s legacy API, including workspace support.
+*   **Compatibility**: `package-lock` is natively supported by npm tooling and is the standard lockfile for `buildNpmPackage` (see ADR-020).
 *   **Simplicity**: Enforcing "one way" reduces maintenance burden and tooling complexity.
 *   **Stability**: npm is the industry standard; `package-lock.json` is stable and widely understood.
 *   **Mitigation**: The primary downsides of npm (disk usage, install speed) are largely mitigated by Nix's store model and caching.
@@ -60,12 +60,12 @@ We will switch `jackpkgs` to use **npm** and **`package-lock.json`** exclusively
 
 ### Trade-offs
 *   **Loss**: `pnpm`'s disk efficiency (hard links) and strict dependency isolation (phantom deps).
-*   **Gain**: Functional Nix integration via `dream2nix`.
+*   **Gain**: Functional Nix integration via `buildNpmPackage` (ADR-020).
 *   **Gain**: Reduced tooling fragmentation.
 
 ### Functionality
-*   **Workspaces**: `package-lock` translator supports workspaces. `dream2nix` will still discover workspace packages, provided `package-lock.json` is generated correctly.
-*   **Legacy API**: This approach is fully compatible with the current `dream2nix` legacy branch usage.
+*   **Workspaces**: npm workspaces are supported via `buildNpmPackage` with root `package-lock.json` (ADR-020).
+*   **Follow-up**: ADR-020 migrates the Node.js module from `dream2nix` to `buildNpmPackage`.
 
 ### Failure Mode
 Projects trying to use `pnpm` with the new `jackpkgs` version will fail (missing `pnpm` binary, ignored `pnpm-lock.yaml`). This meets the "fail fast" requirement.

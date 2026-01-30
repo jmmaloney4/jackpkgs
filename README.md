@@ -76,8 +76,10 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
 - `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy; picks up `jackpkgs.python.environments.default` automatically when defined).
 - `shell` — shared dev shell output to include via `inputsFrom`.
+- `checks` — CI checks for Python (pytest/mypy/ruff) and TypeScript (tsc, vitest).
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
+- `nodejs` — builds `node_modules` via `buildNpmPackage` and exposes a Node.js devShell fragment.
 - `python` — opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
 
 ### Import (one-liner: everything)
@@ -195,6 +197,14 @@ in {
     - `backendUrl` (str, required) - Pulumi backend URL
     - `secretsProvider` (str, required) - Pulumi secrets provider
     - `ci.packages` (list of packages) - Packages included in ci-pulumi devshell
+
+- nodejs (`modules/flake-parts/nodejs.nix`)
+  - Builds `node_modules` using `buildNpmPackage` and exposes `jackpkgs.outputs.nodeModules`.
+  - Provides a Node.js devShell fragment: `jackpkgs.outputs.nodejsDevShell`.
+  - Options under `jackpkgs.nodejs`:
+    - `enable` (bool, default `false`)
+    - `version` (enum: 18/20/22, default `22`)
+    - `projectRoot` (path, default `config.jackpkgs.projectRoot`)
 
 - quarto (`modules/flake-parts/quarto.nix`)
   - Provides Quarto tooling in a devShell fragment: `config.jackpkgs.outputs.quartoDevShell`.
