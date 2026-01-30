@@ -487,6 +487,12 @@ config.jackpkgs.outputs.nodeModules = jackpkgs-nodejs.outputs.${system}.default
 - Any consumer manually referencing path would break
   - Unstable internal API (shouldn't happen, but risk exists)
 
+**Future consideration:**
+If jackpkgs adds npm package distribution support, we could:
+- Add option: `jackpkgs.nodejs.buildMode = "deps" | "full"`
+- "deps" = Option 1 (current, for checks module)
+- "full" = Option 2 (proper Nix package with binaries)
+
 ## Appendix B: buildNpmPackage vs node2nix Comparison
 
 This appendix compares `buildNpmPackage` (nixpkgs native) with `node2nix` (external code generator) for Node.js dependency management in Nix.
@@ -738,12 +744,6 @@ nodeModules = pkgs.buildNpmPackage {
 - Minimal code, simple debugging
 - Faster builds (no unnecessary project builds)
 - Consumers wanting full buildNpmPackage behavior can use it directly
-
-**Future consideration:**
-If jackpkgs adds npm package distribution support, we could:
-- Add option: `jackpkgs.nodejs.buildMode = "deps" | "full"`
-- "deps" = Option 1 (current, for checks module)
-- "full" = Option 2 (proper Nix package with binaries)
 
 ## Related
 
