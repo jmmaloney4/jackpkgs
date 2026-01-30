@@ -3,19 +3,14 @@
     "all-cabal-json": {
       "flake": false,
       "locked": {
-        "lastModified": 1665552503,
-        "narHash": "sha256-r14RmRSwzv5c+bWKUDaze6pXM7nOsiz1H8nvFHJvufc=",
-        "owner": "nix-community",
-        "repo": "all-cabal-json",
-        "rev": "d7c0434eebffb305071404edcf9d5cd99703878e",
-        "type": "github"
+        "path": "./empty-flake",
+        "type": "path"
       },
       "original": {
-        "owner": "nix-community",
-        "ref": "hackage",
-        "repo": "all-cabal-json",
-        "type": "github"
-      }
+        "path": "./empty-flake",
+        "type": "path"
+      },
+      "parent": []
     },
     "crane": {
       "flake": false,
