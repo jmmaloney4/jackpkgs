@@ -71,12 +71,12 @@ in {
 
       # Build node_modules using buildNpmPackage
       nodeModules = pkgs.buildNpmPackage {
-        name = "node-modules";
+        pname = "node-modules";
+        version = "1.0.0";
         src = cfg.projectRoot;
         nodejs = nodejsPackage;
-        npmDeps = pkgs.npmDeps {
-          src = cfg.projectRoot + "/package-lock.json";
-        };
+        npmDeps = pkgs.importNpmLock { npmRoot = cfg.projectRoot; };
+        npmConfigHook = pkgs.importNpmLock.npmConfigHook;
         installPhase = ''
           cp -R node_modules $out
         '';
