@@ -75,11 +75,11 @@ in {
         version = "1.0.0";
         src = cfg.projectRoot;
         nodejs = nodejsPackage;
-        npmDeps = pkgs.importNpmLock { npmRoot = cfg.projectRoot; };
+        npmDeps = pkgs.importNpmLock {npmRoot = cfg.projectRoot;};
         npmConfigHook = pkgs.importNpmLock.npmConfigHook;
         installPhase = ''
           cp -R node_modules $out
-        '';
+        ''; # See ADR-020 Appendix A: Custom installPhase preserves flat <store>/node_modules/ structure for API stability
       };
     in {
       # Expose node_modules for consumption by checks
@@ -98,6 +98,7 @@ in {
           node_modules_bin=""
           ${lib.optionalString (nodeModules != null) ''
             # Use Nix-built binaries from the node_modules derivation (pure, preferred)
+            # TODO: Remove dream2nix fallback paths after migration period (see ADR-020)
             if [ -d "${nodeModules}/node_modules/.bin" ]; then
               node_modules_bin="${nodeModules}/node_modules/.bin"
             elif [ -d "${nodeModules}/lib/node_modules/.bin" ]; then
