@@ -76,13 +76,11 @@
             sops
           ];
 
-          # Add comma alias for backwards compatibility
+          # Shell UX: Show a hint instead of the full command list
           shellHook = ''
             # Set up comma alias for just
             alias ','='just'
-            echo ""
-            echo "⚡ Alias ',' set to 'just' ✨"
-            echo ""
+            echo "Run 'just --list' to see available commands"
           '';
         };
 
