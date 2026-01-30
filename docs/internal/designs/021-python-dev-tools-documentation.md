@@ -62,7 +62,10 @@ Users who want pre-commit hooks (mypy, ruff, etc.) to work should:
    };
    ```
 
-3. **Or use an editable environment for development:**
+3. **Or use separate environments with an explicit `mypyPackage` override:**
+
+   When you want a production-only `default` environment but still need pre-commit hooks to work,
+   override `mypyPackage` to point to an environment that includes dev tools:
 
    ```nix
    jackpkgs.python = {
@@ -80,16 +83,25 @@ Users who want pre-commit hooks (mypy, ruff, etc.) to work should:
        };
      };
    };
+
+   # Override mypyPackage to use the dev environment for pre-commit hooks
+   perSystem = { config, ... }: {
+     jackpkgs.pre-commit.mypyPackage = config.jackpkgs.outputs.pythonEnvironments.dev;
+   };
    ```
+
+   **Important:** Without the `mypyPackage` override, the pre-commit mypy hook will fail because
+   it defaults to using `pythonDefaultEnv` (the `default` environment), which lacks `mypy`.
 
 ## Environment Patterns Summary
 
-| Environment Type | `editable` | `includeGroups` | Use Case |
-|------------------|------------|-----------------|----------|
-| **Production** | `false` | `false` (default) | Deployment, minimal deps |
-| **Development** | `true` | `true` (default) | Local dev, devshell |
-| **CI Checks** | `false` | `true` (explicit) | Hermetic tests, pre-commit |
-| **Default + Hooks** | `false` | `true` (explicit) | Simple setup with working hooks |
+| Environment Type | `editable` | `includeGroups` | Use Case | Pre-commit works? |
+|------------------|------------|-----------------|----------|-------------------|
+| **Production** | `false` | `false` (default) | Deployment, minimal deps | No (no mypy) |
+| **Development** | `true` | `true` (default) | Local dev, devshell | Yes (if used as default) |
+| **CI Checks** | `false` | `true` (explicit) | Hermetic tests, pre-commit | Yes |
+| **Default + Hooks** | `false` | `true` (explicit) | Simple setup with working hooks | Yes |
+| **Separate prod + dev** | `default`: prod, `dev`: editable | — | Production default + dev shell | Requires `mypyPackage` override |
 
 ### Pre-commit Hook Resolution
 

@@ -346,7 +346,7 @@ jackpkgs.python = {
 };
 ```
 
-Or with separate environments for dev and production:
+Or with separate environments for dev and production (requires `mypyPackage` override):
 
 ```nix
 # Separate environments: editable dev + production default
@@ -365,8 +365,12 @@ jackpkgs.python = {
     };
   };
 };
-# Note: With this setup, pre-commit uses the 'default' environment which lacks mypy.
-# To fix, override `mypyPackage`, e.g.: `jackpkgs.pre-commit.mypyPackage = config.jackpkgs.outputs.pythonEnvironments.dev;`
+
+# IMPORTANT: Override mypyPackage to use the dev environment for pre-commit hooks
+# Without this, the mypy hook will fail because 'default' lacks mypy
+perSystem = { config, ... }: {
+  jackpkgs.pre-commit.mypyPackage = config.jackpkgs.outputs.pythonEnvironments.dev;
+};
 ```
 
 **Why is this necessary?**
@@ -381,8 +385,9 @@ jackpkgs.python = {
 | Pattern | `editable` | `includeGroups` | Pre-commit works? |
 |---------|------------|-----------------|-------------------|
 | Production | `false` | `false` (default) | No (no mypy) |
-| Development | `true` | `true` (default) | Yes |
+| Development | `true` | `true` (default) | Yes (if used as default) |
 | CI/Pre-commit | `false` | `true` (explicit) | Yes |
+| Separate prod + dev | `default`: prod, `dev`: editable | — | Requires `mypyPackage` override |
 
 #### Path resolution (project root)
 
