@@ -76,7 +76,9 @@ with pkgs.lib; rec {
     map (dir: let
       rootOnly = dir.rootOnly or false;
     in
-      if rootOnly then "/${dir.name}/**" else "**/${dir.name}/**")
+      if rootOnly
+      then "/${dir.name}/**"
+      else "**/${dir.name}/**")
     dirs;
 
   preCommitExcludesFromDirs = dirs:
@@ -84,7 +86,9 @@ with pkgs.lib; rec {
       rootOnly = dir.rootOnly or false;
       name = escapeRegex dir.name;
     in
-      if rootOnly then "^${name}/" else "/${name}/")
+      if rootOnly
+      then "^${name}/"
+      else "/${name}/")
     dirs;
 
   defaultExcludes = {

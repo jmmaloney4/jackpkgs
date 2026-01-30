@@ -42,7 +42,7 @@ in {
         };
         excludes = mkOption {
           type = types.listOf types.str;
-          default = defaultExcludes;
+          default = defaultExcludes.treefmt;
           description = "Excludes for treefmt. User-provided excludes will be appended to the defaults.";
         };
       };
@@ -60,7 +60,7 @@ in {
     in {
       formatter = lib.mkDefault config.treefmt.build.wrapper;
       treefmt.config = let
-        excludes = lib.unique (defaultExcludes ++ sysCfg.excludes);
+        excludes = lib.unique (defaultExcludes.treefmt ++ sysCfg.excludes);
       in {
         flakeFormatter = lib.mkForce false; # we set this ourselves above
         inherit (sysCfg) projectRootFile;
