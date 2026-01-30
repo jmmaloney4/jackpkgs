@@ -484,6 +484,9 @@ in {
             python-ruff = mkCheck {
               name = "python-ruff";
               buildInputs = [pythonEnvWithDevTools];
+              setupCommands = ''
+                export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
+              '';
               checkCommands = forEachWorkspaceMember {
                 workspaceRoot = pythonCfg.workspaceRoot;
                 members = pythonWorkspaceMembers;

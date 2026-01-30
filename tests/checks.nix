@@ -268,6 +268,16 @@ in {
     expected = true;
   };
 
+  testPythonRuffSetsCacheDir = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.python-ruff;
+  in {
+    expr = hasInfixAll ["RUFF_CACHE_DIR=$TMPDIR"] script;
+    expected = true;
+  };
+
   testPythonDisableRuff = let
     checks = mkChecks {
       configModule = mkConfigModule {
