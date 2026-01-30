@@ -4,6 +4,7 @@
   lib,
   ...
 }: let
+  flakeConfig = config;
   inherit (lib) mkIf;
   cfg = config.jackpkgs.quarto;
 in {
@@ -39,8 +40,24 @@ in {
       options.jackpkgs.quarto = {
         quartoPackage = mkOption {
           type = types.package;
-          default = config.jackpkgs.pkgs.quarto;
-          defaultText = "config.jackpkgs.pkgs.quarto";
+          default = let
+            base = config.jackpkgs.pkgs.quarto;
+            jupyterCfg = flakeConfig.jackpkgs.jupyter;
+            jupyterPkg = config.packages.${jupyterCfg.packageName};
+          in
+            if jupyterCfg.enable
+            then
+              pkgs.runCommand "quarto-wrapped" {
+                nativeBuildInputs = [pkgs.makeWrapper];
+                meta.mainProgram = "quarto";
+              } ''
+                mkdir -p $out/bin
+                makeWrapper ${base}/bin/quarto $out/bin/quarto \
+                  --prefix JUPYTER_PATH : "${jupyterPkg}/share/jupyter" \
+                  --set QUARTO_PYTHON "${config.jackpkgs.quarto.pythonEnv}/bin/python"
+              ''
+            else base;
+          defaultText = "config.jackpkgs.pkgs.quarto (wrapped with Jupyter if enabled)";
           description = "Quarto package to use.";
         };
 
