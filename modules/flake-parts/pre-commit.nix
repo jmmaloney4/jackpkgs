@@ -76,7 +76,7 @@ in {
         settings.hooks.mypy = {
           enable = true;
           package = sysCfg.mypyPackage;
-          entry = "${lib.getExe sysCfg.mypyPackage}";
+          entry = lib.getExe' sysCfg.mypyPackage "mypy";
           files = "\\.py$";
           excludes = ["^nix/" "/node_modules/" "/dist/" "/__pycache__/"];
         };
