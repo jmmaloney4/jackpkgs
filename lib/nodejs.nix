@@ -18,8 +18,12 @@ in {
     checkEntry = name: entry: let
       resolved = entry.resolved or "";
       hasIntegrity = entry ? integrity && entry.integrity != "";
-      # Workspace packages have neither resolved nor integrity (they're linked locally)
-      isWorkspace = resolved == "" && !hasIntegrity;
+      hasLink = entry ? link or false;
+      # Workspace packages have link:true OR relative path resolved with no integrity
+      isWorkspace = hasLink || (
+        !hasIntegrity &&
+        builtins.match "(file:|link:|/)" resolved != null
+      );
     in
       if isWorkspace
       then null
