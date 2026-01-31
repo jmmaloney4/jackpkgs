@@ -70,6 +70,30 @@ in {
         then pkgs.nodejs_20
         else pkgs.nodejs_22; # Default to 22
 
+      # Package npm-lockfile-fix for fixing workspace lockfiles
+      # See ADR-022: npm v9+ workspace lockfiles omit resolved/integrity for nested deps
+      npmLockfileFix = pkgs.python3Packages.buildPythonApplication {
+        pname = "npm-lockfile-fix";
+        version = "0.1.1";
+        pyproject = true;
+
+        src = pkgs.fetchFromGitHub {
+          owner = "jeslie0";
+          repo = "npm-lockfile-fix";
+          rev = "v0.1.1";
+          hash = "sha256-P93OowrVkkOfX5XKsRsg0c4dZLVn2ZOonJazPmHdD7g=";
+        };
+
+        build-system = [pkgs.python3Packages.setuptools];
+        propagatedBuildInputs = [pkgs.python3Packages.requests];
+
+        meta = {
+          description = "Add missing integrity and resolved fields to npm workspace lockfiles";
+          homepage = "https://github.com/jeslie0/npm-lockfile-fix";
+          license = pkgs.lib.licenses.mit;
+        };
+      };
+
       # Build node_modules using buildNpmPackage
       nodeModules = pkgs.buildNpmPackage {
         pname = "node-modules";
@@ -90,6 +114,7 @@ in {
       jackpkgs.outputs.nodejsDevShell = pkgs.mkShell {
         packages = [
           nodejsPackage
+          npmLockfileFix
         ];
 
         # NOTE: We check for .bin paths at runtime (shellHook execution time), not at

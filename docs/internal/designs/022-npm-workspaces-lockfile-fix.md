@@ -72,43 +72,92 @@ Out of scope:
 
 ## Alternatives Considered
 
-### Alternative A — Assume consumer lockfiles are always cacheable
+   ### Alternative A — Assume consumer lockfiles are always cacheable
 
-- Pros: No extra tooling.
-- Cons: Breaks for real-world npm workspace lockfiles; failures occur deep in `npm ci` with `ENOTCACHED`.
-- Why not chosen: Does not satisfy the requirement that `nix develop`/`nix flake check` work for monorepos.
+   We could assume all `package-lock.json` files are already compatible with nixpkgs offline caching and provide no normalization step.
 
-### Alternative B — Disable offline installs in `buildNpmPackage`
+   **Rejected because**: npm v9+ workspace lockfiles demonstrably omit `resolved`/`integrity` fields for nested workspace dependencies, causing `ENOTCACHED` errors with `buildNpmPackage`. This is not a theoretical issue—it affects all Pulumi monorepos in the target use cases (zeus, toolbox, yard).
 
-- Pros: Would let npm fetch missing packages.
-- Cons: Requires network during builds; violates Nix hermeticity and breaks in sandboxed CI.
-- Why not chosen: Conflicts with the core purpose of this architecture.
+   ### Alternative B — Patch importNpmLock to fetch missing packages
 
-### Alternative C — Patch nixpkgs to support omitted `resolved`/`integrity`
+   We could modify nixpkgs' `importNpmLock` to fetch packages that lack `resolved` URLs during the cache generation phase.
 
-- Pros: Best long-term fix; no consumer workflow changes.
-- Cons: Non-trivial (would require reconstructing tarball URLs and integrity hashes or implementing a registry metadata fetch step, which itself conflicts with offline cache generation).
-- Why not chosen (for now): Higher effort and slower path to unblocking consumers; we can revisit once we have a minimal reproducible upstream issue.
+   **Rejected because**:
+   - Requires upstream nixpkgs changes (high latency, maintenance burden)
+   - Violates hermetic build principles (fetches during cache generation = impure)
+   - Harder to reproduce builds (network state affects cache generation)
+   - Not composable with other tools in the npm ecosystem
 
-### Alternative D — Use dream2nix/node2nix/different builder
+   ### Alternative C — Use pnpm or yarn instead of npm
 
-- Pros: May handle workspaces differently.
-- Cons: Adds external dependencies and/or generated Nix code; increases maintenance burden; conflicts with ADR-020 direction.
-- Why not chosen: `buildNpmPackage` is still the desired base; this ADR addresses the remaining workspace lockfile impedance.
+   We could switch to pnpm or Yarn, which may have different lockfile formats that nixpkgs handles better.
 
-## Implementation Plan
+   **Rejected because**:
+   - See ADR-019 and ADR-020: pnpm proved incompatible with Pulumi's CLI assumptions
+   - npm is the de facto standard for Pulumi projects
+   - Migration cost too high for existing repos
+   - Doesn't solve the fundamental problem (lockfile compatibility with nixpkgs caching)
 
-1. Add `npm-lockfile-fix` to the `jackpkgs.nodejs` devshell packages.
-2. Add an opt-in `pre-commit` hook (via `jackpkgs.pre-commit`) that runs `npm-lockfile-fix package-lock.json` when the lockfile changes.
-3. Add a CI/checks assertion that fails fast when the lockfile is not cacheable, with an actionable message.
-4. Document the workflow for monorepos (including Pulumi stacks run via `pulumi -C <dir> up`).
-5. (Optional follow-up) Open an upstream nixpkgs issue with a minimal reproduction and reference it here.
+   ## Implementation
 
-## Related
+   ### npm-lockfile-fix Package
 
-- `docs/internal/designs/019-migrate-from-pnpm-to-npm.md`
-- `docs/internal/designs/020-migrate-to-buildnpmpackage.md`
-- Tool: `npm-lockfile-fix` (jeslie0/npm-lockfile-fix)
+   The `npm-lockfile-fix` tool (from https://github.com/jeslie0/npm-lockfile-fix v0.1.1) is packaged as a Python application and made available in:
+
+   - **nodejs module devshell** (`modules/flake-parts/nodejs.nix`): Automatically included when `jackpkgs.nodejs.enable = true`
+   - **pre-commit module** (`modules/flake-parts/pre-commit.nix`): Available as `jackpkgs.pre-commit.npmLockfileFixPackage`
+   - **just module** (`modules/flake-parts/just.nix`): Available as `jackpkgs.just.npmLockfileFixPackage`
+
+   The package is built using `python3Packages.buildPythonApplication` with:
+   - Source: `fetchFromGitHub { owner = "jeslie0"; repo = "npm-lockfile-fix"; rev = "v0.1.1"; }`
+   - Dependencies: `setuptools` (build), `requests` (runtime)
+
+   ### Pre-Commit Hook
+
+   The `jackpkgs.pre-commit` module provides an automatic pre-commit hook that runs `npm-lockfile-fix` on `package-lock.json` files:
+
+   ```nix
+   # Automatically enabled when jackpkgs.nodejs.enable = true
+   jackpkgs.pre-commit.hooks.npm-lockfile-fix = {
+     enable = true;  # Auto-enabled with nodejs module
+     files = "package-lock\\.json$";
+     pass_filenames = true;
+     entry = "${npm-lockfile-fix}/bin/npm-lockfile-fix";
+   };
+   ```
+
+   The hook runs `npm-lockfile-fix` automatically on staged `package-lock.json` files, ensuring all lockfiles are normalized before commit.
+
+   ### Just Recipe
+
+   The `jackpkgs.just` module provides a `fix-npm-lock` recipe (auto-enabled when `jackpkgs.nodejs.enable = true`):
+
+   ```bash
+   just fix-npm-lock
+   ```
+
+   This recipe:
+   1. Runs `npm install` to update the lockfile
+   2. Runs `npm-lockfile-fix ./package-lock.json` to normalize it
+   3. Displays instructions for reviewing and committing changes
+
+   ### Workflow
+
+   For developers using jackpkgs with nodejs module enabled:
+
+   1. **Update dependencies**: `npm install <package>` or edit `package.json` and run `npm install`
+   2. **Fix lockfile**: Happens automatically via pre-commit hook, or run `just fix-npm-lock` manually
+   3. **Review changes**: `git diff package-lock.json`
+   4. **Commit**: `git add package-lock.json && git commit`
+
+   The pre-commit hook ensures all committed lockfiles are Nix-compatible without manual intervention.
+
+## References
+
+- ADR-019: `docs/internal/designs/019-migrate-from-pnpm-to-npm.md`
+- ADR-020: `docs/internal/designs/020-migrate-to-buildnpmpackage.md`
+- Tool: `npm-lockfile-fix` v0.1.1 (https://github.com/jeslie0/npm-lockfile-fix)
+- nixpkgs `importNpmLock`: https://github.com/NixOS/nixpkgs/blob/master/pkgs/build-support/node/import-npm-lock/
 
 ---
 

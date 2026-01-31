@@ -92,6 +92,61 @@ in {
           defaultText = "config.jackpkgs.pkgs.nbstripout";
           description = "nbstripout package to use.";
         };
+        npmLockfileFixPackage = mkOption {
+          type = types.package;
+          default = let
+            nodejsDevShell =
+              lib.attrByPath ["jackpkgs" "outputs" "nodejsDevShell"] null config;
+          in
+            if nodejsDevShell != null
+            then
+              # Extract npm-lockfile-fix from nodejs devshell if available
+              config.jackpkgs.pkgs.python3Packages.buildPythonApplication {
+                pname = "npm-lockfile-fix";
+                version = "0.1.1";
+                pyproject = true;
+
+                src = config.jackpkgs.pkgs.fetchFromGitHub {
+                  owner = "jeslie0";
+                  repo = "npm-lockfile-fix";
+                  rev = "v0.1.1";
+                  hash = "sha256-P93OowrVkkOfX5XKsRsg0c4dZLVn2ZOonJazPmHdD7g=";
+                };
+
+                build-system = [config.jackpkgs.pkgs.python3Packages.setuptools];
+                propagatedBuildInputs = [config.jackpkgs.pkgs.python3Packages.requests];
+
+                meta = {
+                  description = "Add missing integrity and resolved fields to npm workspace lockfiles";
+                  homepage = "https://github.com/jeslie0/npm-lockfile-fix";
+                  license = config.jackpkgs.pkgs.lib.licenses.mit;
+                };
+              }
+            else
+              config.jackpkgs.pkgs.python3Packages.buildPythonApplication {
+                pname = "npm-lockfile-fix";
+                version = "0.1.1";
+                pyproject = true;
+
+                src = config.jackpkgs.pkgs.fetchFromGitHub {
+                  owner = "jeslie0";
+                  repo = "npm-lockfile-fix";
+                  rev = "v0.1.1";
+                  hash = "sha256-P93OowrVkkOfX5XKsRsg0c4dZLVn2ZOonJazPmHdD7g=";
+                };
+
+                build-system = [config.jackpkgs.pkgs.python3Packages.setuptools];
+                propagatedBuildInputs = [config.jackpkgs.pkgs.python3Packages.requests];
+
+                meta = {
+                  description = "Add missing integrity and resolved fields to npm workspace lockfiles";
+                  homepage = "https://github.com/jeslie0/npm-lockfile-fix";
+                  license = config.jackpkgs.pkgs.lib.licenses.mit;
+                };
+              };
+          defaultText = "npm-lockfile-fix package from nodejs devshell or standalone";
+          description = "npm-lockfile-fix package to use for fixing workspace lockfiles.";
+        };
         preCommitPackage = mkOption {
           type = types.package;
           default = config.jackpkgs.pkgs.pre-commit;
@@ -209,6 +264,24 @@ in {
                 "else"
                 "    ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\""
                 "fi"
+              ]
+              true;
+          };
+          nodejs = {
+            enable = lib.attrByPath ["jackpkgs" "nodejs" "enable"] false config;
+            justfile =
+              mkRecipe "fix-npm-lock" "Update and fix package-lock.json for Nix workspace caching" [
+                "#!/usr/bin/env bash"
+                "set -euo pipefail"
+                ""
+                "echo \"🔧 Updating package-lock.json...\""
+                "npm install"
+                ""
+                "echo \"🔨 Fixing lockfile for Nix compatibility...\""
+                "${lib.getExe sysCfg.npmLockfileFixPackage} ./package-lock.json"
+                ""
+                "echo \"✅ Done! Review changes with: git diff package-lock.json\""
+                "echo \"Then commit: git add package-lock.json && git commit -m 'chore: normalize lockfile via npm-lockfile-fix'\""
               ]
               true;
           };
