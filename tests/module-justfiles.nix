@@ -121,4 +121,23 @@ in {
     auth:
         ${mockGetExe null} auth login --update-adc
   '';
+
+  # Test mypy per-package recipe pattern
+  # This tests the recipe that runs mypy on a per-package basis in Python monorepos
+  # to avoid the "source file found twice" error with PEP 420 namespace packages
+  testMypyPerPackage = mkJustParseTest "mypy-per-package" (
+    (mkRecipe "mypy" "Run mypy per-package (avoids 'source file found twice' in monorepos)" [
+        "#!/usr/bin/env bash"
+        "set -euo pipefail"
+      ]
+      true)
+    + ''
+    echo "Type-checking packages/pkg-a..."
+    (cd "packages/pkg-a" && ${mockGetExe null} .)
+    echo "Type-checking packages/pkg-b..."
+    (cd "packages/pkg-b" && ${mockGetExe null} .)
+    echo "Type-checking tools/cli..."
+    (cd "tools/cli" && ${mockGetExe null} .)''
+    + "\n"
+  );
 }
