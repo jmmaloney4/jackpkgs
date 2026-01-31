@@ -55,7 +55,7 @@ with pkgs.lib; rec {
   # Example:
   #
   # myLib.defaultExcludes.treefmt
-  # => ["**/node_modules/**" "**/dist/**" "**/.direnv/**" "**/.jj/**" "**/.venv/**" "**/__pycache__/**" "/nix/**"]
+  # => ["node_modules/**" "dist/**" ".direnv/**" ".jj/**" ".venv/**" "__pycache__/**" "/nix/**"]
   #
   # myLib.defaultExcludes.preCommit
   # => ["/node_modules/" "/dist/" "/.direnv/" "/.jj/" "/.venv/" "/__pycache__/" "^nix/"]
@@ -78,7 +78,7 @@ with pkgs.lib; rec {
     in
       if rootOnly
       then "/${dir.name}/**"
-      else "**/${dir.name}/**")
+      else "${dir.name}/**")
     dirs;
 
   preCommitExcludesFromDirs = dirs:
