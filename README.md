@@ -202,7 +202,9 @@ in {
 
 - nodejs (`modules/flake-parts/nodejs.nix`)
   - Builds `node_modules` using `buildNpmPackage` and exposes `jackpkgs.outputs.nodeModules`.
-  - Provides a Node.js devShell fragment: `jackpkgs.outputs.nodejsDevShell`.
+  - Provides a Node.js devShell fragment: `jackpkgs.outputs.nodejsDevShell` with `npm-lockfile-fix` tool for workspace lockfile compatibility.
+  - Enables `npm-lockfile-fix` pre-commit hook (fixes npm v9+ workspace lockfiles for Nix caching).
+  - Provides `just fix-npm-lock` recipe to update and normalize `package-lock.json`.
   - Options under `jackpkgs.nodejs`:
     - `enable` (bool, default `false`)
     - `version` (enum: 18/20/22, default `22`)
