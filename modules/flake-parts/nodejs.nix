@@ -106,6 +106,7 @@ in {
         nodejs = nodejsPackage;
         npmDeps = pkgs.importNpmLock ({npmRoot = cfg.projectRoot;} // cfg.importNpmLockOptions);
         npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+        nativeBuildInputs = [pkgs.jq];
 
         # Preflight validation for hermetic builds (ADR-022)
         # Check package-lock.json for unsupported dependency forms before npm ci runs
