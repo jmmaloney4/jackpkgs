@@ -183,6 +183,9 @@
             checks = import ./tests/checks.nix {
               inherit inputs lib;
             };
+            lockfileCacheability = import ./tests/lockfile-cacheability.nix {
+              inherit inputs lib;
+            };
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };
