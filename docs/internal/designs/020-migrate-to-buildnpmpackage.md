@@ -744,9 +744,22 @@ nodeModules = pkgs.buildNpmPackage {
 - Minimal code, simple debugging
 - Faster builds (no unnecessary project builds)
 - Consumers wanting full buildNpmPackage behavior can use it directly
+ 
+## Updates
+
+### 2026-01-31: Hermetic validation added (ADR-022)
+
+Preflight validation for `ENOTCACHED` errors was added to the nodejs module:
+- Validates package-lock.json during Nix evaluation (before build)
+- Detects and rejects unsupported dependency forms (git, file, missing integrity)
+- Provides clear, actionable error messages
+- Adds `importNpmLockOptions` for private registry configuration
+
+This operational hardening prevents late-stage `npm ci` failures and guides users to fix lockfiles early.
 
 ## Related
 
+- **ADR-022**: Make nodejs npm dependency builds hermetic — Operational hardening with preflight validation for `ENOTCACHED` errors
 - **ADR-019**: Migrate from pnpm to npm — Supersedes dream2nix justification
 - **ADR-017**: dream2nix for Pure Node.js Dependency Management — Superseded by this ADR
 - **ADR-016**: CI Checks Module — Depends on nodeModules output

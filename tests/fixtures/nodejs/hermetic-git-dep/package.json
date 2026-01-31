@@ -1,0 +1,9 @@
+{
+	"name": "hermetic-git-dep",
+	"version": "1.0.0",
+	"description": "Fixture with git dependency (invalid for hermetic builds)",
+	"license": "MIT",
+	"dependencies": {
+		"some-git-dep": "git+https://github.com/example/example.git#v1.0.0"
+	}
+}

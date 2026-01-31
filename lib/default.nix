@@ -6,8 +6,12 @@ with pkgs.lib; rec {
   # These helpers make it easy to generate justfile content without indentation issues
   justfile = import ./justfile-helpers.nix {lib = pkgs.lib;};
 
+  # Node.js validation helpers (ADR-022)
+  # These helpers validate package-lock.json for hermetic npm dependency builds
+  nodejs = import ./nodejs.nix {lib = pkgs.lib;};
+
   /**
-  Filter an attribute set so that it is returned only when the
+  Filter an attribute set so that it is returned only when
   evaluation `system` is included in `systems`.
 
   Example:

@@ -1,0 +1,9 @@
+{
+	"name": "hermetic-file-dep",
+	"version": "1.0.0",
+	"description": "Fixture with file dependency (invalid for hermetic builds)",
+	"license": "MIT",
+	"dependencies": {
+		"some-local-dep": "file:../packages/some-local-dep"
+	}
+}

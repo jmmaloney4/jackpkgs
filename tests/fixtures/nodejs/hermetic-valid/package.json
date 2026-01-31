@@ -1,0 +1,9 @@
+{
+	"name": "hermetic-valid",
+	"version": "1.0.0",
+	"description": "Valid hermetic fixture with only npm registry dependencies",
+	"license": "MIT",
+	"dependencies": {
+		"lodash": "^4.17.21"
+	}
+}

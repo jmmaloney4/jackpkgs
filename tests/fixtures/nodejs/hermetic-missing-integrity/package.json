@@ -1,0 +1,9 @@
+{
+	"name": "hermetic-missing-integrity",
+	"version": "1.0.0",
+	"description": "Fixture with missing integrity field (invalid for hermetic builds)",
+	"license": "MIT",
+	"dependencies": {
+		"lodash": "^4.17.21"
+	}
+}

@@ -200,13 +200,61 @@ in {
     - `secretsProvider` (str, required) - Pulumi secrets provider
     - `ci.packages` (list of packages) - Packages included in ci-pulumi devshell
 
-- nodejs (`modules/flake-parts/nodejs.nix`)
-  - Builds `node_modules` using `buildNpmPackage` and exposes `jackpkgs.outputs.nodeModules`.
-  - Provides a Node.js devShell fragment: `jackpkgs.outputs.nodejsDevShell`.
-  - Options under `jackpkgs.nodejs`:
-    - `enable` (bool, default `false`)
-    - `version` (enum: 18/20/22, default `22`)
-    - `projectRoot` (path, default `config.jackpkgs.projectRoot`)
+ - nodejs (`modules/flake-parts/nodejs.nix`)
+   - Builds `node_modules` using `buildNpmPackage` and exposes `jackpkgs.outputs.nodeModules`.
+   - Provides a Node.js devShell fragment: `jackpkgs.outputs.nodejsDevShell`.
+   - Options under `jackpkgs.nodejs`:
+     - `enable` (bool, default `false`)
+     - `version` (enum: 18/20/22, default `22`)
+     - `projectRoot` (path, default `config.jackpkgs.projectRoot`)
+     - `importNpmLockOptions` (attrs, default `{}`) - Additional options passed to `importNpmLock` for private registries
+
+   **Hermetic Constraints (ADR-022)**
+   The `nodejs` module builds `node_modules` hermetically in a pure Nix sandbox (no network access). This ensures reproducible builds but requires that all dependencies are available through `importNpmLock`'s prefetch mechanism.
+
+   **Supported dependency forms:**
+   - ✅ npm registry packages (public or configured private registries)
+   - ✅ npm workspaces (via `package.json` `workspaces` field)
+
+   **Unsupported dependency forms:**
+   - ❌ Git dependencies (`git+https://`, `git+ssh://`, `github:`)
+   - ❌ File dependencies (`file:../path`, `link:../path`)
+   - ❌ Dependencies without `resolved` or `integrity` fields
+   - ❌ Private registries without proper fetch configuration
+
+   **Troubleshooting `ENOTCACHED` errors:**
+
+   If you encounter:
+   ```
+   npm error code ENOTCACHED
+   request to https://registry.npmjs.org/<pkg> failed: cache mode is 'only-if-cached' but no cached response is available
+   ```
+
+   The nodejs module will now fail fast during Nix evaluation with a clear error pointing to problematic dependencies. Common fixes:
+
+   1. **Git dependencies:** Replace with npm registry version or publish a private registry package
+   2. **File dependencies:** Use npm workspaces or publish to registry
+   3. **Missing integrity:** Regenerate lockfile with `npm install`
+   4. **Private registry:** Configure `importNpmLockOptions.fetcherOpts`
+
+   **Private registry example:**
+
+   ```nix
+   jackpkgs.nodejs = {
+     enable = true;
+     importNpmLockOptions = {
+       fetcherOpts = {
+         "node_modules/@myorg" = {
+           curlOptsList = [ 
+             "--header" "Authorization: Bearer ''${NPM_TOKEN}"
+           ];
+         };
+       };
+     };
+   };
+   ```
+
+   See ADR-022 for full design rationale and implementation details.
 
 - quarto (`modules/flake-parts/quarto.nix`)
   - Provides Quarto tooling in a devShell fragment: `config.jackpkgs.outputs.quartoDevShell`.
