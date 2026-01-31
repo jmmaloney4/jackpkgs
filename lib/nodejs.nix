@@ -16,9 +16,10 @@ in {
     packages = lockfile.packages or {};
 
     checkEntry = name: entry: let
-      isWorkspace = hasPrefix "" name || hasPrefix "node_modules/" name;
       resolved = entry.resolved or "";
       hasIntegrity = entry ? integrity && entry.integrity != "";
+      # Workspace packages have neither resolved nor integrity (they're linked locally)
+      isWorkspace = resolved == "" && !hasIntegrity;
     in
       if isWorkspace
       then null
