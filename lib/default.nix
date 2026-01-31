@@ -63,6 +63,7 @@ with pkgs.lib; rec {
     {name = "node_modules";}
     {name = "dist";}
     {name = ".direnv";}
+    {name = ".git";}
     {name = ".jj";}
     {name = ".venv";}
     {name = "__pycache__";}
