@@ -46,12 +46,33 @@ in {
         description = "The node_modules derivation built by buildNpmPackage.";
       };
 
+      options.jackpkgs.outputs.npmLockfileFix = mkOption {
+        type = types.nullOr types.package;
+        default = null;
+        description = "npm-lockfile-fix derivation (always available for downstream use).";
+      };
+
       options.jackpkgs.outputs.nodejsDevShell = mkOption {
         type = types.nullOr types.package;
         default = null;
         description = "Node.js devShell fragment to include in `inputsFrom`.";
       };
     });
+  };
+
+  config = {
+    perSystem = {
+      pkgs,
+      lib,
+      config,
+      system,
+      ...
+    }: let
+      # Always expose npm-lockfile-fix (even when nodejs module is disabled)
+      npmLockfileFix = pkgs.callPackage ../../pkgs/npm-lockfile-fix {};
+    in {
+      jackpkgs.outputs.npmLockfileFix = npmLockfileFix;
+    };
   };
 
   config = mkIf cfg.enable {
@@ -104,7 +125,7 @@ in {
         shellHook = ''
           node_modules_bin=""
           ${lib.optionalString (nodeModules != null) ''
-            # Use Nix-built binaries from the node_modules derivation (pure, preferred)
+            # Use Nix-built binaries from node_modules derivation (pure, preferred)
             # TODO: Remove dream2nix fallback paths after migration period (see ADR-020)
             ${jackpkgsLib.nodejs.findNodeModulesBin "node_modules_bin" nodeModules}
           ''}
@@ -112,7 +133,7 @@ in {
             export PATH="$node_modules_bin:$PATH"
           else
             # Fallback: Add local node_modules/.bin for impure builds (npm install)
-            # This allows the devshell to work even without Nix-built node_modules
+            # This allows to devshell to work even without Nix-built node_modules
             export PATH="$PWD/node_modules/.bin:$PATH"
           fi
         '';
