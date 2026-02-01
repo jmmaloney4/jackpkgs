@@ -111,7 +111,7 @@ zeus/
 |---------|--------------|-------------------|
 | **Root workspace config** | `pnpm-workspace.yaml` with `packages: ['atlas', 'deploy/*']` | Parsed via `fromYAML` helper |
 | **Workspace protocol** | `"dependencies": { "@cavinsresearch/atlas": "workspace:*" }` | Native to pnpm; `fetchPnpmDeps` handles |
-| **Shared library** | `atlas/` with `postinstall: pnpm --filter atlas build` | Runs during `pnpmConfigHook` automatically |
+| **Shared library** | `atlas/` publishes `main: dist/index.js` + `types: dist/index.d.ts` | Built explicitly in checks (do not rely on lifecycle scripts) |
 | **Multiple stacks** | `deploy/*` each consuming atlas | Each typechecks against linked `node_modules` |
 | **External registry** | `@jmmaloney4/toolbox` via `.npmrc` | Respected by `fetchPnpmDeps` |
 
@@ -128,8 +128,13 @@ stack that consumes it. This is handled in zeus by a root `postinstall` hook:
 }
 ```
 
-**In Nix:** This hook executes automatically during the `pnpmConfigHook` phase, ensuring `atlas/dist/`
-exists before TypeScript checks run on consumer packages.
+**In Nix:** Do not rely on this. nixpkgs' `pnpmConfigHook` performs an offline install with
+`--ignore-scripts`, so lifecycle scripts like `postinstall` will not run when constructing
+the `node_modules` derivation.
+
+Instead, `jackpkgs.checks.typescript` (and optionally the devshell) must run an explicit
+bootstrap build step (for example, `tsc -p atlas/tsconfig.json` or `pnpm --filter @cavinsresearch/atlas run build`)
+before typechecking consumer stacks.
 
 ### TypeScript Configuration
 
@@ -168,7 +173,7 @@ TypeScript's `extends` mechanism finds `node_modules/typescript` without issue; 
 |-------------|----------------|--------|
 | Parse `pnpm-workspace.yaml` | `fromYAML` helper using `yq-go` | ✓ Planned |
 | Workspace globs expansion | Reuse `expandWorkspaceGlob` | ✓ Existing |
-| Shared lib build order | `pnpmConfigHook` runs `postinstall` | ✓ Automatic |
+| Shared lib build order | Explicit pre-typecheck bootstrap build step | ✓ Planned |
 | Multiple stack support | Checks iterate all packages | ✓ Existing |
 | `workspace:*` resolution | Native pnpm support | ✓ Native |
 | External registry deps | Respects `.npmrc` | ✓ Native |
@@ -186,6 +191,77 @@ TypeScript's `extends` mechanism finds `node_modules/typescript` without issue; 
 3. **Binary Exposure:** The `node_modules/.bin` directory is linked into the devshell and checks via
    the existing `findNodeModulesBin` helper. This works identically for pnpm and npm since both
    produce this structure.
+
+---
+
+## Appendix B: Node/TypeScript/Pulumi Module Resolution Patterns
+
+This appendix summarizes common Node.js module resolution patterns, how TypeScript and Pulumi
+interact with them, and what this implies for pnpm-based Nix builds.
+
+### What "module resolution" means
+
+There are three layers that must agree:
+
+- **Node runtime resolution:** how `node` locates and loads modules at execution time.
+- **TypeScript resolution:** how `tsc` finds type declarations during typechecking/emit.
+- **Package manager layout:** what `node_modules` looks like (real directories vs symlinks).
+
+### Common patterns
+
+1. **Classic CommonJS (`moduleResolution: node`, `module: CommonJS`)**
+   - Node uses `require()` semantics.
+   - TypeScript uses classic `node_modules` lookup rules.
+   - Pulumi works well here because program execution is fundamentally Node-based.
+
+2. **Modern ESM (`type: module`, `exports`, `moduleResolution: node16|nodenext`)**
+   - Node uses ESM semantics (`package.json` `type`, file extensions, and `exports`).
+   - TypeScript `node16`/`nodenext` makes TS follow Node's ESM rules more closely.
+   - Pulumi can support this, but ESM/CJS mixing tends to be where breakage happens.
+
+3. **Workspace libraries published via build artifacts (`main`/`types` -> `dist/*`)**
+   - A shared workspace package declares `main: dist/index.js` and `types: dist/index.d.ts`.
+   - Dependent packages (like Pulumi stacks) import the package name and expect `dist/*` to exist.
+   - This is the zeus pattern: `@cavinsresearch/atlas` is imported by stacks, so `atlas/dist` must
+     exist for both typechecking (types) and runtime (JS).
+
+4. **Typechecking against source via `compilerOptions.paths`**
+   - Can avoid a build-order dependency for TypeScript typechecking.
+   - Node (and Pulumi at runtime) does not honor TS `paths` without extra runtime loaders.
+   - This is usually not the best fit for Pulumi stacks unless you commit to a loader/bundler.
+
+5. **TypeScript project references (`tsc -b`)**
+   - Declares an explicit build graph and builds in dependency order.
+   - Works well when workspace packages must emit `.d.ts` before dependents can typecheck.
+
+### Implications for pnpm + Nix
+
+- pnpm is compatible with Node and TypeScript, but it leans heavily on symlinks.
+- In nixpkgs, `pnpmConfigHook` installs dependencies offline with `--ignore-scripts`, so build-order
+  dependencies cannot depend on lifecycle scripts like root `postinstall`.
+
+This means `jackpkgs` must treat "build workspace libs" as a first-class, explicit step in:
+
+- `nix flake check` (via `jackpkgs.checks.typescript`), and optionally
+- the devshell (for developer ergonomics).
+
+### Current `jackpkgs` behavior
+
+- `jackpkgs.nodejs` builds a store-backed `node_modules` tree (today via `buildNpmPackage` and npm
+  lockfiles; this ADR migrates that to pnpm tooling).
+- `jackpkgs.checks.typescript` links that store `node_modules` into a writable sandbox and runs
+  `tsc --noEmit` for configured packages.
+- There is no built-in "bootstrap build" step today.
+
+### Recommendation
+
+For Pulumi TypeScript monorepos like zeus:
+
+- Prefer the "workspace library publishes `dist/*`" pattern for shared libraries.
+- Add an explicit bootstrap build step in `jackpkgs.checks.typescript` (for example build `atlas`
+  before typechecking `deploy/*`).
+- Optionally add a devshell hook which builds `atlas` only when `atlas/dist/index.d.ts` is missing,
+  but keep CI correctness in `flake check` (shell hooks do not run during `flake check`).
 
 ---
 
