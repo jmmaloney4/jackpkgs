@@ -692,29 +692,6 @@ nix develop
 # d. Copy new hash into pnpmDepsHash
 ```
 
-### Alternative: Nix Flake Output (Advanced)
-
-For users who prefer a flake output over manual option editing:
-
-```nix
-# In flake.nix outputs section
-outputs = inputs @ {self, ...}: {
-  pnpmDepsHash = self.packages.${system}.pnpmDeps.pnpmDeps;
-}
-```
-
-Then in `flake-module.nix`:
-```nix
-{
-  jackpkgs.nodejs = {
-    # ...
-    pnpmDepsHash = inputs.self.packages.${system}.pnpmDeps.pnpmDeps;
-  };
-}
-```
-
-This automatically uses the correct hash from the derivation.
-
 ---
 
 ## Zeus Monorepo Compatibility
