@@ -59,29 +59,7 @@ in {
           in
             if npmLockfileFix != null
             then npmLockfileFix
-            else
-              pkgs.python3Packages.buildPythonApplication {
-                pname = "npm-lockfile-fix";
-                version = "0.1.1";
-                pyproject = true;
-
-                src = pkgs.fetchFromGitHub {
-                  owner = "jeslie0";
-                  repo = "npm-lockfile-fix";
-                  rev = "v0.1.1";
-                  hash = "sha256-P93OowrVkkOfX5XKsRsg0c4dZLVn2ZOonJazPmHdD7g=";
-                };
-
-                build-system = [pkgs.python3Packages.setuptools];
-                propagatedBuildInputs = [pkgs.python3Packages.requests];
-
-                meta = {
-                  mainProgram = "npm-lockfile-fix";
-                  description = "Add missing integrity and resolved fields to npm workspace lockfiles";
-                  homepage = "https://github.com/jeslie0/npm-lockfile-fix";
-                  license = pkgs.lib.licenses.mit;
-                };
-              };
+            else pkgs.callPackage ../../pkgs/npm-lockfile-fix {};
           defaultText = "npm-lockfile-fix package from nodejs module or standalone";
           description = "npm-lockfile-fix package to use for validating workspace lockfiles.";
         };

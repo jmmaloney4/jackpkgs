@@ -107,28 +107,7 @@
           docfx = pkgs.callPackage ./pkgs/docfx {};
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           lean = pkgs.callPackage ./pkgs/lean {};
-          npm-lockfile-fix = pkgs.python3Packages.buildPythonApplication {
-            pname = "npm-lockfile-fix";
-            version = "0.1.1";
-            pyproject = true;
-
-            src = pkgs.fetchFromGitHub {
-              owner = "jeslie0";
-              repo = "npm-lockfile-fix";
-              rev = "v0.1.1";
-              hash = "sha256-P93OowrVkkOfX5XKsRsg0c4dZLVn2ZOonJazPmHdD7g=";
-            };
-
-            build-system = [pkgs.python3Packages.setuptools];
-            propagatedBuildInputs = [pkgs.python3Packages.requests];
-
-            meta = {
-              description = "Add missing integrity and resolved fields to npm workspace lockfiles";
-              homepage = "https://github.com/jeslie0/npm-lockfile-fix";
-              license = pkgs.lib.licenses.mit;
-              mainProgram = "npm-lockfile-fix";
-            };
-          };
+          npm-lockfile-fix = pkgs.callPackage ./pkgs/npm-lockfile-fix {};
           roon-server = pkgs.callPackage ./pkgs/roon-server {};
           tod = pkgs.callPackage ./pkgs/tod {};
         };
@@ -240,36 +219,40 @@
               '';
             };
 
-            # Test: Pulumi monorepo TypeScript compiles
-            lockfile-pulumi-monorepo-tsc = pkgs.buildNpmPackage {
-              pname = "pulumi-monorepo-tsc";
-              version = "1.0.0";
-              src = ./tests/fixtures/integration/pulumi-monorepo;
-              npmDeps = pkgs.importNpmLock {
-                npmRoot = ./tests/fixtures/integration/pulumi-monorepo;
-              };
-              npmConfigHook = pkgs.importNpmLock.npmConfigHook;
-              buildPhase = ''
-                npx tsc --noEmit
-              '';
-              installPhase = "touch $out";
-            };
+            inherit
+              (let
+                pulumiMonorepoBase = {
+                  version = "1.0.0";
+                  src = ./tests/fixtures/integration/pulumi-monorepo;
+                  npmDeps = pkgs.importNpmLock {
+                    npmRoot = ./tests/fixtures/integration/pulumi-monorepo;
+                  };
+                  npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+                  installPhase = "touch $out";
+                };
+              in {
+                # Test: Pulumi monorepo TypeScript compiles
+                lockfile-pulumi-monorepo-tsc = pkgs.buildNpmPackage (pulumiMonorepoBase
+                  // {
+                    pname = "pulumi-monorepo-tsc";
+                    buildPhase = ''
+                      npx tsc --noEmit
+                    '';
+                  });
 
-            # Test: Pulumi monorepo Vitest passes
-            lockfile-pulumi-monorepo-vitest = pkgs.buildNpmPackage {
-              pname = "pulumi-monorepo-vitest";
-              version = "1.0.0";
-              src = ./tests/fixtures/integration/pulumi-monorepo;
-              npmDeps = pkgs.importNpmLock {
-                npmRoot = ./tests/fixtures/integration/pulumi-monorepo;
-              };
-              npmConfigHook = pkgs.importNpmLock.npmConfigHook;
-              buildPhase = ''
-                npx tsc --build
-                npx vitest run
-              '';
-              installPhase = "touch $out";
-            };
+                # Test: Pulumi monorepo Vitest passes
+                lockfile-pulumi-monorepo-vitest = pkgs.buildNpmPackage (pulumiMonorepoBase
+                  // {
+                    pname = "pulumi-monorepo-vitest";
+                    buildPhase = ''
+                      npx tsc --build
+                      npx vitest run
+                    '';
+                  });
+              })
+              lockfile-pulumi-monorepo-tsc
+              lockfile-pulumi-monorepo-vitest
+              ;
           };
       };
 
