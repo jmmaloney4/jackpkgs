@@ -95,33 +95,11 @@ in {
         npmLockfileFixPackage = mkOption {
           type = types.package;
           default = let
-            nodejsDevShell =
-              lib.attrByPath ["jackpkgs" "outputs" "nodejsDevShell"] null config;
+            npmLockfileFix =
+              lib.attrByPath ["jackpkgs" "outputs" "npmLockfileFix"] null config;
           in
-            if nodejsDevShell != null
-            then
-              # Extract npm-lockfile-fix from nodejs devshell if available
-              config.jackpkgs.pkgs.python3Packages.buildPythonApplication {
-                pname = "npm-lockfile-fix";
-                version = "0.1.1";
-                pyproject = true;
-
-                src = config.jackpkgs.pkgs.fetchFromGitHub {
-                  owner = "jeslie0";
-                  repo = "npm-lockfile-fix";
-                  rev = "v0.1.1";
-                  hash = "sha256-P93OowrVkkOfX5XKsRsg0c4dZLVn2ZOonJazPmHdD7g=";
-                };
-
-                build-system = [config.jackpkgs.pkgs.python3Packages.setuptools];
-                propagatedBuildInputs = [config.jackpkgs.pkgs.python3Packages.requests];
-
-                meta = {
-                  description = "Add missing integrity and resolved fields to npm workspace lockfiles";
-                  homepage = "https://github.com/jeslie0/npm-lockfile-fix";
-                  license = config.jackpkgs.pkgs.lib.licenses.mit;
-                };
-              }
+            if npmLockfileFix != null
+            then npmLockfileFix
             else
               config.jackpkgs.pkgs.python3Packages.buildPythonApplication {
                 pname = "npm-lockfile-fix";
@@ -139,12 +117,13 @@ in {
                 propagatedBuildInputs = [config.jackpkgs.pkgs.python3Packages.requests];
 
                 meta = {
+                  mainProgram = "npm-lockfile-fix";
                   description = "Add missing integrity and resolved fields to npm workspace lockfiles";
                   homepage = "https://github.com/jeslie0/npm-lockfile-fix";
                   license = config.jackpkgs.pkgs.lib.licenses.mit;
                 };
               };
-          defaultText = "npm-lockfile-fix package from nodejs devshell or standalone";
+          defaultText = "npm-lockfile-fix package from nodejs module or standalone";
           description = "npm-lockfile-fix package to use for fixing workspace lockfiles.";
         };
         preCommitPackage = mkOption {

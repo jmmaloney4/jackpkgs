@@ -88,6 +88,7 @@ in {
         propagatedBuildInputs = [pkgs.python3Packages.requests];
 
         meta = {
+          mainProgram = "npm-lockfile-fix";
           description = "Add missing integrity and resolved fields to npm workspace lockfiles";
           homepage = "https://github.com/jeslie0/npm-lockfile-fix";
           license = pkgs.lib.licenses.mit;
@@ -107,8 +108,9 @@ in {
         ''; # See ADR-020 Appendix A: Custom installPhase preserves flat <store>/node_modules/ structure for API stability
       };
     in {
-      # Expose node_modules for consumption by checks
+      # Expose node_modules and npm-lockfile-fix for consumption by checks
       jackpkgs.outputs.nodeModules = nodeModules;
+      jackpkgs.outputs.npmLockfileFix = npmLockfileFix;
 
       # Create devshell fragment
       jackpkgs.outputs.nodejsDevShell = pkgs.mkShell {
