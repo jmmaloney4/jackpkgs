@@ -143,6 +143,21 @@ Out of scope:
 
    ### Workflow
 
+   #### Bootstrap (First-Time Fix)
+
+   If enabling the nodejs module on a repository with an existing incompatible lockfile, the devshell will fail to build. Bootstrap the fix using the flake app:
+
+   ```bash
+   # From repository root (before devshell works)
+   nix run github:jmmaloney4/jackpkgs#npm-lockfile-fix ./package-lock.json
+   git add package-lock.json && git commit -m "chore: normalize lockfile for Nix compatibility"
+   
+   # Now devshell will work
+   nix develop
+   ```
+
+   #### Normal Workflow
+
    For developers using jackpkgs with nodejs module enabled:
 
    1. **Update dependencies**: `npm install <package>` or edit `package.json` and run `npm install`
