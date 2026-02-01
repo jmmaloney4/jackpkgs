@@ -5,3 +5,4 @@ result-*
 just-flake.just
 .claude/settings.local.json
 
+node_modules/

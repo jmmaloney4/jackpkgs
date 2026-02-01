@@ -70,6 +70,10 @@ in {
         then pkgs.nodejs_20
         else pkgs.nodejs_22; # Default to 22
 
+      # Package npm-lockfile-fix for fixing workspace lockfiles
+      # See ADR-022: npm v9+ workspace lockfiles omit resolved/integrity for nested deps
+      npmLockfileFix = pkgs.callPackage ../../pkgs/npm-lockfile-fix {};
+
       # Build node_modules using buildNpmPackage
       nodeModules = pkgs.buildNpmPackage {
         pname = "node-modules";
@@ -83,13 +87,15 @@ in {
         ''; # See ADR-020 Appendix A: Custom installPhase preserves flat <store>/node_modules/ structure for API stability
       };
     in {
-      # Expose node_modules for consumption by checks
+      # Expose node_modules and npm-lockfile-fix for consumption by checks
       jackpkgs.outputs.nodeModules = nodeModules;
+      jackpkgs.outputs.npmLockfileFix = npmLockfileFix;
 
       # Create devshell fragment
       jackpkgs.outputs.nodejsDevShell = pkgs.mkShell {
         packages = [
           nodejsPackage
+          npmLockfileFix
         ];
 
         # NOTE: We check for .bin paths at runtime (shellHook execution time), not at

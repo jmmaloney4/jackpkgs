@@ -107,6 +107,7 @@
           docfx = pkgs.callPackage ./pkgs/docfx {};
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           lean = pkgs.callPackage ./pkgs/lean {};
+          npm-lockfile-fix = pkgs.callPackage ./pkgs/npm-lockfile-fix {};
           roon-server = pkgs.callPackage ./pkgs/roon-server {};
           tod = pkgs.callPackage ./pkgs/tod {};
         };
@@ -183,6 +184,12 @@
             checks = import ./tests/checks.nix {
               inherit inputs lib;
             };
+            lockfileCacheability = import ./tests/lockfile-cacheability.nix {
+              inherit inputs lib;
+            };
+            lockfileNixpkgsIntegration = import ./tests/lockfile-nixpkgs-integration.nix {
+              inherit inputs lib;
+            };
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };
@@ -193,7 +200,60 @@
           # Add all justfile validation tests
           lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests
           # Add module pattern tests
-          // lib.mapAttrs' (name: test: lib.nameValuePair "module-${name}" test) moduleJustfileTests;
+          // lib.mapAttrs' (name: test: lib.nameValuePair "module-${name}" test) moduleJustfileTests
+          // {
+            # Test: Simple npm package builds successfully with importNpmLock
+            lockfile-simple-npm-builds = pkgs.buildNpmPackage {
+              pname = "simple-npm-test";
+              version = "1.0.0";
+              src = ./tests/fixtures/integration/simple-npm;
+              npmDeps = pkgs.importNpmLock {
+                npmRoot = ./tests/fixtures/integration/simple-npm;
+              };
+              npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+              dontNpmBuild = true;
+              installPhase = ''
+                mkdir -p $out
+                cp -r node_modules $out/
+                cp index.js $out/
+              '';
+            };
+
+            inherit
+              (let
+                pulumiMonorepoBase = {
+                  version = "1.0.0";
+                  src = ./tests/fixtures/integration/pulumi-monorepo;
+                  npmDeps = pkgs.importNpmLock {
+                    npmRoot = ./tests/fixtures/integration/pulumi-monorepo;
+                  };
+                  npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+                  installPhase = "touch $out";
+                };
+              in {
+                # Test: Pulumi monorepo TypeScript compiles
+                lockfile-pulumi-monorepo-tsc = pkgs.buildNpmPackage (pulumiMonorepoBase
+                  // {
+                    pname = "pulumi-monorepo-tsc";
+                    buildPhase = ''
+                      npx tsc --noEmit
+                    '';
+                  });
+
+                # Test: Pulumi monorepo Vitest passes
+                lockfile-pulumi-monorepo-vitest = pkgs.buildNpmPackage (pulumiMonorepoBase
+                  // {
+                    pname = "pulumi-monorepo-vitest";
+                    buildPhase = ''
+                      npx tsc --build
+                      npx vitest run
+                    '';
+                  });
+              })
+              lockfile-pulumi-monorepo-tsc
+              lockfile-pulumi-monorepo-vitest
+              ;
+          };
       };
 
       flake = {

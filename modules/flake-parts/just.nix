@@ -92,6 +92,18 @@ in {
           defaultText = "config.jackpkgs.pkgs.nbstripout";
           description = "nbstripout package to use.";
         };
+        npmLockfileFixPackage = mkOption {
+          type = types.package;
+          default = let
+            npmLockfileFix =
+              lib.attrByPath ["jackpkgs" "outputs" "npmLockfileFix"] null config;
+          in
+            if npmLockfileFix != null
+            then npmLockfileFix
+            else config.jackpkgs.pkgs.callPackage ../../pkgs/npm-lockfile-fix {};
+          defaultText = "npm-lockfile-fix package from nodejs module or standalone";
+          description = "npm-lockfile-fix package to use for fixing workspace lockfiles.";
+        };
         preCommitPackage = mkOption {
           type = types.package;
           default = config.jackpkgs.pkgs.pre-commit;
@@ -209,6 +221,24 @@ in {
                 "else"
                 "    ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\""
                 "fi"
+              ]
+              true;
+          };
+          nodejs = {
+            enable = lib.attrByPath ["jackpkgs" "nodejs" "enable"] false config;
+            justfile =
+              mkRecipe "fix-npm-lock" "Update and fix package-lock.json for Nix workspace caching" [
+                "#!/usr/bin/env bash"
+                "set -euo pipefail"
+                ""
+                "echo \"🔧 Updating package-lock.json...\""
+                "npm install"
+                ""
+                "echo \"🔨 Fixing lockfile for Nix compatibility...\""
+                "${lib.getExe sysCfg.npmLockfileFixPackage} ./package-lock.json"
+                ""
+                "echo \"✅ Done! Review changes with: git diff package-lock.json\""
+                "echo \"Then commit: git add package-lock.json && git commit -m 'chore: normalize lockfile via npm-lockfile-fix'\""
               ]
               true;
           };

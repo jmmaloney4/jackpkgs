@@ -1,0 +1,18 @@
+{
+	"name": "@test/infra-dev",
+	"version": "1.0.0",
+	"main": "index.ts",
+	"scripts": {
+		"build": "tsc"
+	},
+	"dependencies": {
+		"@pulumi/gcp": "^7.0.0",
+		"@pulumi/pulumi": "^3.100.0",
+		"@test/lib-common": "*",
+		"@test/lib-pulumi": "*"
+	},
+	"devDependencies": {
+		"@types/node": "^20.11.0",
+		"typescript": "^5.4.0"
+	}
+}
