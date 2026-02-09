@@ -17,15 +17,16 @@ Currently, `nix flake check` quality gates must be defined locally in each consu
 
 ### Current State in jackpkgs
 
-| Module | What it provides | Gaps |
-|--------|-----------------|------|
-| `python.nix` | Python environments, devshell fragments | No checks |
-| `pulumi.nix` | Pulumi devshell with TypeScript tooling | No tsc check |
-| `pnpm.nix` | Node.js/pnpm devshell | No checks |
-| `fmt.nix` | treefmt formatting, ruff-check/ruff-format | Formatter, not CI check |
-| `pre-commit.nix` | mypy hook, treefmt hook, nbstripout | Pre-commit hooks, not CI checks |
+| Module           | What it provides                           | Gaps                            |
+| ---------------- | ------------------------------------------ | ------------------------------- |
+| `python.nix`     | Python environments, devshell fragments    | No checks                       |
+| `pulumi.nix`     | Pulumi devshell with TypeScript tooling    | No tsc check                    |
+| `pnpm.nix`       | Node.js/pnpm devshell                      | No checks                       |
+| `fmt.nix`        | treefmt formatting, ruff-check/ruff-format | Formatter, not CI check         |
+| `pre-commit.nix` | mypy hook, treefmt hook, nbstripout        | Pre-commit hooks, not CI checks |
 
 **Key distinction:**
+
 - **Pre-commit hooks** run on staged files during development (fast feedback)
 - **CI checks** run on entire codebase during `nix flake check` (comprehensive validation)
 
@@ -44,6 +45,7 @@ checks = {
 ```
 
 This requires:
+
 - Manual PYTHONPATH configuration
 - Dynamic workspace member discovery (parsing pyproject.toml)
 - Per-package execution to avoid module name conflicts
@@ -63,7 +65,7 @@ This requires:
 - **Composable** - Projects may want to add custom checks alongside module-provided ones
 - **Hermetic** - Checks must run in pure Nix sandbox (no network access)
 
----
+______________________________________________________________________
 
 ## Decision
 
@@ -209,10 +211,11 @@ Checks MUST be named consistently:
 - `checks.<system>.typescript-tsc`
 
 This allows:
+
 - `nix flake check` - Run all checks
 - `nix build .#checks.aarch64-darwin.python-pytest` - Run specific check
 
----
+______________________________________________________________________
 
 ## Consequences
 
@@ -234,25 +237,29 @@ This allows:
 ### Risks & Mitigations
 
 **R1: Workspace discovery complexity**
+
 - Risk: Different projects have different layouts
 - Mitigation: Support both auto-discovery and explicit package lists
 - Fallback: Expose `discoveredWorkspaceMembers` for custom check definitions
 
 **R2: TypeScript requires node_modules**
+
 - Risk: node_modules not present in pure Nix sandbox
 - Mitigation: Clear error message directing user to run `pnpm install`
 - Alternative: Build node_modules via pnpm2nix (complex, deferred)
 
 **R3: YAML parsing for pnpm-workspace.yaml**
+
 - Risk: Nix doesn't have native YAML parser
 - Mitigation: Use `pkgs.yq` at build time or require explicit package list
 - Alternative: Convert pnpm-workspace.yaml to JSON in repo
 
 **R4: Pre-commit vs CI check confusion**
+
 - Risk: Users confused about when mypy runs
 - Mitigation: Clear documentation; pre-commit = staged files, CI check = full codebase
 
----
+______________________________________________________________________
 
 ## Best Practices
 
@@ -268,11 +275,13 @@ jackpkgs.checks.typescript.tsc = {
 ```
 
 **Auto-discovery is available** but best-effort. Use when:
+
 - Your `pnpm-workspace.yaml` uses only basic syntax (simple lists, standard globs)
 - You want zero-config convenience for simple projects
 - You're willing to fall back to explicit config if auto-discovery fails
 
 **When to avoid auto-discovery:**
+
 - Complex YAML features (anchors, multi-line strings, inline arrays)
 - Paths with embedded quotes or apostrophes in package names
 - Need for guaranteed reliability in CI pipelines
@@ -302,7 +311,7 @@ The checks module automatically uses `workspace.deps.default`, which includes al
 
 **Why not workspace-level dependency-groups?** Due to uv2nix/pyproject-nix limitations, workspace-level `[dependency-groups]` don't translate to Nix environment specs. The dedicated package pattern is the reliable solution.
 
----
+______________________________________________________________________
 
 ## Alternatives Considered
 
@@ -311,11 +320,13 @@ The checks module automatically uses `workspace.deps.default`, which includes al
 Continue requiring each consumer to define checks locally.
 
 **Pros:**
+
 - Maximum flexibility per project
 - No jackpkgs changes required
 - No coordination needed
 
 **Cons:**
+
 - Duplication across projects
 - Each project reinvents workspace discovery
 - TypeScript still missing unless manually added
@@ -328,11 +339,13 @@ Continue requiring each consumer to define checks locally.
 Create `jackpkgs-checks` as separate flake, not part of core jackpkgs.
 
 **Pros:**
+
 - Decoupled release cycles
 - Lighter core jackpkgs
 - Could version independently
 
 **Cons:**
+
 - Another input for consumers to manage
 - Tight coupling to jackpkgs internals anyway
 - More fragmentation
@@ -344,18 +357,20 @@ Create `jackpkgs-checks` as separate flake, not part of core jackpkgs.
 Expose `lib.mkPythonCheck`, `lib.mkTypescriptCheck` utilities instead of configured checks.
 
 **Pros:**
+
 - Maximum flexibility
 - No opinionated defaults
 - Smaller module surface
 
 **Cons:**
+
 - Still requires consumer configuration
 - Doesn't solve the duplication problem
 - More boilerplate in consumer projects
 
 **Why not chosen:** The goal is zero-config for common cases; utilities alone don't achieve this.
 
----
+______________________________________________________________________
 
 ## Implementation Plan
 
@@ -389,22 +404,24 @@ Expose `lib.mkPythonCheck`, `lib.mkTypescriptCheck` utilities instead of configu
 
 **Effort:** 1-2 hours
 
----
+______________________________________________________________________
 
 ## Related
 
 - **jackpkgs ADRs:**
+
   - ADR-013: CI DevShells (related pattern for minimal CI environments)
   - ADR-002: Python Environment Configuration
   - ADR-003: Python flake-parts Module
 
 - **jackpkgs modules:**
+
   - `pre-commit.nix` - mypy hook (pre-commit, not CI)
   - `fmt.nix` - ruff via treefmt (formatter, not check)
   - `python.nix` - Python environments
   - `pulumi.nix` - Pulumi devshell
 
----
+______________________________________________________________________
 
 Author: Claude
 Date: 2026-01-08

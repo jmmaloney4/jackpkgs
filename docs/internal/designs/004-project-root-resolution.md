@@ -29,29 +29,35 @@ Accepted
 ## Consequences
 
 ### Benefits
+
 - Deterministic evaluation: modules operate on Nix paths, enabling reliable `builtins.pathExists` and file reads.
 - Consistency: a single source of truth for project root resolution reduces duplication and ambiguity.
 - Flexibility: consumers can override `jackpkgs.projectRoot` for atypical repository layouts.
 
 ### Trade-offs
+
 - Slight configuration surface increase (one option) in exchange for clarity and correctness.
 - Consumers must understand the distinction between evaluation-time paths (Nix paths) and runtime shell variables.
 
 ### Risks & Mitigations
+
 - Risk: Consumers pass a relative string for `jackpkgs.projectRoot`. Mitigation: the option type is `path`; document absolute override patterns and provide clear errors.
 - Risk: Path joins regress to string concatenation errors. Mitigation: enforce robust join logic in modules and add tests/checks.
 
 ## Alternatives Considered
 
 ### A — Use `inputs.self.outPath` directly in every module
+
 - Pros: Fewer options; no `_module.args`.
 - Cons: Hard to override when the project layout differs; duplicates logic across modules.
 
 ### B — Resolve at runtime using `flake-root`
+
 - Pros: Flexible for devshells and scripts.
 - Cons: Not available during evaluation; cannot be used with `builtins.pathExists` or uv2nix workspace loading.
 
 ### C — Require absolute paths for all module options
+
 - Pros: Avoids any joining inside modules.
 - Cons: Poor ergonomics; every consumer must calculate absolute paths; hurts reuse.
 
@@ -82,11 +88,13 @@ Accepted
 ### Future changes (shell guidance)
 
 - Editable dev shell:
+
   - Continue to point `UV_PYTHON` (and similar) at the editable env using string values.
   - Keep `pyprojectPath` and `uvLockPath` as relative strings; the module resolves them against `jackpkgs.projectRoot`.
   - Pass `workspaceRoot` as a path (`./.` in the typical case) so uv2nix receives a concrete location.
 
 - Non-editable/minimal dev shell (e.g., Pulumi):
+
   - Point `UV_PYTHON` at the non-editable env (`pythonEnvs.default`).
   - Avoid editable overlays unless explicitly required.
 
@@ -97,6 +105,7 @@ Accepted
 ## Usage Guidance
 
 ### Typical consumer configuration
+
 ```nix
 # In your flake-parts config
 jackpkgs.projectRoot = inputs.self.outPath;  # or ./. if set at repo root
@@ -112,12 +121,14 @@ jackpkgs.python = {
 ```
 
 ### Custom repository layout
+
 ```nix
 # Provide an absolute path when the project root differs
 jackpkgs.projectRoot = builtins.toPath "/abs/path/to/project";
 ```
 
 ### Do not
+
 ```nix
 # Avoid passing relative plain strings for projectRoot
 jackpkgs.projectRoot = "../..";  # WRONG — not a Nix path
@@ -139,7 +150,7 @@ jackpkgs.projectRoot = "../..";  # WRONG — not a Nix path
 - `jackpkgs/modules/flake-parts/python.nix`: consumes `_module.args.jackpkgsProjectRoot` to resolve `pyprojectPath`, `uvLockPath`, and `workspaceRoot`.
 - ADR-003: uv2nix Flake-Parts Module.
 
----
+______________________________________________________________________
 
 Author: Jack Maloney
 Date: 2025-10-13

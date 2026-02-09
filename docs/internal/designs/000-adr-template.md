@@ -18,22 +18,27 @@ Proposed | Accepted | Amended | Superseded | Deprecated | Rejected
 ## Consequences
 
 ### Benefits
+
 - …
 
 ### Trade-offs
+
 - …
 
 ### Risks & Mitigations
+
 - …
 
 ## Alternatives Considered
 
 ### Alternative A — <Name>
+
 - Pros: …
 - Cons: …
 - Why not chosen: …
 
 ### Alternative B — <Name>
+
 - Pros: …
 - Cons: …
 - Why not chosen: …
@@ -49,7 +54,7 @@ Proposed | Accepted | Amended | Superseded | Deprecated | Rejected
 - Links to issues/PRs
 - Links to other ADRs (include supersedes/superseded-by when applicable)
 
----
+______________________________________________________________________
 
 Author: <name>
 Date: <YYYY-MM-DD>

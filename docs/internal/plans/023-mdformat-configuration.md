@@ -13,52 +13,32 @@ As a developer using `jackpkgs`, I want markdown files to be automatically forma
 Modify `modules/flake-parts/fmt.nix` to include `mdformat` configuration within the `treefmt` settings. It should be placed alphabetically (e.g., after `programs.latexindent`).
 
 #### Code Change
+
 ```nix
         # Markdown
         programs.mdformat = {
           enable = true;
           inherit excludes;
-
+          
           # Use standard package
           package = pkgs.mdformat;
+
+          # Plugins are configured via the plugins option which takes a function
+          plugins = _: [ 
+            pkgs.python3Packages.mdformat-frontmatter # CRITICAL: Preserves YAML frontmatter
+            pkgs.python3Packages.mdformat-gfm         # Tables, task lists, strikethrough
+            pkgs.python3Packages.mdformat-footnote    # Footnotes [^1]
+          ];
 
           settings = {
             number = true;   # Use consecutive numbering (1., 2., 3.)
             wrap = "keep";   # Do not forcibly wrap lines
-            plugins = [
-              "mdformat-frontmatter"
-              "mdformat-gfm"
-              "mdformat-footnote"
-            ];
-          };
-        };
-```
-*Note: The `plugins` syntax in `treefmt-nix` for `mdformat` might differ depending on the version. I will verify the correct way to add plugins (via `settings.plugins` list of strings or `package` override).*
-
-Actually, checking `treefmt-nix` documentation or source, `programs.mdformat` usually takes `package` and `settings`. The plugins are often installed *into* the python environment of `mdformat`.
-However, `treefmt-nix` might have a `plugins` option for `mdformat` specifically if it wraps it.
-Let's check `treefmt-nix` options if possible, or assume the standard `pkgs.mdformat.withPlugins` pattern if `treefmt-nix` doesn't support it directly.
-Wait, `treefmt-nix` often exposes `programs.mdformat.package`.
-If I use `pkgs.mdformat.withPlugins (ps: [ ps.mdformat-frontmatter ... ])`, that should work.
-
-Refined Code Change plan:
-```nix
-        programs.mdformat = {
-          enable = true;
-          inherit excludes;
-          package = pkgs.mdformat.withPlugins (ps: [
-            ps.mdformat-frontmatter
-            ps.mdformat-gfm
-            ps.mdformat-footnote
-          ]);
-          settings = {
-            number = true;
-            wrap = "keep";
           };
         };
 ```
 
 ### Rationale
+
 - **`mdformat-frontmatter`**: Prevents `---` delimiters from becoming horizontal rules and YAML from being formatted as markdown.
 - **`mdformat-gfm`**: Ensures local formatting matches GitHub's rendering (tables, etc.).
 - **`wrap = "keep"`**: Prevents large diffs and broken links/code blocks caused by aggressive wrapping.
@@ -66,45 +46,53 @@ Refined Code Change plan:
 ## Verification Plan
 
 ### Automated Tests
-1.  **Check Configuration**: Run `nix flake check` to ensure the module evaluates correctly.
-2.  **Format Check**: Run `treefmt --fail-on-change` on the repo to see what would change.
+
+1. **Check Configuration**: Run `nix flake check` to ensure the module evaluates correctly.
+2. **Format Check**: Run `treefmt --fail-on-change` on the repo to see what would change.
 
 ### Manual Verification
-1.  **Frontmatter Test**:
-    Create `test-frontmatter.md`:
-    ```markdown
-    ---
-    title: Test
-    date: 2023-01-01
-    ---
-    # Content
-    ```
-    Run `nix fmt test-frontmatter.md`. **Expectation**: Frontmatter is preserved exactly as is.
 
-2.  **GFM Test**:
-    Create `test-gfm.md`:
-    ```markdown
-    | Col 1 | Col 2 |
-    |---|---|
-    | Val 1 | Val 2 |
+1. **Frontmatter Test**:
+   Create `test-frontmatter.md`:
 
-    - [ ] Task 1
-    - [x] Task 2
-    ```
-    Run `nix fmt test-gfm.md`. **Expectation**: Table is formatted nicely, task lists are preserved.
+   ```markdown
+   ---
+   title: Test
+   date: 2023-01-01
+   ---
+   # Content
+   ```
+
+   Run `nix fmt test-frontmatter.md`. **Expectation**: Frontmatter is preserved exactly as is.
+
+2. **GFM Test**:
+   Create `test-gfm.md`:
+
+   ```markdown
+   | Col 1 | Col 2 |
+   |---|---|
+   | Val 1 | Val 2 |
+
+   - [ ] Task 1
+   - [x] Task 2
+   ```
+
+   Run `nix fmt test-gfm.md`. **Expectation**: Table is formatted nicely, task lists are preserved.
 
 ## Rollout Plan
 
-- [ ] Implement `programs.mdformat` block in `modules/flake-parts/fmt.nix`.
-- [ ] Run `nix flake check`.
-- [ ] Run `nix fmt` on the `jackpkgs` repo itself (expect some markdown reformatting).
-- [ ] Verify `docs/` and `README.md` are formatted correctly (no corrupted frontmatter).
-- [ ] Commit and push.
+- [x] Implement `programs.mdformat` block in `modules/flake-parts/fmt.nix`.
+- [x] Run `nix flake check`.
+- [x] Run `nix fmt` on the `jackpkgs` repo itself (expect some markdown reformatting).
+- [x] Verify `docs/` and `README.md` are formatted correctly (no corrupted frontmatter).
+- [x] Commit and push.
 
 ### Migration for Downstream Projects
+
 Projects using `jackpkgs` (like `zeus`) can clean up their configs:
-1.  Remove local `treefmt.programs.mdformat` configuration.
-2.  Remove `.mdformat.toml` if the `number = true` default is acceptable.
+
+1. Remove local `treefmt.programs.mdformat` configuration.
+2. Remove `.mdformat.toml` if the `number = true` default is acceptable.
 
 ## Questions / Risks
 

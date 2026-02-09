@@ -7,6 +7,7 @@ Accepted
 ## Context
 
 Constructing justfile recipes in `modules/flake-parts/just.nix` has been done via manual string concatenation. This is:
+
 - Error-prone for multi-line scripts
 - Inconsistent in indentation
 - Hard to reuse and compose across features (direnv, infra, python, git, nix, quarto)
@@ -25,30 +26,36 @@ The body may be provided as a single string or a list of lines. Empty lines and 
 ## Consequences
 
 ### Benefits
+
 - Consistent formatting and indentation across all recipes
 - Reusable building blocks; simpler authoring and review
 - Clear separation of recipe metadata (name/params/deps) from body content
 
 ### Trade-offs
+
 - Adds a small abstraction layer over raw strings
 - Contributors must learn the helpers’ parameters
 
 ### Risks & Mitigations
+
 - Risk: Helpers become too opinionated. Mitigation: Keep interfaces minimal (indentation + simple concatenation) and accept raw strings/lists.
 
 ## Alternatives Considered
 
 ### Alternative A — Continue manual string concatenation
+
 - Pros: No new abstractions
 - Cons: Ongoing inconsistencies and formatting bugs
 - Why not chosen: Doesn’t address the core issues
 
 ### Alternative B — External templating system
+
 - Pros: Feature-rich templating
 - Cons: Extra dependency and complexity for a simple need
 - Why not chosen: Overkill
 
 ### Alternative C — Full DSL for recipes
+
 - Pros: Very expressive
 - Cons: High complexity and maintenance cost
 - Why not chosen: Beyond current scope
@@ -64,7 +71,7 @@ The body may be provided as a single string or a list of lines. Empty lines and 
 - Module: `modules/flake-parts/just.nix`
 - Feature areas: direnv, infra (Pulumi), python (nbstripout), git (pre-commit), nix (flake-iter), quarto
 
----
+______________________________________________________________________
 
 Author: jack
 Date: 2025-09-20

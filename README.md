@@ -8,7 +8,7 @@ Jack's Nix flake providing packages, an overlay, and reusable flake-parts module
 - Use packages via `jackpkgs.packages.${system}` or by enabling the overlay in your `nixpkgs`.
 - Import flake-parts modules from `inputs.jackpkgs.flakeModules` (default or à la carte).
 
----
+______________________________________________________________________
 
 ## Add as a flake input
 
@@ -62,9 +62,10 @@ Jack's Nix flake providing packages, an overlay, and reusable flake-parts module
 ```
 
 Notes:
+
 - `roon-server` is packaged for `x86_64-linux` only.
 
----
+______________________________________________________________________
 
 ## Flake-parts modules
 
@@ -75,9 +76,9 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
 - `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy; picks up `jackpkgs.python.environments.default` automatically when defined).
- - `shell` — shared dev shell output to include via `inputsFrom`.
- - `checks` — CI checks for Python (pytest/mypy/ruff) and TypeScript (tsc, vitest).
- - `nodejs` — builds `node_modules` via `buildNpmPackage` and exposes a Node.js devShell fragment.
+- `shell` — shared dev shell output to include via `inputsFrom`.
+- `checks` — CI checks for Python (pytest/mypy/ruff) and TypeScript (tsc, vitest).
+- `nodejs` — builds `node_modules` via `buildNpmPackage` and exposes a Node.js devShell fragment.
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
 - `nodejs` — builds `node_modules` via `buildNpmPackage` and exposes a Node.js devShell fragment.
@@ -135,15 +136,18 @@ in {
 ### Module reference (concise)
 
 - pkgs (`modules/flake-parts/pkgs.nix`)
+
   - Exposes `jackpkgs.pkgs` (per-system, type `pkgs`, default `pkgs`).
   - Modules with package defaults use `config.jackpkgs.pkgs`.
   - Set this to your overlayed nixpkgs to propagate overlays to all jackpkgs package defaults.
 
 - core (`modules/flake-parts/project-root.nix`)
+
   - Exposes `jackpkgs.projectRoot` (path, default `inputs.self.outPath`).
   - Other modules resolve relative project files against this path.
 
 - fmt (`modules/flake-parts/fmt.nix`)
+
   - Enables treefmt and sets `formatter = config.treefmt.build.wrapper`.
   - Options under `jackpkgs.fmt`:
     - `treefmtPackage` (package, default `config.jackpkgs.pkgs.treefmt`)
@@ -152,6 +156,7 @@ in {
   - Enables formatters: Alejandra (Nix), Biome (JS/TS), HuJSON, latexindent, Ruff (check + format), Rustfmt, Yamlfmt.
 
 - just (`modules/flake-parts/just.nix`)
+
   - Integrates `just-flake` features; provides a generated `justfile` with:
     - direnv: `just reload` (`direnv reload`)
     - infra: `just auth` (GCloud ADC), `just new-stack <project> <stack>` (Pulumi)
@@ -165,6 +170,7 @@ in {
     - `iamOrg` (nullable string, default `null`) — GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
+
   - Enables pre-commit with `treefmt`, `nbstripout` for `.ipynb`, and `mypy`.
   - **Important:** For the mypy hook to work, `mypy` must be available in the Python environment. See [Common Patterns: Dev Tools with Pre-commit](#common-patterns-dev-tools-with-pre-commit) below.
   - Options under `jackpkgs.pre-commit`:
@@ -173,6 +179,7 @@ in {
     - `mypyPackage` (defaults to the package produced by `jackpkgs.python.environments.default` when defined—editable or not—otherwise `config.jackpkgs.pkgs.mypy`)
 
 - checks (`modules/flake-parts/checks.nix`)
+
   - Adds CI checks for Python (pytest/mypy/ruff) and TypeScript (tsc).
   - **Python CI Environment Selection:**
     - Automatically selects a suitable environment for CI checks (non-editable with dependency groups).
@@ -187,11 +194,13 @@ in {
     - `typescript.enable`, `typescript.tsc.packages`, `typescript.tsc.extraArgs`
 
 - shell (`modules/flake-parts/devshell.nix`)
+
   - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
   - The shell aggregates dev environments from `just-flake`, `flake-root`, `pre-commit`, and `treefmt`.
   - Conditionally includes `pulumi` devShell fragment when `jackpkgs.pulumi.enable` is true.
 
 - pulumi (`modules/flake-parts/pulumi.nix`)
+
   - Provides Pulumi CLI in a devShell fragment: `config.jackpkgs.outputs.pulumiDevShell`.
   - Provides CI devshell: `devShells.ci-pulumi` with minimal dependencies for CI environments.
   - Options under `jackpkgs.pulumi`:
@@ -201,6 +210,7 @@ in {
     - `ci.packages` (list of packages) - Packages included in ci-pulumi devshell
 
 - nodejs (`modules/flake-parts/nodejs.nix`)
+
   - Builds `node_modules` using `buildNpmPackage` and exposes `jackpkgs.outputs.nodeModules`.
   - Provides a Node.js devShell fragment: `jackpkgs.outputs.nodejsDevShell` with `npm-lockfile-fix` tool for workspace lockfile compatibility.
   - Enables `npm-lockfile-fix` pre-commit hook (fixes npm v9+ workspace lockfiles for Nix caching).
@@ -212,6 +222,7 @@ in {
     - `projectRoot` (path, default `config.jackpkgs.projectRoot`)
 
 - quarto (`modules/flake-parts/quarto.nix`)
+
   - Provides Quarto tooling in a devShell fragment: `config.jackpkgs.outputs.quartoDevShell`.
   - Options under `jackpkgs.quarto`:
     - `enable` (bool, default `true`)
@@ -219,6 +230,7 @@ in {
     - `pythonEnv` (package, default `config.jackpkgs.pkgs.python3Packages.python`)
 
 - python (`modules/flake-parts/python.nix`)
+
   - Opinionated Python envs using uv2nix; publishes env packages and exposes workspace helpers.
   - Supports both standard projects (with `[project]`) and workspace-only repos (with `[tool.uv.workspace]` only).
   - **Environment Types:**
@@ -385,12 +397,12 @@ perSystem = { config, ... }: {
 
 **Environment Pattern Summary:**
 
-| Pattern | `editable` | `includeGroups` | Pre-commit works? |
-|---------|------------|-----------------|-------------------|
-| Production | `false` | `false` (default) | No (no mypy) |
-| Development | `true` | `true` (default) | Yes (if used as default) |
-| CI/Pre-commit | `false` | `true` (explicit) | Yes |
-| Separate prod + dev | `default`: prod, `dev`: editable | — | Requires `mypyPackage` override |
+| Pattern             | `editable`                       | `includeGroups`   | Pre-commit works?               |
+| ------------------- | -------------------------------- | ----------------- | ------------------------------- |
+| Production          | `false`                          | `false` (default) | No (no mypy)                    |
+| Development         | `true`                           | `true` (default)  | Yes (if used as default)        |
+| CI/Pre-commit       | `false`                          | `true` (explicit) | Yes                             |
+| Separate prod + dev | `default`: prod, `dev`: editable | —                 | Requires `mypyPackage` override |
 
 #### Path resolution (project root)
 
@@ -416,7 +428,7 @@ perSystem = { pkgs, config, ... }: {
 };
 ```
 
----
+______________________________________________________________________
 
 ## Packages available
 
@@ -437,7 +449,7 @@ nix build github:jmmaloney4/jackpkgs#tod
 nix build .#tod
 ```
 
----
+______________________________________________________________________
 
 ## Template(s)
 
@@ -449,7 +461,7 @@ nix flake init -t github:jmmaloney4/jackpkgs#just
 nix flake new myproj -t github:jmmaloney4/jackpkgs#just
 ```
 
----
+______________________________________________________________________
 
 ## License
 

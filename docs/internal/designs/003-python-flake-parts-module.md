@@ -15,6 +15,7 @@ Related: designs/003-uv2nix-flake-parts-module.md
 ## Decision
 
 Introduce a new flake-parts module `jackpkgs.python` that:
+
 - Loads a uv2nix workspace from `pyproject.toml` and `uv.lock`.
 - Composes overlays (project, optional build-systems, setuptools fixes, user-provided).
 - Exposes helpers to build environments (default/editable) with extras and/or custom specs.
@@ -28,6 +29,7 @@ Module name is intentionally generic: it provides “Python environments,” not
 Path: `jackpkgs/modules/flake-parts/python.nix`
 
 - Options (selected):
+
   - `enable` (bool; default false)
   - `pyprojectPath` (str; default `./pyproject.toml`)
   - `uvLockPath` (str; default `./uv.lock`)
@@ -41,10 +43,12 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
     - **`editable`**: at most one environment may have `editable = true`
 
 - Per-system additions:
+
   - `jackpkgs.python.pythonPackage` (package; default `pkgs.python312`)
   - Read-only output `jackpkgs.outputs.pythonEditableHook` (automatically included in devshell)
 
 - Preconditions and assertions:
+
   - Inputs `uv2nix` and `pyproject-nix` must be present when enabled.
   - `workspaceRoot` must be set to a path (for example `./.`); the module asserts if it is unset or not a path.
   - `pyproject.toml` must exist and contain either `[project].name` OR `[tool.uv.workspace]` (workspace-only mode).
@@ -53,17 +57,20 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
   - **At most one environment may have `editable = true`**; fails with clear error if violated.
 
 - Workspace and overlays:
+
   - Loads workspace via `uv2nix.lib.workspace.loadWorkspace`.
   - Darwin SDK override applied when on macOS (`darwinSdkVersion` default 15.0).
   - Base python set from `pyproject-nix.build.packages`.
   - Overlay composition: project overlay (with `sourcePreference`) + optional `pyproject-build-systems` overlays + `ensureSetuptools` overlay + `extraOverlays`.
 
 - Environment builders (simplified from zeus):
+
   - `mkEnv`, `mkEditableEnv`, `mkEnvForSpec`.
   - `meta.mainProgram = "python"` + activation script fixups in `postFixup`.
   - **Breaking change (ADR-006)**: `extras` and `specWithExtras` removed entirely; all environments require explicit `spec` configuration.
 
 - Exports:
+
   - `packages.<env.name>` for each non-editable environment.
   - `_module.args.pythonWorkspace` (always exposed for use in environment specs).
   - Editable environment automatically included in devshell via `jackpkgs.outputs.pythonEditableHook` (sets PATH, UV_PYTHON, REPO_ROOT).
@@ -173,6 +180,7 @@ perSystem = { config, pythonWorkspace, ... }: {
 ```
 
 Build/run examples:
+
 - `nix build .#python-env`
 - `nix run .#python-env` (works via `meta.mainProgram = "python"`)
 - `nix develop` automatically includes the editable environment when one is defined.
@@ -180,34 +188,42 @@ Build/run examples:
 ## Troubleshooting
 
 - Missing `uv.lock`
+
   - Error: “uv.lock not found … run 'uv lock'”
   - Fix: In your project root (where pyproject.toml lives), run `uv lock`.
 
 - Missing `workspaceRoot`
+
   - Error: “workspaceRoot (path) is required when jackpkgs.python.enable = true …”
   - Fix: Set `jackpkgs.python.workspaceRoot = ./.;` (or an absolute path) so the module can pass a real Nix path to uv2nix.
 
 - `pyproject.toml` missing `[project]` or `[tool.uv.workspace]`
+
   - Error: "pyproject.toml must contain [project] or [tool.uv.workspace]"
   - Fix: Add `[project]` section with `name` field, or add `[tool.uv.workspace]` section for workspace-only repos.
 
 - Duplicate environment names
+
   - Error: "duplicate environment package names detected"
   - Fix: Ensure each `environments.<key>.name` is unique; consider a naming convention like `<repo>-<variant>`.
 
 - Multiple editable environments
+
   - Error: "at most one environment may have editable = true; found: ..."
   - Fix: Only one environment can be editable. Choose which environment should be your development environment and set `editable = true` only for that one.
 
 - Darwin SDK mismatches
+
   - Symptom: build failures on macOS related to SDK/headers.
   - Fix: Override `jackpkgs.python.darwin.sdkVersion` to match your Xcode/SDK; default is "15.0".
 
 - Editable mode root
+
   - Default `editableRoot = "$REPO_ROOT"` is set automatically via flake-root in the devshell.
   - Editable environments are not exported under `packages`; they're automatically available in `nix develop`.
 
 - Wheels vs sdist behavior
+
   - `sourcePreference` controls preference only; fallbacks depend on upstream availability and the build-systems overlays when present. If a wheel is missing, sdist may be used; document/package-specific nuances may apply.
 
 ## Validation Checklist

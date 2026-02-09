@@ -15,6 +15,7 @@ The jackpkgs Python module builds environments from uv workspaces via uv2nix, bu
 - Hermetic testing environments
 
 This creates a gap where CI checks either:
+
 1. Must mix nixpkgs packages with uv2nix packages (version mismatches, incomplete type stubs)
 2. Require workarounds like moving type stubs to production dependencies (violates separation of concerns)
 
@@ -77,6 +78,7 @@ environments.dev = {
 ```
 
 When `includeGroups` is:
+
 - `null` (default): Follows environment intent (true for editable, false for non-editable)
 - `true`: Explicitly includes all dependency groups
 - `false`: Explicitly excludes all dependency groups
@@ -196,7 +198,7 @@ groups = ["dev", "test"];  # Parse and merge specific dependency groups
 - [ADR-012: uv2nix API Compliance Audit](./012-uv2nix-api-compliance-audit.md) — Documents workspace.deps API
 - [ADR-006: Workspace-Only Python Projects](./006-workspace-only-python-projects.md) — Documents spec design
 
----
+______________________________________________________________________
 
 Author: Claude (Cursor)
 Date: 2026-01-25, Updated: 2026-01-26

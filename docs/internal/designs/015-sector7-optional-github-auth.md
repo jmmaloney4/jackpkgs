@@ -92,11 +92,13 @@ if (needsGithubAuth) {
 ### Scope
 
 **In scope:**
+
 - Conditional GitHub configuration based on path access requirements
 - Auto-creation of GitHub Identity Provider
 - Backward compatibility with existing usage
 
 **Out of scope:**
+
 - Support for identity providers other than GitHub
 - Migration tooling for existing deployments
 - Automatic GitHub OAuth app creation (not supported by Pulumi GitHub provider; users must create OAuth apps manually via GitHub's web interface)
@@ -122,15 +124,19 @@ if (needsGithubAuth) {
 ### Risks & Mitigations
 
 - **Risk**: Users might be confused about which option to use
+
   - **Mitigation**: Provide clear error messages and comprehensive examples in documentation
 
 - **Risk**: Breaking changes for existing users if implementation is incorrect
+
   - **Mitigation**: Maintain strict backward compatibility; existing `githubIdentityProviderId` usage must work unchanged
 
 - **Risk**: IDP auto-creation might fail with unclear errors
+
   - **Mitigation**: Wrap Cloudflare resource creation with helpful error messages; validate OAuth credentials format
 
 - **Risk**: Resource naming conflicts when auto-creating IDPs
+
   - **Mitigation**: Use parent resource name as prefix; allow optional `idpName` override
 
 ## Alternatives Considered
@@ -173,15 +179,18 @@ Since the Pulumi GitHub provider does not support creating OAuth applications pr
 #### 1. Determine Your Cloudflare Access Callback URL
 
 The callback URL follows this format:
+
 ```
 https://<team-name>.cloudflareaccess.com/cdn-cgi/access/callback
 ```
 
 Where `<team-name>` is your Cloudflare Access team name, which can be found in:
+
 - Cloudflare Dashboard → Zero Trust → Settings → Custom Pages
 - Or from your existing Cloudflare Access URL
 
 **Example**: If your team name is `mycompany`, the callback URL is:
+
 ```
 https://mycompany.cloudflareaccess.com/cdn-cgi/access/callback
 ```
@@ -189,6 +198,7 @@ https://mycompany.cloudflareaccess.com/cdn-cgi/access/callback
 #### 2. Create GitHub OAuth App
 
 **For Organization OAuth Apps** (recommended for org-based access):
+
 1. Navigate to `https://github.com/organizations/<org-name>/settings/applications`
 2. Click "New OAuth App" under "OAuth Apps"
 3. Fill in the application details:
@@ -202,6 +212,7 @@ https://mycompany.cloudflareaccess.com/cdn-cgi/access/callback
 7. **Important**: Copy the **Client Secret** immediately (it won't be shown again)
 
 **For Personal OAuth Apps**:
+
 1. Navigate to `https://github.com/settings/developers`
 2. Click "New OAuth App"
 3. Follow steps 3-7 above
@@ -261,60 +272,70 @@ export const githubIdpId = site.githubIdp?.id;
 
 ### Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| "Invalid redirect URI" error | Verify callback URL matches exactly: `https://<team-name>.cloudflareaccess.com/cdn-cgi/access/callback` |
-| Organization members can't authenticate | Ensure OAuth app is created in the organization's settings, not personal settings |
-| "Application suspended" | OAuth app may have been flagged; contact GitHub support |
-| Client secret lost | Generate new client secret in GitHub, update Pulumi configuration |
+| Issue                                   | Solution                                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| "Invalid redirect URI" error            | Verify callback URL matches exactly: `https://<team-name>.cloudflareaccess.com/cdn-cgi/access/callback` |
+| Organization members can't authenticate | Ensure OAuth app is created in the organization's settings, not personal settings                       |
+| "Application suspended"                 | OAuth app may have been flagged; contact GitHub support                                                 |
+| Client secret lost                      | Generate new client secret in GitHub, update Pulumi configuration                                       |
 
 ## Implementation Plan
 
 ### Phase 1: Conditional GitHub Configuration
 
 1. **Update type definitions** in `WorkerSiteArgs`:
+
    - Make `githubIdentityProviderId` optional
    - Make `githubOrganizations` optional
 
 2. **Add validation logic**:
+
    - Check if any path requires `github-org` access
    - Only validate GitHub config when needed
    - Add clear error messages for missing configuration
 
 3. **Update component logic**:
+
    - Conditionally create Access policies only when auth is needed
    - Handle undefined IDP ID when no auth required
 
 4. **Testing**:
+
    - Test public-only sites without GitHub config
    - Test authenticated sites with existing config
    - Test error cases (missing config when needed)
 
 5. **Documentation**:
+
    - Update README with public-only example
    - Document validation errors
 
 ### Phase 2: Auto-Creation Support
 
 1. **Update type definitions**:
+
    - Add `githubOAuthConfig` optional parameter
    - Document mutual exclusivity with `githubIdentityProviderId`
 
 2. **Add IDP creation logic**:
+
    - Create `cloudflare.ZeroTrustAccessIdentityProvider` when `githubOAuthConfig` provided
    - Set proper parent relationship for resource management
    - Handle IDP ID selection (created vs. existing)
 
 3. **Expose created IDP**:
+
    - Add `readonly githubIdp?` property to component
    - Allow users to reference created IDP ID
 
 4. **Testing**:
+
    - Test auto-creation workflow
    - Test mutual exclusivity validation
    - Test created IDP can be referenced
 
 5. **Documentation**:
+
    - Add auto-creation example to README
    - Include link to "GitHub OAuth App Setup Requirements" section (from this ADR)
    - Document all three usage patterns with complete examples
@@ -344,7 +365,7 @@ export const githubIdpId = site.githubIdp?.id;
   - [GitHub OAuth Apps Documentation](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)
 - **Motivation**: Setup friction discovered during `theoretical-edge` blog deployment (jmmaloney4/garden)
 
----
+______________________________________________________________________
 
 Author: Claude Code
 Date: 2025-11-04

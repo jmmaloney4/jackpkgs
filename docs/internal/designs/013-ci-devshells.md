@@ -11,11 +11,13 @@ GitHub Actions workflows and other CI systems need lightweight development shell
 ### The Problem
 
 The canonical use case is running Pulumi deployments in CI. The [toolbox pulumi.yml workflow](https://raw.githubusercontent.com/jmmaloney4/toolbox/refs/heads/main/.github/workflows/pulumi.yml) currently uses `nix develop .#pulumi` which includes the full development shell with:
+
 - All base devshell tooling (just, jq, pre-commit hooks, formatters, etc.)
 - Full development dependencies
 - Extra utilities not needed in CI
 
 This results in:
+
 - Longer Nix evaluation times in CI
 - Larger Nix store closures to download/cache
 - Unnecessary dependencies that slow down CI runs
@@ -33,11 +35,13 @@ This results in:
 ### Current Architecture
 
 The devshell module uses a **composition pattern**:
+
 - Each feature module (pulumi, python, quarto) creates its own devShell fragment
 - The main devshell aggregates these via `inputsFrom`
 - Base shells include development tooling from just-flake, pre-commit, treefmt, etc.
 
 For the pulumi module specifically:
+
 - **Dev shell includes**: `pulumi-bin`, `nodejs`, `pnpm`, `jq`, `just`, `google-cloud-sdk`, `ts-node`, `typescript`
 - **CI actually needs**: `pulumi-bin`, `nodejs`, `pnpm`, `google-cloud-sdk`
 - **Can eliminate**: `jq`, `just`, `ts-node`, `typescript` (dev-time conveniences)
@@ -53,10 +57,12 @@ We MUST add CI devshells to feature modules following these principles:
 2. **Naming**: CI shells MUST be named `devShells.ci-<module>` to put the "ci" prefix first for easy discovery
 
 3. **Activation**: CI shells are exported whenever their parent module is enabled (e.g., `jackpkgs.pulumi.enable = true`)
+
    - No separate enable flag initially
    - Can add `jackpkgs.<module>.ci.enable` in the future if needed
 
 4. **Package Management**: Use a **simple package list** pattern:
+
    ```nix
    jackpkgs.pulumi.ci.packages = mkOption {
      type = types.listOf types.package;
@@ -71,6 +77,7 @@ We MUST add CI devshells to feature modules following these principles:
    ```
 
 5. **Environment Variables**: CI shells MUST include only relevant environment variables from the parent module
+
    - Include: Configuration (backend URLs, secrets provider, etc.)
    - Exclude: Development conveniences unless specifically needed
 
@@ -94,6 +101,7 @@ jackpkgs.pulumi.ci.packages =
 ```
 
 **Excluding specific packages is awkward** - users must override the complete list. This is acceptable because:
+
 - Excluding packages is a rare operation
 - Most users will use defaults or only add packages
 - The simple pattern is easier to understand and maintain
@@ -180,12 +188,15 @@ Compared to the full development shell, CI shells MUST NOT include:
 ### Risks & Mitigations
 
 **Risk**: CI shells drift from actual CI needs over time
+
 - **Mitigation**: Document CI shell contents in module documentation; test in actual CI
 
 **Risk**: Users confused about when to use `.#<module>` vs `.#ci-<module>`
+
 - **Mitigation**: Clear documentation and naming convention; CI workflows serve as examples
 
 **Risk**: Package exclusion pattern is too awkward
+
 - **Mitigation**: Monitor usage; if exclusion becomes common, can add `excludePackages` in future ADR
 
 ## Alternatives Considered
@@ -200,10 +211,12 @@ jackpkgs.outputs.pulumiCIDevShell = pkgs.mkShell { ... };
 ```
 
 **Pros:**
+
 - Each module owns both dev and CI shells
 - No new top-level outputs
 
 **Cons:**
+
 - Adds many new outputs to the module interface
 - Not discoverable via standard `nix flake show`
 - Users would still need to map outputs to devShells for standard usage
@@ -226,10 +239,12 @@ devShells.ci-pulumi = pkgs.mkShell {
 ```
 
 **Pros:**
+
 - Centralized CI logic - all CI shells in one place
 - Clear separation between CI and dev modules
 
 **Cons:**
+
 - Adds coordination between modules (pulumi.nix must export packages for ci.nix)
 - CI shells defined separately from their feature implementations
 - Extra indirection makes code harder to follow
@@ -248,11 +263,13 @@ devShells.ci-pulumi = stripDevTools config.jackpkgs.outputs.pulumiDevShell {
 ```
 
 **Pros:**
+
 - DRY - reuses existing shells
 - Env vars automatically inherited
 - Declarative filtering
 
 **Cons:**
+
 - Complex to implement package filtering reliably in Nix
 - Still pulls in `inputsFrom` dependencies (pre-commit, treefmt, etc.)
 - Hard to reason about what's actually in the final shell
@@ -278,11 +295,13 @@ packages = lib.subtractLists
 ```
 
 **Pros:**
+
 - All three operations (override, add, exclude) are clean
 - Well-understood pattern from NixOS
 - `lib.subtractLists` is built-in and reliable
 
 **Cons:**
+
 - Three options per module instead of one (3x API surface)
 - More complexity to document and understand
 - Overkill for the rare case of package exclusion
@@ -295,7 +314,7 @@ packages = lib.subtractLists
 
 1. Add `jackpkgs.pulumi.ci.packages` option to `modules/flake-parts/pulumi.nix`
 2. Define `devShells.ci-pulumi` with minimal packages
-3. Include only relevant environment variables (PULUMI_*, no development conveniences)
+3. Include only relevant environment variables (PULUMI\_\*, no development conveniences)
 4. Document in module documentation
 5. Update toolbox workflow to use `nix develop .#ci-pulumi`
 
@@ -325,19 +344,22 @@ If usage patterns reveal needs:
 ## Related
 
 - **Related ADRs:**
+
   - ADR-001: Justfile Recipe Utilities (just is excluded from CI shells)
   - ADR-010: Justfile Generation Helpers (just recipes not needed in CI)
 
 - **Future ADRs:**
+
   - CI shells for python module
   - CI shells for quarto module
   - Common CI utilities pattern (if needed)
 
 - **External References:**
+
   - [toolbox pulumi.yml workflow](https://github.com/jmmaloney4/toolbox/blob/main/.github/workflows/pulumi.yml)
   - [Nix devShell documentation](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-develop.html)
 
----
+______________________________________________________________________
 
 Author: Claude Code (with @jmmaloney4)
 Date: 2025-10-28
