@@ -87,6 +87,21 @@ in {
           enable = true;
           inherit excludes;
         };
+        # markdown
+        programs.mdformat = {
+          enable = true;
+          inherit excludes;
+          package = pkgs.mdformat;
+          plugins = _: [
+            pkgs.python3Packages.mdformat-frontmatter
+            pkgs.python3Packages.mdformat-gfm
+            pkgs.python3Packages.mdformat-footnote
+          ];
+          settings = {
+            number = true;
+            wrap = "keep";
+          };
+        };
         # ruff lints and formats python code
         programs.ruff-check = {
           enable = true;
