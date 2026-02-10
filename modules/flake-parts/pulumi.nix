@@ -6,6 +6,12 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.pulumi;
+
+  pulumiBin = pkgs: pkgs.pulumi-bin.overrideAttrs (old: {
+    meta = (old.meta or {}) // {
+      mainProgram = "pulumi";
+    };
+  });
 in {
   imports = [
   ];
@@ -43,14 +49,14 @@ in {
       options.jackpkgs.pulumi.ci.packages = mkOption {
         type = with types; listOf package;
         default = with config.jackpkgs.pkgs; [
-          pulumi-bin
+          (pulumiBin pkgs)
           nodejs
           jq
           (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
         ];
         defaultText = lib.literalExpression ''
           with config.jackpkgs.pkgs; [
-            pulumi-bin
+            (pulumiBin pkgs)
             nodejs
             jq
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
@@ -72,7 +78,7 @@ in {
       }: {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
           packages = with pkgs; [
-            pulumi-bin
+            (pulumiBin pkgs)
             nodejs
             jq
             just
