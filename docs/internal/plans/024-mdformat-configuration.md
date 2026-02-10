@@ -1,6 +1,6 @@
-# Implementation Plan - ADR-023: Add mdformat configuration
+# Implementation Plan - ADR-024: Add mdformat configuration
 
-This plan outlines the steps to implement the changes described in [ADR-023](../designs/023-mdformat-configuration.md) and [Issue #148](https://github.com/jmmaloney4/jackpkgs/issues/148).
+This plan outlines the steps to implement the changes described in [ADR-024](../designs/024-mdformat-configuration.md) and [Issue #148](https://github.com/jmmaloney4/jackpkgs/issues/148).
 
 ## User Story
 
