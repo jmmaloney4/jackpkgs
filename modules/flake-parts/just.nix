@@ -112,8 +112,8 @@ in {
         };
         pulumiPackage = mkOption {
           type = types.package;
-          default = config.jackpkgs.pkgs.pulumi-bin;
-          defaultText = "config.jackpkgs.pkgs.pulumi-bin";
+          default = config.jackpkgs.pkgs.pulumi;
+          defaultText = "config.jackpkgs.pkgs.pulumi";
           description = "pulumi package to use.";
         };
 
