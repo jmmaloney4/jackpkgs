@@ -9,6 +9,7 @@ Accepted (Simplified Implementation - 2025-10-16)
 ### Problem
 
 The `jackpkgs.python` module currently requires `pyproject.toml` to contain `[project].name`. This prevents workspace-only repositories (monorepos using `[tool.uv.workspace]` without a root distribution) from using the module, forcing users to either:
+
 - Create a dummy root package with fake metadata
 - Manually maintain uv2nix boilerplate outside the module
 - Switch away from editable development environments
@@ -121,6 +122,7 @@ All environments must provide explicit `spec` configuration. The `extras` option
 #### Environment Configuration Examples
 
 **Before (removed):**
+
 ```nix
 jackpkgs.python = {
   enable = true;
@@ -134,6 +136,7 @@ jackpkgs.python = {
 ```
 
 **After (only supported pattern):**
+
 ```nix
 jackpkgs.python = {
   enable = true;
@@ -150,6 +153,7 @@ jackpkgs.python = {
 ```
 
 **Workspace-only (via pythonWorkspace arg):**
+
 ```nix
 perSystem = { config, pythonWorkspace, ... }: {
   jackpkgs.python = {
@@ -187,17 +191,18 @@ perSystem = { config, pythonWorkspace, ... }: {
 
 ### Risks & Mitigations
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Users confused by `spec` syntax | Medium | Low | Provide clear examples in README and error messages; expose `pythonWorkspace.defaultSpec` for introspection |
-| Editable envs break in workspace-only mode | Low | High | Test editable envs explicitly; uv2nix's editable overlay should already handle missing root |
-| `projectName = "workspace"` causes collisions | Low | Low | Name is only used in passthru; document that it's a placeholder in workspace-only mode |
+| Risk                                          | Likelihood | Impact | Mitigation                                                                                                  |
+| --------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------- |
+| Users confused by `spec` syntax               | Medium     | Low    | Provide clear examples in README and error messages; expose `pythonWorkspace.defaultSpec` for introspection |
+| Editable envs break in workspace-only mode    | Low        | High   | Test editable envs explicitly; uv2nix's editable overlay should already handle missing root                 |
+| `projectName = "workspace"` causes collisions | Low        | Low    | Name is only used in passthru; document that it's a placeholder in workspace-only mode                      |
 
 ## Alternatives Considered
 
 ### Alternative A — Add `extrasTarget` option
 
 **Approach:**
+
 ```nix
 environments.dev = {
   name = "dev";
@@ -207,10 +212,12 @@ environments.dev = {
 ```
 
 **Pros:**
+
 - Preserves the `extras` convenience API
 - Explicit target avoids ambiguity
 
 **Cons:**
+
 - Adds a new option (more API surface)
 - Still requires users to specify a target, so not much more convenient than full `spec`
 - Doesn't handle "apply extras to multiple packages" use case
@@ -223,9 +230,11 @@ environments.dev = {
 **Approach:** Use heuristics (first alphabetically, largest, etc.) to pick a default extras target.
 
 **Pros:**
+
 - Minimal user configuration
 
 **Cons:**
+
 - Arbitrary and fragile (what if package names or structure change?)
 - Implicit behavior leads to surprises
 - Doesn't handle multi-package extras properly
@@ -237,9 +246,11 @@ environments.dev = {
 **Approach:** Allow users to configure workspace-level metadata and control root inclusion in editable envs.
 
 **Pros:**
+
 - Flexible control over workspace behavior
 
 **Cons:**
+
 - Adds multiple new options
 - `lib.baseNameOf` default is impure
 - Unclear why workspace name is needed (only used in passthru)
@@ -252,9 +263,11 @@ environments.dev = {
 **Approach:** Document pattern for creating a minimal root `[project]` with fake metadata.
 
 **Pros:**
+
 - Zero code changes
 
 **Cons:**
+
 - Forces users to maintain fake metadata
 - Clutters repository with non-functional package
 - Goes against uv's workspace-only design
@@ -264,6 +277,7 @@ environments.dev = {
 ## Implementation Plan
 
 ### Phase 1: Code Changes
+
 1. Update `modules/flake-parts/python.nix`:
    - Relax validation to accept `[tool.uv.workspace]` without `[project]` section
    - Remove `extras` option from environment configuration entirely
@@ -277,6 +291,7 @@ environments.dev = {
 2. Test locally with a workspace-only fixture
 
 ### Phase 2: Documentation
+
 1. Update `README.md`:
    - Document support for both `[project]` and `[tool.uv.workspace]`
    - Remove `extras` from environment configuration options
@@ -292,11 +307,13 @@ environments.dev = {
 3. Create this ADR (006)
 
 ### Phase 3: Validation
+
 1. Build test environments (editable + non-editable) in workspace-only repo
 2. Run `nix flake check` to verify module evaluates correctly
 3. Confirm that `spec` defaults to `defaultSpec` when null
 
 ### Rollout Considerations
+
 - **Breaking change**: High — `extras` option removed entirely; all existing configs using `extras` must migrate to explicit `spec`
 - **Migration path**: Replace `extras = ["foo"]` with `spec = pythonWorkspace.defaultSpec // { "package-name" = ["foo"]; }`
 - **Simplification benefit**: Removes ~60 lines of conditional logic, multiple configuration options, and implicit behavior
@@ -309,9 +326,8 @@ environments.dev = {
 - ADR-004: Project Root Resolution — path handling for workspace files
 - ADR-005: Editable vs Non-Editable Environments — editable overlay mechanics
 
----
+______________________________________________________________________
 
-Author: Jack Maloney (via AI assistant)  
-Date: 2025-10-16  
+Author: Jack Maloney (via AI assistant)\
+Date: 2025-10-16\
 Issue: #72
-

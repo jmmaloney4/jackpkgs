@@ -17,6 +17,7 @@ This leads to a subtle but serious bug: if a workspace member is not explicitly 
 3. **Broken developer experience**: The term "editable environment" implies all local code is live
 
 **Example from cavinsresearch/zeus:**
+
 ```
 - Environment: python-nautilus-editable (editable = true)
 - Missing from spec: cavins-trident
@@ -57,11 +58,13 @@ We WILL modify the spec logic for editable environments to **automatically merge
 ### Design Choice: Always Merge for Editable Environments
 
 When `environment.editable = true`:
+
 - All workspace members are automatically merged into the final spec
 - User-provided `spec` extras are preserved (they override the base empty list `[]`)
 - This ensures all local packages are installed from the checkout, not the Nix store
 
 When `environment.editable = false`:
+
 - Behavior remains unchanged (use provided spec or `workspace.deps.default`)
 
 ### Key Insight: Understanding uv2nix's `deps` Structure
@@ -99,6 +102,7 @@ environments.dev = {
 ```
 
 In this case:
+
 1. The editable overlay is applied to all members (default `members = null` means all)
 2. But `cavins-trident` is NOT in the spec, so it's not directly installed
 3. If `cavins-trident` is a transitive dependency, it gets installed from the Nix store (non-editable)
@@ -122,12 +126,14 @@ mkEditableEnv = { name, spec ? null, ... }: let
 ```
 
 **Pros:**
+
 - Prevents stale import bugs completely
 - Uses stable uv2nix API (`deps.default`)
 - User-provided extras are preserved (they override the base `[]`)
 - No new options required
 
 **Cons:**
+
 - Slightly larger environments (all members installed)
 - May install members the user explicitly didn't want (rare case)
 
@@ -136,9 +142,11 @@ mkEditableEnv = { name, spec ? null, ... }: let
 Only auto-include all members when user doesn't provide an explicit spec.
 
 **Pros:**
+
 - Respects explicit user configuration
 
 **Cons:**
+
 - Doesn't fix the bug when users provide partial specs
 - Users must remember to include all members manually
 
@@ -155,16 +163,19 @@ environments.dev = {
 ```
 
 **Pros:**
+
 - Fixes the bug by default
 - Power users can opt out if needed
 
 **Cons:**
+
 - More API surface
 - Opt-out case is rare
 
 ### Chosen Approach: Option A (Always Merge)
 
 We will use **Option A** because:
+
 1. It completely eliminates the stale import bug
 2. Uses stable, documented uv2nix API (`workspace.deps`)
 3. The behavior matches user expectations for "editable environment"
@@ -208,10 +219,12 @@ mkEnv = { name, spec ? null }: let
 ### Why This Works
 
 Given:
+
 - `allMembersSpec = { "member-a" = []; "member-b" = []; "member-c" = []; }`
 - `userSpec = { "member-a" = ["dev" "test"]; }`
 
 Result:
+
 - `finalSpec = { "member-a" = ["dev" "test"]; "member-b" = []; "member-c" = []; }`
 
 All members are installed, and `member-a` gets its requested extras. The editable overlay (controlled by `members`) then ensures all local packages are installed from the checkout.
@@ -223,6 +236,7 @@ All members are installed, and `member-a` gets its requested extras. The editabl
 When multiple workspace members share a namespace package (e.g., `cavins/__init__.py`), including all members may cause file collisions. This is a pre-existing issue with uv2nix/pip editable installs.
 
 **Mitigation:**
+
 - Document that namespace packages must have byte-identical `__init__.py` files
 - Consider adding a warning when multiple members share a top-level package name
 - Future: add first-class namespace package configuration
@@ -252,13 +266,13 @@ If `workspace.members` is empty (single-package project), `allMembersSpec` is `{
 
 ### Risks & Mitigations
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| `workspace.deps` API changes | Very Low | Medium | This is a documented, stable uv2nix API; fallback to current behavior if needed |
-| Namespace package collisions | Medium | Low | Document; add optional warning; future: namespace config |
-| Performance regression (larger envs) | Low | Low | Only affects editable envs; acceptable trade-off |
-| Users want subset of members installed | Low | Low | Use `members` option to control editable overlay; rare use case |
-| Unexpected extras from merge | Very Low | Low | User-provided extras override base; document merge semantics |
+| Risk                                   | Likelihood | Impact | Mitigation                                                                      |
+| -------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------- |
+| `workspace.deps` API changes           | Very Low   | Medium | This is a documented, stable uv2nix API; fallback to current behavior if needed |
+| Namespace package collisions           | Medium     | Low    | Document; add optional warning; future: namespace config                        |
+| Performance regression (larger envs)   | Low        | Low    | Only affects editable envs; acceptable trade-off                                |
+| Users want subset of members installed | Low        | Low    | Use `members` option to control editable overlay; rare use case                 |
+| Unexpected extras from merge           | Very Low   | Low    | User-provided extras override base; document merge semantics                    |
 
 ## Alternatives Considered
 
@@ -267,10 +281,12 @@ If `workspace.members` is empty (single-package project), `allMembersSpec` is `{
 **Approach:** Fail if `editable = true` and `spec = null`, forcing users to be explicit.
 
 **Pros:**
+
 - No ambiguity; user intent is always clear
 - No dependency on workspace.members API
 
 **Cons:**
+
 - Poor DX — users must manually enumerate all members
 - Error-prone — easy to miss a member and reintroduce the bug
 - Extra boilerplate for common case
@@ -289,10 +305,12 @@ environments.dev = {
 ```
 
 **Pros:**
+
 - Explicit opt-in; no surprise behavior changes
 - Clearer about what's happening
 
 **Cons:**
+
 - Users must discover and enable this
 - The "right" default is to include all — why make users opt in?
 - More configuration surface
@@ -304,10 +322,12 @@ environments.dev = {
 **Approach:** Detect when workspace members aren't in spec and emit a warning.
 
 **Pros:**
+
 - No behavior change; purely informational
 - Users become aware of the issue
 
 **Cons:**
+
 - Doesn't solve the problem — users still get stale imports
 - Warning fatigue if users intentionally exclude members
 
@@ -318,9 +338,11 @@ environments.dev = {
 **Approach:** The existing `members` option (for editable overlay) already defaults to null meaning "all members." Extend this semantic to spec.
 
 **Pros:**
+
 - Reuses existing option semantics
 
 **Cons:**
+
 - `members` controls overlay application, not spec — conflating them is confusing
 - Doesn't address the root cause (spec vs overlay distinction)
 - Would be a semantic change to an existing option
@@ -336,10 +358,12 @@ finalSpec = if spec == null then defaultSpec else spec;  # Keep current
 ```
 
 **Pros:**
+
 - Minimal change to existing behavior
 - Respects explicit user configuration completely
 
 **Cons:**
+
 - Doesn't fix the bug when users provide partial specs (the exact scenario reported)
 - Users must manually enumerate all members when customizing extras
 - Error-prone — easy to miss a member
@@ -351,6 +375,7 @@ finalSpec = if spec == null then defaultSpec else spec;  # Keep current
 ### Phase 1: Implementation (Verified API)
 
 The uv2nix API has been verified via source code review:
+
 - `workspace.deps.default` is an attrset of all workspace members
 - Each key is a package name, each value is a list of default-groups
 - This is a stable, documented API
@@ -358,14 +383,16 @@ The uv2nix API has been verified via source code review:
 Implementation steps in `modules/flake-parts/python.nix`:
 
 1. **Add `allMembersSpec` definition after `defaultSpec`:**
+
    ```nix
    defaultSpec = workspace.deps.default;
-   
+
    # All workspace members with empty extras (for editable merge)
    allMembersSpec = lib.mapAttrs (_name: _: []) defaultSpec;
    ```
 
 2. **Update `mkEditableEnv` to merge all members:**
+
    ```nix
    mkEditableEnv = {
      name,
@@ -392,14 +419,17 @@ Implementation steps in `modules/flake-parts/python.nix`:
 ### Phase 3: Documentation
 
 1. Update ADR-003 (Python Flake-Parts Module):
+
    - Document editable spec merge behavior
    - Add example showing partial spec with full member coverage
 
 2. Update README:
+
    - Clarify "editable environment" semantics
    - Document that all workspace members are always included
 
 3. Add troubleshooting entry:
+
    - Namespace package collisions
    - How to restrict editable members via `members` option
 
@@ -418,8 +448,8 @@ Implementation steps in `modules/flake-parts/python.nix`:
 - ADR-006: Workspace-Only Python Projects
 - uv2nix documentation on workspace overlays
 
----
+______________________________________________________________________
 
-Author: Cursor (AI assistant)  
-Date: 2026-01-25  
+Author: Cursor (AI assistant)\
+Date: 2026-01-25\
 PR: #57

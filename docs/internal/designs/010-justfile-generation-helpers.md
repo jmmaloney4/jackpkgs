@@ -41,6 +41,7 @@ The closing `''` is at column 12, content is at column 14, so Nix strips 12 spac
 ### The Formatter Problem
 
 We attempted multiple fixes:
+
 1. **Reducing indentation by 2 spaces** — formatter reverted changes
 2. **Aligning content with closing `''`** — formatter re-indented content
 3. **Manual spacing adjustments** — formatter applied its own rules
@@ -65,21 +66,26 @@ This nested indented string pattern made it nearly impossible to predict the fin
 ### Why Existing Solutions Don't Work
 
 **Option A — Fight the formatter:**
+
 - Pros: Keep existing syntax
 - Cons: Fragile; breaks on formatter runs; unclear what "correct" indentation is; difficult to maintain
 
 **Option B — Disable formatter for this file:**
+
 - Pros: Allows manual indentation control
 - Cons: Loses formatting benefits for rest of file; doesn't address underlying fragility
 
 **Option C — Use regular strings with explicit `\n`:**
+
 ```nix
 justfile = "# Comment\n" + "recipe:\n" + "    command\n";
 ```
+
 - Pros: Explicit; no indentation issues
 - Cons: Hard to read; verbose; mixing strings and interpolations is awkward
 
 **Option D — Use lib.concatStringsSep directly everywhere:**
+
 ```nix
 justfile = lib.concatStringsSep "\n" [
   "# Comment"
@@ -88,6 +94,7 @@ justfile = lib.concatStringsSep "\n" [
   ""
 ];
 ```
+
 - Pros: Clear; no indentation issues; each line is explicit
 - Cons: Repetitive; requires manual "    " for every command; verbose for complex recipes
 
@@ -111,6 +118,7 @@ Features SHOULD use these helpers when refactoring or adding new recipes. Existi
 ### Implementation
 
 **Helper functions (module-level let binding):**
+
 ```nix
 # Helper to build justfile recipes without indentation issues
 # Usage: mkRecipe "recipe-name" "comment" ["cmd1" "cmd2"]
@@ -126,6 +134,7 @@ optionalLines = cond: lines: if cond then lines else [];
 ```
 
 **Example usage:**
+
 ```nix
 direnv = {
   enable = true;
@@ -141,6 +150,7 @@ direnv = {
 ```
 
 **For recipes with conditional content:**
+
 ```nix
 infra = {
   enable = cfg.pulumi.enable;
@@ -163,6 +173,7 @@ infra = {
 ## Consequences
 
 ### Benefits
+
 - **Formatter-proof:** No indentation to mess up; formatters can't break the output
 - **Explicit:** Each line is clearly defined as a list element
 - **Predictable:** Output format is obvious from the code structure
@@ -171,12 +182,14 @@ infra = {
 - **Self-documenting:** `mkRecipe` makes it clear this is a justfile recipe
 
 ### Trade-offs
+
 - **Different syntax:** New code uses a different pattern than existing code
 - **Mixed styles:** During transition, file will have both old (indented string) and new (helper) styles
 - **Slightly more verbose:** `mkRecipe` call + list vs. indented string
 - **Learning curve:** Contributors need to understand the helpers
 
 ### Risks & Mitigations
+
 - **Risk:** Contributors might not know about helpers and use indented strings
   - **Mitigation:** Document helpers with clear examples in comments; point to this ADR
 - **Risk:** Existing recipes might still break if formatter changes indentation rules
@@ -187,6 +200,7 @@ infra = {
 ## Alternatives Considered
 
 ### Alternative A — Fix Indentation and Document Rules
+
 - Use specific indentation (align content with closing `''`)
 - Add pre-commit hook to verify indentation
 - Document exact spacing rules
@@ -195,6 +209,7 @@ infra = {
 - Why not chosen: Already tried multiple times; formatter kept reverting changes
 
 ### Alternative B — Use pkgs.writeText for Recipes
+
 - Write each recipe as a separate file using `pkgs.writeText`
 - Concatenate files in justfile generation
 - Pros: Complete isolation from Nix indentation; easy to test
@@ -202,12 +217,14 @@ infra = {
 - Why not chosen: Too complex; loses composability; overkill for the problem
 
 ### Alternative C — Switch to a Different Just Integration
+
 - Use a different flake module for just that handles generation better
 - Pros: Might have better abstractions
 - Cons: Requires migration; may not solve fundamental issue; loses just-flake features
 - Why not chosen: Problem is Nix indentation, not just-flake itself
 
 ### Alternative D — Raw Strings Only (No Helpers)
+
 - Use `lib.concatStringsSep` directly everywhere without helpers
 - Pros: Maximum explicitness; no abstractions
 - Cons: Very verbose; lots of repetition; manual "    " everywhere
@@ -229,9 +246,8 @@ infra = {
 - ADR-009: GCP ADC Quota Project Configuration (feature that exposed the problem)
 - Nix Manual: Indented String Literals - https://nixos.org/manual/nix/stable/language/values.html#type-string
 
----
+______________________________________________________________________
 
-Author: jack  
-Date: 2025-10-21  
+Author: jack\
+Date: 2025-10-21\
 PR: #<tbd>
-

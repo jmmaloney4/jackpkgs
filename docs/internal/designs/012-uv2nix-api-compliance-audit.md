@@ -25,44 +25,56 @@ This ADR documents the findings of a thorough compliance audit and proposes corr
 The following patterns are correctly implemented per documentation:
 
 1. **Workspace Loading** (python.nix:222)
+
    ```nix
    workspace = uv2nix.lib.workspace.loadWorkspace {inherit workspaceRoot;}
    ```
+
    ✅ Exact match to documented API
 
 2. **Python Base Construction** (python.nix:237-240)
+
    ```nix
    pythonBase = pkgs.callPackage pyproject-nix.build.packages {
      python = sysCfg.pythonPackage;
      stdenv = stdenvForPython;
    };
    ```
+
    ✅ Follows recommended pattern
 
 3. **Overlay Generation** (python.nix:242-244)
+
    ```nix
    baseOverlay = workspace.mkPyprojectOverlay {
      sourcePreference = cfg.sourcePreference;
    };
    ```
+
    ✅ Correct usage of `mkPyprojectOverlay` with sourcePreference
 
 4. **Package Set Composition** (python.nix:267)
+
    ```nix
    pythonSet = pythonBase.overrideScope (lib.composeManyExtensions overlayList);
    ```
+
    ✅ Uses `overrideScope` with `composeManyExtensions` as documented
 
 5. **Virtual Environment Creation** (python.nix:290, 326)
+
    ```nix
    pythonSet.mkVirtualEnv name spec
    ```
+
    ✅ Matches documented `mkVirtualEnv` API
 
 6. **Editable Overlay** (python.nix:324)
+
    ```nix
    editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
    ```
+
    ✅ Proper separate package set for editable installs
 
 ### ⚠️ Issues and Discrepancies
@@ -72,6 +84,7 @@ The following patterns are correctly implemented per documentation:
 **Location:** python.nix:379-390
 
 **Current Implementation:**
+
 ```nix
 shellHook = ''
   repo_root="$(${lib.getExe config.flake-root.package})"
@@ -87,11 +100,13 @@ shellHook = ''
 ```
 
 **Documentation Requirement:**
+
 > "Unset `PYTHONPATH` to eliminate unintended side effects from Nix builders."
 
 **Issue:** The shell hook does not unset `PYTHONPATH`, which can cause Python to incorrectly import packages from the Nix build environment instead of the virtual environment.
 
 **Impact:**
+
 - Potential for subtle import errors
 - Packages may be found from unexpected locations
 - Non-deterministic behavior depending on shell environment state
@@ -103,11 +118,13 @@ shellHook = ''
 **Location:** python.nix:386
 
 **Current Implementation:**
+
 ```nix
 export UV_PYTHON_DOWNLOADS="false"
 ```
 
 **Documentation Requirement:**
+
 ```nix
 UV_PYTHON_DOWNLOADS = "never"
 ```
@@ -115,6 +132,7 @@ UV_PYTHON_DOWNLOADS = "never"
 **Issue:** Documentation specifies the string value `"never"`, not `"false"`.
 
 **Impact:**
+
 - While both may work, this deviates from documented behavior
 - Potential for breakage if uv changes parsing logic
 - Confusing for users reading both our code and upstream docs
@@ -126,6 +144,7 @@ UV_PYTHON_DOWNLOADS = "never"
 **Location:** python.nix:258-265
 
 **Current Implementation:**
+
 ```nix
 overlayList =
   [baseOverlay]
@@ -138,6 +157,7 @@ overlayList =
 ```
 
 **Documented Pattern:**
+
 ```nix
 pythonSet = pythonBase.overrideScope (
   lib.composeManyExtensions [
@@ -150,6 +170,7 @@ pythonSet = pythonBase.overrideScope (
 **Issue:** We unconditionally include BOTH `overlays.wheel` AND `overlays.sdist` regardless of the `sourcePreference` setting. After extensive documentation research, this is **definitively incorrect**.
 
 **Evidence from Documentation:**
+
 1. The getting started guide shows using ONLY `overlays.wheel`
 2. GitHub issue examples show using ONLY `overlays.default`
 3. Documentation states: "The build system overlay has the same sdist/wheel distinction as mkPyprojectOverlay"
@@ -160,6 +181,7 @@ pythonSet = pythonBase.overrideScope (
 5. Documentation explicitly states: "The choice between `wheel` and `sdist` should align with your `sourcePreference` setting"
 
 **Why This is Wrong:**
+
 - Including both overlays violates the documented pattern
 - The overlays are meant to be mutually exclusive choices, not complementary
 - This could cause unpredictable behavior when both overlays define the same packages
@@ -167,11 +189,13 @@ pythonSet = pythonBase.overrideScope (
 
 **Correct Pattern:**
 Only ONE build system overlay should be included, matching the `sourcePreference`:
+
 - If `sourcePreference = "wheel"` → use `overlays.wheel`
 - If `sourcePreference = "sdist"` → use `overlays.sdist`
 - Alternative: use `overlays.default` for general purpose
 
 **Impact:**
+
 - Incorrect overlay composition
 - Potential for package version conflicts
 - Deviation from all documented examples
@@ -186,6 +210,7 @@ Only ONE build system overlay should be included, matching the `sourcePreference
 **Location:** python.nix:269, 296-299, 312-315
 
 **Current Implementation:**
+
 ```nix
 defaultSpec = workspace.deps.default;
 
@@ -199,6 +224,7 @@ in mkEnvForSpec { inherit name; spec = finalSpec; };
 **Resolution:** The contradiction was in ADR-006's wording, not the implementation. What ADR-006 actually removed was the `extras` convenience option (which auto-applied extras to a single package). The `spec` parameter itself was always intended to be optional with a sensible default.
 
 **Current behavior (CORRECT):**
+
 - `spec` is **optional** in environment definitions
 - When omitted, defaults to `workspace.deps.default` (production dependencies)
 - When provided, users must be explicit about extras: `spec = { "my-package" = ["dev"]; }`
@@ -217,19 +243,23 @@ in mkEnvForSpec { inherit name; spec = finalSpec; };
 According to the uv2nix API reference, several advanced configuration options are available but not exposed by our module:
 
 1. **`loadWorkspace` config parameter:**
+
    ```nix
    workspace = uv2nix.lib.workspace.loadWorkspace {
      workspaceRoot = ./.;
      config = { /* optional configuration overrides */ };
    };
    ```
+
    Supported config keys:
+
    - `tool.uv.no-binary`
    - `tool.uv.no-build`
    - `tool.uv.no-binary-package`
    - `tool.uv.no-build-package`
 
 2. **`mkPyprojectOverlay` environ parameter:**
+
    ```nix
    overlay = workspace.mkPyprojectOverlay {
      sourcePreference = "wheel";
@@ -238,18 +268,21 @@ According to the uv2nix API reference, several advanced configuration options ar
      };
    };
    ```
+
    Used to customize PEP 508 environment marker evaluation (e.g., Linux kernel version, macOS version).
 
 **Current Implementation:**
 Our module doesn't expose these configuration options, passing only the minimal required parameters.
 
 **Impact:**
+
 - Advanced users cannot customize uv configuration overrides
 - Cannot override platform metadata for marker evaluation
 - Must fork/modify the module for these use cases
 
 **Recommendation:**
 Consider adding these as advanced options in a future iteration, but LOW priority since:
+
 - Most users won't need them
 - They can be worked around via `extraOverlays` if needed
 - Config can be set in pyproject.toml directly for most cases
@@ -261,12 +294,14 @@ Consider adding these as advanced options in a future iteration, but LOW priorit
 **Status:** ✅ CORRECTLY IMPLEMENTED
 
 **Finding:** During research, confirmed that `workspace.deps` provides four pre-configured dependency sets:
+
 - `workspace.deps.default` - No optional-dependencies or dependency-groups enabled (production)
 - `workspace.deps.optionals` - All optional-dependencies enabled
 - `workspace.deps.groups` - All dependency-groups enabled
 - `workspace.deps.all` - All optional-dependencies & dependency-groups enabled
 
 **Current Usage:** python.nix:269
+
 ```nix
 defaultSpec = workspace.deps.default;
 ```
@@ -284,6 +319,7 @@ The following are valuable additions beyond the documented minimal pattern:
 **Location:** python.nix:225-235
 
 **Implementation:**
+
 ```nix
 stdenvForPython =
   if pkgs.stdenv.isDarwin
@@ -307,6 +343,7 @@ stdenvForPython =
 **Location:** python.nix:246-256
 
 **Implementation:**
+
 ```nix
 ensureSetuptools = final: prev: let
   add = name:
@@ -332,6 +369,7 @@ in
 **Location:** python.nix:271-284
 
 **Implementation:**
+
 ```nix
 addMainProgram = drv:
   drv.overrideAttrs (old: {
@@ -350,6 +388,7 @@ addMainProgram = drv:
 ```
 
 **Analysis:** Not documented. Adds:
+
 - `mainProgram` metadata for better `nix run` UX
 - PowerShell activation script removal
 - Activation script executable permissions
@@ -367,6 +406,7 @@ addMainProgram = drv:
 **Rationale:** These are clear deviations from documented best practices that could cause subtle bugs.
 
 **Changes:**
+
 ```nix
 shellHook = ''
   repo_root="$(${lib.getExe config.flake-root.package})"
@@ -387,18 +427,21 @@ shellHook = ''
 **Decision:** Include ONLY the build system overlay matching `sourcePreference`, not both.
 
 **Rationale:** After extensive research of uv2nix documentation, examples, and API references:
+
 1. All documented examples show using ONLY ONE overlay
 2. The pyproject-build-systems documentation states the overlays have a "sdist/wheel distinction"
 3. Documentation explicitly states: "The choice between `wheel` and `sdist` should align with your `sourcePreference` setting"
 4. Including both overlays violates the documented pattern and could cause conflicts
 
 **Research Completed:**
+
 - ✅ Searched additional uv2nix documentation pages (lib/workspace.html, patterns/overriding-build-systems.html, platform-quirks.html)
 - ✅ Reviewed getting started guide and hello-world examples
 - ✅ Checked pyproject-build-systems documentation
 - ✅ Examined GitHub issues and real-world usage patterns
 
 **Changes:**
+
 ```nix
 overlayList =
   [baseOverlay]
@@ -416,12 +459,14 @@ overlayList =
 **Decision:** Keep `spec` optional with `workspace.deps.default` fallback. Update ADR-006 to clarify the design intent.
 
 **Rationale:**
+
 - ADR-006's intent was to remove the `extras` convenience option, not make `spec` required
 - Optional `spec` with sensible default provides good UX for simple cases
 - Explicit `spec` is still required when customizing extras or packages
 - Current design balances convenience and clarity
 
 **Changes:**
+
 - ✅ Updated ADR-006 to clarify that `extras` removal requires explicit extras **within** spec, not that spec itself is required
 - ✅ Added usage examples to ADR-006 showing both patterns (omitted spec vs explicit spec)
 - ✅ Updated ADR-012 Issue 4 to reflect resolution
@@ -439,6 +484,7 @@ overlayList =
 ## Implementation Plan
 
 ### Phase 1: Immediate Fixes (COMPLETED ✅)
+
 - ✅ Document all audit findings
 - ✅ Fix PYTHONPATH unset
 - ✅ Fix UV_PYTHON_DOWNLOADS value
@@ -446,22 +492,26 @@ overlayList =
 - ✅ Add code comments for undocumented extensions
 
 ### Phase 2: Research (COMPLETED ✅)
+
 - ✅ Investigate build system overlay usage patterns
 - ✅ Review additional uv2nix documentation (lib/workspace.html, patterns/overriding-build-systems.html, platform-quirks.html)
 - ✅ Examined real-world examples and GitHub issues
 - ✅ Document findings in this ADR (updated)
 
 **Key Findings:**
+
 - Build system overlays should match sourcePreference (wheel OR sdist, not both)
 - Confirmed workspace.deps API usage is correct
 - Identified missing advanced config options (environ, loadWorkspace config)
 - Verified editable overlay usage is correct
 
 ### Phase 3: Breaking Changes (CANCELLED)
+
 - ~~Make `spec` required parameter~~ **CANCELLED** - Issue 4 resolved; current optional design is correct
 - No breaking changes needed from this audit
 
 ### Phase 4: Upstream Contributions (Optional)
+
 - [ ] Report PowerShell script in venv output to pyproject-nix
 - [ ] Report activation script permissions issue
 - [ ] Contribute documentation clarifications to uv2nix
@@ -481,12 +531,14 @@ overlayList =
 ### Test Cases to Add
 
 1. **Environment Variable Test**
+
    ```bash
    nix develop --command bash -c 'env | grep -E "PYTHONPATH|UV_"'
    # Should show UV_* but NOT PYTHONPATH
    ```
 
 2. **Import Isolation Test**
+
    ```bash
    nix develop --command python -c "import sys; print('\n'.join(sys.path))"
    # Should only show venv paths, not Nix store paths from builders
@@ -495,6 +547,7 @@ overlayList =
 ## Consequences
 
 ### Positive
+
 - Compliance with documented uv2nix best practices
 - Reduced risk of subtle environment pollution bugs
 - Clearer API surface (required vs optional parameters)
@@ -502,10 +555,12 @@ overlayList =
 - Foundation for future contributions to upstream documentation
 
 ### Negative
+
 - Build system overlay change might affect package builds (though should be more correct)
 - Migration burden for existing projects
 
 ### Neutral
+
 - Code complexity remains similar
 - No performance impact expected
 - Existing tests may need updates
@@ -513,15 +568,18 @@ overlayList =
 ## Open Questions
 
 1. **Build System Overlays:** Should both wheel and sdist overlays be included, or only one based on sourcePreference?
+
    - **Status:** ✅ RESOLVED - Use only one overlay matching sourcePreference
    - **Decision:** See Decision #2 above
    - **Implementation:** Conditional inclusion based on cfg.sourcePreference
 
 2. **Setuptools Package List:** Should the hardcoded setuptools package list be configurable or remain fixed?
+
    - **Status:** Deferred - working as-is
    - **Consider:** Future ADR if more packages are discovered
 
 3. **Upstream Issues:** Should we report the PowerShell script and permissions issues?
+
    - **Status:** Yes, but deferred to Phase 4
    - **Action:** Create tracking issues after confirming reproducibility
 
@@ -534,6 +592,7 @@ overlayList =
 ## References
 
 ### Primary Documentation
+
 - [uv2nix Getting Started Documentation](https://pyproject-nix.github.io/uv2nix/usage/getting-started.html)
 - [uv2nix workspace API Reference](https://pyproject-nix.github.io/uv2nix/lib/workspace.html)
 - [uv2nix Platform Quirks](https://pyproject-nix.github.io/uv2nix/platform-quirks.html)
@@ -542,29 +601,34 @@ overlayList =
 - [pyproject-build-systems Repository](https://github.com/pyproject-nix/build-system-pkgs)
 
 ### Implementation
+
 - Current implementation: `modules/flake-parts/python.nix`
 
 ### Research Sources
+
 - uv2nix GitHub issues and discussions
 - Real-world examples in the uv2nix repository
 - Verified examples from Medium article: "Nix Nirvana: Packaging Python Apps with uv2nix"
 
----
+______________________________________________________________________
 
 ## Executive Summary
 
 This comprehensive audit of the `jackpkgs.python` module's uv2nix usage identified **6 issues** ranging from HIGH to LOW priority:
 
 ### Critical Findings Requiring Immediate Action:
+
 1. **HIGH:** Missing `PYTHONPATH` unset in shell hook → Can cause import pollution
 2. **HIGH:** Incorrect build system overlay inclusion (both wheel AND sdist) → Should match sourcePreference
 3. **MEDIUM:** Wrong `UV_PYTHON_DOWNLOADS` value ("false" should be "never")
 
 ### Design Questions for Future Consideration:
+
 4. **LOW:** Advanced uv2nix config options not exposed (environ, loadWorkspace config)
 5. **NOTE:** workspace.deps.default usage is CORRECT ✅
 
 ### Validated Correct Implementations:
+
 - ✅ Workspace loading API
 - ✅ Python base construction
 - ✅ Overlay generation
@@ -574,6 +638,7 @@ This comprehensive audit of the `jackpkgs.python` module's uv2nix usage identifi
 - ✅ workspace.deps usage
 
 ### Undocumented but Valuable Extensions:
+
 - Darwin SDK version handling (macOS compatibility)
 - Setuptools override overlay (fixes broken packages)
 - Virtual environment post-processing (UX improvements)

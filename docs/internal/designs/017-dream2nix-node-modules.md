@@ -23,11 +23,13 @@ In a pure Nix derivation, there's no access to the host filesystem. The `node_mo
 ### Current State
 
 The `checks.nix` module currently:
+
 1. Discovers pnpm workspace packages from `pnpm-workspace.yaml`
 2. Runs `tsc --noEmit` on each package
 3. **Fails** because it expects `node_modules` to exist (line 412-423 in checks.nix)
 
 This contrasts with Python checks, which work because:
+
 - Python dependencies are built as Nix derivations via `uv2nix`
 - The Python environment is passed to checks via `pythonEnvWithDevTools`
 - No reliance on host filesystem state
@@ -43,16 +45,16 @@ This contrasts with Python checks, which work because:
 
 ### Alternatives to dream2nix
 
-| Tool | Maturity | pnpm Support | Workspace Support | Maintenance |
-|------|----------|--------------|-------------------|-------------|
-| dream2nix | High | Yes | Yes | Active (nix-community) |
-| pnpm2nix | Low | Yes | Limited | Stale |
-| npmlock2nix | Medium | No (npm only) | Limited | Low activity |
-| node2nix | High | No (npm only) | Yes | Maintained |
+| Tool        | Maturity | pnpm Support  | Workspace Support | Maintenance            |
+| ----------- | -------- | ------------- | ----------------- | ---------------------- |
+| dream2nix   | High     | Yes           | Yes               | Active (nix-community) |
+| pnpm2nix    | Low      | Yes           | Limited           | Stale                  |
+| npmlock2nix | Medium   | No (npm only) | Limited           | Low activity           |
+| node2nix    | High     | No (npm only) | Yes               | Maintained             |
 
 dream2nix is the best choice for pnpm workspaces due to its active maintenance and explicit pnpm support.
 
----
+______________________________________________________________________
 
 ## Decision
 
@@ -313,7 +315,7 @@ jackpkgs.checks.typescript.tsc.nodeModules = dream2nixNodeModules;
 # jackpkgs.checks.typescript.enable = false;
 ```
 
----
+______________________________________________________________________
 
 ## Consequences
 
@@ -335,26 +337,30 @@ jackpkgs.checks.typescript.tsc.nodeModules = dream2nixNodeModules;
 ### Risks & Mitigations
 
 **R1: dream2nix API instability**
+
 - Risk: dream2nix is still evolving; API may change
 - Mitigation: Recommend specific version pins in consumer flakes
 - Mitigation: Document known-good versions
 
 **R2: Complex monorepo structures**
+
 - Risk: Some pnpm workspace configurations may not work
 - Mitigation: Provide fallback to explicit node_modules derivation
 - Mitigation: Document tested configurations
 
 **R3: Native dependency hell**
+
 - Risk: Packages like `sharp`, `sqlite3` need special handling
 - Mitigation: Document common overrides
 - Mitigation: Consider maintaining override library in jackpkgs
 
 **R4: Performance concerns**
+
 - Risk: Building node_modules in Nix is slower than pnpm
 - Mitigation: Leverages Nix cache; only rebuilds on lockfile change
 - Mitigation: Optional; projects can still disable checks
 
----
+______________________________________________________________________
 
 ## Alternatives Considered
 
@@ -375,10 +381,12 @@ nodeModulesIFD = pkgs.runCommand "node-modules-ifd" {
 ```
 
 **Pros:**
+
 - Simpler; uses pnpm directly
 - No additional flake input
 
 **Cons:**
+
 - IFD has evaluation-time implications
 - Network access during evaluation (or FOD complexity)
 - Less pure; depends on pnpm version
@@ -396,11 +404,13 @@ Remove TypeScript from `nix flake check`; run in GitHub Actions instead.
 ```
 
 **Pros:**
+
 - Simple; no Nix complexity
 - Matches how most JS projects work
 - No additional dependencies
 
 **Cons:**
+
 - Inconsistent with Python checks (which work in Nix)
 - Loses Nix-based reproducibility
 - Different check mechanisms for different languages
@@ -412,11 +422,13 @@ Remove TypeScript from `nix flake check`; run in GitHub Actions instead.
 Keep current behavior but improve error message and documentation.
 
 **Pros:**
+
 - Zero changes to jackpkgs
 - Works for IFD-tolerant configurations
 - Simple
 
 **Cons:**
+
 - Checks fail in pure Nix builds
 - Not a real solution
 
@@ -427,17 +439,19 @@ Keep current behavior but improve error message and documentation.
 Commit `node_modules` to the repository.
 
 **Pros:**
+
 - Works with current check implementation
 - No build-time complexity
 
 **Cons:**
+
 - Terrible practice; bloats repo
 - Security concerns
 - Update nightmare
 
 **Why not chosen:** This is an anti-pattern.
 
----
+______________________________________________________________________
 
 ## Implementation Plan
 
@@ -475,7 +489,7 @@ Commit `node_modules` to the repository.
 
 **Deliverable:** Production-ready TypeScript checks
 
----
+______________________________________________________________________
 
 ## Example: Complete Consumer Integration
 
@@ -529,17 +543,19 @@ Commit `node_modules` to the repository.
 }
 ```
 
----
+______________________________________________________________________
 
 ## Design Question: Binary Exposure Strategy
 
 ### Problem
 
 The current `nodejs.nix` devshell uses `PATH="$PWD/node_modules/.bin:$PATH"` in shellHook, which:
+
 1. Relies on runtime filesystem state (impure `pnpm install`)
 2. Differs from how Python (uv2nix) exposes binaries
 
 Compare with Python:
+
 ```nix
 # Python (uv2nix) - Pure Nix approach
 export PATH="${editableEnv}/bin:$PATH"  # Nix store path
@@ -600,6 +616,7 @@ packages = [ nodeBinEnv ];  # No shellHook PATH manipulation needed
 ```
 
 This would:
+
 1. Make binaries proper Nix derivations
 2. Allow `nix run .#vitest` style invocations
 3. Match the uv2nix pattern exactly
@@ -607,15 +624,15 @@ This would:
 
 ### Trade-offs
 
-| Approach | Purity | Simplicity | Compatibility |
-|----------|--------|------------|---------------|
-| Current (`$PWD/node_modules/.bin`) | Low | High | Works with impure pnpm install |
-| Nix store path in shellHook | Medium | High | Requires dream2nix |
-| Bin wrapper derivation | High | Medium | Requires dream2nix |
+| Approach                           | Purity | Simplicity | Compatibility                  |
+| ---------------------------------- | ------ | ---------- | ------------------------------ |
+| Current (`$PWD/node_modules/.bin`) | Low    | High       | Works with impure pnpm install |
+| Nix store path in shellHook        | Medium | High       | Requires dream2nix             |
+| Bin wrapper derivation             | High   | Medium     | Requires dream2nix             |
 
 **Recommendation:** Implement the shellHook Nix store path approach now (medium complexity, medium purity), with the bin wrapper as a future enhancement for full parity.
 
----
+______________________________________________________________________
 
 ## Related
 
@@ -625,7 +642,7 @@ This would:
 - **dream2nix documentation** - https://nix-community.github.io/dream2nix/
 - **pnpm workspace docs** - https://pnpm.io/workspaces
 
----
+______________________________________________________________________
 
 ## Appendix A: Why Node.js Doesn't Need "Editable Environments"
 
@@ -633,10 +650,10 @@ This would:
 
 Python has two distinct environment modes (see ADR-005):
 
-| Mode | Use Case | Where Code Lives |
-|------|----------|------------------|
-| **Non-editable** | CI, packages | All code baked into Nix store derivation |
-| **Editable** | Developer shells | Workspace packages path-installed; changes reflect immediately |
+| Mode             | Use Case         | Where Code Lives                                               |
+| ---------------- | ---------------- | -------------------------------------------------------------- |
+| **Non-editable** | CI, packages     | All code baked into Nix store derivation                       |
+| **Editable**     | Developer shells | Workspace packages path-installed; changes reflect immediately |
 
 The editable overlay in uv2nix performs `pip install -e .` style installs — your local `.py` files are imported directly, not copied to the store. This is crucial because:
 
@@ -672,23 +689,23 @@ Unlike Python's `pip install -e .`, there's no step where your workspace package
 
 ### Comparison Table
 
-| Aspect | Python | Node.js |
-|--------|--------|---------|
+| Aspect             | Python                               | Node.js                            |
+| ------------------ | ------------------------------------ | ---------------------------------- |
 | Your code location | Installed into env (editable or not) | Always read from working directory |
-| Third-party deps | In Nix store (via uv2nix) | In Nix store (via dream2nix) |
-| "Editable" concept | Required for dev workflow | Not applicable |
-| Mode switching | Yes (editable vs non-editable) | No (single mode) |
+| Third-party deps   | In Nix store (via uv2nix)            | In Nix store (via dream2nix)       |
+| "Editable" concept | Required for dev workflow            | Not applicable                     |
+| Mode switching     | Yes (editable vs non-editable)       | No (single mode)                   |
 
 ### The Node.js Analogy
 
-| Python editable | Node.js equivalent |
-|-----------------|-------------------|
+| Python editable                             | Node.js equivalent                            |
+| ------------------------------------------- | --------------------------------------------- |
 | Workspace packages path-installed, editable | Your source files are *always* read from disk |
-| Third-party deps from Nix store | `node_modules` symlinked from Nix store |
+| Third-party deps from Nix store             | `node_modules` symlinked from Nix store       |
 
 **Conclusion:** Node.js is effectively always "editable" for your own code and always "non-editable" for dependencies. There's no mode switch needed.
 
----
+______________________________________________________________________
 
 ## Appendix B: What Lives Where (Linking Strategy Deep Dive)
 
@@ -731,12 +748,12 @@ Unlike Python's `pip install -e .`, there's no step where your workspace package
 
 ### Location Summary
 
-| Location | Contents | Mutable? | Source |
-|----------|----------|----------|--------|
-| **Nix Store** | `node_modules` derivation (all deps + binaries) | No (immutable) | Built by dream2nix from `pnpm-lock.yaml` |
-| **Working Directory** | Symlinks to Nix store paths | Yes (recreated) | Created at runtime by `linkNodeModules` |
-| **Working Directory** | Your source code | Yes (editable) | Your files, read directly by tools |
-| **Local (impure)** | `node_modules/` from `pnpm install` | Yes | Only for devs without dream2nix configured |
+| Location              | Contents                                        | Mutable?        | Source                                     |
+| --------------------- | ----------------------------------------------- | --------------- | ------------------------------------------ |
+| **Nix Store**         | `node_modules` derivation (all deps + binaries) | No (immutable)  | Built by dream2nix from `pnpm-lock.yaml`   |
+| **Working Directory** | Symlinks to Nix store paths                     | Yes (recreated) | Created at runtime by `linkNodeModules`    |
+| **Working Directory** | Your source code                                | Yes (editable)  | Your files, read directly by tools         |
+| **Local (impure)**    | `node_modules/` from `pnpm install`             | Yes             | Only for devs without dream2nix configured |
 
 ### How Binaries Get on $PATH
 
@@ -778,6 +795,7 @@ export VITEST_BIN
 ```
 
 **Why cache the binary path?**
+
 - Avoids re-searching PATH for every package (performance)
 - Ensures same binary used across all test runs (determinism)
 - Single point of failure detection (warn once, not per-package)
@@ -822,12 +840,12 @@ $VITEST_BIN ${extraArgs}
 
 #### Design Implications
 
-| Scenario | Behavior | Rationale |
-|----------|----------|-----------|
-| `vitestNodeModules` provided | Uses Nix store binary (pure) | Reproducible, immutable |
-| `vitestNodeModules = null` | Uses workspace `node_modules` (impure) | Fallback for dev environments |
-| Binary NOT found | Skips package with warning | Some packages may not have tests |
-| Multiple packages | Same binary for all | Consistent across workspace |
+| Scenario                     | Behavior                               | Rationale                        |
+| ---------------------------- | -------------------------------------- | -------------------------------- |
+| `vitestNodeModules` provided | Uses Nix store binary (pure)           | Reproducible, immutable          |
+| `vitestNodeModules = null`   | Uses workspace `node_modules` (impure) | Fallback for dev environments    |
+| Binary NOT found             | Skips package with warning             | Some packages may not have tests |
+| Multiple packages            | Same binary for all                    | Consistent across workspace      |
 
 #### Comparison with DevShells
 
@@ -840,6 +858,7 @@ export PATH="$PWD/node_modules/.bin:$PATH"               # Fallback
 ```
 
 **Why different?**
+
 - DevShells support developers who run `pnpm install` (impure)
 - Checks must be pure and reproducible (Nix sandbox)
 - Checks fail if dependencies unavailable (no silent fallback)
@@ -849,12 +868,14 @@ export PATH="$PWD/node_modules/.bin:$PATH"               # Fallback
 **Not currently tested but worth considering:**
 
 1. **Binary exists in multiple places** - Which is used?
+
    ```bash
    # With current strategy: Nix store version (first in PATH)
    # Test would verify: testVitestBinaryResolutionPriority
    ```
 
 2. **Impure build fallback** - When vitestNodeModules is null
+
    ```bash
    # Must rely on $PWD/node_modules (from pnpm install)
    # Checks would fail in pure Nix sandbox
@@ -862,6 +883,7 @@ export PATH="$PWD/node_modules/.bin:$PATH"               # Fallback
    ```
 
 3. **Per-package node_modules** - Some pnpm configurations hoist differently
+
    ```bash
    # Current strategy uses global PATH (works for most cases)
    # Per-package versions in packages/*/node_modules/.bin are NOT found
@@ -869,6 +891,7 @@ export PATH="$PWD/node_modules/.bin:$PATH"               # Fallback
    ```
 
 4. **Missing binary handling** - Graceful degradation
+
    ```bash
    # Currently: Skips package with warning
    # Alternative: Could fail the entire check (stricter)
@@ -886,7 +909,7 @@ The linking strategy provides the best of both worlds:
 
 This is why Node.js doesn't need Python's complex editable/non-editable distinction: the symlink-based approach inherently separates "your code" (mutable, in working directory) from "dependencies" (immutable, in Nix store).
 
----
+______________________________________________________________________
 
 ## Appendix C: dream2nix Layout Investigation (pnpm2nix module)
 
@@ -925,7 +948,7 @@ At this revision, the Node.js module used by the `pnpm-lock` translator is
   root package's `node_modules` (e.g., `<store>/lib/node_modules/<rootPackageName>/node_modules`),
   not at `<store>/lib/node_modules/node_modules`.
 
----
+______________________________________________________________________
 
 Author: Claude
 Date: 2026-01-25

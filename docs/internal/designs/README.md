@@ -5,6 +5,7 @@ This directory contains Architecture Decision Records for `jackpkgs`.
 ## Purpose
 
 ADRs document significant decisions and their rationale. They:
+
 - Capture context, constraints, and the chosen approach
 - Improve maintainability by explaining “why” behind designs
 - Enable collaboration and continuity over time
@@ -16,12 +17,14 @@ All ADRs live in `docs/internal/designs/`.
 ## Naming Convention
 
 Files are zero-padded and kebab-cased:
+
 - `000-adr-template.md` — canonical template for new ADRs
 - `001-some-decision.md`, `002-another-decision.md`, ...
 
 ## Status Values
 
 Use one of the following in each ADR:
+
 - Proposed
 - Accepted
 - Amended

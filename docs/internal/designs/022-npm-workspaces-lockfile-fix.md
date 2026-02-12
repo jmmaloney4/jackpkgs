@@ -65,107 +65,113 @@ Out of scope:
 ### Risks & Mitigations
 
 - Risk: Consumers forget to run the fix tool and see confusing offline cache errors.
+
   - Mitigation: Provide a pre-commit hook and a CI check that fails with a direct message telling users to run `npm-lockfile-fix`.
 
 - Risk: Tool behavior changes or becomes unmaintained.
+
   - Mitigation: Pin the tool version in nixpkgs/jackpkgs, and keep an escape hatch (documented manual command; option to vendor if needed).
 
 ## Alternatives Considered
 
-   ### Alternative A — Assume consumer lockfiles are always cacheable
+### Alternative A — Assume consumer lockfiles are always cacheable
 
-   We could assume all `package-lock.json` files are already compatible with nixpkgs offline caching and provide no normalization step.
+We could assume all `package-lock.json` files are already compatible with nixpkgs offline caching and provide no normalization step.
 
-   **Rejected because**: npm v9+ workspace lockfiles demonstrably omit `resolved`/`integrity` fields for nested workspace dependencies, causing `ENOTCACHED` errors with `buildNpmPackage`. This is not a theoretical issue—it affects all Pulumi monorepos in the target use cases (zeus, toolbox, yard).
+**Rejected because**: npm v9+ workspace lockfiles demonstrably omit `resolved`/`integrity` fields for nested workspace dependencies, causing `ENOTCACHED` errors with `buildNpmPackage`. This is not a theoretical issue—it affects all Pulumi monorepos in the target use cases (zeus, toolbox, yard).
 
-   ### Alternative B — Patch importNpmLock to fetch missing packages
+### Alternative B — Patch importNpmLock to fetch missing packages
 
-   We could modify nixpkgs' `importNpmLock` to fetch packages that lack `resolved` URLs during the cache generation phase.
+We could modify nixpkgs' `importNpmLock` to fetch packages that lack `resolved` URLs during the cache generation phase.
 
-   **Rejected because**:
-   - Requires upstream nixpkgs changes (high latency, maintenance burden)
-   - Violates hermetic build principles (fetches during cache generation = impure)
-   - Harder to reproduce builds (network state affects cache generation)
-   - Not composable with other tools in the npm ecosystem
+**Rejected because**:
 
-   ### Alternative C — Use pnpm or yarn instead of npm
+- Requires upstream nixpkgs changes (high latency, maintenance burden)
+- Violates hermetic build principles (fetches during cache generation = impure)
+- Harder to reproduce builds (network state affects cache generation)
+- Not composable with other tools in the npm ecosystem
 
-   We could switch to pnpm or Yarn, which may have different lockfile formats that nixpkgs handles better.
+### Alternative C — Use pnpm or yarn instead of npm
 
-   **Rejected because**:
-   - See ADR-019 and ADR-020: pnpm proved incompatible with Pulumi's CLI assumptions
-   - npm is the de facto standard for Pulumi projects
-   - Migration cost too high for existing repos
-   - Doesn't solve the fundamental problem (lockfile compatibility with nixpkgs caching)
+We could switch to pnpm or Yarn, which may have different lockfile formats that nixpkgs handles better.
 
-   ## Implementation
+**Rejected because**:
 
-   ### npm-lockfile-fix Package
+- See ADR-019 and ADR-020: pnpm proved incompatible with Pulumi's CLI assumptions
+- npm is the de facto standard for Pulumi projects
+- Migration cost too high for existing repos
+- Doesn't solve the fundamental problem (lockfile compatibility with nixpkgs caching)
 
-   The `npm-lockfile-fix` tool (from https://github.com/jeslie0/npm-lockfile-fix v0.1.1) is packaged as a Python application and made available in:
+## Implementation
 
-   - **nodejs module devshell** (`modules/flake-parts/nodejs.nix`): Automatically included when `jackpkgs.nodejs.enable = true`
-   - **pre-commit module** (`modules/flake-parts/pre-commit.nix`): Available as `jackpkgs.pre-commit.npmLockfileFixPackage`
-   - **just module** (`modules/flake-parts/just.nix`): Available as `jackpkgs.just.npmLockfileFixPackage`
+### npm-lockfile-fix Package
 
-   The package is built using `python3Packages.buildPythonApplication` with:
-   - Source: `fetchFromGitHub { owner = "jeslie0"; repo = "npm-lockfile-fix"; rev = "v0.1.1"; }`
-   - Dependencies: `setuptools` (build), `requests` (runtime)
+The `npm-lockfile-fix` tool (from https://github.com/jeslie0/npm-lockfile-fix v0.1.1) is packaged as a Python application and made available in:
 
-   ### Pre-Commit Hook
+- **nodejs module devshell** (`modules/flake-parts/nodejs.nix`): Automatically included when `jackpkgs.nodejs.enable = true`
+- **pre-commit module** (`modules/flake-parts/pre-commit.nix`): Available as `jackpkgs.pre-commit.npmLockfileFixPackage`
+- **just module** (`modules/flake-parts/just.nix`): Available as `jackpkgs.just.npmLockfileFixPackage`
 
-   The `jackpkgs.pre-commit` module provides an automatic pre-commit hook that runs `npm-lockfile-fix` on `package-lock.json` files:
+The package is built using `python3Packages.buildPythonApplication` with:
 
-   ```nix
-   # Automatically enabled when jackpkgs.nodejs.enable = true
-   jackpkgs.pre-commit.hooks.npm-lockfile-fix = {
-     enable = true;  # Auto-enabled with nodejs module
-     files = "package-lock\\.json$";
-     pass_filenames = true;
-     entry = "${npm-lockfile-fix}/bin/npm-lockfile-fix";
-   };
-   ```
+- Source: `fetchFromGitHub { owner = "jeslie0"; repo = "npm-lockfile-fix"; rev = "v0.1.1"; }`
+- Dependencies: `setuptools` (build), `requests` (runtime)
 
-   The hook runs `npm-lockfile-fix` automatically on staged `package-lock.json` files, ensuring all lockfiles are normalized before commit.
+### Pre-Commit Hook
 
-   ### Just Recipe
+The `jackpkgs.pre-commit` module provides an automatic pre-commit hook that runs `npm-lockfile-fix` on `package-lock.json` files:
 
-   The `jackpkgs.just` module provides a `fix-npm-lock` recipe (auto-enabled when `jackpkgs.nodejs.enable = true`):
+```nix
+# Automatically enabled when jackpkgs.nodejs.enable = true
+jackpkgs.pre-commit.hooks.npm-lockfile-fix = {
+  enable = true;  # Auto-enabled with nodejs module
+  files = "package-lock\\.json$";
+  pass_filenames = true;
+  entry = "${npm-lockfile-fix}/bin/npm-lockfile-fix";
+};
+```
 
-   ```bash
-   just fix-npm-lock
-   ```
+The hook runs `npm-lockfile-fix` automatically on staged `package-lock.json` files, ensuring all lockfiles are normalized before commit.
 
-   This recipe:
-   1. Runs `npm install` to update the lockfile
-   2. Runs `npm-lockfile-fix ./package-lock.json` to normalize it
-   3. Displays instructions for reviewing and committing changes
+### Just Recipe
 
-   ### Workflow
+The `jackpkgs.just` module provides a `fix-npm-lock` recipe (auto-enabled when `jackpkgs.nodejs.enable = true`):
 
-   #### Bootstrap (First-Time Fix)
+```bash
+just fix-npm-lock
+```
 
-   If enabling the nodejs module on a repository with an existing incompatible lockfile, the devshell will fail to build. Bootstrap the fix using the flake app:
+This recipe:
 
-   ```bash
-   # From repository root (before devshell works)
-   nix run github:jmmaloney4/jackpkgs#npm-lockfile-fix ./package-lock.json
-   git add package-lock.json && git commit -m "chore: normalize lockfile for Nix compatibility"
-   
-   # Now devshell will work
-   nix develop
-   ```
+1. Runs `npm install` to update the lockfile
+2. Runs `npm-lockfile-fix ./package-lock.json` to normalize it
+3. Displays instructions for reviewing and committing changes
 
-   #### Normal Workflow
+### Workflow
 
-   For developers using jackpkgs with nodejs module enabled:
+#### Bootstrap (First-Time Fix)
 
-   1. **Update dependencies**: `npm install <package>` or edit `package.json` and run `npm install`
-   2. **Fix lockfile**: Happens automatically via pre-commit hook, or run `just fix-npm-lock` manually
-   3. **Review changes**: `git diff package-lock.json`
-   4. **Commit**: `git add package-lock.json && git commit`
+If enabling the nodejs module on a repository with an existing incompatible lockfile, the devshell will fail to build. Bootstrap the fix using the flake app:
 
-   The pre-commit hook ensures all committed lockfiles are Nix-compatible without manual intervention.
+```bash
+# From repository root (before devshell works)
+nix run github:jmmaloney4/jackpkgs#npm-lockfile-fix ./package-lock.json
+git add package-lock.json && git commit -m "chore: normalize lockfile for Nix compatibility"
+
+# Now devshell will work
+nix develop
+```
+
+#### Normal Workflow
+
+For developers using jackpkgs with nodejs module enabled:
+
+1. **Update dependencies**: `npm install <package>` or edit `package.json` and run `npm install`
+2. **Fix lockfile**: Happens automatically via pre-commit hook, or run `just fix-npm-lock` manually
+3. **Review changes**: `git diff package-lock.json`
+4. **Commit**: `git add package-lock.json && git commit`
+
+The pre-commit hook ensures all committed lockfiles are Nix-compatible without manual intervention.
 
 ## References
 
@@ -174,7 +180,7 @@ Out of scope:
 - Tool: `npm-lockfile-fix` v0.1.1 (https://github.com/jeslie0/npm-lockfile-fix)
 - nixpkgs `importNpmLock`: https://github.com/NixOS/nixpkgs/blob/master/pkgs/build-support/node/import-npm-lock/
 
----
+______________________________________________________________________
 
 Author: jackpkgs maintainers
 Date: 2026-01-31

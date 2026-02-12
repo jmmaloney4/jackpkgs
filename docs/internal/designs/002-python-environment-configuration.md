@@ -38,12 +38,14 @@ The jackpkgs pre-commit module uses `pkgs.nbstripout` (a standalone Python appli
 ### Core Implementation
 
 1. **Self-Contained nbstripout Package**
+
    - Build nbstripout using `python3.pkgs.toPythonApplication` wrapper pattern
    - Python interpreter embedded within package but NOT propagated to PATH
    - Zero consumer configuration required
    - No PATH pollution in consumer devShells
 
 2. **Universal Solution**
+
    - Works automatically for all consumers regardless of Python environment
    - Pre-commit hooks function identically to current behavior
    - Eliminates need for any consumer Python environment configuration
@@ -52,6 +54,7 @@ The jackpkgs pre-commit module uses `pkgs.nbstripout` (a standalone Python appli
 ### Key Technical Insight
 
 The solution works by **preventing Python propagation to PATH** rather than configuring consumer environments:
+
 - Use `toPythonApplication` to wrap a `buildPythonPackage` library
 - Python interpreter stays internal to nbstripout package
 - No `propagatedBuildInputs` reach consumer PATH
@@ -99,6 +102,7 @@ python3.pkgs.toPythonApplication (
 ```
 
 **How it works:**
+
 - First builds nbstripout as Python library with `buildPythonPackage`
 - Then wraps with `toPythonApplication` to create executable
 - Python interpreter embedded but not propagated to consumer PATH
@@ -107,12 +111,14 @@ python3.pkgs.toPythonApplication (
 ### Scope
 
 **In Scope:**
+
 - Self-contained nbstripout package with zero PATH pollution
 - Universal solution requiring no consumer configuration
 - Backward compatibility for existing consumers
 - Elimination of Python environment conflicts
 
 **Out of Scope:**
+
 - Consumer Python environment configuration (no longer needed)
 - Migration of other Python tools beyond nbstripout
 - Changes to consumer devShell configuration patterns
@@ -137,12 +143,15 @@ python3.pkgs.toPythonApplication (
 ### Risks & Mitigations
 
 **Risk**: Custom nbstripout package diverges from nixpkgs version
+
 - **Mitigation**: Keep package definition synchronized with nixpkgs, monitor for updates
 
 **Risk**: Consumer's Python environment lacks required dependencies for nbstripout
+
 - **Mitigation**: nbstripout has minimal dependencies (only nbformat), widely available in Python environments
 
 **Risk**: Build failures if consumer's Python environment is malformed
+
 - **Mitigation**: Clear error messages, fallback documentation, default to nixpkgs when consumer config fails
 
 ## Alternatives Considered
@@ -174,6 +183,7 @@ python3.pkgs.toPythonApplication (
 ## Implementation Plan
 
 ### Phase 1: Core Infrastructure ✅ **COMPLETED**
+
 - **Owner**: jackpkgs maintainers
 - ✅ Revived custom nbstripout package with parameterized Python environment
 - ✅ Enhanced pre-commit module to use parameterized nbstripout by default
@@ -183,6 +193,7 @@ python3.pkgs.toPythonApplication (
 - **Timeline**: Completed
 
 ### Phase 2: Documentation & Examples
+
 - **Owner**: jackpkgs maintainers
 - Document consumer configuration patterns for different Python environment managers
 - Create examples for uv2nix, poetry2nix, and vanilla Python environments
@@ -191,6 +202,7 @@ python3.pkgs.toPythonApplication (
 - **Timeline**: 1 week
 
 ### Phase 3: Consumer Migration
+
 - **Owner**: Consumer project maintainers (with jackpkgs support)
 - Test integration with existing consumer projects
 - Migrate affected consumers to new configuration pattern
@@ -216,7 +228,7 @@ python3.pkgs.toPythonApplication (
 - Related to general pattern of Python environment management in Nix
 - May inform future decisions about other Python tools in jackpkgs
 
----
+______________________________________________________________________
 
 ## Appendix: Investigation Journey
 
@@ -247,27 +259,31 @@ python -m cavins.tools.hello
 
 5.1. **Solution Implementation**: Revived custom nbstripout package with parameterized Python environment to enable consumer configuration
 
-6. **Architecture Analysis**: Realized `pkgs.nbstripout` brings its own Python environment which gets injected via `inputsFrom = [config.jackpkgs.outputs.devShell]`
+06. **Architecture Analysis**: Realized `pkgs.nbstripout` brings its own Python environment which gets injected via `inputsFrom = [config.jackpkgs.outputs.devShell]`
 
-7. **Consumer DevShell Analysis**: Examined `/Users/jack/git/github.com/cavinsresearch/zeus/uv2nix/nix/devshell.nix` and found:
-   ```nix
-   inputsFrom = [config.jackpkgs.outputs.devShell];  # Adds jackpkgs first
-   buildInputs = devEnvPaths;  # Includes consumer's pythonDevEnv
-   shellHook = ''
-     export PATH="${lib.getBin pythonDevEnv}:$PATH"  # Attempted fix
-   '';
-   ```
+07. **Consumer DevShell Analysis**: Examined `/Users/jack/git/github.com/cavinsresearch/zeus/uv2nix/nix/devshell.nix` and found:
 
-8. **The Red Herring**: Discovered the shellHook was using `lib.getBin` incorrectly, generating:
-   ```bash
-   export PATH="/nix/store/.../python-nautilus-editable:$PATH"  # Missing /bin!
-   ```
-   Instead of:
-   ```bash
-   export PATH="/nix/store/.../python-nautilus-editable/bin:$PATH"
-   ```
+    ```nix
+    inputsFrom = [config.jackpkgs.outputs.devShell];  # Adds jackpkgs first
+    buildInputs = devEnvPaths;  # Includes consumer's pythonDevEnv
+    shellHook = ''
+      export PATH="${lib.getBin pythonDevEnv}:$PATH"  # Attempted fix
+    '';
+    ```
 
-9. **Root Cause Clarification**: While the missing `/bin` was a bug, the deeper issue remained - PATH pollution from `pkgs.nbstripout` injected via `inputsFrom`
+08. **The Red Herring**: Discovered the shellHook was using `lib.getBin` incorrectly, generating:
+
+    ```bash
+    export PATH="/nix/store/.../python-nautilus-editable:$PATH"  # Missing /bin!
+    ```
+
+    Instead of:
+
+    ```bash
+    export PATH="/nix/store/.../python-nautilus-editable/bin:$PATH"
+    ```
+
+09. **Root Cause Clarification**: While the missing `/bin` was a bug, the deeper issue remained - PATH pollution from `pkgs.nbstripout` injected via `inputsFrom`
 
 10. **Solution Architecture**: Developed parameterized Python interpreter approach - revive custom nbstripout package to build with consumer's Python interpreter, eliminating need for consumers to manage nbstripout dependencies while solving PATH pollution
 
@@ -284,20 +300,24 @@ python -m cavins.tools.hello
 During investigation, we explored several approaches before settling on the hybrid solution:
 
 1. **Pure shellHook fix**: Fix `lib.getBin` usage in consumer shellHooks
+
    - **Issue**: Doesn't eliminate underlying pollution
 
 2. **Override nbstripout's Python**: Attempt to rebuild `pkgs.nbstripout` with consumer's Python
+
    - **Issue**: Not easily possible with pre-built packages
 
 3. **Disable nbstripout entirely**: Let consumers manage their own
+
    - **Issue**: Too disruptive, breaks existing workflows
 
 4. **Smart Python detection**: Auto-detect consumer's Python environment
+
    - **Issue**: Complex heuristics, unreliable edge cases
 
 The chosen approach addresses the root cause while maintaining backward compatibility and providing a zero-configuration experience for consumers - they simply specify their Python environment and we automatically build compatible tools.
 
----
+______________________________________________________________________
 
 ## Appendix B: Self-Contained nbstripout Package Approaches
 
@@ -325,11 +345,13 @@ Pre-commit hooks only need the `nbstripout` executable, not access to its Python
 ```
 
 **How it works:**
+
 - Build normally with `buildPythonApplication`
 - Post-process to remove propagated dependencies
 - Python environment remains embedded but doesn't propagate to PATH
 
 **Analysis:**
+
 - ✅ **Simple**: Minimal modification to existing code
 - ✅ **Effective**: Python fully self-contained, zero PATH pollution
 - ❌ **Hacky**: Fighting against build system's intended behavior
@@ -337,6 +359,7 @@ Pre-commit hooks only need the `nbstripout` executable, not access to its Python
 - ❌ **Wasteful**: Dependencies built but then discarded from propagation
 
 **❌ IMPLEMENTATION RESULT: FAILED**
+
 - **Issue**: Stripping `propagatedBuildInputs = []` breaks runtime dependency resolution
 - **Error**: `ModuleNotFoundError: No module named 'nbformat'` when nbstripout tries to import nbformat at runtime
 - **Root cause**: Dependencies are built but not accessible to the Python interpreter at runtime when propagation is stripped
@@ -367,11 +390,13 @@ stdenv.mkDerivation rec {
 ```
 
 **How it works:**
+
 - Build using standard derivation approach
 - Install Python package manually into output
 - Complete control over dependency propagation
 
 **Analysis:**
+
 - ✅ **Clean separation**: Explicit control over what propagates
 - ✅ **Transparent**: Clear about what we're doing
 - ✅ **Robust**: Less dependent on nixpkgs Python machinery
@@ -401,11 +426,13 @@ python3.pkgs.toPythonApplication (
 ```
 
 **How it works:**
+
 - First stage: Build nbstripout as Python library with `buildPythonPackage`
 - Second stage: `toPythonApplication` wraps library with executable scripts
 - The wrapper stage controls propagation behavior for applications
 
 **Analysis:**
+
 - ✅ **Idiomatic**: Uses nixpkgs patterns correctly - this is what `toPythonApplication` is designed for
 - ✅ **Maintainable**: Follows established nixpkgs conventions
 - ✅ **Stable**: Less likely to break with future nixpkgs changes
@@ -414,6 +441,7 @@ python3.pkgs.toPythonApplication (
 - ⚠️ **Learning curve**: Need to understand both build functions
 
 **❌ IMPLEMENTATION RESULT: FAILED**
+
 - **Issue**: `toPythonApplication` does not prevent Python dependency propagation as expected
 - **Root cause**: The wrapper still propagates the underlying Python environment and dependencies to consumer PATH
 - **Discovery**: `toPythonApplication` is designed for creating applications but doesn't solve PATH pollution for consumers via `inputsFrom`
@@ -421,17 +449,20 @@ python3.pkgs.toPythonApplication (
 ### **Decision: Option 2 (Custom stdenv.mkDerivation)**
 
 **Why chosen:**
+
 - **Complete control**: Full control over dependency propagation without fighting build system defaults
 - **Proven approach**: Standard derivation building is well-understood and stable
 - **Transparent**: Clear about what dependencies are included and how they're managed
 - **Robust**: Less dependent on Python packaging machinery quirks
 
 **After testing Option 1 and Option 3:**
+
 - Option 1 broke runtime dependency resolution when stripping propagatedBuildInputs
 - Option 3 did not prevent PATH pollution as expected - still propagates Python environment
 - Option 2 provides explicit control over the entire build process
 
 **Benefits of this approach:**
+
 - **Zero consumer configuration**: No need for `pythonPackages` option
 - **Universal solution**: Works for all consumers automatically
 - **No PATH pollution**: No automatic dependency propagation to consumer PATH
@@ -439,12 +470,13 @@ python3.pkgs.toPythonApplication (
 - **Self-contained**: All dependencies embedded within package environment
 
 **Implementation approach:**
+
 - Use `stdenv.mkDerivation` for complete control over the build process
 - Manually install nbstripout and its dependencies using pip into package prefix
 - Ensure proper Python environment setup without propagating to consumers
 - Maintain all existing tests, metadata, and functionality
 
----
+______________________________________________________________________
 
 ## Appendix C: Future Alternative - Option 4 (pyproject.nix)
 
@@ -453,6 +485,7 @@ python3.pkgs.toPythonApplication (
 During implementation, we discovered that nbstripout has a `pyproject.toml` file, making it compatible with modern Python packaging tools like `pyproject.nix`. This could provide a cleaner long-term solution.
 
 **Potential implementation:**
+
 ```nix
 # Using pyproject.nix instead of stdenv.mkDerivation
 let
@@ -475,6 +508,7 @@ pyproject-nix.buildPythonPackage {
 ```
 
 **Potential advantages:**
+
 - **Modern tooling**: Uses contemporary Python packaging standards
 - **Better dependency resolution**: pyproject.nix handles dependencies more systematically
 - **Upstream compatibility**: Builds the package as upstream intends
@@ -482,18 +516,20 @@ pyproject-nix.buildPythonPackage {
 - **Maintainability**: Easier to sync with upstream changes
 
 **Open questions:**
+
 - Can pyproject.nix prevent `propagatedBuildInputs` propagation like our Option 2?
 - Does it provide the same level of control over PATH pollution?
 - What's the complexity of integrating pyproject.nix into jackpkgs?
 
 **When to consider:**
+
 - If Option 2 proves fragile during maintenance
 - If manual pip installation becomes problematic with Python version changes
 - If we want to adopt modern Python packaging practices more broadly in jackpkgs
 
 **Status**: Documented for future consideration. Option 2 provides a working solution today.
 
----
+______________________________________________________________________
 
 Author: Claude Code (with Jack Maloney)
 Date: 2025-01-27

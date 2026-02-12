@@ -95,13 +95,13 @@ Users who want pre-commit hooks (mypy, ruff, etc.) to work should:
 
 ## Environment Patterns Summary
 
-| Environment Type | `editable` | `includeGroups` | Use Case | Pre-commit works? |
-|------------------|------------|-----------------|----------|-------------------|
-| **Production** | `false` | `false` (default) | Deployment, minimal deps | No (no mypy) |
-| **Development** | `true` | `true` (default) | Local dev, devshell | Yes (if used as default) |
-| **CI Checks** | `false` | `true` (explicit) | Hermetic tests, pre-commit | Yes |
-| **Default + Hooks** | `false` | `true` (explicit) | Simple setup with working hooks | Yes |
-| **Separate prod + dev** | `default`: prod, `dev`: editable | — | Production default + dev shell | Requires `mypyPackage` override |
+| Environment Type        | `editable`                       | `includeGroups`   | Use Case                        | Pre-commit works?               |
+| ----------------------- | -------------------------------- | ----------------- | ------------------------------- | ------------------------------- |
+| **Production**          | `false`                          | `false` (default) | Deployment, minimal deps        | No (no mypy)                    |
+| **Development**         | `true`                           | `true` (default)  | Local dev, devshell             | Yes (if used as default)        |
+| **CI Checks**           | `false`                          | `true` (explicit) | Hermetic tests, pre-commit      | Yes                             |
+| **Default + Hooks**     | `false`                          | `true` (explicit) | Simple setup with working hooks | Yes                             |
+| **Separate prod + dev** | `default`: prod, `dev`: editable | —                 | Production default + dev shell  | Requires `mypyPackage` override |
 
 ### Pre-commit Hook Resolution
 
@@ -136,7 +136,7 @@ For the hook to find `mypy` in the default environment, the environment must inc
 - [ADR-018: Python Dependency Groups for CI Checks](./018-python-optional-dependencies.md) — `includeGroups` implementation
 - [ADR-016: CI Checks Module](./016-ci-checks-module.md) — CI check environment selection
 
----
+______________________________________________________________________
 
 Author: Claude (Cursor)
 Date: 2026-01-30

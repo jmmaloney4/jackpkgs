@@ -25,6 +25,7 @@ dreamOutputs = jackpkgsInputs.dream2nix.lib.makeFlakeOutputs {
 ```
 
 **Current dream2nix usage:**
+
 - Outputs node_modules at: `packages.${system}.default.lib.node_modules`
 - Structure: `<store>/lib/node_modules/default/node_modules/<dependency>` (nested)
 - Requires dream2nix as external input
@@ -75,17 +76,18 @@ nodeModules = pkgs.buildNpmPackage {
 
 ### Key Differences from dream2nix
 
-| Aspect | dream2nix | buildNpmPackage |
-|--------|-------------|-----------------|
-| **Dependency** | External input | Built into nixpkgs |
-| **Output structure** | Nested: `<store>/lib/node_modules/default/node_modules/` | Flat: `<store>/node_modules/` |
-| **Workspace handling** | Per-package derivations (granular) | Single derivation with workspace hoisting |
-| **Caching** | Granular (per package) | Coarse (all deps in one derivation) |
-| **API** | Custom `makeFlakeOutputs` | Standard nixpkgs API |
+| Aspect                 | dream2nix                                                | buildNpmPackage                           |
+| ---------------------- | -------------------------------------------------------- | ----------------------------------------- |
+| **Dependency**         | External input                                           | Built into nixpkgs                        |
+| **Output structure**   | Nested: `<store>/lib/node_modules/default/node_modules/` | Flat: `<store>/node_modules/`             |
+| **Workspace handling** | Per-package derivations (granular)                       | Single derivation with workspace hoisting |
+| **Caching**            | Granular (per package)                                   | Coarse (all deps in one derivation)       |
+| **API**                | Custom `makeFlakeOutputs`                                | Standard nixpkgs API                      |
 
 ### Why Single Derivation?
 
 npm's workspace mechanism hoists dependencies to the root `node_modules` by default. This means:
+
 - All dependencies are accessible from any workspace package
 - `import 'my-lib'` works regardless of which package you're in
 - Matches how developers run `npm install` naturally
@@ -95,12 +97,14 @@ Single derivation is sufficient for 90% of use cases. If package isolation becom
 ### Implementation Scope
 
 **In scope:**
+
 - Replace dream2nix with buildNpmPackage in `nodejs.nix`
 - Remove dream2nix from jackpkgs inputs
 - Update checks.nix `linkNodeModules` to handle flat structure
 - Update devshell binary path detection
 
 **Out of scope:**
+
 - Per-package derivations (defer to future if needed)
 - Shared workspace discovery helper (keep in checks.nix for now)
 - Support for pnpm/yarn (we're npm-only per ADR-019)
@@ -126,12 +130,12 @@ Single derivation is sufficient for 90% of use cases. If package isolation becom
 
 ### Risks & Mitigations
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Workspace hoisting issues | Low | Medium | npm standard; test with complex monorepos |
-| Binary path detection bugs | Medium | Medium | Add fallback logic; test thoroughly |
-| Breaking changes for consumers | Low | High | API remains same (`nodeModules` output) |
-| Build time regression | Low | Low | Single derivation often faster than multiple granular |
+| Risk                           | Likelihood | Impact | Mitigation                                            |
+| ------------------------------ | ---------- | ------ | ----------------------------------------------------- |
+| Workspace hoisting issues      | Low        | Medium | npm standard; test with complex monorepos             |
+| Binary path detection bugs     | Medium     | Medium | Add fallback logic; test thoroughly                   |
+| Breaking changes for consumers | Low        | High   | API remains same (`nodeModules` output)               |
+| Build time regression          | Low        | Low    | Single derivation often faster than multiple granular |
 
 ## Alternatives Considered
 
@@ -140,11 +144,13 @@ Single derivation is sufficient for 90% of use cases. If package isolation becom
 **Approach:** Maintain status quo with dream2nix.
 
 **Pros:**
+
 - Already works
 - Granular caching
 - Per-package isolation
 
 **Cons:**
+
 - External dependency
 - API instability
 - Overkill for npm-only
@@ -178,11 +184,13 @@ nodeModules = pkgs.symlinkJoin {
 ```
 
 **Pros:**
+
 - Per-package isolation
 - Closer to dream2nix behavior
 - Better for complex monorepos with conflicting deps
 
 **Cons:**
+
 - Multiple derivations (slower builds)
 - More complex implementation (~50-80 lines)
 - Requires workspace discovery in nodejs.nix
@@ -194,10 +202,12 @@ nodeModules = pkgs.symlinkJoin {
 **Approach:** Use napalm for granular dependency caching.
 
 **Pros:**
+
 - Best cache granularity
 - Good for monorepos
 
 **Cons:**
+
 - Harder to configure for C++ dependencies
 - Less mature than buildNpmPackage
 - Another external dependency
@@ -209,10 +219,12 @@ nodeModules = pkgs.symlinkJoin {
 ### Phase 1: Update nodejs.nix
 
 1. **Remove dream2nix dependency:**
+
    - Delete `jackpkgsInputs.dream2nix` from module signature
    - Remove `dreamOutputs` computation
 
 2. **Replace with buildNpmPackage:**
+
    ```nix
    nodeModules = pkgs.buildNpmPackage {
      name = "node-modules";
@@ -228,6 +240,7 @@ nodeModules = pkgs.symlinkJoin {
    ```
 
 3. **Update devshell `.bin` detection:**
+
    ```nix
    shellHook = ''
      node_modules_bin=""
@@ -252,11 +265,13 @@ nodeModules = pkgs.symlinkJoin {
    ```
 
 4. **Update option description:**
+
    - Change "via dream2nix" to "via buildNpmPackage"
 
 ### Phase 2: Update checks.nix
 
 1. **Update `linkNodeModules` for flat structure:**
+
    ```nix
    linkNodeModules = nodeModules: packages:
      if nodeModules == null
@@ -290,10 +305,12 @@ nodeModules = pkgs.symlinkJoin {
    ```
 
 2. **Update error messages:**
+
    - Change "dream2nix" to "buildNpmPackage"
    - Remove ADR-017 reference (superseded)
 
 3. **Update binary PATH in Vitest checks:**
+
    ```nix
    ${lib.optionalString (vitestNodeModules != null) ''
      # buildNpmPackage flat structure
@@ -312,42 +329,50 @@ nodeModules = pkgs.symlinkJoin {
 ### Phase 3: Remove dream2nix Input
 
 1. **Update `all.nix`:**
+
    - Remove dream2nix from `inputs`
    - Remove dream2nix from `imports`
 
 2. **Update flake.nix (jackpkgs):**
+
    - Remove dream2nix from `inputs`
 
 ### Phase 4: Documentation
 
 1. **Update README:**
+
    - Remove dream2nix mentions
    - Add buildNpmPackage note (built into nixpkgs)
    - Update nodejs module example
 
 2. **Update ADR-019:**
+
    - Add reference to this ADR in "Alternatives Considered"
    - Note that this supersedes the dream2nix approach
 
 3. **Create migration guide (if needed):**
+
    - Document transition path for consumers
    - Note that API is unchanged (`jackpkgs.outputs.nodeModules`)
 
 ### Phase 5: Testing
 
 1. **Test simple npm project:**
+
    - Verify node_modules derivation builds
    - Verify devshell PATH works
    - Verify TypeScript checks work
 
 2. **Test npm workspace monorepo:**
+
    - Verify workspace hoisting works
    - Verify imports resolve correctly
    - Verify tsc and vitest checks work
 
 3. **Test backwards compatibility:**
+
    - Verify checks.nix still works if consumer provides custom nodeModules
-    - Verify error messages are helpful
+   - Verify error messages are helpful
 
 ## Appendix A: installPhase Strategy Analysis
 
@@ -379,11 +404,13 @@ nodeModules = pkgs.buildNpmPackage {
 **Output structure:** `<store>/node_modules/`
 
 **What this does:**
+
 - Extracts `node_modules` directory directly to `$out`
 - Simple, minimal code
 - Provides exactly what checks module needs (dependencies for tsc/vitest)
 
 **Benefits:**
+
 1. **Matches checks.nix expectations** — Already expects `$out/node_modules/` for linking
 2. **No API changes** — Consumers get same output structure
 3. **Faster builds** — Skips buildNpmPackage's default `npm pack` analysis
@@ -391,11 +418,13 @@ nodeModules = pkgs.buildNpmPackage {
 5. **Stable structure** — `$out/node_modules/` is stable and predictable
 
 **Limitations:**
+
 1. **No binaries installed** — Package.json `bin` field is not processed
 2. **No man pages** — Package.json `man` field is ignored
 3. **Not a proper Nix package** — Doesn't follow nixpkgs packaging conventions
 
 **Why chosen:**
+
 - jackpkgs' primary use case is providing `node_modules` for CI checks (tsc, vitest)
 - Checks module calls binaries via `node_modules/.bin`, not `$out/bin`
 - Consumers wanting a full npm package can use nixpkgs `buildNpmPackage` directly
@@ -418,18 +447,21 @@ nodeModules = pkgs.buildNpmPackage {
 **Output structure:** `<store>/lib/node_modules/default/node_modules/`
 
 **What this does:**
+
 - Uses buildNpmPackage's default `installPhase`
 - Runs `npm pack --json --dry-run` to determine package contents
 - Installs package.json `bin` to `$out/bin/` and `man` to `$out/share/man/`
 - Installs project files (as determined by `npm pack`) to `$out/lib/node_modules/<package-name>/`
 
 **Benefits:**
+
 1. **Proper Nix package** — Follows nixpkgs packaging conventions
 2. **Binaries available** — Package.json `bin` installed to `$out/bin/`
 3. **Man pages** — Package.json `man` installed to `$out/share/man/`
 4. **Standard behavior** — Consumers familiar with nixpkgs buildNpmPackage
 
 **Trade-offs:**
+
 1. **Output structure change** — Nested: `$out/lib/node_modules/default/node_modules/`
 2. **checks.nix needs updates** — Must detect/buildNpmPackage's nested structure
 3. **Complex PATH logic** — Binaries at `$out/bin/`, node_modules at `$out/lib/node_modules/default/node_modules/`
@@ -438,6 +470,7 @@ nodeModules = pkgs.buildNpmPackage {
 6. **More complex detection** — Multiple possible paths to check in devshell/checks
 
 **Why not chosen:**
+
 - jackpkgs checks module doesn't need `$out/bin/` binaries
 - tsc/vitest checks call binaries via `node_modules/.bin`
 - Adds complexity for current use case (CI checks)
@@ -447,6 +480,7 @@ nodeModules = pkgs.buildNpmPackage {
 ### Ramifications of Option 2
 
 **For checks.nix:**
+
 ```nix
 # Current expects:
 nm_root="$nm_store/node_modules"
@@ -454,10 +488,12 @@ nm_root="$nm_store/node_modules"
 # Would need:
 nm_root="$nm_store/lib/node_modules/default/node_modules"
 ```
+
 - `linkNodeModules` needs new path detection logic
 - Fallback for flat structure (Option 1) would still be needed
 
 **For devshell PATH:**
+
 ```nix
 # Binaries at:
 $out/bin/  # buildNpmPackage standard
@@ -472,10 +508,12 @@ elif [ -d "${nodeModules}/node_modules/.bin" ]; then
   node_modules_bin="${nodeModules}/node_modules/.bin"
 fi
 ```
+
 - More complex PATH detection
 - Multiple paths to maintain (legacy + new)
 
 **For consumers:**
+
 ```nix
 # Current API (stable):
 config.jackpkgs.outputs.nodeModules = jackpkgs-nodejs.outputs.${system}.default
@@ -484,11 +522,13 @@ config.jackpkgs.outputs.nodeModules = jackpkgs-nodejs.outputs.${system}.default
 # Before: jackpkgs-nodejs -> <store>/node_modules/
 # After:  jackpkgs-nodejs -> <store>/lib/node_modules/default/node_modules/
 ```
+
 - Any consumer manually referencing path would break
   - Unstable internal API (shouldn't happen, but risk exists)
 
 **Future consideration:**
 If jackpkgs adds npm package distribution support, we could:
+
 - Add option: `jackpkgs.nodejs.buildMode = "deps" | "full"`
 - "deps" = Option 1 (current, for checks module)
 - "full" = Option 2 (proper Nix package with binaries)
@@ -499,21 +539,22 @@ This appendix compares `buildNpmPackage` (nixpkgs native) with `node2nix` (exter
 
 ### Overview
 
-| Aspect | buildNpmPackage | node2nix |
-|---------|-----------------|-----------|
-| **Source** | Built into nixpkgs | External tool (npm install -g) |
-| **Approach** | Uses npm's cache mechanism (fixed-output derivation) | Generates Nix expressions from package.json (code generation) |
-| **Primary output** | Single derivation with `node_modules` | Multiple files: `node-packages.nix`, `node-env.nix`, `default.nix` |
-| **Lock file support** | `importNpmLock` for `package-lock.json` | `-l package-lock.json` flag |
-| **Dependencies** | None (nixpkgs only) | Requires `nix-hash` utility for Git dependencies |
-| **API maturity** | Stable, well-maintained | Less stable, evolving |
-| **Use case** | Development shells, CI checks | Full NixOS deployment, complex overrides |
+| Aspect                | buildNpmPackage                                      | node2nix                                                           |
+| --------------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| **Source**            | Built into nixpkgs                                   | External tool (npm install -g)                                     |
+| **Approach**          | Uses npm's cache mechanism (fixed-output derivation) | Generates Nix expressions from package.json (code generation)      |
+| **Primary output**    | Single derivation with `node_modules`                | Multiple files: `node-packages.nix`, `node-env.nix`, `default.nix` |
+| **Lock file support** | `importNpmLock` for `package-lock.json`              | `-l package-lock.json` flag                                        |
+| **Dependencies**      | None (nixpkgs only)                                  | Requires `nix-hash` utility for Git dependencies                   |
+| **API maturity**      | Stable, well-maintained                              | Less stable, evolving                                              |
+| **Use case**          | Development shells, CI checks                        | Full NixOS deployment, complex overrides                           |
 
 ### Key Differences
 
 #### 1. Code Generation vs Native API
 
 **node2nix:**
+
 ```bash
 # Step 1: Generate Nix expressions
 $ node2nix -l package-lock.json
@@ -529,6 +570,7 @@ $ ./result/bin/my-package
 ```
 
 **buildNpmPackage:**
+
 ```nix
 # Direct usage, no code generation
 nodeModules = pkgs.buildNpmPackage {
@@ -541,6 +583,7 @@ nodeModules = pkgs.buildNpmPackage {
 ```
 
 **Difference:**
+
 - node2nix requires two-step workflow (generate → build)
 - buildNpmPackage is single-step (direct Nix expression)
 - node2nix generates more code to maintain
@@ -549,6 +592,7 @@ nodeModules = pkgs.buildNpmPackage {
 #### 2. Output Structure
 
 **node2nix:**
+
 ```
 <store>/lib/node_modules/           # All dependencies
 <store>/bin/                      # Package binaries (if package.json bin field)
@@ -556,6 +600,7 @@ nodeModules = pkgs.buildNpmPackage {
 ```
 
 **buildNpmPackage (default):**
+
 ```
 <store>/lib/node_modules/<package-name>/node_modules/  # Dependencies
 <store>/bin/                                            # Binaries
@@ -563,11 +608,13 @@ nodeModules = pkgs.buildNpmPackage {
 ```
 
 **buildNpmPackage (with custom installPhase — our approach):**
+
 ```
 <store>/node_modules/              # Dependencies (flat)
 ```
 
 **Difference:**
+
 - node2nix outputs at root `lib/node_modules`
 - buildNpmPackage nests under package name by default
 - Our custom installPhase gives flat structure (simpler for jackpkgs use case)
@@ -575,16 +622,19 @@ nodeModules = pkgs.buildNpmPackage {
 #### 3. Workspace Support
 
 **node2nix:**
+
 - Manual workspace configuration required
 - Each workspace member generates separate derivation in `node-packages.nix`
 - More granular control, but more code to manage
 
 **buildNpmPackage:**
+
 - Automatic npm workspace support via `importNpmLock`
 - Single derivation for entire workspace (hoisting)
 - Simpler, less control over per-package isolation
 
 **Difference:**
+
 - node2nix: Per-package derivations, manual workspace config
 - buildNpmPackage: Single derivation, automatic workspace hoisting
 - For jackpkgs checks module, hoisting is sufficient (no per-package isolation needed)
@@ -592,6 +642,7 @@ nodeModules = pkgs.buildNpmPackage {
 #### 4. Development Dependencies
 
 **node2nix:**
+
 ```bash
 # Production mode (default)
 $ node2nix
@@ -601,11 +652,13 @@ $ node2nix --development
 ```
 
 **buildNpmPackage:**
+
 - Always includes development dependencies (runs `npm ci`, not `npm ci --production`)
 - Can't exclude devDependencies by default
 - Would need custom phases to exclude them
 
 **Difference:**
+
 - node2nix: Explicit dev/prod mode control
 - buildNpmPackage: Always includes devDependencies
 - For jackpkgs CI checks, this is desirable (we need dev deps for tsc/vitest)
@@ -613,16 +666,19 @@ $ node2nix --development
 #### 5. Caching Granularity
 
 **node2nix:**
+
 - Each package has separate derivation
 - Changing one dependency only invalidates that package
 - Better cache hit rate for complex monorepos
 
 **buildNpmPackage:**
+
 - Single derivation for all dependencies
 - Changing any dependency invalidates entire derivation
 - Coarser caching, but simpler
 
 **Difference:**
+
 - node2nix: Granular caching (per package)
 - buildNpmPackage: Coarse caching (all deps together)
 - Tradeoff: node2nix better for large monorepos with many packages; buildNpmPackage simpler for typical projects
@@ -630,6 +686,7 @@ $ node2nix --development
 #### 6. Override Flexibility
 
 **node2nix:**
+
 ```nix
 # Easy per-package overrides
 nodePackages // {
@@ -643,6 +700,7 @@ nodePackages // {
 ```
 
 **buildNpmPackage:**
+
 ```nix
 # Override via mkDerivation args
 pkgs.buildNpmPackage (finalAttrs: {
@@ -657,6 +715,7 @@ pkgs.buildNpmPackage (finalAttrs: {
 ```
 
 **Difference:**
+
 - node2nix: `.override` pattern (functional composition)
 - buildNpmPackage: Direct `mkDerivation` override
 - Both support overrides, but different patterns
@@ -665,6 +724,7 @@ pkgs.buildNpmPackage (finalAttrs: {
 #### 7. Private Registry Support
 
 **node2nix:**
+
 ```bash
 $ node2nix --registry http://private.registry.local \
   --registry-auth-token "TOKEN" \
@@ -672,6 +732,7 @@ $ node2nix --registry http://private.registry.local \
 ```
 
 **buildNpmPackage:**
+
 ```nix
 nodeModules = pkgs.buildNpmPackage {
   # ... args
@@ -688,21 +749,22 @@ nodeModules = pkgs.buildNpmPackage {
 ```
 
 **Difference:**
+
 - node2nix: CLI flags for private registry
 - buildNpmPackage: `fetcherOpts` pattern (more flexible)
 - Both support private registries, but different mechanisms
 
 ### Trade-offs Summary
 
-| Factor | buildNpmPackage Advantage | node2nix Advantage |
-|---------|-------------------------|-------------------|
-| **Simplicity** | No code generation, direct Nix API | More familiar to Node developers |
-| **Maintainability** | nixpkgs native, stable | External tool, evolving |
-| **Workspace support** | Automatic hoisting, single derivation | Granular per-package control |
-| **Caching** | Simpler, coarser | More granular, better for monorepos |
-| **Overrides** | Direct mkDerivation args | Functional .override pattern |
-| **Private repos** | `fetcherOpts` flexibility | CLI convenience |
-| **Dev mode** | Always includes devDeps | Explicit dev/prod control |
+| Factor                | buildNpmPackage Advantage             | node2nix Advantage                  |
+| --------------------- | ------------------------------------- | ----------------------------------- |
+| **Simplicity**        | No code generation, direct Nix API    | More familiar to Node developers    |
+| **Maintainability**   | nixpkgs native, stable                | External tool, evolving             |
+| **Workspace support** | Automatic hoisting, single derivation | Granular per-package control        |
+| **Caching**           | Simpler, coarser                      | More granular, better for monorepos |
+| **Overrides**         | Direct mkDerivation args              | Functional .override pattern        |
+| **Private repos**     | `fetcherOpts` flexibility             | CLI convenience                     |
+| **Dev mode**          | Always includes devDeps               | Explicit dev/prod control           |
 
 ### Why buildNpmPackage for jackpkgs?
 
@@ -726,9 +788,8 @@ nodeModules = pkgs.buildNpmPackage {
 
 `buildNpmPackage` is the right choice for jackpkgs' use case (CI checks for TypeScript/Vitest projects). `node2nix` is more powerful for complex NixOS deployments and granular monorepo management, but adds complexity and external dependencies that are unnecessary for jackpkgs.
 
-
-
 **For build time:**
+
 - buildNpmPackage may run project's `build` script
 - We only need dependencies for tsc/vitest
 - Could slow down builds unnecessarily
@@ -739,6 +800,7 @@ nodeModules = pkgs.buildNpmPackage {
 **Keep Option 1** (simple `node_modules` extraction). This is the chosen approach for ADR-020 implementation.
 
 **Rationale:**
+
 - Perfect fit for jackpkgs checks module use case
 - Stable API (`$out/node_modules/`) across dream2nix → buildNpmPackage migration
 - Minimal code, simple debugging
@@ -753,7 +815,7 @@ nodeModules = pkgs.buildNpmPackage {
 - **PR**: TBD
 - **Issue**: TBD
 
----
+______________________________________________________________________
 
 Author: Claude (Cursor)
 Date: 2026-01-30

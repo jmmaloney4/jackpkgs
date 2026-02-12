@@ -7,8 +7,8 @@ Accepted
 ## Context
 
 - We are standardizing Python environments via uv2nix. uv2nix supports two modes:
-  1) Non-editable envs (plain virtualenvs from resolved wheels/sdists)
-  2) Editable envs (workspace packages installed in "editable" mode via `mkEditablePyprojectOverlay`)
+  1. Non-editable envs (plain virtualenvs from resolved wheels/sdists)
+  2. Editable envs (workspace packages installed in "editable" mode via `mkEditablePyprojectOverlay`)
 - The editable overlay performs path computations with `lib.path.*` and requires inputs that are path-typed or resolve to real filesystem paths at runtime, not Nix store paths.
 - Under flakes, evaluation often copies sources into the Nix store, which can accidentally turn path-like values into store paths. uv2nix explicitly rejects editable roots that resolve to the store.
 - We need editable environments for developer workflows, but they should not be evaluated as pure flake package outputs where store paths and eval-time purity rules apply most strictly.
@@ -25,15 +25,18 @@ Accepted
 ## Consequences
 
 ### Benefits
+
 - Editable envs remain available for day-to-day development (hot-reload, local changes).
 - Flake checks and package builds avoid brittle path math in editable overlay code paths, improving reliability.
 - Clear separation of concerns: eval-time path resolution vs runtime editable workspace roots.
 
 ### Trade-offs
+
 - Editable envs do not appear under `packages.<name>`; they must be consumed via dev shells and module args.
 - Slightly more configuration awareness needed (which shell uses which env).
 
 ### Risks & Mitigations
+
 - Risk: Editable root accidentally becomes a Nix store path.
   - Mitigation: Compose the editable shell hook (or set `editableRoot` explicitly) so `$REPO_ROOT` points at the live checkout before uv runs.
 - Risk: Developers try to build the editable env as a package.
@@ -42,11 +45,13 @@ Accepted
 ## Implementation
 
 - In `jackpkgs/modules/flake-parts/python.nix`:
+
   - Keep `workspaceRoot` resolved to a Nix path using `jackpkgs.projectRoot` and robust joining.
   - In `mkEditableEnv`, pass `overlayArgs.root` as the string `root` (default `$REPO_ROOT`), not a Nix path.
   - Publish only non-editable environments under `packages.<name>`; omit editable envs from package outputs.
 
 - In consumer projects (e.g., zeus):
+
   - Set `jackpkgs.python.workspaceRoot = ./.;` (or another path literal) so uv2nix reads the intended checkout.
   - Leave `jackpkgs.projectRoot` at its default unless the repository layout requires an override; the editable hook discovers the live checkout at runtime.
   - Default developer shell: use `pythonEnvs.editable` and compose the provided hook (`outputs.addEditableHookToDevShell = true` or `inputsFrom = [ config.jackpkgs.outputs.pythonEditableHook ]`), which exports `REPO_ROOT` and points `UV_PYTHON` at the editable interpreter.
@@ -72,14 +77,17 @@ export PATH="${pythonEnvs.editable}/bin:$PATH"
 ## Alternatives Considered
 
 ### A — Publish editable envs as packages
+
 - Pros: Uniform access via packages
 - Cons: Fails under flakes due to editable root store-path checks and path assertions; brittle and not portable
 
 ### B — Make uv2nix accept projectRoot and coerce internally
+
 - Pros: Could centralize path handling
 - Cons: Requires upstream changes; still must forbid store paths for editable roots
 
 ### C — Avoid editable envs entirely
+
 - Pros: Simplest evaluation model
 - Cons: Poor developer experience; no hot-reload/editable installs
 
@@ -89,7 +97,7 @@ export PATH="${pythonEnvs.editable}/bin:$PATH"
 - ADR-017: dream2nix for Pure Node.js Dependency Management (contrasts why Node.js doesn't need editable environments — see Appendix A)
 - uv2nix workspace docs and overlay implementation (editable overlays and path requirements)
 
----
+______________________________________________________________________
 
 Author: Jack Maloney
 Date: 2025-10-13

@@ -11,6 +11,7 @@ ADR-011 established nix-unit as the testing framework for jackpkgs and implement
 ### The Problem
 
 When running tests in CI (specifically on Linux), the custom `mkTest` implementation fails with:
+
 ```
 error: creating directory '/nix/var/nix/profiles': Permission denied
 warning: `--gc-roots-dir' not specified
@@ -23,6 +24,7 @@ This occurs because nix-unit, when run inside a Nix build sandbox via `runComman
 Research into this issue revealed that the nix-unit project **provides an official flake-parts module** (`inputs.nix-unit.modules.flake.default`) that properly handles sandbox isolation. This module:
 
 1. Sets up a proper isolated Nix environment within the sandbox:
+
    ```nix
    export HOME="$(realpath .)"
    unset NIX_STORE
@@ -31,6 +33,7 @@ Research into this issue revealed that the nix-unit project **provides an offici
    ```
 
 2. Provides additional features:
+
    - `perSystem.nix-unit.tests` option for declaring tests
    - `perSystem.nix-unit.inputs` for passing flake inputs to avoid re-downloads
    - `perSystem.nix-unit.allowNetwork` for tests requiring network access
@@ -42,17 +45,20 @@ Research into this issue revealed that the nix-unit project **provides an offici
 ### Current State
 
 The custom implementation in `flake.nix:136-150` defines a `mkTest` helper that:
+
 - Uses `pkgs.runCommand` to create test derivations
 - Serializes test cases using `lib.generators.toPretty`
 - Runs nix-unit on the serialized test file
 - Works locally on macOS but fails in Linux CI due to sandbox restrictions
 
 **Prior Art:**
+
 - The nix-unit project's own `lib/modules/flake/system.nix` demonstrates the correct pattern
 - Other projects using nix-unit successfully use the official module
 - The project `jmmaloney4/latex-utils` (mentioned in ADR-011) may use this pattern
 
 **Constraints:**
+
 - Must work in GitHub Actions CI on Linux
 - Must maintain existing test structure in `tests/` directory
 - Must integrate with flake-parts (already in use)
@@ -63,12 +69,14 @@ The custom implementation in `flake.nix:136-150` defines a `mkTest` helper that:
 Migrate from the custom nix-unit integration to the **official nix-unit flake-parts module**.
 
 The integration MUST:
+
 - Import `inputs.nix-unit.modules.flake.default` in the flake's imports list
 - Declare tests using `perSystem.nix-unit.tests` instead of custom `mkTest` wrapper
 - Maintain existing test files in `tests/` directory without modification
 - Continue to expose tests via `checks` output for CI integration
 
 The integration SHOULD:
+
 - Use `perSystem.nix-unit.inputs` to pass required flake inputs if needed
 - Set `perSystem.nix-unit.allowNetwork = false` (default) to keep tests pure
 - Configure per-system tests for `mkRecipe`, `optionalLines`, and other helpers
@@ -77,6 +85,7 @@ The integration SHOULD:
 ### Scope
 
 **In Scope:**
+
 - Replacing custom `mkTest` function with official module
 - Updating flake imports to include nix-unit module
 - Migrating test declarations to `perSystem.nix-unit.tests`
@@ -84,6 +93,7 @@ The integration SHOULD:
 - Verifying tests pass in Linux CI
 
 **Out of Scope:**
+
 - Rewriting existing test files (they remain in `tests/` directory)
 - Changing test format or structure
 - Adding new tests (covered separately)
@@ -124,11 +134,14 @@ The integration SHOULD:
 ### Alternative A — Fix Custom Implementation with Environment Variables
 
 Apply the workaround discovered during investigation:
+
 ```nix
 export NIX_STATE_DIR=$TMPDIR/nix-state
 mkdir -p $NIX_STATE_DIR
 ```
+
 Or the more robust pattern:
+
 ```nix
 export HOME="$(realpath .)"
 unset NIX_STORE
@@ -169,6 +182,7 @@ Apply environment variable fix only in CI-specific configuration
 ### Phase 1: Update Flake Configuration (30 min)
 
 1. **Import official module** in `flake.nix` imports list:
+
    ```nix
    imports = [
      ./modules/flake-parts
@@ -180,6 +194,7 @@ Apply environment variable fix only in CI-specific configuration
 2. **Remove custom `mkTest` function** from `flake.nix` (lines ~136-150)
 
 3. **Migrate test declarations** from custom checks to module pattern:
+
    ```nix
    perSystem = { config, pkgs, lib, system, ... }: {
      nix-unit = {
@@ -210,12 +225,14 @@ Apply environment variable fix only in CI-specific configuration
 ### Phase 2: Local Testing (15 min)
 
 5. Run tests locally on macOS:
+
    ```bash
    nix flake check
    nix build .#checks.aarch64-darwin.nix-unit  # New check name
    ```
 
 6. Test on Linux if possible (or rely on CI):
+
    ```bash
    nix build .#checks.x86_64-linux.nix-unit
    ```
@@ -227,7 +244,7 @@ Apply environment variable fix only in CI-specific configuration
 
 ### Phase 4: Documentation Updates (15 min)
 
-9. Update ADR-011 "Implementation Notes" section to reference ADR-014
+09. Update ADR-011 "Implementation Notes" section to reference ADR-014
 10. Add note about official module adoption and link to this ADR
 11. Update any testing documentation if it references `mkTest` directly
 
@@ -289,6 +306,7 @@ nixUnitInputs = builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs input
 ```
 
 When the nix-unit module invokes the test flake with `--override-input nix-unit /nix/store/...-source`, it causes Nix to re-evaluate the nix-unit flake source. This re-evaluation triggers dependency resolution for nix-unit's own inputs:
+
 - `flake-parts` (nix-unit's version, not jackpkgs')
 - `treefmt-nix` (a dependency of nix-unit, not jackpkgs)
 - `nixpkgs` (nix-unit's version)
@@ -313,6 +331,7 @@ nixUnitInputs =
 ```
 
 **Rationale:** The nix-unit flake has its own `flake.lock` with specific commits for its dependencies:
+
 - `flake-parts` at commit `af66ad14...` (different from jackpkgs' version)
 - `nixpkgs` at its own pinned version
 - `treefmt-nix` (which jackpkgs calls `treefmt`)
@@ -330,6 +349,7 @@ The key insight is that you must provide **all of nix-unit's transitive dependen
 ### Technical Details
 
 When `--override-input nix-unit <path>` is passed, Nix:
+
 1. Treats `<path>` as a flake source directory
 2. Reads its `flake.nix` and evaluates its inputs
 3. Looks for those inputs in the provided `--override-input` arguments
@@ -339,6 +359,7 @@ When `--override-input nix-unit <path>` is passed, Nix:
 By providing all inputs that nix-unit's flake.nix expects (including the `treefmt-nix` alias), we ensure that step 3 succeeds and step 4 is never reached.
 
 The aliasing and nested override techniques work together:
+
 1. **Top-level aliases** (like `treefmt-nix`) make inputs available under the names nix-unit expects
 2. **Nested overrides** (like `nix-unit/flake-parts`) replace nix-unit's locked dependencies with our versions
 3. Both map input names to `/nix/store/...` paths, preventing any network access
@@ -351,7 +372,7 @@ The nested syntax `nix-unit/flake-parts` tells Nix: "when evaluating the nix-uni
 - Related: nix-community/nix-unit#213 (<https://github.com/nix-community/nix-unit/issues/213>)
 - Implementation: `flake.nix:142-162`
 
----
+______________________________________________________________________
 
 Author: jack (with Claude Code assistance)
 Date: 2025-10-29
