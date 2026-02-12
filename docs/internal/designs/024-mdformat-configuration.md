@@ -33,7 +33,9 @@ Specifically, we will include the following plugins by default:
 
 We will also apply the following configuration defaults:
 
+- `end_of_line = "lf"`: Normalize markdown files to LF line endings for consistent cross-platform diffs.
 - `number = true`: Use consecutive numbering for ordered lists (`1.`, `2.`, `3.`) instead of `1.`, `1.`, `1.`.
+- `validate = true`: Validate markdown before writing changes so malformed input fails fast.
 - `wrap = "keep"`: Do not forcibly wrap lines. This prevents breaking long links or code blocks.
 
 ## Consequences
@@ -86,7 +88,9 @@ Modify `modules/flake-parts/fmt.nix` to include the `mdformat` configuration blo
           ];
 
           settings = {
+            end_of_line = "lf";
             number = true;
+            validate = true;
             wrap = "keep";
           };
         };
