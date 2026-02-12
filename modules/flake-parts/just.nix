@@ -183,7 +183,7 @@ in {
                   "${lib.getExe sysCfg.googleCloudSdkPackage} auth application-default set-quota-project ${cfg.gcp.quotaProject}"
                 ]
                 ++ optionalLines (cfg.pulumi.enable && cfg.pulumi.backendUrl != null) [
-                  "${lib.getExe sysCfg.pulumiPackage} login \"${cfg.pulumi.backendUrl}\""
+                  "${lib.getExe' sysCfg.pulumiPackage "pulumi"} login \"${cfg.pulumi.backendUrl}\""
                 ];
 
               # Determine if we need a shebang (when iamOrg is set, we need multi-line bash)
@@ -205,9 +205,9 @@ in {
                 # new-stack recipe
                 "# Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)"
                 "new-stack project_path stack_name:"
-                "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} login \"${cfg.pulumi.backendUrl}\""
-                "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack init {{stack_name}} --secrets-provider \"${cfg.pulumi.secretsProvider}\""
-                "    ${lib.getExe sysCfg.pulumiPackage} -C {{project_path}} stack select {{stack_name}}"
+                "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} login \"${cfg.pulumi.backendUrl}\""
+                "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} stack init {{stack_name}} --secrets-provider \"${cfg.pulumi.secretsProvider}\""
+                "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} stack select {{stack_name}}"
               ];
           };
           python = {
