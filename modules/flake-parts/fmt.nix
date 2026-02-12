@@ -92,10 +92,10 @@ in {
           enable = true;
           inherit excludes;
           package = pkgs.mdformat;
-          plugins = _: [
-            pkgs.python3Packages.mdformat-frontmatter
-            pkgs.python3Packages.mdformat-gfm
-            pkgs.python3Packages.mdformat-footnote
+          plugins = ps: [
+            ps.mdformat-frontmatter
+            ps.mdformat-gfm
+            ps.mdformat-footnote
           ];
           settings = {
             number = true;
