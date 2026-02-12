@@ -98,7 +98,9 @@ in {
             ps.mdformat-footnote
           ];
           settings = {
+            end_of_line = "lf";
             number = true;
+            validate = true;
             wrap = "keep";
           };
         };

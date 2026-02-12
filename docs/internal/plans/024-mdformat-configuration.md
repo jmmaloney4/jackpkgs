@@ -24,15 +24,17 @@ Modify `modules/flake-parts/fmt.nix` to include `mdformat` configuration within 
           package = pkgs.mdformat;
 
           # Plugins are configured via the plugins option which takes a function
-          plugins = _: [ 
-            pkgs.python3Packages.mdformat-frontmatter # CRITICAL: Preserves YAML frontmatter
-            pkgs.python3Packages.mdformat-gfm         # Tables, task lists, strikethrough
-            pkgs.python3Packages.mdformat-footnote    # Footnotes [^1]
+          plugins = ps: [
+            ps.mdformat-frontmatter # CRITICAL: Preserves YAML frontmatter
+            ps.mdformat-gfm         # Tables, task lists, strikethrough
+            ps.mdformat-footnote    # Footnotes [^1]
           ];
 
           settings = {
-            number = true;   # Use consecutive numbering (1., 2., 3.)
-            wrap = "keep";   # Do not forcibly wrap lines
+            end_of_line = "lf"; # Normalize line endings
+            number = true;       # Use consecutive numbering (1., 2., 3.)
+            validate = true;     # Validate markdown during formatting
+            wrap = "keep";      # Do not forcibly wrap lines
           };
         };
 ```
