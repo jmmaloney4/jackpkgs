@@ -1,9 +1,10 @@
 ---
 id: ADR-024
-title: "Mdformat Configuration"
+title: Mdformat Configuration
 status: proposed
 date: 2026-02-10
 ---
+
 # ADR-024: Add mdformat with frontmatter and GFM plugins to default formatters
 
 ## Status

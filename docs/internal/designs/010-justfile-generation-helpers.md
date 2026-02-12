@@ -96,7 +96,7 @@ justfile = lib.concatStringsSep "\n" [
 ```
 
 - Pros: Clear; no indentation issues; each line is explicit
-- Cons: Repetitive; requires manual "    " for every command; verbose for complex recipes
+- Cons: Repetitive; requires manual " " for every command; verbose for complex recipes
 
 ## Decision
 
@@ -227,7 +227,7 @@ infra = {
 
 - Use `lib.concatStringsSep` directly everywhere without helpers
 - Pros: Maximum explicitness; no abstractions
-- Cons: Very verbose; lots of repetition; manual "    " everywhere
+- Cons: Very verbose; lots of repetition; manual " " everywhere
 - Why not chosen: Too verbose; helpers improve readability significantly
 
 ## Implementation Plan
