@@ -122,6 +122,11 @@ in {
           enable = true;
           inherit excludes;
         };
+        # toml
+        programs.taplo = {
+          enable = true;
+          inherit excludes;
+        };
       };
     };
   };

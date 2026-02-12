@@ -93,7 +93,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 
 - `default` — imports all modules below (including `pkgs`).
 - `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
-- `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
+- `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Taplo, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
 - `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy; picks up `jackpkgs.python.environments.default` automatically when defined).
 - `shell` — shared dev shell output to include via `inputsFrom`.
@@ -172,7 +172,7 @@ in {
     - `treefmtPackage` (package, default `config.jackpkgs.pkgs.treefmt`)
     - `projectRootFile` (str, default `config.flake-root.projectRootFile`)
     - `excludes` (list of str, default `["**/node_modules/**" "**/dist/**"]`)
-  - Enables formatters: Alejandra (Nix), Biome (JS/TS), HuJSON, latexindent, Ruff (check + format), Rustfmt, Yamlfmt.
+  - Enables formatters: Alejandra (Nix), Biome (JS/TS), HuJSON, latexindent, Ruff (check + format), Rustfmt, Taplo (TOML), Yamlfmt.
 
 - just (`modules/flake-parts/just.nix`)
 
