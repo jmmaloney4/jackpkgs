@@ -39,7 +39,7 @@ let
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-IsMalBw9LDFVEBykeLXwlJvfGzyKztA8HJwTbe+MzG4=";
+    outputHash = "sha256-9xtKf998kF7lvDp8V9XKHwqugmdKbc6qkEnVznZ7Hec=";
 
     # Required for bun to work in sandbox
     HOME = "/tmp";
@@ -58,7 +58,7 @@ let
 
       echo "=== Running bun install ==="
       bun --version
-      bun install --frozen-lockfile 2>&1 || bun install 2>&1
+      bun install 2>&1
 
       runHook postBuild
     '';
