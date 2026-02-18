@@ -39,7 +39,7 @@ let
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-IsMalBw9LDFVEBykeLXwlJvfGzyKztA8HJwTbe+MzG4=";
+    outputHash = "sha256-9ZWJgvObMKwuUhB86ve1P9fEN7z5UUWSmv8b/+2qbFE=";
 
     # Required for bun to work in sandbox
     SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
@@ -71,10 +71,16 @@ let
     installPhase = ''
       runHook preInstall
 
-      cp -r node_modules $out
+      mkdir -p $out
 
-      # Remove broken symlinks created by bun
-      find $out -type l -exec test ! -e {} \; -delete
+      # Dereference symlinks during copy - bun uses symlinks for hoisted deps
+      # that would break when moved to the nix store
+      cp -rL node_modules/* $out/ 2>/dev/null || true
+
+      # Copy packages/web/node_modules (non-hoisted deps) on top
+      if [ -d packages/web/node_modules ]; then
+        cp -rLn packages/web/node_modules/* $out/ 2>/dev/null || true
+      fi
 
       runHook postInstall
     '';
