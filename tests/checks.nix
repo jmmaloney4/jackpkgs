@@ -9,8 +9,8 @@
 
   pythonWorkspace = ./fixtures/checks/python-workspace;
   pythonWorkspaceDefault = ./fixtures/checks/python-workspace-default;
-  pnpmWorkspace = ./fixtures/checks/npm-workspace;
-  noWorkspaceFixture = ./fixtures/checks/no-npm;
+  pnpmWorkspace = ./fixtures/checks/pnpm-workspace;
+  noWorkspaceFixture = ./fixtures/checks/no-workspace;
 
   # pyprojectPath is a string relative path, not a path object
   pythonWorkspacePyproject = "./pyproject.toml";
