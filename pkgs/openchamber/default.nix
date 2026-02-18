@@ -1,20 +1,24 @@
 {
   lib,
   stdenv,
-  fetchurl,
+  fetchFromGitHub,
+  bun,
   nodejs,
   python3,
   pkg-config,
   vips,
+  cacert,
 }:
 
 let
   pname = "openchamber";
   version = "1.7.1";
 
-  src = fetchurl {
-    url = "https://registry.npmjs.org/@openchamber/web/-/web-${version}.tgz";
-    hash = "sha256-gMBXaFSLInxXCPOW5tDN7BrVUZWEb/WrTTum9YmFMks=";
+  src = fetchFromGitHub {
+    owner = "btriapitsyn";
+    repo = "openchamber";
+    rev = "v${version}";
+    hash = "sha256-3hzZVvapbbQ5aU8bpOqdmT7UU5CFHajD71Z9buPJzjw=";
   };
 
   nodeModules = stdenv.mkDerivation {
@@ -22,7 +26,7 @@ let
     inherit version src;
 
     nativeBuildInputs = [
-      nodejs
+      bun
       python3
       pkg-config
     ];
@@ -31,20 +35,26 @@ let
       vips
     ];
 
-    impureEnvVars = lib.fetchers.proxyImpureEnvVars;
-
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = lib.fakeHash;
+    outputHash = "sha256-KnOqfBbqoWKRdQIi+lYjGX6As3LbCl6gQ2zBvIVaMO0=";
+
+    # Required for bun to work in sandbox
+    HOME = "/tmp";
+    XDG_CACHE_HOME = "/tmp/.cache";
+    BUN_INSTALL = "/tmp/.bun";
+    SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
+
+    # Allow network access for fixed-output derivation
+    __noChroot = true;
 
     buildPhase = ''
       runHook preBuild
 
-      export npm_config_nodedir=${nodejs}
-      export HOME=$(mktemp -d)
-
-      npm install --ignore-scripts --nodedir=${nodejs}
-      npm rebuild --nodedir=${nodejs}
+      cd packages/web
+      echo "=== Running bun install ==="
+      bun --version
+      bun install --frozen-lockfile 2>&1 || bun install 2>&1
 
       runHook postBuild
     '';
@@ -54,6 +64,9 @@ let
 
       cp -r node_modules $out
 
+      # Remove broken symlinks created by bun
+      find $out -type l -exec test ! -e {} \; -delete
+
       runHook postInstall
     '';
   };
@@ -62,14 +75,15 @@ stdenv.mkDerivation {
   inherit pname version src;
 
   nativeBuildInputs = [
+    bun
     nodejs
   ];
 
   buildPhase = ''
     runHook preBuild
 
-    cp -r ${nodeModules} node_modules
-    chmod -R u+w node_modules
+    cp -r ${nodeModules} packages/web/node_modules
+    chmod -R u+w packages/web/node_modules
 
     runHook postBuild
   '';
@@ -78,7 +92,7 @@ stdenv.mkDerivation {
     runHook preInstall
 
     mkdir -p $out/lib/node_modules/@openchamber/web
-    cp -r . $out/lib/node_modules/@openchamber/web/
+    cp -r packages/web/. $out/lib/node_modules/@openchamber/web/
 
     mkdir -p $out/bin
     ln -s $out/lib/node_modules/@openchamber/web/bin/cli.js $out/bin/openchamber
@@ -91,7 +105,7 @@ stdenv.mkDerivation {
     homepage = "https://github.com/btriapitsyn/openchamber";
     license = licenses.mit;
     maintainers = [ ];
-    platforms = platforms.all;
+    platforms = platforms.linux ++ platforms.darwin;
     mainProgram = "openchamber";
   };
 }
