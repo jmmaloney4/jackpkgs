@@ -275,7 +275,7 @@ config = mkIf cfg.enable {
       installPhase = ''
         # Copy the entire node_modules directory to $out
         # This preserves symlinks and workspace structure
-        cp -R node_modules $out
+        cp -a node_modules $out
       '';
     };
   in {
