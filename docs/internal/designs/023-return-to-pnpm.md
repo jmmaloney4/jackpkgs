@@ -102,7 +102,7 @@ zeus/
 │   ├── klosho/
 │   ├── poseidon/
 │   └── redis/
-└── libs/                       # Additional libraries (not in workspace)
+└── libs/                       # Real repo directory intentionally excluded from workspace patterns
 ```
 
 ### Key Patterns
