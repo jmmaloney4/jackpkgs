@@ -121,9 +121,10 @@ in {
               RECOMMENDED: Explicitly list packages for reliability and clarity.
               Example: packages = ["infra" "tools/hello" "apps/web"];
 
-              If null, packages will be auto-discovered from package.json "workspaces"
-              field. Auto-discovery supports simple wildcard patterns (e.g. "packages/*")
-              but does NOT support full recursive globs (e.g. "packages/**").
+              If null, packages will be auto-discovered from pnpm-workspace.yaml
+              "packages" field. Auto-discovery supports simple wildcard patterns
+              (e.g. "packages/*") but does NOT support full recursive globs
+              (e.g. "packages/**").
 
               For complex workspace configurations, use explicit listing.
             '';
@@ -161,14 +162,14 @@ in {
           '';
         };
 
-        packages = mkOption {
-          type = types.nullOr (types.listOf types.str);
-          default = null;
-          description = ''
-            List of packages to test with Vitest.
-            If null, uses same discovery as tsc (package.json workspaces).
-          '';
-        };
+      packages = mkOption {
+            type = types.nullOr (types.listOf types.str);
+            default = null;
+            description = ''
+              List of packages to test with Vitest.
+              If null, uses same discovery as tsc (pnpm-workspace.yaml).
+            '';
+          };
 
         extraArgs = mkOption {
           type = types.listOf types.str;
@@ -194,6 +195,39 @@ in {
       # ============================================================
       # Helper Functions
       # ============================================================
+
+      # IFD helper: Parse YAML to JSON using yq-go
+      # Used for pnpm-workspace.yaml parsing
+      fromYAML = yamlFile: let
+        jsonDrv = pkgs.runCommand "yaml-to-json" {
+          nativeBuildInputs = [pkgs.yq-go];
+        } ''
+          yq -o=json '.' ${yamlFile} > $out
+        '';
+      in
+        builtins.fromJSON (builtins.readFile jsonDrv);
+
+      # Discover packages from pnpm-workspace.yaml
+      discoverPnpmPackages = workspaceRoot: let
+        yamlPath = workspaceRoot + "/pnpm-workspace.yaml";
+        yamlExists = builtins.pathExists yamlPath;
+        workspaceYaml =
+          if yamlExists
+          then fromYAML yamlPath
+          else {};
+        patterns = workspaceYaml.packages or [];
+        workspaceGlobs =
+          if builtins.isList patterns
+          then patterns
+          else [];
+        allPackages = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) workspaceGlobs);
+        hasPackageJson = pkg:
+          builtins.pathExists (workspaceRoot + "/${pkg}/package.json");
+      in
+        if yamlExists
+        then lib.filter hasPackageJson allPackages
+        else [];
+
       # Generic check factory
       mkCheck = {
         name,
@@ -219,16 +253,7 @@ in {
         '')
         members;
 
-      # Validate workspace paths to prevent path traversal and injection attacks
-      # Rejects paths containing "..", starting with "/", or containing newlines
-      validateWorkspacePath = path:
-        if lib.hasInfix ".." path
-        then throw "Invalid workspace path '${path}': contains '..' (path traversal not allowed for security)"
-        else if lib.hasPrefix "/" path
-        then throw "Invalid workspace path '${path}': absolute paths not allowed (must be relative to workspace root)"
-        else if lib.hasInfix "\n" path
-        then throw "Invalid workspace path: contains newline (command injection not allowed)"
-        else path;
+
 
       # Link node_modules into the sandbox
       # Strategy: Link root node_modules, then iterate through packages and link their
@@ -270,24 +295,6 @@ in {
             packages}
         '';
 
-      # Expand workspace globs like "tools/*" -> ["tools/hello", "tools/ocr"]
-      # Used by both Python and TypeScript workspace discovery
-      expandWorkspaceGlob = workspaceRoot: glob: let
-        validatedGlob = validateWorkspacePath glob;
-      in
-        if lib.hasSuffix "/*" validatedGlob
-        then let
-          dir = lib.removeSuffix "/*" validatedGlob;
-          fullPath = workspaceRoot + "/${dir}";
-          entries =
-            if builtins.pathExists fullPath
-            then builtins.readDir fullPath
-            else {};
-          subdirs = lib.filterAttrs (name: type: type == "directory" && name != "." && name != "..") entries;
-        in
-          map (name: "${dir}/${name}") (lib.attrNames subdirs)
-        else [validatedGlob];
-
       # ============================================================
       # Python Workspace Discovery
       # ============================================================
@@ -300,9 +307,8 @@ in {
         pyproject = builtins.fromTOML (builtins.readFile pyprojectPath);
         memberGlobs = pyproject.tool.uv.workspace.members or ["."];
 
-        allMembers = lib.flatten (map (expandWorkspaceGlob workspaceRoot) memberGlobs);
+        allMembers = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) memberGlobs);
 
-        # Filter for directories with pyproject.toml
         hasProject = member:
           builtins.pathExists (workspaceRoot + "/${member}/pyproject.toml");
       in
@@ -312,10 +318,7 @@ in {
       pythonWorkspaceMembers =
         if pythonCfg.enable or false && pythonCfg ? workspaceRoot && pythonCfg ? pyprojectPath && pythonCfg.workspaceRoot != null && pythonCfg.pyprojectPath != null
         then let
-          # Validate and resolve pyprojectPath (string like "./pyproject.toml")
-          # Security: validateWorkspacePath rejects ".." and absolute paths to prevent
-          # reading arbitrary files outside the workspace (e.g., "../../../../etc/passwd")
-          validatedPath = validateWorkspacePath pythonCfg.pyprojectPath;
+          validatedPath = jackpkgsLib.validateWorkspacePath pythonCfg.pyprojectPath;
           resolvedPyprojectPath = pythonCfg.workspaceRoot + "/${validatedPath}";
         in
           discoverPythonMembers pythonCfg.workspaceRoot resolvedPyprojectPath
@@ -391,49 +394,15 @@ in {
         then jackpkgsProjectRoot
         else config.jackpkgs.projectRoot or inputs.self.outPath;
 
-      # Discover npm workspace packages from package.json
-      # Supports 'workspaces' field (list of globs).
-      discoverNpmPackages = workspaceRoot: let
-        jsonPath = workspaceRoot + "/package.json";
-        jsonExists = builtins.pathExists jsonPath;
-        packageJson =
-          if jsonExists
-          then builtins.fromJSON (builtins.readFile jsonPath)
-          else {};
-
-        # package.json workspaces can be a list of strings
-        # (We don't support the object syntax { packages = [...] } which is rarely used)
-        workspaces = packageJson.workspaces or [];
-
-        # Handle case where workspaces is not a list (e.g. if it's missing or wrong type)
-        workspaceGlobs =
-          if builtins.isList workspaces
-          then workspaces
-          else if workspaces != null
-          then throw "jackpkgs: package.json 'workspaces' field must be a list of strings. Object syntax (e.g. { packages = [...] }) is not supported."
-          else [];
-
-        allPackages = lib.flatten (map (expandWorkspaceGlob workspaceRoot) workspaceGlobs);
-
-        # Filter for directories with package.json
-        hasPackageJson = pkg:
-          builtins.pathExists (workspaceRoot + "/${pkg}/package.json");
-      in
-        if jsonExists
-        then lib.filter hasPackageJson allPackages
-        else [];
-
-      # Determine TypeScript packages to check
       tsPackages =
         if cfg.typescript.tsc.packages != null
-        then map validateWorkspacePath cfg.typescript.tsc.packages
-        else discoverNpmPackages projectRoot;
+        then map jackpkgsLib.validateWorkspacePath cfg.typescript.tsc.packages
+        else discoverPnpmPackages projectRoot;
 
-      # Determine Vitest packages
       vitestPackages =
         if cfg.vitest.packages != null
-        then map validateWorkspacePath cfg.vitest.packages
-        else discoverNpmPackages projectRoot;
+        then map jackpkgsLib.validateWorkspacePath cfg.vitest.packages
+        else discoverPnpmPackages projectRoot;
 
       # NOTE: We cannot use builtins.pathExists on nodeModules paths at Nix evaluation
       # time because the derivation doesn't exist yet (it's built later). The path
