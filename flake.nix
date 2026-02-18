@@ -108,6 +108,7 @@
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           lean = pkgs.callPackage ./pkgs/lean {};
           npm-lockfile-fix = pkgs.callPackage ./pkgs/npm-lockfile-fix {};
+          openchamber = pkgs.callPackage ./pkgs/openchamber {};
           roon-server = pkgs.callPackage ./pkgs/roon-server {};
           tod = pkgs.callPackage ./pkgs/tod {};
         };
