@@ -246,7 +246,7 @@ let
     # postinstall scripts (e.g., atlas build in zeus) execute automatically.
 
     installPhase = ''
-      cp -R node_modules $out
+      cp -a node_modules $out
     '';
   };
 in ...
@@ -254,8 +254,8 @@ in ...
 
 > **Note on `installPhase`:** We preserve the flat `<store>/node_modules`
 > output layout per ADR-020 appendix rationale. pnpm uses symlinks internally
-> inside `node_modules/.pnpm/`, so we must use `cp -R` (not `cp -r`) to
-> preserve symlinks, or alternatively use `cp -a`.
+> inside `node_modules/.pnpm/`, so we use `cp -a` to preserve symlinks and
+> metadata consistently.
 
 **Verification against consumer repos:**
 
@@ -594,16 +594,15 @@ this, but needs spike validation.
 
 **Mitigation:** Covered by existing spike plan (2026-02-01, Spike 1 and 2).
 
-### R3: pnpm Symlink Structure in `cp -R`
+### R3: Validate pnpm Symlink Structure with `cp -a`
 
-pnpm's `node_modules/.pnpm/` uses symlinks extensively. `cp -R` on macOS
-preserves symlinks; on Linux `cp -R` does NOT dereference by default. Verify
-that the copied `node_modules/` tree works correctly in both tsc and vitest
-checks.
+pnpm's `node_modules/.pnpm/` uses symlinks extensively. We standardized on
+`cp -a` for copying `node_modules` to preserve symlinks and metadata
+consistently. Verify the copied `node_modules/` tree works correctly in both
+tsc and vitest checks.
 
-**Mitigation:** Covered by existing spike plan (2026-02-01, Spike 5). If
-`cp -R` is insufficient, use `cp -a` (preserves symlinks, permissions, and
-timestamps).
+**Mitigation:** Covered by existing spike plan (2026-02-01, Spike 5) and by
+integration checks in `flake.nix` (workspace postinstall, tsc, and vitest).
 
 ### R4: IFD Performance
 
