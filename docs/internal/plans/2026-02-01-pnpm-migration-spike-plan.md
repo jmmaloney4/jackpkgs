@@ -175,7 +175,8 @@ tests/fixtures/spikes/pnpm-private-registry/
 
 ### Execution
 
-- Provide `NPM_TOKEN` during the build environment
+- Wire `NPM_TOKEN` through Nix explicitly (e.g. build with `--impure` and set
+  `impureEnvVars = [ "NPM_TOKEN" ]` for the derivation running pnpm)
 - Run `fetchPnpmDeps` and `pnpmConfigHook`
 
 ### Success criteria
