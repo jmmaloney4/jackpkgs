@@ -15,11 +15,11 @@ Target monorepo compatibility: `cavinsresearch/zeus` style workspace:
 
 ### Historical Context
 
-| ADR | Decision | Actual Reason | Current Validity |
-|-----|----------|---------------|------------------|
-| ADR-019 | pnpm → npm | dream2nix lacks pnpm-lock translator | **Obsolete** - We ended up using `buildNpmPackage`, not dream2nix |
-| ADR-020 | dream2nix → buildNpmPackage | External dep, API instability | Valid, but nixpkgs has native pnpm support too |
-| ADR-022 | npm-lockfile-fix workaround | npm v9+ lockfiles incompatible with Nix | **Symptom of the problem** - pnpm doesn't have this issue |
+| ADR     | Decision                    | Actual Reason                           | Current Validity                                                  |
+| ------- | --------------------------- | --------------------------------------- | ----------------------------------------------------------------- |
+| ADR-019 | pnpm → npm                  | dream2nix lacks pnpm-lock translator    | **Obsolete** - We ended up using `buildNpmPackage`, not dream2nix |
+| ADR-020 | dream2nix → buildNpmPackage | External dep, API instability           | Valid, but nixpkgs has native pnpm support too                    |
+| ADR-022 | npm-lockfile-fix workaround | npm v9+ lockfiles incompatible with Nix | **Symptom of the problem** - pnpm doesn't have this issue         |
 
 **Key insight**: The migration to npm was driven by dream2nix limitations that became
 irrelevant when we switched to nixpkgs native tooling. nixpkgs has **excellent
@@ -27,39 +27,40 @@ native pnpm support** via `fetchPnpmDeps` and `pnpmConfigHook`.
 
 ### Why Return to pnpm?
 
-| Benefit | Detail |
-|---------|--------|
-| **Stable lockfile format** | `pnpm-lock.yaml` has consistent `resolved` + `integrity` fields; no npm v9+ quirks |
-| **No normalization needed** | Eliminates `npm-lockfile-fix` workaround (ADR-022) |
-| **Better monorepo ergonomics** | pnpm workspace model designed for strict isolation; matches zeus/yard usage |
-| **Disk efficiency** | Content-addressable store with hard links (faster, less disk usage) |
-| **Native workspace support** | `pnpm-workspaces` parameter in `fetchPnpmDeps` filters to specific packages |
-| **Zeus compatibility** | Aligns with existing pnpm-based monorepos; consumer already familiar with pnpm |
+| Benefit                        | Detail                                                                             |
+| ------------------------------ | ---------------------------------------------------------------------------------- |
+| **Stable lockfile format**     | `pnpm-lock.yaml` has consistent `resolved` + `integrity` fields; no npm v9+ quirks |
+| **No normalization needed**    | Eliminates `npm-lockfile-fix` workaround (ADR-022)                                 |
+| **Better monorepo ergonomics** | pnpm workspace model designed for strict isolation; matches zeus/yard usage        |
+| **Disk efficiency**            | Content-addressable store with hard links (faster, less disk usage)                |
+| **Native workspace support**   | `pnpm-workspaces` parameter in `fetchPnpmDeps` filters to specific packages        |
+| **Zeus compatibility**         | Aligns with existing pnpm-based monorepos; consumer already familiar with pnpm     |
 
 ### User Confirmation
 
 User confirmed:
+
 - Pulumi + pnpm had no real compatibility issues (ADR-019 claim was incorrect)
 - Primary motivation: avoid npm-lockfile-fix, disk/performance benefits, strict isolation, better monorepo UX
 - Experiencing active npm workspace build failures even with ADR-022 fix
 
----
+______________________________________________________________________
 
 ## Design Summary
 
-| Aspect | Current (npm) | Proposed (pnpm) |
-|--------|---------------|-----------------|
-| Package manager | npm | pnpm |
-| Lockfile | `package-lock.json` | `pnpm-lock.yaml` |
-| Workspace config | `package.json` workspaces field | `pnpm-workspace.yaml` |
-| Nix tooling | `buildNpmPackage` + `importNpmLock` | `fetchPnpmDeps` + `pnpmConfigHook` |
-| Lockfile validation | `npm-lockfile-fix` workaround | Not needed |
-| Hash computation | Implicit via importNpmLock (from integrity hashes) | Explicit `pnpmDepsHash` option |
-| Workspace filter | `npmWorkspace` param (single workspace) | `pnpmWorkspaces` param (list of packages) |
-| Build command | `npm run build` | `pnpm --filter=<name> build` |
-| fetcherVersion | N/A | 3 (reproducible tarball) |
+| Aspect              | Current (npm)                                      | Proposed (pnpm)                           |
+| ------------------- | -------------------------------------------------- | ----------------------------------------- |
+| Package manager     | npm                                                | pnpm                                      |
+| Lockfile            | `package-lock.json`                                | `pnpm-lock.yaml`                          |
+| Workspace config    | `package.json` workspaces field                    | `pnpm-workspace.yaml`                     |
+| Nix tooling         | `buildNpmPackage` + `importNpmLock`                | `fetchPnpmDeps` + `pnpmConfigHook`        |
+| Lockfile validation | `npm-lockfile-fix` workaround                      | Not needed                                |
+| Hash computation    | Implicit via importNpmLock (from integrity hashes) | Explicit `pnpmDepsHash` option            |
+| Workspace filter    | `npmWorkspace` param (single workspace)            | `pnpmWorkspaces` param (list of packages) |
+| Build command       | `npm run build`                                    | `pnpm --filter=<name> build`              |
+| fetcherVersion      | N/A                                                | 3 (reproducible tarball)                  |
 
----
+______________________________________________________________________
 
 ## Implementation Steps
 
@@ -68,6 +69,7 @@ User confirmed:
 **File:** `modules/flake-parts/lib.nix`
 
 **Add:**
+
 ```nix
 jackpkgsLib = {
   # ... existing helpers ...
@@ -122,6 +124,7 @@ jackpkgsLib = {
 ```
 
 **Remove:**
+
 ```nix
 lockfileIsCacheable = lockfile: let
   lockfileVersion = lockfile.lockfileVersion or 1;
@@ -142,13 +145,14 @@ in {
 };
 ```
 
----
+______________________________________________________________________
 
 ### Phase 2: Rewrite nodejs module for pnpm
 
 **File:** `modules/flake-parts/nodejs.nix`
 
 **New options:**
+
 ```nix
 jackpkgs.nodejs = {
   enable = mkEnableOption "jackpkgs-nodejs (opinionated Node.js envs via pnpm)";
@@ -211,6 +215,7 @@ jackpkgs.nodejs = {
 ```
 
 **Implementation (pnpm-based):**
+
 ```nix
 config = mkIf cfg.enable {
   perSystem = {
@@ -319,7 +324,7 @@ config = mkIf cfg.enable {
 };
 ```
 
----
+______________________________________________________________________
 
 ### Phase 3: Update checks to discover pnpm workspaces
 
@@ -359,6 +364,7 @@ in
 ```
 
 **Update TypeScript package discovery:**
+
 ```nix
 # In the typescriptChecks section, update tsPackages
 tsPackages =
@@ -368,6 +374,7 @@ tsPackages =
 ```
 
 **Update Vitest package discovery:**
+
 ```nix
 # In the vitestChecks section, update vitestPackages
 vitestPackages =
@@ -376,25 +383,27 @@ vitestPackages =
   else discoverPnpmPackages projectRoot;  # Changed from discoverNpmPackages
 ```
 
----
+______________________________________________________________________
 
 ### Phase 4: Remove npm lockfile cacheability logic
 
 **File:** `modules/flake-parts/lib.nix`
 
 **Remove entirely:**
+
 ```nix
 # Delete the lockfileIsCacheable function and its documentation
 # It was specific to npm lockfile validation which is no longer needed
 ```
 
----
+______________________________________________________________________
 
 ### Phase 5: Remove npm-specific hooks/recipes
 
 **File:** `modules/flake-parts/pre-commit.nix`
 
 **Check for and remove:**
+
 ```nix
 # Search for npm-lockfile-fix hook reference and remove
 # This should only be present if it was added for ADR-022
@@ -405,6 +414,7 @@ vitestPackages =
 **File:** `modules/flake-parts/just.nix`
 
 **Check for and remove:**
+
 ```nix
 # Search for fix-npm-lock recipe and remove
 # Remove any lines like:
@@ -412,21 +422,22 @@ vitestPackages =
 #   jackpkgs.just.npmLockfileFixPackage = ...
 ```
 
----
+______________________________________________________________________
 
 ### Phase 6: Update tests
 
 **Files to delete:**
 
-| File/Directory | Reason |
-|----------------|--------|
-| `tests/lockfile-cacheability.nix` | Tests npm lockfile validation (no longer needed) |
-| `tests/lockfile-nixpkgs-integration.nix` | Tests importNpmLock behavior (npm-specific) |
-| `tests/fixtures/checks/npm-lockfile/` | npm lockfile fixtures (workspace-broken, workspace-fixed, etc.) |
-| `tests/fixtures/checks/npm-workspace/` | npm workspace fixtures (if exists) |
-| `tests/fixtures/integration/simple-npm/` | Simple npm test fixture |
+| File/Directory                           | Reason                                                          |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| `tests/lockfile-cacheability.nix`        | Tests npm lockfile validation (no longer needed)                |
+| `tests/lockfile-nixpkgs-integration.nix` | Tests importNpmLock behavior (npm-specific)                     |
+| `tests/fixtures/checks/npm-lockfile/`    | npm lockfile fixtures (workspace-broken, workspace-fixed, etc.) |
+| `tests/fixtures/checks/npm-workspace/`   | npm workspace fixtures (if exists)                              |
+| `tests/fixtures/integration/simple-npm/` | Simple npm test fixture                                         |
 
 **Run:**
+
 ```bash
 rm -rf tests/lockfile-cacheability.nix
 rm -rf tests/lockfile-nixpkgs-integration.nix
@@ -438,12 +449,14 @@ rm -rf tests/fixtures/integration/simple-npm
 **New test fixture: Convert pulumi-monorepo to pnpm**
 
 **File:** `tests/fixtures/integration/pulumi-monorepo/pnpm-workspace.yaml`
+
 ```yaml
 packages:
   - 'packages/*'
 ```
 
 **File:** `tests/fixtures/integration/pulumi-monorepo/package.json`
+
 ```json
 {
   "name": "pulumi-monorepo-test",
@@ -471,6 +484,7 @@ packages:
 **Update `packages/*/package.json` files to use `workspace:*`:**
 
 **File:** `tests/fixtures/integration/pulumi-monorepo/packages/infra-dev/package.json`
+
 ```json
 {
   "name": "@test/infra-dev",
@@ -493,6 +507,7 @@ packages:
 ```
 
 **File:** `tests/fixtures/integration/pulumi-monorepo/packages/lib-common/package.json`
+
 ```json
 {
   "name": "@test/lib-common",
@@ -511,6 +526,7 @@ packages:
 ```
 
 **File:** `tests/fixtures/integration/pulumi-monorepo/packages/lib-pulumi/package.json`
+
 ```json
 {
   "name": "@test/lib-pulumi",
@@ -534,12 +550,14 @@ packages:
 ```
 
 **Generate lockfile:** (run in fixture directory)
+
 ```bash
 cd tests/fixtures/integration/pulumi-monorepo
 pnpm install
 ```
 
 **New test file:** `tests/pnpm-workspace-discovery.nix`
+
 ```nix
 {
   lib,
@@ -580,7 +598,7 @@ in {
 `pulumi-monorepo` fixture, they should continue to work with minimal changes
 since we're keeping the same package structure (just adding pnpm-workspace.yaml).
 
----
+______________________________________________________________________
 
 ### Phase 7: Documentation
 
@@ -591,6 +609,7 @@ The ADR has been written separately (see file). Ensure it references this plan.
 **File:** `README.md`
 
 **Update examples:**
+
 ```nix
 # In Quick Start example
 {
@@ -612,7 +631,8 @@ The ADR has been written separately (see file). Ensure it references this plan.
 ```
 
 **Add hash computation section:**
-```markdown
+
+````markdown
 ### Hash Computation
 
 When you first enable `jackpkgs.nodejs`, set `pnpmDepsHash = "";` (empty string).
@@ -620,13 +640,14 @@ Then run:
 
 ```bash
 nix build .#pnpmDeps
-```
+````
 
 This will fail with an error showing the expected hash. Copy the `sha256-...`
 value into `pnpmDepsHash` and rebuild.
 
 The hash only needs to be recomputed when `pnpm-lock.yaml` changes.
-```
+
+````
 
 **Update troubleshooting section:**
 ```markdown
@@ -639,12 +660,12 @@ The hash only needs to be recomputed when `pnpm-lock.yaml` changes.
 #### Workspace discovery fails
 **Problem:** `WARNING: Vitest binary not found...`
 **Solution:** Ensure `pnpm-workspace.yaml` exists and lists your workspace packages.
-```
+````
 
 **Remove npm-specific sections:** Delete any references to `package-lock.json`,
 `npm-lockfile-fix`, `importNpmLock`.
 
----
+______________________________________________________________________
 
 ## Hash Workflow (Consumer UX)
 
@@ -692,7 +713,7 @@ nix develop
 # d. Copy new hash into pnpmDepsHash
 ```
 
----
+______________________________________________________________________
 
 ## Zeus Monorepo Compatibility
 
@@ -721,13 +742,13 @@ zeus/
 
 ### Key Patterns in Zeus
 
-| Pattern | Zeus Example | Nix Implementation |
-|---------|--------------|-------------------|
-| **Root workspace config** | `pnpm-workspace.yaml` with `packages: ['atlas', 'deploy/*']` | Parsed via `fromYAML` helper |
-| **Workspace protocol** | `"dependencies": { "@cavinsresearch/atlas": "workspace:*" }` | Native to pnpm; `fetchPnpmDeps` handles |
-| **Shared library** | `atlas/` with `postinstall: pnpm --filter atlas build` | Runs during `pnpmConfigHook` automatically |
-| **Multiple stacks** | `deploy/*` each consuming atlas | Each typechecks against linked `node_modules` |
-| **External registry** | `@jmmaloney4/toolbox` via `.npmrc` | Respected by `fetchPnpmDeps` |
+| Pattern                   | Zeus Example                                                 | Nix Implementation                            |
+| ------------------------- | ------------------------------------------------------------ | --------------------------------------------- |
+| **Root workspace config** | `pnpm-workspace.yaml` with `packages: ['atlas', 'deploy/*']` | Parsed via `fromYAML` helper                  |
+| **Workspace protocol**    | `"dependencies": { "@cavinsresearch/atlas": "workspace:*" }` | Native to pnpm; `fetchPnpmDeps` handles       |
+| **Shared library**        | `atlas/` with `postinstall: pnpm --filter atlas build`       | Runs during `pnpmConfigHook` automatically    |
+| **Multiple stacks**       | `deploy/*` each consuming atlas                              | Each typechecks against linked `node_modules` |
+| **External registry**     | `@jmmaloney4/toolbox` via `.npmrc`                           | Respected by `fetchPnpmDeps`                  |
 
 ### Build Order Dependency
 
@@ -751,6 +772,7 @@ exists before TypeScript checks run on consumer packages.
 Zeus uses a shared base configuration with package-specific extensions:
 
 **tsconfig.base.json (root):**
+
 ```json
 {
   "compilerOptions": {
@@ -763,6 +785,7 @@ Zeus uses a shared base configuration with package-specific extensions:
 ```
 
 **Deploy project tsconfig.json:**
+
 ```json
 {
   "extends": "../../tsconfig.base.json",
@@ -791,25 +814,28 @@ issue; shared `atlas/dist` is found via workspace resolution.
    checks via the existing `findNodeModulesBin` helper. This works identically for
    pnpm and npm since both produce this structure.
 
----
+______________________________________________________________________
 
 ## Testing Strategy
 
 ### Unit Tests
 
 1. **YAML parsing:** Validate `fromYAML` correctly parses:
+
    - Simple workspace YAML
    - Workspace with multiple globs
    - Missing YAML file (returns gracefully)
 
 2. **Workspace discovery:** Validate `discoverPnpmPackages` expands globs correctly:
+
    - `packages/*` → expands to actual directories
    - Multiple globs: `["libs/*", "deploy/*"]`
 
 3. **Option handling:** Test all new options work:
+
    - `pnpmVersion = 8 | 9 | 10`
    - `pnpmWorkspaces = null | ["@test/lib-common"]`
-   - `pnpmDepsHash = "" | "sha256-..."
+   - \`pnpmDepsHash = "" | "sha256-..."
 
 ### Integration Tests
 
@@ -829,19 +855,21 @@ issue; shared `atlas/dist` is found via workspace resolution.
    - `workspace:*` dependencies
 3. **External registry:** Test with `.npmrc` for GitHub Packages
 
----
+______________________________________________________________________
 
 ## Migration Guide for Consumers
 
 ### New Projects
 
 1. **Initialize pnpm workspace:**
+
 ```bash
 cd /path/to/project
 pnpm init  # If not already initialized
 ```
 
 2. **Create `pnpm-workspace.yaml`:**
+
 ```yaml
 packages:
   - 'libs/*'
@@ -849,12 +877,14 @@ packages:
 ```
 
 3. **Install dependencies:**
+
 ```bash
 pnpm install
 # This generates pnpm-lock.yaml
 ```
 
 4. **Configure jackpkgs:**
+
 ```nix
 # flake-module.nix
 {
@@ -869,12 +899,14 @@ pnpm install
 ```
 
 5. **Compute hash:**
+
 ```bash
 nix build .#pnpmDeps
 # Copy the "got: sha256-..." hash into pnpmDepsHash
 ```
 
 6. **Rebuild:**
+
 ```bash
 nix build
 ```
@@ -882,12 +914,14 @@ nix build
 ### Existing npm Projects
 
 1. **Remove npm artifacts:**
+
 ```bash
 rm package-lock.json
 rm -rf node_modules
 ```
 
 2. **Create `pnpm-workspace.yaml`:**
+
 ```yaml
 # Convert package.json workspaces field to pnpm format
 packages:
@@ -896,12 +930,14 @@ packages:
 ```
 
 3. **Generate pnpm lockfile:**
+
 ```bash
 pnpm install
 # Creates pnpm-lock.yaml, reusing package.json versions
 ```
 
 4. **Update flake config:**
+
 ```nix
 # flake-module.nix
 {
@@ -915,25 +951,28 @@ pnpm install
 ```
 
 5. **Commit changes:**
+
 ```bash
 git add pnpm-workspace.yaml pnpm-lock.yaml flake-module.nix
 git commit -m "chore: migrate from npm to pnpm"
 ```
 
----
+______________________________________________________________________
 
 ## Backward Compatibility
 
 **Breaking changes:**
+
 - Requires `pnpm-workspace.yaml` (or explicit workspace lists)
 - Requires `pnpmDepsHash` to be set
 - Removes npm lockfile support
 
 **Migration path for existing jackpkgs users:**
+
 - Users must update their `jackpkgs.nodejs` configuration
 - If using `importNpmLock` custom nodeModules, must switch to `fetchPnpmDeps`
 
----
+______________________________________________________________________
 
 ## Rollback Plan
 
@@ -945,7 +984,7 @@ If issues are discovered with pnpm, we can rollback to npm by reverting:
 
 The git history will preserve the npm implementation for easy reference.
 
----
+______________________________________________________________________
 
 ## References
 

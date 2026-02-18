@@ -39,6 +39,7 @@ tests/fixtures/spikes/pnpm-postinstall/
 ```
 
 **package.json:**
+
 ```json
 {
   "name": "pnpm-postinstall-spike",
@@ -54,6 +55,7 @@ tests/fixtures/spikes/pnpm-postinstall/
 ```
 
 **pnpm-workspace.yaml:**
+
 ```yaml
 packages: []
 ```
@@ -73,7 +75,7 @@ packages: []
 - Or add an option to enable/disable scripts during the hook
 - Document that zeus-like monorepos must provide an explicit build step
 
----
+______________________________________________________________________
 
 ## Spike 2: Zeus-style build order (shared library)
 
@@ -139,7 +141,7 @@ imports from `dist`.
   `pnpm --filter @test/shared-lib run build`
 - Or introduce a `jackpkgs.nodejs.postInstallCommands` option to run extra steps
 
----
+______________________________________________________________________
 
 ## Spike 3: Private registry dependency resolution
 
@@ -165,6 +167,7 @@ tests/fixtures/spikes/pnpm-private-registry/
 ```
 
 **.npmrc:**
+
 ```
 @jmmaloney4:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${NPM_TOKEN}
@@ -186,7 +189,7 @@ tests/fixtures/spikes/pnpm-private-registry/
 - Provide a `pnpmConfigHook` wrapper to inject auth
 - Add a `jackpkgs.nodejs.npmrcPath` option to pass custom config
 
----
+______________________________________________________________________
 
 ## Spike 4: Workspace glob edge cases
 
@@ -215,6 +218,7 @@ tests/fixtures/spikes/pnpm-glob-edgecases/
 ```
 
 **pnpm-workspace.yaml:**
+
 ```yaml
 packages:
   - "packages/**"
@@ -235,7 +239,7 @@ packages:
 - Extend `expandWorkspaceGlob` to support `!` negation and `**`
 - Or document unsupported patterns and require explicit package lists
 
----
+______________________________________________________________________
 
 ## Spike 5: Symlink preservation in node_modules copy
 
@@ -275,7 +279,7 @@ tests/fixtures/spikes/pnpm-symlink-copy/
 - Replace `cp -R` with `cp -a` or `rsync -a`
 - Add a unit test to assert symlink presence
 
----
+______________________________________________________________________
 
 ## Deliverables
 

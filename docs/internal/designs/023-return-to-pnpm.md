@@ -78,7 +78,7 @@ Switch `jackpkgs.nodejs` to be pnpm-only:
 - ADR-020: Migrate from dream2nix to buildNpmPackage
 - nixpkgs JavaScript docs: pnpm (`fetchPnpmDeps`, `pnpmConfigHook`, `pnpmWorkspaces`)
 
----
+______________________________________________________________________
 
 ## Appendix A: Zeus Monorepo Compatibility
 
@@ -141,6 +141,7 @@ before typechecking consumer stacks.
 Zeus uses a shared base configuration with package-specific extensions:
 
 **tsconfig.base.json (root):**
+
 ```json
 {
   "compilerOptions": {
@@ -153,6 +154,7 @@ Zeus uses a shared base configuration with package-specific extensions:
 ```
 
 **Deploy project tsconfig.json:**
+
 ```json
 {
   "extends": "../../tsconfig.base.json",
@@ -192,7 +194,7 @@ TypeScript's `extends` mechanism finds `node_modules/typescript` without issue; 
    the existing `findNodeModulesBin` helper. This works identically for pnpm and npm since both
    produce this structure.
 
----
+______________________________________________________________________
 
 ## Appendix B: Node/TypeScript/Pulumi Module Resolution Patterns
 

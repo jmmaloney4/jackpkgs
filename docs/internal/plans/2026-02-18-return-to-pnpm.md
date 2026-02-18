@@ -5,7 +5,7 @@
 **Supersedes:** ADR-019, ADR-022
 **Prior plans:** 2026-01-31-return-to-pnpm, 2026-02-01-pnpm-migration-spike-plan
 
----
+______________________________________________________________________
 
 ## Consumer Monorepo Survey
 
@@ -72,20 +72,20 @@ investigated via GitHub on 2026-02-18.
 
 ### Cross-cutting Requirements Derived from Survey
 
-| Requirement | zeus | yard | garden |
-| --- | --- | --- | --- |
-| `pnpm-workspace.yaml` parsing | Yes (explicit paths) | Needs migration | Yes (explicit paths) |
-| Glob patterns in workspace YAML | No | Likely after migration | No |
-| `workspace:*` inter-package deps | Yes (4 stacks → atlas) | Yes (infra lib) | No |
-| `postinstall` script execution | Yes (atlas build) | No | No |
-| Private npm registry via `.npmrc` | Yes (@jmmaloney4 scope) | No | Yes (@jmmaloney4 scope) |
-| TypeScript type-checking (tsc) | Yes (8 packages) | Yes (9 packages) | Yes (2 packages) |
-| Vitest | No | Yes (2 packages) | No |
-| Jest | Yes (atlas only) | No | No |
-| ESM (`type: module`) | Partial (iam only) | All packages | Partial (TE, admin) |
-| pnpm-lock.yaml already present | Yes (v9.0) | No (needs generation) | Yes (v9.0) |
+| Requirement                       | zeus                    | yard                   | garden                  |
+| --------------------------------- | ----------------------- | ---------------------- | ----------------------- |
+| `pnpm-workspace.yaml` parsing     | Yes (explicit paths)    | Needs migration        | Yes (explicit paths)    |
+| Glob patterns in workspace YAML   | No                      | Likely after migration | No                      |
+| `workspace:*` inter-package deps  | Yes (4 stacks → atlas)  | Yes (infra lib)        | No                      |
+| `postinstall` script execution    | Yes (atlas build)       | No                     | No                      |
+| Private npm registry via `.npmrc` | Yes (@jmmaloney4 scope) | No                     | Yes (@jmmaloney4 scope) |
+| TypeScript type-checking (tsc)    | Yes (8 packages)        | Yes (9 packages)       | Yes (2 packages)        |
+| Vitest                            | No                      | Yes (2 packages)       | No                      |
+| Jest                              | Yes (atlas only)        | No                     | No                      |
+| ESM (`type: module`)              | Partial (iam only)      | All packages           | Partial (TE, admin)     |
+| pnpm-lock.yaml already present    | Yes (v9.0)              | No (needs generation)  | Yes (v9.0)              |
 
----
+______________________________________________________________________
 
 ## Implementation Phases
 
@@ -105,7 +105,7 @@ garden are already pnpm-native.
 5. Run `pnpm install` to verify.
 6. Update any CI scripts that reference `npm` commands to use `pnpm`.
 
----
+______________________________________________________________________
 
 ### Phase 1: `modules/flake-parts/lib.nix` — YAML Parsing and Workspace Discovery
 
@@ -177,18 +177,18 @@ findNodeModulesBin = pathVar: storePath: ''
 
 **Concrete edits to `modules/flake-parts/lib.nix`:**
 
-| Section | Action |
-| --- | --- |
-| `lockfileIsCacheable` | Delete entirely |
-| `findNodeModulesRoot` | Remove 3-layout probe, hardcode `<store>/node_modules` |
-| `findNodeModulesBin` | Remove 3-layout probe, hardcode `<store>/node_modules/.bin` |
-| New: `fromYAML` | Add top-level helper (needs `pkgs` access; accept as argument or place in perSystem) |
-| New: `discoverPnpmPackages` | Add, consuming `fromYAML` |
-| Existing: `discoverNpmPackages` | Delete |
-| Existing: `expandWorkspaceGlob` | Keep but adapt for pnpm YAML list semantics |
-| Existing: `validateWorkspacePath` | Keep as-is |
+| Section                           | Action                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------------ |
+| `lockfileIsCacheable`             | Delete entirely                                                                      |
+| `findNodeModulesRoot`             | Remove 3-layout probe, hardcode `<store>/node_modules`                               |
+| `findNodeModulesBin`              | Remove 3-layout probe, hardcode `<store>/node_modules/.bin`                          |
+| New: `fromYAML`                   | Add top-level helper (needs `pkgs` access; accept as argument or place in perSystem) |
+| New: `discoverPnpmPackages`       | Add, consuming `fromYAML`                                                            |
+| Existing: `discoverNpmPackages`   | Delete                                                                               |
+| Existing: `expandWorkspaceGlob`   | Keep but adapt for pnpm YAML list semantics                                          |
+| Existing: `validateWorkspacePath` | Keep as-is                                                                           |
 
----
+______________________________________________________________________
 
 ### Phase 2: `modules/flake-parts/nodejs.nix` — pnpm Deps Build
 
@@ -197,21 +197,21 @@ findNodeModulesBin = pathVar: storePath: ''
 
 #### 2a. Option Changes
 
-| Option | Current | New |
-| --- | --- | --- |
-| `jackpkgs.nodejs.enable` | `bool` | Keep |
-| `jackpkgs.nodejs.version` | `enum "18" "20" "22"` | Keep |
-| `jackpkgs.nodejs.projectRoot` | `path` | Keep |
-| `jackpkgs.nodejs.pnpmVersion` | — | **Add**: `enum "9" "10"`, default `"10"` |
-| `jackpkgs.nodejs.pnpmDepsHash` | — | **Add**: `str`, default `""` (empty → impure build, user must supply) |
+| Option                         | Current               | New                                                                   |
+| ------------------------------ | --------------------- | --------------------------------------------------------------------- |
+| `jackpkgs.nodejs.enable`       | `bool`                | Keep                                                                  |
+| `jackpkgs.nodejs.version`      | `enum "18" "20" "22"` | Keep                                                                  |
+| `jackpkgs.nodejs.projectRoot`  | `path`                | Keep                                                                  |
+| `jackpkgs.nodejs.pnpmVersion`  | —                     | **Add**: `enum "9" "10"`, default `"10"`                              |
+| `jackpkgs.nodejs.pnpmDepsHash` | —                     | **Add**: `str`, default `""` (empty → impure build, user must supply) |
 
 Remove all npm-lockfile-fix related outputs. Add new output:
 
-| Output | Description |
-| --- | --- |
-| `jackpkgs.outputs.nodeModules` | Keep — now built via pnpm |
-| `jackpkgs.outputs.npmLockfileFix` | **Remove** |
-| `jackpkgs.outputs.pnpmDeps` | **Add** — the FOD from `fetchPnpmDeps` (useful for debugging/caching) |
+| Output                            | Description                                                           |
+| --------------------------------- | --------------------------------------------------------------------- |
+| `jackpkgs.outputs.nodeModules`    | Keep — now built via pnpm                                             |
+| `jackpkgs.outputs.npmLockfileFix` | **Remove**                                                            |
+| `jackpkgs.outputs.pnpmDeps`       | **Add** — the FOD from `fetchPnpmDeps` (useful for debugging/caching) |
 
 #### 2b. Build Implementation
 
@@ -288,7 +288,7 @@ jackpkgs.outputs.nodejsDevShell = pkgs.mkShell {
 The simplified `findNodeModulesBin` from Phase 1d means the shellHook is now a
 straightforward `export PATH=` instead of a multi-probe conditional.
 
----
+______________________________________________________________________
 
 ### Phase 3: `modules/flake-parts/checks.nix` — Workspace Discovery and Linking
 
@@ -342,17 +342,17 @@ Same as tsc — update `linkNodeModules` call, simplify `.bin` PATH resolution.
 
 **Concrete edits to `modules/flake-parts/checks.nix`:**
 
-| Section | Action |
-| --- | --- |
-| `discoverNpmPackages` (inline) | Replace calls with `discoverPnpmPackages` from lib |
-| `linkNodeModules` | Simplify: remove 3-layout detection, use direct path |
-| `findNodeModulesBin` usage | Simplify: direct `${nodeModules}/node_modules/.bin` |
-| tsc `buildPhase` | Update linkNodeModules call |
-| vitest `buildPhase` | Update linkNodeModules call and .bin resolution |
-| `expandWorkspaceGlob` (inline) | Remove (moved to lib.nix as part of discoverPnpmPackages) |
-| `validateWorkspacePath` (inline) | Remove (moved to lib.nix) |
+| Section                          | Action                                                    |
+| -------------------------------- | --------------------------------------------------------- |
+| `discoverNpmPackages` (inline)   | Replace calls with `discoverPnpmPackages` from lib        |
+| `linkNodeModules`                | Simplify: remove 3-layout detection, use direct path      |
+| `findNodeModulesBin` usage       | Simplify: direct `${nodeModules}/node_modules/.bin`       |
+| tsc `buildPhase`                 | Update linkNodeModules call                               |
+| vitest `buildPhase`              | Update linkNodeModules call and .bin resolution           |
+| `expandWorkspaceGlob` (inline)   | Remove (moved to lib.nix as part of discoverPnpmPackages) |
+| `validateWorkspacePath` (inline) | Remove (moved to lib.nix)                                 |
 
----
+______________________________________________________________________
 
 ### Phase 4: `modules/flake-parts/just.nix` — Remove npm-lockfile-fix Recipe
 
@@ -360,17 +360,17 @@ Same as tsc — update `linkNodeModules` call, simplify `.bin` PATH resolution.
 
 **Concrete edits to `modules/flake-parts/just.nix`:**
 
-| Section | Action |
-| --- | --- |
-| `jackpkgs.just.npmLockfileFixPackage` option | Delete |
-| `just-flake.features.nodejs` block | Delete the `fix-npm-lock` recipe entirely |
+| Section                                      | Action                                    |
+| -------------------------------------------- | ----------------------------------------- |
+| `jackpkgs.just.npmLockfileFixPackage` option | Delete                                    |
+| `just-flake.features.nodejs` block           | Delete the `fix-npm-lock` recipe entirely |
 
 The `just-flake.features.nodejs` feature block should be replaced with a
 no-op or removed. If there are useful pnpm-related just recipes to add later
 (e.g., `pnpm-install`, `pnpm-update`), they can be added in a follow-up, but
 are out of scope for this migration.
 
----
+______________________________________________________________________
 
 ### Phase 5: `modules/flake-parts/pre-commit.nix` — Remove npm-lockfile-fix Hook
 
@@ -378,15 +378,15 @@ are out of scope for this migration.
 
 **Concrete edits to `modules/flake-parts/pre-commit.nix`:**
 
-| Section | Action |
-| --- | --- |
-| `jackpkgs.pre-commit.npmLockfileFixPackage` option | Delete |
-| `settings.hooks.npm-lockfile-fix` | Delete entirely |
+| Section                                            | Action          |
+| -------------------------------------------------- | --------------- |
+| `jackpkgs.pre-commit.npmLockfileFixPackage` option | Delete          |
+| `settings.hooks.npm-lockfile-fix`                  | Delete entirely |
 
 No replacement hook is needed. pnpm lockfiles do not suffer from the
 `resolved`/`integrity` omission bug that npm workspace lockfiles had.
 
----
+______________________________________________________________________
 
 ### Phase 6: `pkgs/npm-lockfile-fix/` — Delete Package
 
@@ -397,7 +397,7 @@ Update `flake.nix`:
 - Remove `npm-lockfile-fix` from `packages` output.
 - Remove any references to it in overlay or package list.
 
----
+______________________________________________________________________
 
 ### Phase 7: `modules/flake-parts/lib.nix` — Expose `fromYAML` for General Use
 
@@ -412,7 +412,7 @@ This requires `pkgs` access. Since `lib.nix` defines perSystem options, the
 helper should be defined in the perSystem scope where `pkgs` is available,
 similar to existing `findNodeModulesRoot`.
 
----
+______________________________________________________________________
 
 ### Phase 8: Test Fixtures and Test Updates
 
@@ -476,24 +476,26 @@ cacheability concept is npm-specific and has no pnpm equivalent.
 
 Update the integration check names and implementations:
 
-| Current | New |
-| --- | --- |
-| `lockfile-simple-npm-builds` | `pnpm-simple-builds` — use `simple-pnpm` fixture |
-| `lockfile-pulumi-monorepo-tsc` | `pnpm-pulumi-monorepo-tsc` — use converted fixture |
+| Current                           | New                                                   |
+| --------------------------------- | ----------------------------------------------------- |
+| `lockfile-simple-npm-builds`      | `pnpm-simple-builds` — use `simple-pnpm` fixture      |
+| `lockfile-pulumi-monorepo-tsc`    | `pnpm-pulumi-monorepo-tsc` — use converted fixture    |
 | `lockfile-pulumi-monorepo-vitest` | `pnpm-pulumi-monorepo-vitest` — use converted fixture |
 
 Remove `lockfileCacheability` and `lockfileNixpkgsIntegration` test suites
 from the nix-unit invocation.
 
----
+______________________________________________________________________
 
 ### Phase 9: `README.md` — Documentation Update
 
 Update the README to reflect pnpm-only workflow:
 
 - Replace any npm references with pnpm.
+
 - Document `jackpkgs.nodejs.pnpmVersion` and `jackpkgs.nodejs.pnpmDepsHash`
   options.
+
 - Add hash workflow documentation:
 
   ```markdown
@@ -507,31 +509,32 @@ Update the README to reflect pnpm-only workflow:
   ```
 
 - Document that `pnpm-workspace.yaml` is required for workspace discovery.
+
 - Remove npm-lockfile-fix references.
 
----
+______________________________________________________________________
 
 ## File Change Summary
 
-| File | Action | Phase |
-| --- | --- | --- |
-| `modules/flake-parts/lib.nix` | Add `fromYAML`, `discoverPnpmPackages`; remove `lockfileIsCacheable`, `discoverNpmPackages`; simplify `findNodeModulesRoot`/`findNodeModulesBin` | 1 |
-| `modules/flake-parts/nodejs.nix` | Replace `buildNpmPackage`/`importNpmLock` with `fetchPnpmDeps`/`pnpmConfigHook`/`stdenv.mkDerivation`; add `pnpmVersion`/`pnpmDepsHash` options; remove `npmLockfileFix` output; update devshell | 2 |
-| `modules/flake-parts/checks.nix` | Replace `discoverNpmPackages` with `discoverPnpmPackages`; simplify `linkNodeModules` and `.bin` resolution | 3 |
-| `modules/flake-parts/just.nix` | Remove `npmLockfileFixPackage` option and `fix-npm-lock` recipe | 4 |
-| `modules/flake-parts/pre-commit.nix` | Remove `npmLockfileFixPackage` option and `npm-lockfile-fix` hook | 5 |
-| `pkgs/npm-lockfile-fix/` | Delete directory | 6 |
-| `flake.nix` | Remove `npm-lockfile-fix` from packages; update integration check names/implementations; remove lockfile test suites | 6, 8d |
-| `tests/fixtures/integration/simple-npm/` | Rename to `simple-pnpm/`, convert lockfile | 8a |
-| `tests/fixtures/integration/pulumi-monorepo/` | Convert from npm to pnpm lockfile + workspace YAML | 8a |
-| `tests/fixtures/checks/npm-workspace/` | Rename to `pnpm-workspace/`, add `pnpm-workspace.yaml` | 8b |
-| `tests/fixtures/checks/npm-lockfile/` | Delete entirely | 8b |
-| `tests/lockfile-cacheability.nix` | Delete entirely | 8c |
-| `tests/lockfile-nixpkgs-integration.nix` | Rewrite for pnpm fixtures | 8c |
-| `tests/checks.nix` | Update workspace discovery, linking, and script tests | 8c |
-| `README.md` | Update for pnpm-only workflow | 9 |
+| File                                          | Action                                                                                                                                                                                           | Phase |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----- |
+| `modules/flake-parts/lib.nix`                 | Add `fromYAML`, `discoverPnpmPackages`; remove `lockfileIsCacheable`, `discoverNpmPackages`; simplify `findNodeModulesRoot`/`findNodeModulesBin`                                                 | 1     |
+| `modules/flake-parts/nodejs.nix`              | Replace `buildNpmPackage`/`importNpmLock` with `fetchPnpmDeps`/`pnpmConfigHook`/`stdenv.mkDerivation`; add `pnpmVersion`/`pnpmDepsHash` options; remove `npmLockfileFix` output; update devshell | 2     |
+| `modules/flake-parts/checks.nix`              | Replace `discoverNpmPackages` with `discoverPnpmPackages`; simplify `linkNodeModules` and `.bin` resolution                                                                                      | 3     |
+| `modules/flake-parts/just.nix`                | Remove `npmLockfileFixPackage` option and `fix-npm-lock` recipe                                                                                                                                  | 4     |
+| `modules/flake-parts/pre-commit.nix`          | Remove `npmLockfileFixPackage` option and `npm-lockfile-fix` hook                                                                                                                                | 5     |
+| `pkgs/npm-lockfile-fix/`                      | Delete directory                                                                                                                                                                                 | 6     |
+| `flake.nix`                                   | Remove `npm-lockfile-fix` from packages; update integration check names/implementations; remove lockfile test suites                                                                             | 6, 8d |
+| `tests/fixtures/integration/simple-npm/`      | Rename to `simple-pnpm/`, convert lockfile                                                                                                                                                       | 8a    |
+| `tests/fixtures/integration/pulumi-monorepo/` | Convert from npm to pnpm lockfile + workspace YAML                                                                                                                                               | 8a    |
+| `tests/fixtures/checks/npm-workspace/`        | Rename to `pnpm-workspace/`, add `pnpm-workspace.yaml`                                                                                                                                           | 8b    |
+| `tests/fixtures/checks/npm-lockfile/`         | Delete entirely                                                                                                                                                                                  | 8b    |
+| `tests/lockfile-cacheability.nix`             | Delete entirely                                                                                                                                                                                  | 8c    |
+| `tests/lockfile-nixpkgs-integration.nix`      | Rewrite for pnpm fixtures                                                                                                                                                                        | 8c    |
+| `tests/checks.nix`                            | Update workspace discovery, linking, and script tests                                                                                                                                            | 8c    |
+| `README.md`                                   | Update for pnpm-only workflow                                                                                                                                                                    | 9     |
 
----
+______________________________________________________________________
 
 ## Module Integration Dependency Graph (Post-Migration)
 
@@ -559,7 +562,7 @@ pulumi.nix
   └── Does NOT consume jackpkgs.outputs.nodeModules
 ```
 
----
+______________________________________________________________________
 
 ## Risks and Open Questions
 
@@ -623,7 +626,7 @@ pnpm migration, but worth noting. The tsc check covers type-correctness; jest
 tests would need to be run separately (e.g., via a custom check or just
 recipe).
 
----
+______________________________________________________________________
 
 ## Implementation Order and Dependencies
 
@@ -656,7 +659,7 @@ Phase 1 ─── lib.nix (fromYAML, discoverPnpmPackages, remove npm helpers)
 Phases 2–5 can proceed in parallel once Phase 1 is complete.
 Phases 4, 5, and 6 can be a single commit (npm-lockfile-fix removal).
 
----
+______________________________________________________________________
 
 ## Suggested Commit Sequence
 
@@ -668,7 +671,7 @@ Phases 4, 5, and 6 can be a single commit (npm-lockfile-fix removal).
 6. `test: convert fixtures and tests from npm to pnpm`
 7. `docs(readme): update for pnpm-only workflow`
 
----
+______________________________________________________________________
 
 ## Validation Checklist
 

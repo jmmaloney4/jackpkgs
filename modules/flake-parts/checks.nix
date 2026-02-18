@@ -4,7 +4,7 @@
   lib,
   jackpkgsLib,
   ...
-}@args: let
+} @ args: let
   inherit (lib) mkOption types mkEnableOption;
   cfg = config.jackpkgs.checks;
   pythonCfg = config.jackpkgs.python or {};
@@ -170,14 +170,14 @@ in {
           '';
         };
 
-      packages = mkOption {
-            type = types.nullOr (types.listOf types.str);
-            default = null;
-            description = ''
-              List of packages to test with Vitest.
-              If null, uses same discovery as tsc (pnpm-workspace.yaml).
-            '';
-          };
+        packages = mkOption {
+          type = types.nullOr (types.listOf types.str);
+          default = null;
+          description = ''
+            List of packages to test with Vitest.
+            If null, uses same discovery as tsc (pnpm-workspace.yaml).
+          '';
+        };
 
         extraArgs = mkOption {
           type = types.listOf types.str;
@@ -204,7 +204,6 @@ in {
       # ============================================================
       # Helper Functions
       # ============================================================
-
       # Parse pnpm-workspace.yaml to JSON
       # Checks for .json sibling first (for tests without IFD), falls back to IFD via yq-go
       # Can be overridden via jackpkgsFromYAML module arg for testing
@@ -215,11 +214,12 @@ in {
         if jsonExists
         then builtins.fromJSON (builtins.readFile jsonFile)
         else let
-          jsonDrv = pkgs.runCommand "yaml-to-json" {
-            nativeBuildInputs = [pkgs.yq-go];
-          } ''
-            yq -o=json '.' ${yamlFile} > $out
-          '';
+          jsonDrv =
+            pkgs.runCommand "yaml-to-json" {
+              nativeBuildInputs = [pkgs.yq-go];
+            } ''
+              yq -o=json '.' ${yamlFile} > $out
+            '';
         in
           builtins.fromJSON (builtins.readFile jsonDrv);
 
@@ -273,8 +273,6 @@ in {
           (cd ${lib.escapeShellArg "${workspaceRoot}/${member}"} && ${perMemberCommand})
         '')
         members;
-
-
 
       # Link node_modules into the sandbox
       # Strategy: link root node_modules, then link per-package node_modules when present.
@@ -553,55 +551,55 @@ in {
         vitestPackages = getVitestPackages cfg;
       in
         lib.optionalAttrs (cfg.enable && cfg.vitest.enable && vitestPackages != []) {
-        javascript-vitest = mkCheck {
-          name = "javascript-vitest";
-          buildInputs = [pkgs.nodejs];
-          setupCommands = ''
-            # Copy source to writeable directory
-            cp -R ${lib.escapeShellArg projectRoot} src
-            chmod -R +w src
-            cd src
-            ${linkNodeModules vitestNodeModules vitestPackages}
+          javascript-vitest = mkCheck {
+            name = "javascript-vitest";
+            buildInputs = [pkgs.nodejs];
+            setupCommands = ''
+              # Copy source to writeable directory
+              cp -R ${lib.escapeShellArg projectRoot} src
+              chmod -R +w src
+              cd src
+              ${linkNodeModules vitestNodeModules vitestPackages}
 
-            # Save root directory for absolute path resolution
-            WORKSPACE_ROOT="$PWD"
-            export WORKSPACE_ROOT
-            ${lib.optionalString (vitestNodeModules != null) ''
-              # Add Nix store node_modules binaries to PATH
-              ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" vitestNodeModules}
-              if [ -n "$nm_bin" ]; then
-                export PATH="$nm_bin:$PATH"
-              fi
-            ''}
+              # Save root directory for absolute path resolution
+              WORKSPACE_ROOT="$PWD"
+              export WORKSPACE_ROOT
+              ${lib.optionalString (vitestNodeModules != null) ''
+                # Add Nix store node_modules binaries to PATH
+                ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" vitestNodeModules}
+                if [ -n "$nm_bin" ]; then
+                  export PATH="$nm_bin:$PATH"
+                fi
+              ''}
 
-            # Locate vitest binary from trusted sources only (once for all packages)
-            # 1. PATH (includes Nix store paths from nodeModules derivation)
-            # 2. Linked node_modules from Nix store (never from source tree)
-            if command -v vitest >/dev/null 2>&1; then
-              VITEST_BIN="vitest"
-            else
-              VITEST_BIN=""
-            fi
-            export VITEST_BIN
-          '';
-          checkCommands =
-            lib.concatMapStringsSep "\n" (pkg: ''
-              echo "Testing ${lib.escapeShellArg pkg}..."
-              cd ${lib.escapeShellArg pkg}
-
-              # Use vitest binary found in setupCommands
-              if [ -n "$VITEST_BIN" ]; then
-                $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
+              # Locate vitest binary from trusted sources only (once for all packages)
+              # 1. PATH (includes Nix store paths from nodeModules derivation)
+              # 2. Linked node_modules from Nix store (never from source tree)
+              if command -v vitest >/dev/null 2>&1; then
+                VITEST_BIN="vitest"
               else
-                echo "WARNING: Vitest binary not found for ${lib.escapeShellArg pkg}, skipping."
-                # Don't fail the build if vitest isn't set up for this specific package
-                # (some packages in workspace might not have tests)
+                VITEST_BIN=""
               fi
-              cd - >/dev/null
-            '')
-            vitestPackages;
+              export VITEST_BIN
+            '';
+            checkCommands =
+              lib.concatMapStringsSep "\n" (pkg: ''
+                echo "Testing ${lib.escapeShellArg pkg}..."
+                cd ${lib.escapeShellArg pkg}
+
+                # Use vitest binary found in setupCommands
+                if [ -n "$VITEST_BIN" ]; then
+                  $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
+                else
+                  echo "WARNING: Vitest binary not found for ${lib.escapeShellArg pkg}, skipping."
+                  # Don't fail the build if vitest isn't set up for this specific package
+                  # (some packages in workspace might not have tests)
+                fi
+                cd - >/dev/null
+              '')
+              vitestPackages;
+          };
         };
-      };
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [

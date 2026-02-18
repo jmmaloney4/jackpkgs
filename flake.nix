@@ -193,10 +193,10 @@
             optionalLines = import ./tests/optionalLines.nix {
               inherit lib testHelpers;
             };
-              checks = import ./tests/checks.nix {
-                inherit inputs lib;
-              };
-              pkgs = import ./tests/pkgs.nix {
+            checks = import ./tests/checks.nix {
+              inherit inputs lib;
+            };
+            pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };
           };
