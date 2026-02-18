@@ -39,7 +39,7 @@ let
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-KnOqfBbqoWKRdQIi+lYjGX6As3LbCl6gQ2zBvIVaMO0=";
+    outputHash = "sha256-IsMalBw9LDFVEBykeLXwlJvfGzyKztA8HJwTbe+MzG4=";
 
     # Required for bun to work in sandbox
     HOME = "/tmp";
@@ -49,6 +49,9 @@ let
 
     # Allow network access for fixed-output derivation
     __noChroot = true;
+
+    # Prevent fixup from creating store references
+    dontFixup = true;
 
     buildPhase = ''
       runHook preBuild
@@ -95,7 +98,7 @@ stdenv.mkDerivation {
 
     mkdir -p $out/lib/node_modules/@openchamber
     cp -r packages/web $out/lib/node_modules/@openchamber/web
-    cp -r node_modules $out/lib/node_modules/
+    cp -rL node_modules/* $out/lib/node_modules/
 
     mkdir -p $out/bin
     ln -s $out/lib/node_modules/@openchamber/web/bin/cli.js $out/bin/openchamber-unwrapped
