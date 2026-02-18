@@ -33,6 +33,10 @@
     just-flake = {
       url = "github:juspay/just-flake";
     };
+    llm-agents = {
+      url = "github:numtide/llm-agents.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nix-unit = {
       url = "github:nix-community/nix-unit";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -108,7 +112,9 @@
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           lean = pkgs.callPackage ./pkgs/lean {};
           npm-lockfile-fix = pkgs.callPackage ./pkgs/npm-lockfile-fix {};
-          openchamber = pkgs.callPackage ./pkgs/openchamber {};
+          openchamber = pkgs.callPackage ./pkgs/openchamber {
+            opencode = inputs.llm-agents.packages.${system}.opencode;
+          };
           roon-server = pkgs.callPackage ./pkgs/roon-server {};
           tod = pkgs.callPackage ./pkgs/tod {};
         };

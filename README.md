@@ -71,6 +71,18 @@ Notes:
   nixpkgs.config.allowUnfree = true;
 }
 ```
+- `openchamber` defaults to `opencode` from `numtide/llm-agents.nix`.
+- Override `openchamber`'s `opencode` dependency with:
+
+```nix
+let
+  openchamber = jackpkgs.packages.${system}.openchamber.override {
+    opencode = myOpencode;
+  };
+in {
+  packages.${system}.openchamber = openchamber;
+}
+```
 
 ______________________________________________________________________
 
@@ -444,6 +456,7 @@ ______________________________________________________________________
 - `epub2tts` — EPUB → TTS
 - `lean` — Lean theorem prover
 - `roon-server` — Roon server (x86_64-linux only, unfree)
+- `openchamber` — Web and desktop interface for OpenCode AI agent
 - `tod` — Todoist CLI
 
 Build from CLI (examples):

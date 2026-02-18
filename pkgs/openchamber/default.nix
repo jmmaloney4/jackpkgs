@@ -4,8 +4,10 @@
   fetchFromGitHub,
   bun,
   nodejs,
+  opencode,
   python3,
   pkg-config,
+  makeWrapper,
   vips,
   cacert,
 }:
@@ -77,6 +79,7 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     bun
     nodejs
+    makeWrapper
   ];
 
   buildPhase = ''
@@ -95,7 +98,10 @@ stdenv.mkDerivation {
     cp -r packages/web/. $out/lib/node_modules/@openchamber/web/
 
     mkdir -p $out/bin
-    ln -s $out/lib/node_modules/@openchamber/web/bin/cli.js $out/bin/openchamber
+    ln -s $out/lib/node_modules/@openchamber/web/bin/cli.js $out/bin/openchamber-unwrapped
+    makeWrapper $out/bin/openchamber-unwrapped $out/bin/openchamber \
+      --prefix PATH : ${lib.makeBinPath [opencode]} \
+      --set OPENCODE_BINARY ${lib.getExe opencode}
 
     runHook postInstall
   '';
