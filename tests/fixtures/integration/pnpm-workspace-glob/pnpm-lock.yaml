@@ -1,15 +1,10 @@
 lockfileVersion: '9.0'
-
 settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
-
 importers:
-
   .: {}
-
   packages/alpha: {}
-
   packages/beta:
     dependencies:
       '@test/alpha':

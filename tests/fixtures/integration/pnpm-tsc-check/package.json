@@ -1,9 +1,9 @@
 {
-  "name": "pnpm-tsc-check",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "devDependencies": {
-    "typescript": "~5.7.0"
-  }
+	"name": "pnpm-tsc-check",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"devDependencies": {
+		"typescript": "~5.7.0"
+	}
 }

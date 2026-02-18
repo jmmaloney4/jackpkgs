@@ -1,8 +1,8 @@
 {
-  "name": "@test/beta",
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "@test/alpha": "workspace:*"
-  }
+	"name": "@test/beta",
+	"version": "1.0.0",
+	"type": "module",
+	"dependencies": {
+		"@test/alpha": "workspace:*"
+	}
 }

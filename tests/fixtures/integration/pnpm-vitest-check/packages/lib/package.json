@@ -1,9 +1,9 @@
 {
-  "name": "@test/lib",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "test": "vitest run"
-  }
+	"name": "@test/lib",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"test": "vitest run"
+	}
 }

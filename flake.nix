@@ -135,6 +135,49 @@
         moduleJustfileTests = import ./tests/module-justfiles.nix {
           inherit lib pkgs testHelpers;
         };
+
+        integrationFixturesRoot = ./tests/fixtures/integration;
+        fixtureSimplePnpm = integrationFixturesRoot + "/simple-pnpm";
+        fixtureWorkspaceBasic = integrationFixturesRoot + "/pnpm-workspace-basic";
+        fixtureWorkspaceGlob = integrationFixturesRoot + "/pnpm-workspace-glob";
+        fixtureTscCheck = integrationFixturesRoot + "/pnpm-tsc-check";
+        fixtureVitestCheck = integrationFixturesRoot + "/pnpm-vitest-check";
+
+        mkPnpmFixtureCheck = {
+          name,
+          src,
+          depsHash,
+          checkCommand,
+        }: let
+          cleanSrc = lib.cleanSourceWith {
+            inherit src;
+            filter = path: _type: builtins.baseNameOf path != "node_modules";
+          };
+        in
+          pkgs.stdenv.mkDerivation {
+            pname = "integration-${name}";
+            version = "1.0.0";
+            src = cleanSrc;
+            pnpmDeps = pkgs.fetchPnpmDeps {
+              pname = "integration-${name}-deps";
+              version = "1.0.0";
+              src = cleanSrc;
+              hash = depsHash;
+              fetcherVersion = 1;
+            };
+            nativeBuildInputs = [
+              pkgs.nodejs
+              pkgs.pnpm_10
+              pkgs.pnpmConfigHook
+            ];
+            dontBuild = true;
+            installPhase = ''
+              runHook preInstall
+              ${checkCommand}
+              mkdir -p "$out"
+              runHook postInstall
+            '';
+          };
       in {
         # Make jackLib and platformFilteredPackages available for devShell
         _module.args.jackpkgs =
@@ -208,7 +251,57 @@
           # Add module pattern tests
           // lib.mapAttrs' (name: test: lib.nameValuePair "module-${name}" test) moduleJustfileTests
           // {
-            # pnpm integration tests will be added in Phase 8 after fixture conversion
+            pnpm-simple-builds = mkPnpmFixtureCheck {
+              name = "simple-pnpm";
+              src = fixtureSimplePnpm;
+              depsHash = "sha256-Y6FY9XiRcBAgaz2T0E90up0bABCBGl81uqZx1vbDRL8=";
+              checkCommand = ''
+                test -d node_modules
+                node index.js | grep -qx "pass"
+              '';
+            };
+
+            pnpm-workspace-basic-postinstall = mkPnpmFixtureCheck {
+              name = "workspace-basic";
+              src = fixtureWorkspaceBasic;
+              depsHash = "sha256-JCWHQK7h0DmIOe3KKgQ+aI9P0CplVWP8xyJpFNGfdbQ=";
+              checkCommand = ''
+                test -d node_modules
+                pnpm run postinstall
+                test -f lib/dist/index.js
+                node --input-type=module -e "const lib = await import('./lib/dist/index.js'); if (lib.add(2, 3) !== 5) process.exit(1);"
+              '';
+            };
+
+            pnpm-workspace-glob-resolution = mkPnpmFixtureCheck {
+              name = "workspace-glob";
+              src = fixtureWorkspaceGlob;
+              depsHash = "sha256-wuZJSJ4/SYJCOTFYTW1RXrdvn3D1tY6gbMGgou1zoLQ=";
+              checkCommand = ''
+                test -d node_modules
+                node packages/beta/index.js | grep -qx "hello from alpha"
+              '';
+            };
+
+            pnpm-tsc-check = mkPnpmFixtureCheck {
+              name = "tsc-check";
+              src = fixtureTscCheck;
+              depsHash = "sha256-JCWHQK7h0DmIOe3KKgQ+aI9P0CplVWP8xyJpFNGfdbQ=";
+              checkCommand = ''
+                test -d node_modules
+                node_modules/.bin/tsc --noEmit --lib ES2020,DOM packages/app/index.ts
+              '';
+            };
+
+            pnpm-vitest-check = mkPnpmFixtureCheck {
+              name = "vitest-check";
+              src = fixtureVitestCheck;
+              depsHash = "sha256-DC2poaAdRpJ9y9t65vvelzj3ncjcfwEJXDCZx0v6BSM=";
+              checkCommand = ''
+                test -d node_modules
+                node_modules/.bin/vitest run --root packages/lib
+              '';
+            };
           };
       };
 
