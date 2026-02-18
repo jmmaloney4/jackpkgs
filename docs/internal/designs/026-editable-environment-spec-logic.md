@@ -1,4 +1,4 @@
-# ADR-017: Editable Environment Spec Logic — Auto-Include Workspace Members
+# ADR-026: Editable Environment Spec Logic — Auto-Include Workspace Members
 
 ## Status
 

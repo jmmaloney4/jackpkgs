@@ -1,11 +1,11 @@
 ---
-id: ADR-023
+id: ADR-027
 title: Github Packages Auth
 status: proposed
 date: 2026-02-10
 ---
 
-# ADR 023: Github Packages Auth
+# ADR 027: Github Packages Auth
 
 *Date:* 2026-02-10
 *Status:* proposed
