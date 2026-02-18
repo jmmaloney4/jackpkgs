@@ -97,10 +97,9 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy; picks up `jackpkgs.python.environments.default` automatically when defined).
 - `shell` — shared dev shell output to include via `inputsFrom`.
 - `checks` — CI checks for Python (pytest/mypy/ruff) and TypeScript (tsc, vitest).
-- `nodejs` — builds `node_modules` via `buildNpmPackage` and exposes a Node.js devShell fragment.
+- `nodejs` — builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
-- `nodejs` — builds `node_modules` via `buildNpmPackage` and exposes a Node.js devShell fragment.
 - `python` — opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
 
 ### Import (one-liner: everything)
@@ -230,15 +229,28 @@ in {
 
 - nodejs (`modules/flake-parts/nodejs.nix`)
 
-  - Builds `node_modules` using `buildNpmPackage` and exposes `jackpkgs.outputs.nodeModules`.
-  - Provides a Node.js devShell fragment: `jackpkgs.outputs.nodejsDevShell` with `npm-lockfile-fix` tool for workspace lockfile compatibility.
-  - Enables `npm-lockfile-fix` pre-commit hook (fixes npm v9+ workspace lockfiles for Nix caching).
-  - Provides `just fix-npm-lock` recipe to update and normalize `package-lock.json`.
-  - **Bootstrap workflow**: If devshell fails due to incompatible lockfile, run `nix run github:jmmaloney4/jackpkgs#npm-lockfile-fix ./package-lock.json` first.
+  - Builds `node_modules` using `fetchPnpmDeps` + `pnpmConfigHook` and exposes `jackpkgs.outputs.nodeModules`.
+  - Provides a Node.js devShell fragment: `jackpkgs.outputs.nodejsDevShell` with `pnpm` CLI.
+  - Discovers workspace packages from `pnpm-workspace.yaml` (supports `dir/*` glob patterns; `**` recursive globs not supported).
+  - **Required**: Set `jackpkgs.nodejs.pnpmDepsHash` to the FOD hash of your pnpm dependencies. Run once without it to get the expected hash from the error, then add it.
   - Options under `jackpkgs.nodejs`:
     - `enable` (bool, default `false`)
-    - `version` (enum: 18/20/22, default `22`)
+    - `version` (enum: 18/20/22, default `22`) — Node.js major version
+    - `pnpmVersion` (enum: 9/10, default `10`) — pnpm major version
+    - `pnpmDepsHash` (string, required when enabled) — FOD hash for `fetchPnpmDeps`
     - `projectRoot` (path, default `config.jackpkgs.projectRoot`)
+  - Outputs:
+    - `jackpkgs.outputs.nodeModules` — derivation containing `node_modules/`
+    - `jackpkgs.outputs.pnpmDeps` — derivation containing fetched pnpm deps (for debugging/caching)
+  - Example:
+    ```nix
+    jackpkgs.nodejs = {
+      enable = true;
+      version = "22";
+      pnpmVersion = "10";
+      pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    };
+    ```
 
 - quarto (`modules/flake-parts/quarto.nix`)
 
