@@ -39,7 +39,7 @@ let
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-9ZWJgvObMKwuUhB86ve1P9fEN7z5UUWSmv8b/+2qbFE=";
+    outputHash = "sha256-yFErX9D1+KLygiTvMqiSP1IMM4rN+HRHsHUGRuGUXZ0=";
 
     # Required for bun to work in sandbox
     SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
@@ -75,11 +75,11 @@ let
 
       # Dereference symlinks during copy - bun uses symlinks for hoisted deps
       # that would break when moved to the nix store
-      cp -rL node_modules/* $out/ 2>/dev/null || true
+      cp -rL node_modules/. $out/
 
       # Copy packages/web/node_modules (non-hoisted deps) on top
       if [ -d packages/web/node_modules ]; then
-        cp -rLn packages/web/node_modules/* $out/ 2>/dev/null || true
+        cp -rLn packages/web/node_modules/. $out/
       fi
 
       runHook postInstall
@@ -109,7 +109,19 @@ stdenv.mkDerivation {
 
     mkdir -p $out/lib/node_modules/@openchamber
     cp -r packages/web $out/lib/node_modules/@openchamber/web
-    cp -rL node_modules/* $out/lib/node_modules/
+    cp -rL node_modules/. $out/lib/node_modules/
+
+    # Bun keeps many transitive deps under .bun/node_modules and relies on
+    # links from the top-level node_modules for Node resolution.
+    # Recreate any missing top-level links so runtime requires work.
+    if [ -d "$out/lib/node_modules/.bun/node_modules" ]; then
+      for dep in "$out/lib/node_modules/.bun/node_modules"/*; do
+        name="$(basename "$dep")"
+        if [ ! -e "$out/lib/node_modules/$name" ]; then
+          ln -s ".bun/node_modules/$name" "$out/lib/node_modules/$name"
+        fi
+      done
+    fi
 
     mkdir -p $out/bin
     ln -s $out/lib/node_modules/@openchamber/web/bin/cli.js $out/bin/openchamber-unwrapped
