@@ -73,7 +73,7 @@
   evalFlake = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = [optionsModule libModule] ++ modules ++ [checksModule];
+      imports = [optionsModule libModule moduleArgs] ++ modules ++ [checksModule];
     };
 
   getChecks = modules: ((evalFlake modules).config.perSystem system).checks or {};
@@ -108,6 +108,19 @@
       _module.args.pythonWorkspace = mkPythonWorkspaceStub pkgs;
       _module.args.jackpkgsProjectRoot = projectRoot;
     };
+  };
+
+  mockFromYAML = yamlFile: let
+    npmWorkspaceYaml = {
+      packages = ["packages/*" "tools/*"];
+    };
+  in
+    if builtins.baseNameOf yamlFile == "pnpm-workspace.yaml"
+    then npmWorkspaceYaml
+    else {};
+
+  moduleArgs = {
+    jackpkgs.checks.fromYAML = mockFromYAML;
   };
 
   baseModule = {

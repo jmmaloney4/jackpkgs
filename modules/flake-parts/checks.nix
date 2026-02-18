@@ -4,7 +4,7 @@
   lib,
   jackpkgsLib,
   ...
-}: let
+}@args: let
   inherit (lib) mkOption types mkEnableOption;
   cfg = config.jackpkgs.checks;
   pythonCfg = config.jackpkgs.python or {};
@@ -80,6 +80,14 @@ in {
             example = ["--no-cache"];
           };
         };
+      };
+
+      # Injectable YAML parser (for testing without IFD)
+      fromYAML = mkOption {
+        type = types.nullOr (types.functionTo types.attrs);
+        default = null;
+        internal = true;
+        description = "YAML parser function. Defaults to IFD-based yq-go parser.";
       };
 
       # TypeScript ecosystem checks
@@ -190,6 +198,7 @@ in {
       config,
       pythonWorkspace ? null,
       jackpkgsProjectRoot ? null,
+      jackpkgsFromYAML ? null,
       ...
     }: let
       # ============================================================
@@ -198,7 +207,8 @@ in {
 
       # Parse pnpm-workspace.yaml to JSON
       # Checks for .json sibling first (for tests without IFD), falls back to IFD via yq-go
-      fromYAML = yamlFile: let
+      # Can be overridden via jackpkgsFromYAML module arg for testing
+      defaultFromYAML = yamlFile: let
         jsonFile = builtins.substring 0 (builtins.stringLength yamlFile - 5) yamlFile + ".json";
         jsonExists = builtins.pathExists jsonFile;
       in
@@ -212,6 +222,11 @@ in {
           '';
         in
           builtins.fromJSON (builtins.readFile jsonDrv);
+
+      fromYAML =
+        if cfg.fromYAML != null
+        then cfg.fromYAML
+        else defaultFromYAML;
 
       # Discover packages from pnpm-workspace.yaml
       discoverPnpmPackages = workspaceRoot: let
