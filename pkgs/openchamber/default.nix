@@ -85,8 +85,8 @@ stdenv.mkDerivation {
   buildPhase = ''
     runHook preBuild
 
-    cp -r ${nodeModules} packages/web/node_modules
-    chmod -R u+w packages/web/node_modules
+    cp -r ${nodeModules} node_modules
+    chmod -R u+w node_modules
 
     runHook postBuild
   '';
@@ -94,8 +94,9 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    mkdir -p $out/lib/node_modules/@openchamber/web
-    cp -r packages/web/. $out/lib/node_modules/@openchamber/web/
+    mkdir -p $out/lib/node_modules/@openchamber
+    cp -r packages/web $out/lib/node_modules/@openchamber/web
+    cp -r node_modules $out/lib/node_modules/
 
     mkdir -p $out/bin
     ln -s $out/lib/node_modules/@openchamber/web/bin/cli.js $out/bin/openchamber-unwrapped
