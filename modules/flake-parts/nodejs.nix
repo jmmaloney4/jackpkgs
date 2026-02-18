@@ -116,7 +116,7 @@ in {
         dontBuild = true;
 
         installPhase = ''
-          cp -R node_modules $out
+          cp -a node_modules $out
         '';
       };
     in {
