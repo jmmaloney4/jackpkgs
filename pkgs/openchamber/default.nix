@@ -53,7 +53,6 @@ let
     buildPhase = ''
       runHook preBuild
 
-      cd packages/web
       echo "=== Running bun install ==="
       bun --version
       bun install --frozen-lockfile 2>&1 || bun install 2>&1
