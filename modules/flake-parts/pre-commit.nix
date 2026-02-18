@@ -51,18 +51,6 @@ in {
           defaultText = "`jackpkgs.python.environments.default` (when defined) or `config.jackpkgs.pkgs.mypy`";
           description = "mypy package to use.";
         };
-        npmLockfileFixPackage = mkOption {
-          type = types.package;
-          default = let
-            npmLockfileFix =
-              attrByPath ["jackpkgs" "outputs" "npmLockfileFix"] null config;
-          in
-            if npmLockfileFix != null
-            then npmLockfileFix
-            else pkgs.callPackage ../../pkgs/npm-lockfile-fix {};
-          defaultText = "npm-lockfile-fix package from nodejs module or standalone";
-          description = "npm-lockfile-fix package to use for validating workspace lockfiles.";
-        };
       };
     });
   };
@@ -92,14 +80,6 @@ in {
           entry = lib.getExe' sysCfg.mypyPackage "mypy";
           files = "\\.py$";
           excludes = defaultExcludes.preCommit;
-        };
-        settings.hooks.npm-lockfile-fix = {
-          enable = lib.mkDefault (attrByPath ["jackpkgs" "nodejs" "enable"] false config);
-          package = sysCfg.npmLockfileFixPackage;
-          entry = "${lib.getExe sysCfg.npmLockfileFixPackage}";
-          files = "package-lock\\.json$";
-          pass_filenames = true;
-          description = "Fix npm workspace lockfiles for Nix compatibility (adds missing resolved/integrity fields)";
         };
       };
     };
