@@ -1,0 +1,11 @@
+{
+  "name": "workspace-basic",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "pnpm --filter @test/lib run build"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.0"
+  }
+}

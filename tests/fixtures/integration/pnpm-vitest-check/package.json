@@ -1,0 +1,10 @@
+{
+  "name": "pnpm-vitest-check",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "vitest": "~3.2.1",
+    "typescript": "~5.7.0"
+  }
+}
