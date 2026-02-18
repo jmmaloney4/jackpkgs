@@ -39,22 +39,22 @@ let
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-9xtKf998kF7lvDp8V9XKHwqugmdKbc6qkEnVznZ7Hec=";
+    outputHash = "sha256-IsMalBw9LDFVEBykeLXwlJvfGzyKztA8HJwTbe+MzG4=";
 
     # Required for bun to work in sandbox
-    HOME = "/tmp";
-    XDG_CACHE_HOME = "/tmp/.cache";
-    BUN_INSTALL = "/tmp/.bun";
     SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
-
-    # Allow network access for fixed-output derivation
-    __noChroot = true;
 
     # Prevent fixup from creating store references
     dontFixup = true;
 
     buildPhase = ''
       runHook preBuild
+
+      export HOME="$TMPDIR/home"
+      export XDG_CACHE_HOME="$TMPDIR/cache"
+      export BUN_INSTALL="$TMPDIR/.bun"
+      export BUN_TMPDIR="$TMPDIR"
+      mkdir -p "$HOME" "$XDG_CACHE_HOME"
 
       echo "=== Running bun install at root ==="
       bun --version
