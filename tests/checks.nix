@@ -9,8 +9,8 @@
 
   pythonWorkspace = ./fixtures/checks/python-workspace;
   pythonWorkspaceDefault = ./fixtures/checks/python-workspace-default;
-  npmWorkspace = ./fixtures/checks/npm-workspace;
-  npmNoWorkspace = ./fixtures/checks/no-npm;
+  pnpmWorkspace = ./fixtures/checks/npm-workspace;
+  noWorkspaceFixture = ./fixtures/checks/no-npm;
 
   # pyprojectPath is a string relative path, not a path object
   pythonWorkspacePyproject = "./pyproject.toml";
@@ -111,12 +111,12 @@
   };
 
   mockFromYAML = yamlFile: let
-    npmWorkspaceYaml = {
+    pnpmWorkspaceYaml = {
       packages = ["packages/*" "tools/*"];
     };
   in
     if builtins.baseNameOf yamlFile == "pnpm-workspace.yaml"
-    then npmWorkspaceYaml
+    then pnpmWorkspaceYaml
     else {};
 
   moduleArgs = {
@@ -180,7 +180,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
-      projectRoot = npmNoWorkspace;
+      projectRoot = noWorkspaceFixture;
     };
   in {
     expr = hasCheck checks "typescript-tsc";
@@ -195,7 +195,7 @@ in {
         checksEnable = false;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
-      projectRoot = npmNoWorkspace;
+      projectRoot = noWorkspaceFixture;
     };
   in {
     expr = missingChecksNamed checks ["python-pytest" "python-mypy" "python-ruff" "typescript-tsc"];
@@ -417,7 +417,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.extraArgs = ["--pretty" "false"];
       };
-      projectRoot = npmWorkspace;
+      projectRoot = pnpmWorkspace;
     };
     script = getBuildCommand checks.typescript-tsc;
   in {
@@ -437,7 +437,7 @@ in {
   testTypescriptMissingWorkspace = let
     checks = mkChecks {
       configModule = mkConfigModule {pulumiEnable = true;};
-      projectRoot = npmNoWorkspace;
+      projectRoot = noWorkspaceFixture;
     };
   in {
     expr = missingCheck checks "typescript-tsc";
@@ -450,7 +450,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra" "tools/hello"];
       };
-      projectRoot = npmNoWorkspace;
+      projectRoot = noWorkspaceFixture;
     };
     script = getBuildCommand checks.typescript-tsc;
   in {
@@ -466,7 +466,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
-      projectRoot = npmNoWorkspace;
+      projectRoot = noWorkspaceFixture;
     };
     script = getBuildCommand checks.typescript-tsc;
   in {
@@ -487,7 +487,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.enable = true;
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
       };
-      projectRoot = npmWorkspace;
+      projectRoot = pnpmWorkspace;
     };
   in {
     expr = hasCheck checks "javascript-vitest";
@@ -502,7 +502,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.extraArgs = ["--coverage"];
       };
-      projectRoot = npmWorkspace;
+      projectRoot = pnpmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {
@@ -536,7 +536,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
       };
-      projectRoot = npmWorkspace;
+      projectRoot = pnpmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {
@@ -568,7 +568,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
       };
-      projectRoot = npmWorkspace;
+      projectRoot = pnpmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {

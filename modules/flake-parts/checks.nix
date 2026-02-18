@@ -277,13 +277,9 @@ in {
 
 
       # Link node_modules into the sandbox
-      # Strategy: Link root node_modules, then iterate through packages and link their
-      # node_modules if present in the store (primarily for legacy dream2nix layouts).
-      #
-      # Supported layouts:
-      # - buildNpmPackage: <store>/node_modules
-      # - dream2nix (nodejs-granular): <store>/lib/node_modules/default/node_modules
-      # - dream2nix (npm wrapper): <store>/lib/node_modules
+      # Strategy: link root node_modules, then link per-package node_modules when present.
+      # Expected layout:
+      # - nodejs module output: <store>/node_modules
       linkNodeModules = nodeModules: packages:
         if nodeModules == null
         then ""
@@ -291,12 +287,12 @@ in {
           nm_store=${nodeModules}
           echo "Linking node_modules from $nm_store..."
 
-          # Detect layout
+          # Resolve node_modules root from output derivation
           ${jackpkgsLib.nodejs.findNodeModulesRoot "nm_root" "$nm_store"}
 
           if [ -z "$nm_root" ]; then
             echo "ERROR: Unable to find node_modules in $nm_store" >&2
-            echo "Expected one of: node_modules/, lib/node_modules/, or lib/node_modules/default/node_modules/" >&2
+            echo "Expected: node_modules/ at the derivation root" >&2
             echo "Enable Node.js module or provide custom nodeModules via jackpkgs.checks.typescript.tsc.nodeModules" >&2
             exit 1
           fi
@@ -524,12 +520,12 @@ in {
 
                 TypeScript checks require node_modules to be present.
 
-                Enable the Node.js module to build node_modules via buildNpmPackage:
+                Enable the Node.js module to provide node_modules for checks:
 
                     jackpkgs.nodejs.enable = true;
 
                 This provides a pure, reproducible node_modules derivation that works
-                in Nix sandbox builds. See ADR-020 for configuration details.
+                in Nix sandbox builds.
 
                 To disable TypeScript checks: jackpkgs.checks.typescript.enable = false;
                 EOF
