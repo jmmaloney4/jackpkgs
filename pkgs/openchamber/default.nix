@@ -56,9 +56,14 @@ let
     buildPhase = ''
       runHook preBuild
 
-      echo "=== Running bun install ==="
+      echo "=== Running bun install at root ==="
       bun --version
       bun install 2>&1
+
+      echo "=== Running bun install in packages/web ==="
+      cd packages/web
+      bun install 2>&1
+      cd ../..
 
       runHook postBuild
     '';
