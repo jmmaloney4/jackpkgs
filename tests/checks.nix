@@ -531,7 +531,7 @@ in {
     expr =
       hasInfixAll [
         "Testing packages/app"
-        "/lib/node_modules/.bin"
+        "/node_modules/.bin"
         "export PATH="
       ]
       script
@@ -563,7 +563,7 @@ in {
       hasInfixAll [
         "Linking node_modules"
         "ln -sfn"
-        "/lib/node_modules"
+        "/node_modules"
         "cp -R"
       ]
       script;

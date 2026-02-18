@@ -1,7 +1,4 @@
 {
-	"name": "npm-workspace-fixture",
-	"workspaces": [
-		"packages/*",
-		"tools/*"
-	]
+	"name": "pnpm-workspace-fixture",
+	"private": true
 }

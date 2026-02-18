@@ -196,16 +196,22 @@ in {
       # Helper Functions
       # ============================================================
 
-      # IFD helper: Parse YAML to JSON using yq-go
-      # Used for pnpm-workspace.yaml parsing
+      # Parse pnpm-workspace.yaml to JSON
+      # Checks for .json sibling first (for tests without IFD), falls back to IFD via yq-go
       fromYAML = yamlFile: let
-        jsonDrv = pkgs.runCommand "yaml-to-json" {
-          nativeBuildInputs = [pkgs.yq-go];
-        } ''
-          yq -o=json '.' ${yamlFile} > $out
-        '';
+        jsonFile = builtins.substring 0 (builtins.stringLength yamlFile - 5) yamlFile + ".json";
+        jsonExists = builtins.pathExists jsonFile;
       in
-        builtins.fromJSON (builtins.readFile jsonDrv);
+        if jsonExists
+        then builtins.fromJSON (builtins.readFile jsonFile)
+        else let
+          jsonDrv = pkgs.runCommand "yaml-to-json" {
+            nativeBuildInputs = [pkgs.yq-go];
+          } ''
+            yq -o=json '.' ${yamlFile} > $out
+          '';
+        in
+          builtins.fromJSON (builtins.readFile jsonDrv);
 
       # Discover packages from pnpm-workspace.yaml
       discoverPnpmPackages = workspaceRoot: let
@@ -394,14 +400,16 @@ in {
         then jackpkgsProjectRoot
         else config.jackpkgs.projectRoot or inputs.self.outPath;
 
-      tsPackages =
-        if cfg.typescript.tsc.packages != null
-        then map jackpkgsLib.validateWorkspacePath cfg.typescript.tsc.packages
+      # Lazy package discovery - only compute when actually needed
+      # This avoids IFD during module evaluation when checks aren't generated
+      getTsPackages = cfg':
+        if cfg'.typescript.tsc.packages != null
+        then map jackpkgsLib.validateWorkspacePath cfg'.typescript.tsc.packages
         else discoverPnpmPackages projectRoot;
 
-      vitestPackages =
-        if cfg.vitest.packages != null
-        then map jackpkgsLib.validateWorkspacePath cfg.vitest.packages
+      getVitestPackages = cfg':
+        if cfg'.vitest.packages != null
+        then map jackpkgsLib.validateWorkspacePath cfg'.vitest.packages
         else discoverPnpmPackages projectRoot;
 
       # NOTE: We cannot use builtins.pathExists on nodeModules paths at Nix evaluation
@@ -469,7 +477,9 @@ in {
       # TypeScript Checks
       # ============================================================
 
-      typescriptChecks =
+      typescriptChecks = let
+        tsPackages = getTsPackages cfg;
+      in
         lib.optionalAttrs (cfg.enable && cfg.typescript.enable && tsPackages != [])
         (lib.optionalAttrs cfg.typescript.tsc.enable {
           # tsc check
@@ -528,7 +538,10 @@ in {
         then cfg.vitest.nodeModules
         else config.jackpkgs.outputs.nodeModules or null;
 
-      vitestChecks = lib.optionalAttrs (cfg.enable && cfg.vitest.enable && vitestPackages != []) {
+      vitestChecks = let
+        vitestPackages = getVitestPackages cfg;
+      in
+        lib.optionalAttrs (cfg.enable && cfg.vitest.enable && vitestPackages != []) {
         javascript-vitest = mkCheck {
           name = "javascript-vitest";
           buildInputs = [pkgs.nodejs];
