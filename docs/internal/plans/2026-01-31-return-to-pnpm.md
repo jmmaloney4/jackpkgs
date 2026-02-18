@@ -349,7 +349,9 @@ discoverPnpmPackages = workspaceRoot: let
   packageGlobs = workspaceConfig.packages or [];
 
   # Expand globs using existing helper (reuse expandWorkspaceGlob)
-  # This handles both wildcards ("deploy/*") and plain names
+  # This handles plain names and single-level globs ("deploy/*").
+  # It intentionally does not support advanced pnpm patterns such as
+  # recursive "**" globs or negation entries.
   allPackages = lib.flatten (map (expandWorkspaceGlob workspaceRoot) packageGlobs);
 
   # Filter for directories that contain package.json
