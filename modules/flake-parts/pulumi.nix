@@ -89,10 +89,6 @@ in {
             PULUMI_BACKEND_URL = cfg.backendUrl;
             PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
           };
-          shellHook = lib.optionalString (gcpCfg.profile != null) ''
-            export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/${gcpCfg.profile}"
-            mkdir -p "$CLOUDSDK_CONFIG"
-          '';
         };
 
         # CI devshell with minimal dependencies for running Pulumi in CI
