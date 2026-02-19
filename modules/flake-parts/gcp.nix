@@ -5,7 +5,6 @@
 }: {
   options = let
     inherit (lib) types mkOption;
-    cfg = config.jackpkgs;
   in {
     jackpkgs.gcp = {
       iamOrg = mkOption {
@@ -32,7 +31,7 @@
 
       profile = mkOption {
         type = types.nullOr types.str;
-        default = cfg.gcp.iamOrg;
+        default = null;
         defaultText = "config.jackpkgs.gcp.iamOrg";
         description = ''
           Name of the gcloud profile directory under ~/.config/gcloud-profiles/.
@@ -42,5 +41,9 @@
         '';
       };
     };
+  };
+
+  config = {
+    jackpkgs.gcp.profile = lib.mkDefault config.jackpkgs.gcp.iamOrg;
   };
 }
