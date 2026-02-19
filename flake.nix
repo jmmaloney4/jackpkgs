@@ -70,6 +70,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.pyproject-nix.follows = "pyproject-nix";
     };
+    bun2nix = {
+      url = "github:nix-community/bun2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs @ {
@@ -114,6 +118,7 @@
           npm-lockfile-fix = pkgs.callPackage ./pkgs/npm-lockfile-fix {};
           openchamber = pkgs.callPackage ./pkgs/openchamber {
             opencode = inputs.llm-agents.packages.${system}.opencode;
+            bun2nix-cli = inputs.bun2nix.packages.${system}.bun2nix;
           };
           roon-server = pkgs.callPackage ./pkgs/roon-server {};
           tod = pkgs.callPackage ./pkgs/tod {};

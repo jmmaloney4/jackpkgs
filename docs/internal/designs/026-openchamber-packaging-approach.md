@@ -9,7 +9,9 @@ date: 2026-02-18
 
 ## Status
 
-Proposed
+**Superseded by ADR-027**
+
+This approach was implemented but failed due to fundamental incompatibility between `cp -rL` (symlink dereferencing) and Bun's module resolution. See ADR-027 for the pivot to `bun2nix`.
 
 ## Context
 
