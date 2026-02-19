@@ -241,7 +241,13 @@ in {
           if builtins.isList patterns
           then patterns
           else [];
-        allPackages = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) workspaceGlobs);
+        negationPatterns = lib.filter (p: lib.hasPrefix "!" p) workspaceGlobs;
+        validatedWorkspaceGlobs =
+          if negationPatterns != []
+          then
+            throw "Negation workspace patterns are not supported in jackpkgs.checks auto-discovery yet: ${lib.concatStringsSep ", " negationPatterns}. Use explicit jackpkgs.checks.typescript.tsc.packages / jackpkgs.checks.vitest.packages or track support in issue #157."
+          else workspaceGlobs;
+        allPackages = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) validatedWorkspaceGlobs);
         hasPackageJson = pkg:
           builtins.pathExists (workspaceRoot + "/${pkg}/package.json");
       in

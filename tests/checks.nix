@@ -76,6 +76,12 @@
       imports = [optionsModule libModule moduleArgs] ++ modules ++ [checksModule];
     };
 
+  evalFlakeNoMock = modules:
+    flakeParts.evalFlakeModule {inherit inputs;} {
+      systems = [system];
+      imports = [optionsModule libModule] ++ modules ++ [checksModule];
+    };
+
   getChecks = modules: ((evalFlake modules).config.perSystem system).checks or {};
 
   getBuildCommand = drv: let
@@ -155,6 +161,15 @@
     projectRoot ? pythonWorkspace,
   }: let
     eval = evalFlake [baseModule configModule (perSystemArgs projectRoot)];
+    perSystemCfg = eval.config.perSystem system;
+  in
+    perSystemCfg.checks or {};
+
+  mkChecksNoMock = {
+    configModule,
+    projectRoot ? pythonWorkspace,
+  }: let
+    eval = evalFlakeNoMock [baseModule configModule (perSystemArgs projectRoot)];
     perSystemCfg = eval.config.perSystem system;
   in
     perSystemCfg.checks or {};
@@ -458,6 +473,23 @@ in {
       hasInfixAll ["Type-checking infra" "Type-checking tools/hello"] script
       && !lib.hasInfix "packages/app" script;
     expected = true;
+  };
+
+  testTypescriptRejectsNegationWorkspacePattern = let
+    result = builtins.tryEval (
+      (mkChecksNoMock {
+        configModule = mkConfigModule {
+          pulumiEnable = true;
+          extraConfig.jackpkgs.checks.fromYAML = _: {
+            packages = ["packages/*" "!packages/ignored"];
+          };
+        };
+        projectRoot = pnpmWorkspace;
+      }).typescript-tsc
+    );
+  in {
+    expr = result.success;
+    expected = false;
   };
 
   testTypescriptGuardMessage = let
