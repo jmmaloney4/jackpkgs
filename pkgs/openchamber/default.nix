@@ -39,7 +39,7 @@ let
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-yFErX9D1+KLygiTvMqiSP1IMM4rN+HRHsHUGRuGUXZ0=";
+    outputHash = lib.fakeSha256;
 
     # Required for bun to work in sandbox
     SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
@@ -65,6 +65,17 @@ let
       bun install 2>&1
       cd ../..
 
+      # Build the frontend with Vite
+      # Must run from packages/web with access to:
+      #   - ../../node_modules/ (root deps, esp @opencode-ai/sdk)
+      #   - ../ui/src/ (compiled inline by Vite)
+      #   - ../../vite-theme-plugin.ts (Vite plugin)
+      echo "=== Building frontend with Vite ==="
+      export NODE_ENV=production
+      cd packages/web
+      bun run build 2>&1
+      cd ../..
+
       runHook postBuild
     '';
 
@@ -80,6 +91,12 @@ let
       # Copy packages/web/node_modules (non-hoisted deps) on top
       if [ -d packages/web/node_modules ]; then
         cp -rLn packages/web/node_modules/. $out/
+      fi
+
+      # Copy the built frontend dist
+      if [ -d packages/web/dist ]; then
+        mkdir -p $out/dist
+        cp -r packages/web/dist/. $out/dist/
       fi
 
       runHook postInstall
@@ -109,6 +126,12 @@ stdenv.mkDerivation {
 
     mkdir -p $out/lib/node_modules/@openchamber
     cp -r packages/web $out/lib/node_modules/@openchamber/web
+
+    # Copy the pre-built dist from the FOD
+    if [ -d "${nodeModules}/dist" ]; then
+      cp -r "${nodeModules}/dist" $out/lib/node_modules/@openchamber/web/
+    fi
+
     cp -rL node_modules/. $out/lib/node_modules/
 
     # Bun keeps many transitive deps under .bun/node_modules and relies on
