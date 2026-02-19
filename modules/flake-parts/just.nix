@@ -214,19 +214,19 @@ in {
         then let
           mypyBin = lib.getExe' sysCfg.mypyPackage "mypy";
           # Generate the per-package mypy commands
-          memberCommands = lib.concatMapStringsSep "\n" (member: ''
-    echo "Type-checking ${member}..."
-    (cd "${member}" && ${mypyBin} .)'') pythonWorkspaceMembers;
+          memberCommands = lib.concatMap (member: [
+            "echo \"Type-checking ${member}...\""
+            "(cd \"${member}\" && ${mypyBin} .)"
+          ]) pythonWorkspaceMembers;
         in
-          lib.concatStringsSep "\n" [
-            (mkRecipe "mypy" "Run mypy per-package (avoids 'source file found twice' in monorepos)" [
-                "#!/usr/bin/env bash"
-                "set -euo pipefail"
-              ]
-              true)
-          ]
-          + memberCommands
-          + "\n"
+          mkRecipe "mypy" "Run mypy per-package (avoids 'source file found twice' in monorepos)" (
+            [
+              "#!/usr/bin/env bash"
+              "set -euo pipefail"
+            ]
+            ++ memberCommands
+          )
+          true
         else "";
     in {
       just-flake = {
