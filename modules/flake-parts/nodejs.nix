@@ -115,9 +115,11 @@ in {
         inherit pnpmDeps;
 
         dontBuild = true;
+        dontCheckForBrokenSymlinks = true;
 
         installPhase = ''
-          cp -a node_modules $out
+          mkdir -p "$out"
+          cp -a node_modules "$out/"
         '';
       };
     in {
