@@ -43,7 +43,7 @@
   # Discover Python workspace members from pyproject.toml
   discoverPythonMembers = workspaceRoot: pyprojectPath: let
     pyproject = builtins.fromTOML (builtins.readFile pyprojectPath);
-    memberGlobs = pyproject.tool.uv.workspace.members or ["."];
+    memberGlobs = lib.attrByPath ["tool" "uv" "workspace" "members"] ["."] pyproject;
 
     allMembers = lib.flatten (map (expandWorkspaceGlob workspaceRoot) memberGlobs);
 
