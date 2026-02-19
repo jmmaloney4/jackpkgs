@@ -22,6 +22,7 @@ let
     rev = "v${version}";
     hash = "sha256-3hzZVvapbbQ5aU8bpOqdmT7UU5CFHajD71Z9buPJzjw=";
   };
+
   bunDeps = bun2nix-cli.fetchBunDeps {
     bunNix = ./bun.nix;
   };
@@ -30,27 +31,71 @@ bun2nix-cli.mkDerivation {
   inherit pname version src bunDeps;
 
   nativeBuildInputs = [
-    bun
     nodejs
-    makeWrapper
     python3
     pkg-config
+    makeWrapper
   ];
 
   buildInputs = [
     vips
   ];
 
-  bunBuildFlags = [ "--cwd" "packages/web" "run" "build" ];
+  # bun2nix hook runs preBuildPhases automatically:
+  #   1. bunSetInstallCacheDirPhase — copies bunDeps cache to temp dir
+  #   2. bunNodeModulesInstallPhase — bun install --linker=isolated
+  #   3. bunLifecycleScriptsPhase  — bun install (with scripts)
+  # Then our custom buildPhase runs with node_modules/ ready.
 
   buildPhase = ''
     runHook preBuild
 
-    export HOME="$TMPDIR/home"
-    export NODE_ENV=production
+    bun run --cwd packages/web build
 
-    echo "=== Building frontend with Vite ==="
-    bun run --cwd packages/web build 2>&1
+    # Build a manifest mapping every package symlink to its bun-packages name.
+    # node_modules/<pkg> is a symlink → .bun/<pkg>@<ver>/node_modules/<pkg>
+    # For scoped: node_modules/@scope/<pkg> → ../.bun/@scope/<pkg>@<ver>/node_modules/@scope/<pkg>
+    #
+    # We extract the <pkg>@<ver> (or @scope/<pkg>@<ver>) to link against bunDeps.
+    _build_manifest() {
+      local nm="$1" manifest="$2"
+
+      # Unscoped packages
+      for entry in "$nm"/*; do
+        [ -L "$entry" ] || continue
+        local name=$(basename "$entry")
+        [[ "$name" == .* ]] && continue  # skip .bun, .cache, etc.
+        [[ "$name" == @* ]] && continue  # skip scoped (handled below)
+        local target=$(readlink "$entry")
+        # target: .bun/express@5.2.1/node_modules/express
+        if [[ "$target" =~ \.bun/([^/]+)/node_modules/ ]]; then
+          echo "$name|''${BASH_REMATCH[1]}" >> "$manifest"
+        fi
+      done
+
+      # Scoped packages (@scope/pkg)
+      for scope_dir in "$nm"/@*/; do
+        [ -d "$scope_dir" ] || continue
+        local scope=$(basename "$scope_dir")
+        for entry in "$scope_dir"*; do
+          [ -L "$entry" ] || continue
+          local pkg_name=$(basename "$entry")
+          local target=$(readlink "$entry")
+          # target: ../../.bun/@codemirror/autocomplete@6.20.0/node_modules/@codemirror/autocomplete
+          # or:     ../.bun/@codemirror/autocomplete@6.20.0/node_modules/@codemirror/autocomplete
+          if [[ "$target" =~ \.bun/([^/]+/[^/]+)/node_modules/ ]]; then
+            echo "$scope/$pkg_name|''${BASH_REMATCH[1]}" >> "$manifest"
+          fi
+        done
+      done
+    }
+
+    touch "$TMPDIR/root-manifest.txt" "$TMPDIR/web-manifest.txt"
+    _build_manifest "node_modules" "$TMPDIR/root-manifest.txt"
+    _build_manifest "packages/web/node_modules" "$TMPDIR/web-manifest.txt"
+
+    echo "Root manifest: $(wc -l < "$TMPDIR/root-manifest.txt") entries"
+    echo "Web manifest: $(wc -l < "$TMPDIR/web-manifest.txt") entries"
 
     runHook postBuild
   '';
@@ -58,33 +103,55 @@ bun2nix-cli.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    mkdir -p $out/lib/node_modules/@openchamber
-    cp -r packages/web $out/lib/node_modules/@openchamber/web
+    local dest="$out/lib/openchamber"
 
-    # Copy root node_modules (includes .bun cache) to the expected location for workspace symlinks
-    cp -r node_modules $out/lib/node_modules/
+    # Copy runtime files from packages/web
+    mkdir -p "$dest/packages/web"
+    cp -r packages/web/dist       "$dest/packages/web/dist"
+    cp -r packages/web/server     "$dest/packages/web/server"
+    cp -r packages/web/bin        "$dest/packages/web/bin"
+    cp -r packages/web/public     "$dest/packages/web/public"
+    cp    packages/web/package.json "$dest/packages/web/package.json"
 
-    # Fix symlinks in packages/web/node_modules that point to ../../node_modules/.bun
-    # After copying to $out/lib/node_modules/@openchamber/web/node_modules,
-    # the symlinks need one more level up to reach $out/lib/node_modules/.bun
-    if [ -d "$out/lib/node_modules/@openchamber/web/node_modules" ]; then
-      find "$out/lib/node_modules/@openchamber/web/node_modules" -type l -exec sh -c '
-        for link; do
-          target=$(readlink "$link")
-          if [[ "$target" == *"../../node_modules/.bun"* ]]; then
-            newtarget=$(echo "$target" | sed "s|../../node_modules/.bun|../../../node_modules/.bun|g")
-            rm "$link"
-            ln -s "$newtarget" "$link"
-          fi
-        done
-      ' _ {} +
-    fi
+    # Create node_modules from manifests by symlinking to bunDeps/share/bun-packages/
+    _link_from_manifest() {
+      local manifest="$1" dest_nm="$2"
+      mkdir -p "$dest_nm"
 
-    mkdir -p $out/bin
-    ln -s $out/lib/node_modules/@openchamber/web/bin/cli.js $out/bin/openchamber-unwrapped
-    makeWrapper $out/bin/openchamber-unwrapped $out/bin/openchamber \
-      --prefix PATH : ${lib.makeBinPath [opencode]} \
-      --set OPENCODE_BINARY ${lib.getExe opencode}
+      while IFS='|' read -r name pkgver; do
+        [ -n "$name" ] && [ -n "$pkgver" ] || continue
+
+        # Strip +wyhash suffix bun adds for peer-dep variants
+        local pkgver_clean="''${pkgver%%+*}"
+        local src_pkg="${bunDeps}/share/bun-packages/$pkgver_clean"
+
+        # For scoped packages, ensure @scope/ directory exists
+        if [[ "$name" == */* ]]; then
+          mkdir -p "$dest_nm/$(dirname "$name")"
+        fi
+
+        if [ -d "$src_pkg" ]; then
+          ln -s "$src_pkg" "$dest_nm/$name"
+        else
+          echo "WARNING: $pkgver not found in bunDeps/share/bun-packages/"
+        fi
+      done < "$manifest"
+    }
+
+    _link_from_manifest "$TMPDIR/root-manifest.txt" "$dest/node_modules"
+    _link_from_manifest "$TMPDIR/web-manifest.txt"  "$dest/packages/web/node_modules"
+
+    echo "Linked $(find "$dest/node_modules" -maxdepth 2 -type l | wc -l) root node_modules"
+    echo "Linked $(find "$dest/packages/web/node_modules" -maxdepth 2 -type l | wc -l) web node_modules"
+
+    # Wrapper script
+    mkdir -p "$out/bin"
+    makeWrapper ${bun}/bin/bun "$out/bin/openchamber" \
+      --add-flags "$dest/packages/web/bin/cli.js" \
+      --add-flags "serve" \
+      --prefix PATH : ${lib.makeBinPath [ opencode bun nodejs ]} \
+      --set OPENCODE_BINARY ${lib.getExe opencode} \
+      --set NODE_ENV production
 
     runHook postInstall
   '';
