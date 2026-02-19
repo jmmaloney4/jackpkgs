@@ -511,7 +511,7 @@ in {
             buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
             setupCommands = ''
               # Copy source to writeable directory
-              cp -R ${lib.escapeShellArg projectRoot} src
+              cp -R ${projectRoot} src
               chmod -R +w src
               cd src
               ${linkNodeModules (
@@ -570,7 +570,7 @@ in {
             buildInputs = [pkgs.nodejs];
             setupCommands = ''
               # Copy source to writeable directory
-              cp -R ${lib.escapeShellArg projectRoot} src
+              cp -R ${projectRoot} src
               chmod -R +w src
               cd src
               ${linkNodeModules vitestNodeModules vitestPackages}
