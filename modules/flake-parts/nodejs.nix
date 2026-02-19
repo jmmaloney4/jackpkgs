@@ -114,6 +114,8 @@ in {
 
         inherit pnpmDeps;
 
+        CI = true;
+
         dontBuild = true;
         dontCheckForBrokenSymlinks = true;
 
