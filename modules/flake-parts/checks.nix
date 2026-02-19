@@ -206,9 +206,11 @@ in {
       # ============================================================
       # Parse pnpm-workspace.yaml to JSON
       # Checks for .json sibling first (for tests without IFD), falls back to IFD via yq-go
+      # Supports either .yaml or .yml workspace filenames
       # Can be overridden via jackpkgsFromYAML module arg for testing
       defaultFromYAML = yamlFile: let
-        jsonFile = builtins.substring 0 (builtins.stringLength yamlFile - 5) yamlFile + ".json";
+        yamlFileStr = toString yamlFile;
+        jsonFile = lib.removeSuffix ".yaml" (lib.removeSuffix ".yml" yamlFileStr) + ".json";
         jsonExists = builtins.pathExists jsonFile;
       in
         if jsonExists
@@ -230,8 +232,15 @@ in {
 
       # Discover packages from pnpm-workspace.yaml
       discoverPnpmPackages = workspaceRoot: let
-        yamlPath = workspaceRoot + "/pnpm-workspace.yaml";
-        yamlExists = builtins.pathExists yamlPath;
+        yamlPathYaml = workspaceRoot + "/pnpm-workspace.yaml";
+        yamlPathYml = workspaceRoot + "/pnpm-workspace.yml";
+        yamlPath =
+          if builtins.pathExists yamlPathYaml
+          then yamlPathYaml
+          else if builtins.pathExists yamlPathYml
+          then yamlPathYml
+          else null;
+        yamlExists = yamlPath != null;
         workspaceYaml =
           if yamlExists
           then fromYAML yamlPath
@@ -244,8 +253,7 @@ in {
         negationPatterns = lib.filter (p: lib.hasPrefix "!" p) workspaceGlobs;
         validatedWorkspaceGlobs =
           if negationPatterns != []
-          then
-            throw "Negation workspace patterns are not supported in jackpkgs.checks auto-discovery yet: ${lib.concatStringsSep ", " negationPatterns}. Use explicit jackpkgs.checks.typescript.tsc.packages / jackpkgs.checks.vitest.packages or track support in issue #157."
+          then throw "Negation workspace patterns are not supported in jackpkgs.checks auto-discovery yet: ${lib.concatStringsSep ", " negationPatterns}. Use explicit jackpkgs.checks.typescript.tsc.packages / jackpkgs.checks.vitest.packages or track support in issue #157."
           else workspaceGlobs;
         allPackages = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) validatedWorkspaceGlobs);
         hasPackageJson = pkg:

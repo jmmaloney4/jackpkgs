@@ -10,6 +10,7 @@
   pythonWorkspace = ./fixtures/checks/python-workspace;
   pythonWorkspaceDefault = ./fixtures/checks/python-workspace-default;
   pnpmWorkspace = ./fixtures/checks/pnpm-workspace;
+  pnpmWorkspaceYml = ./fixtures/checks/pnpm-workspace-yml;
   noWorkspaceFixture = ./fixtures/checks/no-workspace;
 
   # pyprojectPath is a string relative path, not a path object
@@ -490,6 +491,19 @@ in {
   in {
     expr = result.success;
     expected = false;
+  };
+
+  testTypescriptDiscoversPackagesFromYmlJsonSibling = let
+    checks = mkChecksNoMock {
+      configModule = mkConfigModule {
+        pulumiEnable = true;
+      };
+      projectRoot = pnpmWorkspaceYml;
+    };
+    script = getBuildCommand checks.typescript-tsc;
+  in {
+    expr = hasInfixAll ["Type-checking packages/app" "Type-checking packages/lib"] script;
+    expected = true;
   };
 
   testTypescriptGuardMessage = let
