@@ -1,6 +1,6 @@
 ---
 id: ADR-023
-title: "Return To Pnpm"
+title: Return To Pnpm
 status: proposed
 date: 2026-02-18
 ---
@@ -107,13 +107,13 @@ zeus/
 
 ### Key Patterns
 
-| Pattern | Zeus Example | Nix Implementation |
-|---------|--------------|-------------------|
-| **Root workspace config** | `pnpm-workspace.yaml` with `packages: ['atlas', 'deploy/*']` | Parsed via `fromYAML` helper |
-| **Workspace protocol** | `"dependencies": { "@cavinsresearch/atlas": "workspace:*" }` | Native to pnpm; `fetchPnpmDeps` handles |
-| **Shared library** | `atlas/` publishes `main: dist/index.js` + `types: dist/index.d.ts` | Built explicitly in checks (do not rely on lifecycle scripts) |
-| **Multiple stacks** | `deploy/*` each consuming atlas | Each typechecks against linked `node_modules` |
-| **External registry** | `@jmmaloney4/toolbox` via `.npmrc` | Respected by `fetchPnpmDeps` |
+| Pattern                   | Zeus Example                                                        | Nix Implementation                                            |
+| ------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **Root workspace config** | `pnpm-workspace.yaml` with `packages: ['atlas', 'deploy/*']`        | Parsed via `fromYAML` helper                                  |
+| **Workspace protocol**    | `"dependencies": { "@cavinsresearch/atlas": "workspace:*" }`        | Native to pnpm; `fetchPnpmDeps` handles                       |
+| **Shared library**        | `atlas/` publishes `main: dist/index.js` + `types: dist/index.d.ts` | Built explicitly in checks (do not rely on lifecycle scripts) |
+| **Multiple stacks**       | `deploy/*` each consuming atlas                                     | Each typechecks against linked `node_modules`                 |
+| **External registry**     | `@jmmaloney4/toolbox` via `.npmrc`                                  | Respected by `fetchPnpmDeps`                                  |
 
 ### Build Order Dependency
 
@@ -171,14 +171,14 @@ TypeScript's `extends` mechanism finds `node_modules/typescript` without issue; 
 
 ### Compatibility Checklist
 
-| Requirement | Implementation | Status |
-|-------------|----------------|--------|
-| Parse `pnpm-workspace.yaml` | `fromYAML` helper using `yq-go` | ✓ Planned |
-| Workspace globs expansion | Reuse `expandWorkspaceGlob` | ✓ Existing |
-| Shared lib build order | Explicit pre-typecheck bootstrap build step | ✓ Planned |
-| Multiple stack support | Checks iterate all packages | ✓ Existing |
-| `workspace:*` resolution | Native pnpm support | ✓ Native |
-| External registry deps | Respects `.npmrc` | ✓ Native |
+| Requirement                 | Implementation                              | Status     |
+| --------------------------- | ------------------------------------------- | ---------- |
+| Parse `pnpm-workspace.yaml` | `fromYAML` helper using `yq-go`             | ✓ Planned  |
+| Workspace globs expansion   | Reuse `expandWorkspaceGlob`                 | ✓ Existing |
+| Shared lib build order      | Explicit pre-typecheck bootstrap build step | ✓ Planned  |
+| Multiple stack support      | Checks iterate all packages                 | ✓ Existing |
+| `workspace:*` resolution    | Native pnpm support                         | ✓ Native   |
+| External registry deps      | Respects `.npmrc`                           | ✓ Native   |
 
 ### Implementation Notes
 
@@ -212,27 +212,32 @@ There are three layers that must agree:
 ### Common patterns
 
 1. **Classic CommonJS (`moduleResolution: node`, `module: CommonJS`)**
+
    - Node uses `require()` semantics.
    - TypeScript uses classic `node_modules` lookup rules.
    - Pulumi works well here because program execution is fundamentally Node-based.
 
 2. **Modern ESM (`type: module`, `exports`, `moduleResolution: node16|nodenext`)**
+
    - Node uses ESM semantics (`package.json` `type`, file extensions, and `exports`).
    - TypeScript `node16`/`nodenext` makes TS follow Node's ESM rules more closely.
    - Pulumi can support this, but ESM/CJS mixing tends to be where breakage happens.
 
 3. **Workspace libraries published via build artifacts (`main`/`types` -> `dist/*`)**
+
    - A shared workspace package declares `main: dist/index.js` and `types: dist/index.d.ts`.
    - Dependent packages (like Pulumi stacks) import the package name and expect `dist/*` to exist.
    - This is the zeus pattern: `@cavinsresearch/atlas` is imported by stacks, so `atlas/dist` must
      exist for both typechecking (types) and runtime (JS).
 
 4. **Typechecking against source via `compilerOptions.paths`**
+
    - Can avoid a build-order dependency for TypeScript typechecking.
    - Node (and Pulumi at runtime) does not honor TS `paths` without extra runtime loaders.
    - This is usually not the best fit for Pulumi stacks unless you commit to a loader/bundler.
 
 5. **TypeScript project references (`tsc -b`)**
+
    - Declares an explicit build graph and builds in dependency order.
    - Works well when workspace packages must emit `.d.ts` before dependents can typecheck.
 
@@ -265,7 +270,7 @@ For Pulumi TypeScript monorepos like zeus:
 - Optionally add a devshell hook which builds `atlas` only when `atlas/dist/index.d.ts` is missing,
   but keep CI correctness in `flake check` (shell hooks do not run during `flake check`).
 
----
+______________________________________________________________________
 
 Author: jackpkgs maintainers
 Date: 2026-01-31

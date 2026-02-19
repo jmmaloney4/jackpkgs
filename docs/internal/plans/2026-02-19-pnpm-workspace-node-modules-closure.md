@@ -35,10 +35,12 @@ This is reproducible with our own fixtures: workspace links resolve in source tr
 Implementation: set `dontCheckForBrokenSymlinks = true` on `nodeModules` derivation.
 
 Pros:
+
 - Very small change.
 - Immediate unblock.
 
 Cons:
+
 - Weakens guarantees.
 - Can hide real breakage and make downstream failures harder to diagnose.
 
@@ -47,11 +49,13 @@ Cons:
 Implementation: keep strict checks; when a `node_modules` symlink resolves to a local workspace path, copy that path into `$out` so the existing symlink resolves.
 
 Pros:
+
 - Keeps strong guarantees.
 - Fixes root cause instead of suppressing symptom.
 - Works with existing pnpm link topology.
 
 Cons:
+
 - Slightly larger output size.
 - More implementation complexity.
 
@@ -60,10 +64,12 @@ Cons:
 Implementation: expose mode option so users can pick strict or escape-hatch behavior.
 
 Pros:
+
 - Backward compatibility and operational flexibility.
 - Lets strict mode be default without blocking edge cases.
 
 Cons:
+
 - Adds API surface area.
 
 ## Recommendation

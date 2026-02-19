@@ -156,30 +156,30 @@
           };
         in
           pkgs.stdenv.mkDerivation ({
-            pname = "integration-${name}";
-            version = "1.0.0";
-            src = cleanSrc;
-            pnpmDeps = pkgs.fetchPnpmDeps {
-              pname = "integration-${name}-deps";
+              pname = "integration-${name}";
               version = "1.0.0";
               src = cleanSrc;
-              hash = depsHash;
-              fetcherVersion = 3;
-            };
-            nativeBuildInputs = [
-              pkgs.nodejs
-              pkgs.pnpm_10
-              pkgs.pnpmConfigHook
-            ];
-            dontBuild = true;
-            installPhase = ''
-              runHook preInstall
-              ${checkCommand}
-              mkdir -p "$out"
-              runHook postInstall
-            '';
-          }
-          // extraAttrs);
+              pnpmDeps = pkgs.fetchPnpmDeps {
+                pname = "integration-${name}-deps";
+                version = "1.0.0";
+                src = cleanSrc;
+                hash = depsHash;
+                fetcherVersion = 3;
+              };
+              nativeBuildInputs = [
+                pkgs.nodejs
+                pkgs.pnpm_10
+                pkgs.pnpmConfigHook
+              ];
+              dontBuild = true;
+              installPhase = ''
+                runHook preInstall
+                ${checkCommand}
+                mkdir -p "$out"
+                runHook postInstall
+              '';
+            }
+            // extraAttrs);
       in {
         # Make jackLib and platformFilteredPackages available for devShell
         _module.args.jackpkgs =
