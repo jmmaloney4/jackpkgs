@@ -31,6 +31,7 @@ bun2nix-cli.mkDerivation {
   inherit pname version src bunDeps;
 
   nativeBuildInputs = [
+    bun
     nodejs
     python3
     pkg-config
@@ -133,7 +134,9 @@ bun2nix-cli.mkDerivation {
         if [ -d "$src_pkg" ]; then
           ln -s "$src_pkg" "$dest_nm/$name"
         else
-          echo "WARNING: $pkgver not found in bunDeps/share/bun-packages/"
+          echo "ERROR: $pkgver not found in bunDeps/share/bun-packages/"
+          echo "This usually means bun.nix is out of sync with the lockfile."
+          exit 1
         fi
       done < "$manifest"
     }
@@ -148,7 +151,6 @@ bun2nix-cli.mkDerivation {
     mkdir -p "$out/bin"
     makeWrapper ${bun}/bin/bun "$out/bin/openchamber" \
       --add-flags "$dest/packages/web/bin/cli.js" \
-      --add-flags "serve" \
       --prefix PATH : ${lib.makeBinPath [ opencode bun nodejs ]} \
       --set OPENCODE_BINARY ${lib.getExe opencode} \
       --set NODE_ENV production
@@ -160,7 +162,7 @@ bun2nix-cli.mkDerivation {
     description = "Web and desktop interface for OpenCode AI agent";
     homepage = "https://github.com/btriapitsyn/openchamber";
     license = licenses.mit;
-    maintainers = [ ];
+    maintainers = [ { github = "jmmaloney4"; name = "Jack Maloney"; email = "jmmaloney4@gmail.com"; } ];
     platforms = platforms.linux ++ platforms.darwin;
     mainProgram = "openchamber";
   };
