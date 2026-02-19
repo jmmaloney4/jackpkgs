@@ -97,6 +97,7 @@ in {
         pname = "pnpm-deps";
         version = "1.0.0";
         src = cfg.projectRoot;
+        fetcherVersion = 3;
         hash = cfg.pnpmDepsHash;
       };
 

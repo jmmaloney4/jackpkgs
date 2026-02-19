@@ -163,7 +163,7 @@
               version = "1.0.0";
               src = cleanSrc;
               hash = depsHash;
-              fetcherVersion = 1;
+              fetcherVersion = 3;
             };
             nativeBuildInputs = [
               pkgs.nodejs
@@ -264,7 +264,7 @@
             pnpm-workspace-basic-postinstall = mkPnpmFixtureCheck {
               name = "workspace-basic";
               src = fixtureWorkspaceBasic;
-              depsHash = "sha256-JCWHQK7h0DmIOe3KKgQ+aI9P0CplVWP8xyJpFNGfdbQ=";
+              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
               checkCommand = ''
                 test -d node_modules
                 pnpm run postinstall
@@ -286,7 +286,7 @@
             pnpm-tsc-check = mkPnpmFixtureCheck {
               name = "tsc-check";
               src = fixtureTscCheck;
-              depsHash = "sha256-JCWHQK7h0DmIOe3KKgQ+aI9P0CplVWP8xyJpFNGfdbQ=";
+              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
               checkCommand = ''
                 test -d node_modules
                 node_modules/.bin/tsc --noEmit --lib ES2020,DOM packages/app/index.ts
@@ -296,7 +296,7 @@
             pnpm-vitest-check = mkPnpmFixtureCheck {
               name = "vitest-check";
               src = fixtureVitestCheck;
-              depsHash = "sha256-DC2poaAdRpJ9y9t65vvelzj3ncjcfwEJXDCZx0v6BSM=";
+              depsHash = "sha256-+Yuu23jx65TFnR5F71dDWU8SjFypZpaFdu+GGLe9qQ8=";
               checkCommand = ''
                 test -d node_modules
                 node_modules/.bin/vitest run --root packages/lib
