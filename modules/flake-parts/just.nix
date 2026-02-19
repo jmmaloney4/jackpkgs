@@ -194,7 +194,7 @@ in {
                   "    echo \"Token:    EXPIRED — run 'just auth'\""
                   "fi"
                 ]
-                true;
+                false;
             in
               lib.concatStringsSep "\n" (
                 [authRecipe]
