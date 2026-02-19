@@ -45,6 +45,18 @@ in {
             gcloud auth application-default set-quota-project <quotaProject>
         '';
       };
+
+      profile = mkOption {
+        type = types.nullOr types.str;
+        default = cfg.gcp.iamOrg;
+        defaultText = "config.jackpkgs.gcp.iamOrg";
+        description = ''
+          Name of the gcloud profile directory under ~/.config/gcloud-profiles/.
+          When set, CLOUDSDK_CONFIG is exported in the devshell to isolate gcloud
+          credentials, ADC, and configuration per-project.
+          Defaults to the value of jackpkgs.gcp.iamOrg when that option is set.
+        '';
+      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -199,16 +211,36 @@ in {
                   else authCommands
                 )
                 true; # echoCommands = true to inject "set -x" for bash recipes
+
+              # auth-status recipe - shows current GCP authentication status
+              # Available when profile isolation is enabled
+              authStatusRecipe =
+                mkRecipe "auth-status" "Show current GCP authentication status"
+                [
+                  "#!/usr/bin/env bash"
+                  "echo \"Profile:  \${CLOUDSDK_CONFIG:-~/.config/gcloud (default)}\""
+                  "echo \"Account:  $(gcloud config get-value account 2>/dev/null || echo 'not set')\""
+                  "echo \"Project:  $(gcloud config get-value project 2>/dev/null || echo 'not set')\""
+                  "if gcloud auth print-access-token --quiet >/dev/null 2>&1; then"
+                  "    echo \"Token:    valid\""
+                  "else"
+                  "    echo \"Token:    EXPIRED — run 'just auth'\""
+                  "fi"
+                ]
+                true;
             in
-              lib.concatStringsSep "\n" [
-                authRecipe
-                # new-stack recipe
-                "# Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)"
-                "new-stack project_path stack_name:"
-                "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} login \"${cfg.pulumi.backendUrl}\""
-                "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} stack init {{stack_name}} --secrets-provider \"${cfg.pulumi.secretsProvider}\""
-                "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} stack select {{stack_name}}"
-              ];
+              lib.concatStringsSep "\n" (
+                [authRecipe]
+                ++ lib.optional (cfg.gcp.profile != null) authStatusRecipe
+                ++ [
+                  # new-stack recipe
+                  "# Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)"
+                  "new-stack project_path stack_name:"
+                  "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} login \"${cfg.pulumi.backendUrl}\""
+                  "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} stack init {{stack_name}} --secrets-provider \"${cfg.pulumi.secretsProvider}\""
+                  "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} stack select {{stack_name}}"
+                ]
+              );
           };
           python = {
             enable = true;

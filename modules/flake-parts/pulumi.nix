@@ -6,6 +6,7 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.pulumi;
+  gcpCfg = config.jackpkgs.gcp;
 in {
   imports = [
   ];
@@ -79,14 +80,21 @@ in {
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
             nodePackages.typescript
           ];
-          env = {
-            # Disable discovering additional plugins by examining $PATH.
-            # Pulumi will download the relevant plugin versions instead.
-            PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-            # Export configured backend and secrets provider
-            PULUMI_BACKEND_URL = cfg.backendUrl;
-            PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
-          };
+          env =
+            {
+              # Disable discovering additional plugins by examining $PATH.
+              # Pulumi will download the relevant plugin versions instead.
+              PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+              # Export configured backend and secrets provider
+              PULUMI_BACKEND_URL = cfg.backendUrl;
+              PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
+            }
+            // lib.optionalAttrs (gcpCfg.profile != null) {
+              CLOUDSDK_CONFIG = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}";
+            };
+          shellHook = lib.optionalString (gcpCfg.profile != null) ''
+            mkdir -p "$CLOUDSDK_CONFIG"
+          '';
         };
 
         # CI devshell with minimal dependencies for running Pulumi in CI

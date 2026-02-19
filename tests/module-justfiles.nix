@@ -121,4 +121,19 @@ in {
     auth:
         ${mockGetExe null} auth login --update-adc
   '';
+
+  # Test auth-status recipe pattern with CLOUDSDK_CONFIG variable
+  testAuthStatus = mkJustParseTest "auth-status" ''
+    # Show current GCP authentication status
+    auth-status:
+        #!/usr/bin/env bash
+        echo "Profile:  ''${CLOUDSDK_CONFIG:-~/.config/gcloud (default)}"
+        echo "Account:  $(gcloud config get-value account 2>/dev/null || echo 'not set')"
+        echo "Project:  $(gcloud config get-value project 2>/dev/null || echo 'not set')"
+        if gcloud auth print-access-token --quiet >/dev/null 2>&1; then
+            echo "Token:    valid"
+        else
+            echo "Token:    EXPIRED — run 'just auth'"
+        fi
+  '';
 }
