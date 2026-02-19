@@ -94,7 +94,7 @@ in {
       pnpmPackage = pkgs.${"pnpm_" + cfg.pnpmVersion};
 
       pnpmDeps = pkgs.fetchPnpmDeps {
-        pname = "pnpm-deps";
+        pname = "pnpm";
         version = "1.0.0";
         src = cfg.projectRoot;
         fetcherVersion = 3;
