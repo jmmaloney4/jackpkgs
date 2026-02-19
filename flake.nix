@@ -148,13 +148,14 @@
           src,
           depsHash,
           checkCommand,
+          extraAttrs ? {},
         }: let
           cleanSrc = lib.cleanSourceWith {
             inherit src;
             filter = path: _type: builtins.baseNameOf path != "node_modules";
           };
         in
-          pkgs.stdenv.mkDerivation {
+          pkgs.stdenv.mkDerivation ({
             pname = "integration-${name}";
             version = "1.0.0";
             src = cleanSrc;
@@ -177,7 +178,8 @@
               mkdir -p "$out"
               runHook postInstall
             '';
-          };
+          }
+          // extraAttrs);
       in {
         # Make jackLib and platformFilteredPackages available for devShell
         _module.args.jackpkgs =
@@ -301,6 +303,22 @@
                 test -d node_modules
                 node_modules/.bin/vitest run --root packages/lib
               '';
+            };
+
+            pnpm-node-modules-output-layout = mkPnpmFixtureCheck {
+              name = "node-modules-output-layout";
+              src = fixtureWorkspaceBasic;
+              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
+              checkCommand = ''
+                mkdir -p "$out"
+                cp -a node_modules "$out/"
+                test -d "$out/node_modules"
+                test -L "$out/node_modules/.pnpm/node_modules/@test/lib"
+                test ! -e "$out/node_modules/.pnpm/node_modules/@test/lib"
+              '';
+              extraAttrs = {
+                dontCheckForBrokenSymlinks = true;
+              };
             };
           };
       };
