@@ -64,6 +64,13 @@ ______________________________________________________________________
 Notes:
 
 - `roon-server` is packaged for `x86_64-linux` only.
+- `roon-server` is unfree; enable unfree in your `nixpkgs` config when consuming it:
+
+```nix
+{
+  nixpkgs.config.allowUnfree = true;
+}
+```
 
 ______________________________________________________________________
 
@@ -436,7 +443,7 @@ ______________________________________________________________________
 - `docfx` — .NET docs generator
 - `epub2tts` — EPUB → TTS
 - `lean` — Lean theorem prover
-- `roon-server` — Roon server (x86_64-linux only)
+- `roon-server` — Roon server (x86_64-linux only, unfree)
 - `tod` — Todoist CLI
 
 Build from CLI (examples):

@@ -138,7 +138,6 @@
             _: v:
               lib.isDerivation v
               && !(v.meta.broken or false)
-              && (v.meta.license.free or true)
           )
           platformFilteredPackages;
 
