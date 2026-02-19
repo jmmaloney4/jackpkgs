@@ -192,10 +192,16 @@ in {
     }: let
       sysCfg = config.jackpkgs.just; # per-system config scope
       sysCfgQuarto = config.jackpkgs.quarto;
+      pythonWorkspaceConfigReady =
+        (pythonCfg.enable or false)
+        && pythonCfg ? workspaceRoot
+        && pythonCfg ? pyprojectPath
+        && pythonCfg.workspaceRoot != null
+        && pythonCfg.pyprojectPath != null;
 
       # Discover Python workspace members if Python module is enabled
       pythonWorkspaceMembers =
-        if pythonCfg.enable or false && pythonCfg ? workspaceRoot && pythonCfg ? pyprojectPath && pythonCfg.workspaceRoot != null && pythonCfg.pyprojectPath != null
+        if pythonWorkspaceConfigReady
         then let
           # Validate and resolve pyprojectPath (string like "./pyproject.toml")
           validatedPath = validateWorkspacePath pythonCfg.pyprojectPath;
