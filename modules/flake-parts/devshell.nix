@@ -53,6 +53,7 @@ in {
       ...
     }: let
       sysCfg = config.jackpkgs.shell;
+      gcpProfile = lib.attrByPath ["jackpkgs" "gcp" "profile"] null config;
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell {
         inputsFrom =
@@ -64,6 +65,10 @@ in {
           ]
           ++ sysCfg.inputsFrom;
         packages = sysCfg.packages;
+        shellHook = lib.optionalString (gcpProfile != null) ''
+          export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/${gcpProfile}"
+          mkdir -p "$CLOUDSDK_CONFIG"
+        '';
       };
     };
   };

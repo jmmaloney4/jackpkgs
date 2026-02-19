@@ -13,6 +13,7 @@
 in {
   imports = [
     jackpkgsInputs.just-flake.flakeModule
+    (import ./gcp.nix {inherit jackpkgsInputs;})
   ];
 
   options = let
@@ -21,42 +22,6 @@ in {
   in {
     jackpkgs.just = {
       enable = mkEnableOption "jackpkgs-just-flake" // {default = true;};
-    };
-
-    jackpkgs.gcp = {
-      iamOrg = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        example = "example.com";
-        description = ''
-          GCP IAM organization domain for constructing user accounts.
-          When set, the auth recipe will use --account=$GCP_ACCOUNT_USER@$IAM_ORG
-          where GCP_ACCOUNT_USER defaults to the current Unix username ($USER).
-        '';
-      };
-
-      quotaProject = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        example = "my-project-123";
-        description = ''
-          GCP project ID to use for Application Default Credentials quota/billing.
-          When set, the auth recipe will call:
-            gcloud auth application-default set-quota-project <quotaProject>
-        '';
-      };
-
-      profile = mkOption {
-        type = types.nullOr types.str;
-        default = cfg.gcp.iamOrg;
-        defaultText = "config.jackpkgs.gcp.iamOrg";
-        description = ''
-          Name of the gcloud profile directory under ~/.config/gcloud-profiles/.
-          When set, CLOUDSDK_CONFIG is exported in the devshell to isolate gcloud
-          credentials, ADC, and configuration per-project.
-          Defaults to the value of jackpkgs.gcp.iamOrg when that option is set.
-        '';
-      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -183,6 +148,8 @@ in {
           infra = {
             enable = cfg.pulumi.enable; # && cfg.pulumi.backendUrl != null && cfg.pulumi.secretsProvider != null;
             justfile = let
+              gcloudExe = lib.getExe sysCfg.googleCloudSdkPackage;
+
               # Construct auth recipe commands based on configuration
               authCommands =
                 (optionalLines (cfg.gcp.iamOrg != null) [
@@ -219,9 +186,9 @@ in {
                 [
                   "#!/usr/bin/env bash"
                   "echo \"Profile:  \${CLOUDSDK_CONFIG:-~/.config/gcloud (default)}\""
-                  "echo \"Account:  $(gcloud config get-value account 2>/dev/null || echo 'not set')\""
-                  "echo \"Project:  $(gcloud config get-value project 2>/dev/null || echo 'not set')\""
-                  "if gcloud auth print-access-token --quiet >/dev/null 2>&1; then"
+                  "echo \"Account:  $(${gcloudExe} config get-value account 2>/dev/null || echo 'not set')\""
+                  "echo \"Project:  $(${gcloudExe} config get-value project 2>/dev/null || echo 'not set')\""
+                  "if ${gcloudExe} auth print-access-token --quiet >/dev/null 2>&1; then"
                   "    echo \"Token:    valid\""
                   "else"
                   "    echo \"Token:    EXPIRED — run 'just auth'\""
