@@ -70,9 +70,11 @@ authStatusRecipe =
 
 ---
 
-### 3. Add `CLOUDSDK_CONFIG` environment variable to `modules/flake-parts/pulumi.nix`
+### 3. Add `CLOUDSDK_CONFIG` environment variable to `modules/flake-parts/devshell.nix`
 
-**Location**: Lines 82-90 (the `env` attribute in `pulumiDevShell`)
+**Status**: Implemented in `devshell.nix` (supersedes original `pulumi.nix` plan)
+
+**Location**: `modules/flake-parts/devshell.nix` `shellHook` for `jackpkgs.devshell.infra`
 
 **Current code**:
 ```nix
@@ -105,9 +107,11 @@ in
 
 ---
 
-### 4. Add `shellHook` to `modules/flake-parts/pulumi.nix`
+### 4. Ensure profile directory creation in `modules/flake-parts/devshell.nix`
 
-**Location**: Add after `env` attribute in `pulumiDevShell` (around line 90)
+**Status**: Implemented in `devshell.nix` (supersedes original `pulumi.nix` plan)
+
+**Location**: `modules/flake-parts/devshell.nix` infra `shellHook`
 
 **Add**:
 ```nix
