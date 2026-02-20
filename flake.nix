@@ -140,6 +140,7 @@
         fixtureWorkspaceGlob = integrationFixturesRoot + "/pnpm-workspace-glob";
         fixtureTscCheck = integrationFixturesRoot + "/pnpm-tsc-check";
         fixtureVitestCheck = integrationFixturesRoot + "/pnpm-vitest-check";
+        fixtureNonhoistedDep = integrationFixturesRoot + "/pnpm-workspace-nonhoisted-dep";
 
         mkPnpmFixtureCheck = {
           name,
@@ -147,6 +148,7 @@
           depsHash,
           checkCommand,
           extraAttrs ? {},
+          pnpmDepsArgs ? {},
         }: let
           cleanSrc = lib.cleanSourceWith {
             inherit src;
@@ -157,13 +159,13 @@
               pname = "integration-${name}";
               version = "1.0.0";
               src = cleanSrc;
-              pnpmDeps = pkgs.fetchPnpmDeps {
+              pnpmDeps = pkgs.fetchPnpmDeps ({
                 pname = "integration-${name}-deps";
                 version = "1.0.0";
                 src = cleanSrc;
                 hash = depsHash;
                 fetcherVersion = 3;
-              };
+              } // pnpmDepsArgs);
               nativeBuildInputs = [
                 pkgs.nodejs
                 pkgs.pnpm_10
@@ -316,6 +318,49 @@
               '';
               extraAttrs = {
                 dontCheckForBrokenSymlinks = true;
+              };
+            };
+
+            pnpm-nonhoisted-runtime = mkPnpmFixtureCheck {
+              name = "nonhoisted-runtime";
+              src = fixtureNonhoistedDep;
+              depsHash = "sha256-Pyw+kyJeLDLPK9pkYvuT2/V7yg5kawHzMwY8B4thNEk=";
+              checkCommand = ''
+                test -d node_modules
+                node packages/app/index.js | grep -qx "pass"
+              '';
+              pnpmDepsArgs = {
+                prePnpmInstall = ''
+                  touch "$storePath/fetcher-sentinel-exec"
+                '';
+              };
+            };
+
+            pnpm-nonhoisted-output-layout = mkPnpmFixtureCheck {
+              name = "nonhoisted-output-layout";
+              src = fixtureNonhoistedDep;
+              depsHash = "sha256-Pyw+kyJeLDLPK9pkYvuT2/V7yg5kawHzMwY8B4thNEk=";
+              checkCommand = ''
+                mkdir -p "$out"
+                cp -a node_modules "$out/"
+                find . -mindepth 2 -name 'node_modules' -type d \
+                  -not -path './node_modules/*' | while read -r dir; do
+                  mkdir -p "$out/$(dirname "$dir")"
+                  cp -a "$dir" "$out/$dir"
+                done
+
+                test -d "$out/node_modules"
+                test ! -e "$out/node_modules/is-odd"
+                test -L "$out/packages/app/node_modules/is-odd"
+                test -z "$(find "$out/node_modules/.pnpm" -path '*/node_modules/node_modules' -print -quit)"
+              '';
+              extraAttrs = {
+                dontCheckForBrokenSymlinks = true;
+              };
+              pnpmDepsArgs = {
+                prePnpmInstall = ''
+                  touch "$storePath/fetcher-sentinel-exec"
+                '';
               };
             };
           };
