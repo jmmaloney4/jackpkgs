@@ -8,7 +8,7 @@
 
 The OpenChamber Nix package runs but serves no web UI because the frontend build step (`vite build`) is never executed. This document covers the investigation into both the slow `fixupPhase` and the missing frontend build.
 
----
+______________________________________________________________________
 
 ## Part 1: Slow fixupPhase (17+ minutes)
 
@@ -35,7 +35,7 @@ Native dependencies like `node-pty`, `sharp`/`vips` add additional overhead.
 2. Disable parts of fixup (`dontStrip`, `dontFixup`) if runtime permits
 3. Use a leaner dependency tree
 
----
+______________________________________________________________________
 
 ## Part 2: Module Resolution Bug (Fixed)
 
@@ -77,7 +77,7 @@ fi
 fix(openchamber): add symlinks for .bun deps to fix module resolution
 ```
 
----
+______________________________________________________________________
 
 ## Part 3: Missing Frontend Build (Current Issue)
 
@@ -118,11 +118,11 @@ cp -rL node_modules/. $out/lib/node_modules/
 
 Located in `packages/web/`:
 
-| File | Purpose |
-|------|---------|
-| `vite.config.ts` | Main build config, output to `dist/` |
-| `tsconfig.json` | TypeScript config (noEmit, type-check only) |
-| `index.html` | Vite HTML entry point |
+| File             | Purpose                                     |
+| ---------------- | ------------------------------------------- |
+| `vite.config.ts` | Main build config, output to `dist/`        |
+| `tsconfig.json`  | TypeScript config (noEmit, type-check only) |
+| `index.html`     | Vite HTML entry point                       |
 
 ### Server Static File Resolution
 
@@ -165,11 +165,11 @@ import { themeStoragePlugin } from '../../vite-theme-plugin';
 
 **Required paths (relative to `packages/web`):**
 
-| Path | Purpose |
-|------|---------|
-| `../../node_modules/` | Root workspace deps, esp. `@opencode-ai/sdk` |
-| `../ui/src/` | `@openchamber/ui` package (compiled inline by Vite) |
-| `../../vite-theme-plugin.ts` | Vite plugin (no-op stub, must be resolvable) |
+| Path                         | Purpose                                             |
+| ---------------------------- | --------------------------------------------------- |
+| `../../node_modules/`        | Root workspace deps, esp. `@opencode-ai/sdk`        |
+| `../ui/src/`                 | `@openchamber/ui` package (compiled inline by Vite) |
+| `../../vite-theme-plugin.ts` | Vite plugin (no-op stub, must be resolvable)        |
 
 **Important**: `packages/ui` has no build output (`tsc --noEmit` only). Vite compiles its `.tsx` sources directly.
 
@@ -202,7 +202,7 @@ dist/
 └── site.webmanifest     # PWA manifest
 ```
 
----
+______________________________________________________________________
 
 ## Part 4: Proposed Fix
 
@@ -247,13 +247,13 @@ Once `dist/` exists from the build, it will be included automatically.
 
 ### Environment Variables
 
-| Variable | Phase | Notes |
-|----------|-------|-------|
-| `NODE_ENV=production` | Build | Recommended for Vite |
-| `HOME` | Build | Required for tooling |
+| Variable               | Phase   | Notes                                            |
+| ---------------------- | ------- | ------------------------------------------------ |
+| `NODE_ENV=production`  | Build   | Recommended for Vite                             |
+| `HOME`                 | Build   | Required for tooling                             |
 | `OPENCHAMBER_DIST_DIR` | Runtime | Optional override; defaults to `<web-root>/dist` |
 
----
+______________________________________________________________________
 
 ## Remaining Work
 
@@ -262,7 +262,7 @@ Once `dist/` exists from the build, it will be included automatically.
 3. Test the full web UI at `localhost:3000`
 4. Consider build-time optimizations to reduce `fixupPhase` duration
 
----
+______________________________________________________________________
 
 ## References
 

@@ -80,4 +80,3 @@ The package MUST fetch source from GitHub (includes `bun.lockb`) and use a fixed
 
 - https://github.com/btriapitsyn/openchamber
 - ADR-020 (migrate-to-buildnpmpackage) - similar JS packaging concerns
-

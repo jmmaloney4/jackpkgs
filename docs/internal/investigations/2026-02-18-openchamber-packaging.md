@@ -1,8 +1,8 @@
 # Investigation: Packaging OpenChamber (Bun/NPM) for Nix
 
-**Date**: 2026-02-18  
-**Package**: `openchamber` (v1.7.1)  
-**Source**: https://github.com/btriapitsyn/openchamber  
+**Date**: 2026-02-18\
+**Package**: `openchamber` (v1.7.1)\
+**Source**: https://github.com/btriapitsyn/openchamber\
 **NPM Package**: `@openchamber/web`
 
 ## Summary
@@ -14,6 +14,7 @@ Successfully packaged OpenChamber CLI using a fixed-output derivation approach w
 OpenChamber is a web/desktop UI for the OpenCode AI agent. It's published as `@openchamber/web` on npm and uses Bun as its package manager with a monorepo structure.
 
 ### Key Characteristics
+
 - **Package Manager**: Bun (uses `bun.lockb` binary lockfile)
 - **Structure**: Monorepo with `packages/web` containing the CLI
 - **Native Dependencies**: `node-pty`, `bun-pty`, `ghostty-web`, `sharp` (vips)
@@ -33,6 +34,7 @@ src = fetchurl {
 ```
 
 **Problem**: The npm tarball does not include `package-lock.json` or `bun.lockb`. Without a lockfile, `npm install` must resolve all dependencies from scratch, which is:
+
 - Slow (resolving hundreds of packages)
 - Non-deterministic (resolution may vary between runs)
 - Unreliable in sandboxed environments
@@ -44,6 +46,7 @@ src = fetchurl {
 ### 3. Nixpkgs Support for Bun (Not Available)
 
 Investigated nixpkgs for Bun-specific builders:
+
 - **npm**: `buildNpmPackage`, `fetchNpmDeps` (requires `package-lock.json`)
 - **yarn v1**: `fetchYarnDeps`, `yarnConfigHook` (requires `yarn.lock`)
 - **yarn v3/v4**: `yarn-berry_X.fetchYarnBerryDeps`
@@ -346,6 +349,7 @@ Using `__noChroot = true` bypasses the nix sandbox entirely during the `bun inst
 2. Bun may need broader filesystem access for caching
 
 **Mitigations**:
+
 - The `outputHash` ensures reproducibility - any tampering changes the hash
 - Network access is only during dependency fetch, not during main build
 - Use `--frozen-lockfile` to ensure exact dependency versions
@@ -353,6 +357,7 @@ Using `__noChroot = true` bypasses the nix sandbox entirely during the `bun inst
 ### Supply Chain Security
 
 The `bun.lockb` file pins exact dependency versions. Combined with `--frozen-lockfile`, this ensures:
+
 - Same dependencies on every build
 - No automatic updates during build
 - Hash verification through nix's fixed-output derivation

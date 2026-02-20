@@ -1,6 +1,6 @@
 # Plan: Implement OpenChamber Package
 
-**Date**: 2026-02-18  
+**Date**: 2026-02-18\
 **ADR**: [ADR-026](../designs/026-openchamber-packaging-approach.md)
 
 ## Goal

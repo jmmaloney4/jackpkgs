@@ -48,11 +48,13 @@ installPhase = ''
 ```
 
 **Why `find` instead of using workspace discovery from Nix:**
+
 - pnpm only creates workspace-level `node_modules/` when needed (non-hoisted deps exist). Not all workspaces will have one.
 - Using `find` captures exactly what pnpm produced — no reimplementation of pnpm's hoisting logic.
 - The `nodejs.nix` module doesn't currently have access to workspace package lists, and adding that coupling isn't necessary.
 
 **Constraints on `find`:**
+
 - `-mindepth 2`: skip root `node_modules/` (already copied).
 - `-not -path './node_modules/*'`: skip anything inside root `node_modules/` (e.g., `.pnpm/*/node_modules`).
 - `-type d`: only actual directories, not symlinks named `node_modules`.
@@ -76,18 +78,23 @@ The `pnpmDeps` (fetchPnpmDeps) derivation captures the pnpm store tarball, not t
 ## Verification
 
 1. **Build the check:**
+
    ```
    nix build .#checks.aarch64-darwin.typescript-tsc -L
    ```
+
    Should pass — `@pulumi/command` (and any other non-hoisted workspace deps) will be resolvable.
 
 2. **Inspect the store output:**
+
    ```
    ls $(nix build .#nodeModules --print-out-paths)/atlas/node_modules/@pulumi/
    ```
+
    Should show `command` (and any other atlas-specific deps).
 
 3. **Full flake check:**
+
    ```
    nix flake check -L
    ```
@@ -98,7 +105,7 @@ The `pnpmDeps` (fetchPnpmDeps) derivation captures the pnpm store tarball, not t
 
 ## Risks
 
-| Risk | Likelihood | Mitigation |
-|------|-----------|-----------|
-| Workspace `node_modules/` dirs contain broken symlinks (to workspace source files outside store) | Medium | Already handled: `dontCheckForBrokenSymlinks = true` is set on this derivation. Only the dep symlinks into `.pnpm/` are needed for resolution, and those resolve correctly within `$out/node_modules/.pnpm/`. |
-| `find` picks up unexpected `node_modules/` dirs | Low | The `-mindepth 2 -not -path './node_modules/*'` filter is tight. Any extra dirs found would still be valid pnpm output. |
+| Risk                                                                                             | Likelihood | Mitigation                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Workspace `node_modules/` dirs contain broken symlinks (to workspace source files outside store) | Medium     | Already handled: `dontCheckForBrokenSymlinks = true` is set on this derivation. Only the dep symlinks into `.pnpm/` are needed for resolution, and those resolve correctly within `$out/node_modules/.pnpm/`. |
+| `find` picks up unexpected `node_modules/` dirs                                                  | Low        | The `-mindepth 2 -not -path './node_modules/*'` filter is tight. Any extra dirs found would still be valid pnpm output.                                                                                       |

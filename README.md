@@ -71,6 +71,7 @@ Notes:
   nixpkgs.config.allowUnfree = true;
 }
 ```
+
 - `openchamber` defaults to `opencode` from `numtide/llm-agents.nix`.
 - Override `openchamber`'s `opencode` dependency with:
 

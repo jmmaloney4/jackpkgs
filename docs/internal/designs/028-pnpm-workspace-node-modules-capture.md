@@ -63,6 +63,7 @@ Because workspace-level `node_modules/` directories are never captured in the st
 Result: `TS2307: Cannot find module '@pulumi/command'`.
 
 This affects **any** dependency that is:
+
 - Declared in a workspace package but not in root `package.json`, AND
 - Therefore not hoisted to root `node_modules/`
 
@@ -96,11 +97,11 @@ The output API expands from `$out/node_modules/` to also include `$out/<workspac
 
 ### Risks & Mitigations
 
-| Risk | Mitigation |
-|------|-----------|
+| Risk                                                                                                         | Mitigation                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Workspace `node_modules/` may contain broken symlinks (pointing to workspace source files outside the store) | Already mitigated by `dontCheckForBrokenSymlinks = true` from remediation v2. Only `@pulumi/*`-style dep symlinks (pointing into `.pnpm/`) are needed; those resolve correctly within the copied `node_modules/`. |
-| `find` command to discover workspace `node_modules/` may pick up unwanted directories | Scope the find to known workspace paths from `pnpm-workspace.yaml`, or exclude `.pnpm/` and root `node_modules/` explicitly. |
-| Breaking change for consumers relying on `$out/` containing only `node_modules/` | Low risk. `linkNodeModules` already conditionally handles workspace dirs. No known consumer inspects `$out/` layout beyond `node_modules/`. |
+| `find` command to discover workspace `node_modules/` may pick up unwanted directories                        | Scope the find to known workspace paths from `pnpm-workspace.yaml`, or exclude `.pnpm/` and root `node_modules/` explicitly.                                                                                      |
+| Breaking change for consumers relying on `$out/` containing only `node_modules/`                             | Low risk. `linkNodeModules` already conditionally handles workspace dirs. No known consumer inspects `$out/` layout beyond `node_modules/`.                                                                       |
 
 ## Alternatives Considered
 
@@ -135,7 +136,7 @@ See `docs/internal/plans/2026-02-19-pnpm-workspace-node-modules-capture.md`.
 - `modules/flake-parts/nodejs.nix` — `nodeModules` derivation.
 - `modules/flake-parts/checks.nix` — `linkNodeModules` and `typescript-tsc` check.
 
----
+______________________________________________________________________
 
 **Author:** jack
 **Date:** 2026-02-19

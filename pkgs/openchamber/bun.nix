@@ -13,17 +13,14 @@
   fetchgit,
   fetchurl,
   ...
-}:
-
-let
+}: let
   workspaceSrc = fetchFromGitHub {
     owner = "btriapitsyn";
     repo = "openchamber";
     rev = "v1.7.1";
     hash = "sha256-3hzZVvapbbQ5aU8bpOqdmT7UU5CFHajD71Z9buPJzjw=";
   };
-in
-{
+in {
   "7zip-bin@5.2.0" = fetchurl {
     url = "https://registry.npmjs.org/7zip-bin/-/7zip-bin-5.2.0.tgz";
     hash = "sha512-ukTPVhqG4jNzMro2qA9HSCSSVJN3aN7tlb+hfqYCt3ER0yWroeA2VR38MNrOHLQ/cVj+DaIMad0kFCtWWowh/A==";

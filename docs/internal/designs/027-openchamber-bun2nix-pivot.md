@@ -1,4 +1,5 @@
-<<<<<<< openchamber
+\<<\<<\<<< openchamber
+
 # ADR-027: OpenChamber Packaging — Pivot to bun2nix
 
 ## Status
@@ -64,6 +65,7 @@ node_modules/express → .bun/express@5.2.1/node_modules/express
 ```
 
 For scoped packages:
+
 ```
 node_modules/@codemirror/autocomplete → ../.bun/@codemirror/autocomplete@6.20.0/node_modules/...
                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ captured
@@ -300,18 +302,14 @@ Doesn't work: `bun install` needs a `package.json` + `bun.lock` that match, and 
 
 ______________________________________________________________________
 
-Author: jack
-Date: 2026-02-19
-PR: N/A
-=======
----
-id: ADR-027
-title: "Openchamber Bun2nix Pivot"
-status: proposed
-date: 2026-02-19
----
+# Author: jack Date: 2026-02-19 PR: N/A
+
+______________________________________________________________________
+
+## id: ADR-027 title: "Openchamber Bun2nix Pivot" status: proposed date: 2026-02-19
 
 # ADR 027: Openchamber Bun2nix Pivot
+
 *Date:* 2026-02-19
 *Status:* proposed
 
@@ -319,4 +317,5 @@ date: 2026-02-19
 
 This ADR is currently being developed in linked pull request above.
 Please refer to that PR for current content and discussion.
->>>>>>> main
+
+> > > > > > > main
