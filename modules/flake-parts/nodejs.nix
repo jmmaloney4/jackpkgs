@@ -122,6 +122,10 @@ in {
         installPhase = ''
           mkdir -p "$out"
           cp -a node_modules "$out/"
+          find . -mindepth 2 -name 'node_modules' -type d | while read dir; do
+            mkdir -p "$out/$(dirname "$dir")"
+            cp -a "$dir" "$out/$dir"
+          done
         '';
       };
     in {
