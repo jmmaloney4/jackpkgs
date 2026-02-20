@@ -623,6 +623,8 @@ in {
         "Linking node_modules"
         "ln -sfn"
         "/node_modules"
+        ''if [ -d "$nm_store"/''
+        ''elif [ -d "$nm_root"/''
         "cp -R"
       ]
       script;

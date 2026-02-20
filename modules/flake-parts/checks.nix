@@ -290,8 +290,9 @@ in {
 
       # Link node_modules into the sandbox
       # Strategy: link root node_modules, then link per-package node_modules when present.
-      # Expected layout:
-      # - nodejs module output: <store>/node_modules
+      # Expected layout from nodejs output derivation:
+      # - root: <store>/node_modules
+      # - workspace package: <store>/<pkg>/node_modules
       linkNodeModules = nodeModules: packages:
         if nodeModules == null
         then ""
@@ -316,8 +317,13 @@ in {
           ${lib.concatMapStringsSep "\n" (pkg: ''
               mkdir -p ${lib.escapeShellArg pkg}
 
-              # Link nested node_modules for workspace packages
-              if [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
+              # Link nested node_modules for workspace packages.
+              # Workspace-level node_modules are captured under the derivation root
+              # (e.g. <store>/packages/foo/node_modules), not under root node_modules.
+              if [ -d "$nm_store"/${lib.escapeShellArg pkg}/node_modules ]; then
+                ln -sfn "$nm_store"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
+              elif [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
+                # Backward-compatible fallback for custom layouts
                 ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
               fi
             '')
