@@ -32,7 +32,6 @@
       profile = mkOption {
         type = types.nullOr types.str;
         default = null;
-        defaultText = "config.jackpkgs.gcp.iamOrg";
         description = ''
           Name of the gcloud profile directory under ~/.config/gcloud-profiles/.
           When set, CLOUDSDK_CONFIG is exported in the devshell to isolate gcloud

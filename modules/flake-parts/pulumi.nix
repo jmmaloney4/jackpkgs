@@ -6,7 +6,6 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.pulumi;
-  gcpCfg = config.jackpkgs.gcp;
 in {
   imports = [
     (import ./gcp.nix {inherit jackpkgsInputs;})
