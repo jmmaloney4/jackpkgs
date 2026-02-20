@@ -222,7 +222,16 @@ in {
       projectRoot = noWorkspaceFixture;
     };
   in {
-    expr = missingChecksNamed checks ["python-pytest" "python-mypy" "python-ruff" "typescript-tsc"];
+    expr = missingChecksNamed checks ["python-pytest" "python-mypy" "python-ruff" "python-numpydoc" "typescript-tsc"];
+    expected = true;
+  };
+
+  testPythonNumpydocDisabledByDefault = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+  in {
+    expr = missingCheck checks "python-numpydoc";
     expected = true;
   };
 
@@ -292,6 +301,31 @@ in {
     script = getBuildCommand checks.python-ruff;
   in {
     expr = hasInfixAll ["ruff check" "--no-cache"] script;
+    expected = true;
+  };
+
+  testPythonNumpydocScript = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.numpydoc = {
+          enable = true;
+          extraArgs = ["--checks" "all" "--exclude" "GL08"];
+        };
+      };
+    };
+    script = getBuildCommand checks.python-numpydoc;
+  in {
+    expr =
+      hasInfixAll [
+        "PYTHONPATH="
+        "python -m numpydoc.hooks.validate_docstrings"
+        "--checks"
+        "all"
+        "--exclude"
+        "GL08"
+      ]
+      script;
     expected = true;
   };
 

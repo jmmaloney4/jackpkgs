@@ -24,7 +24,6 @@ in {
       config,
       lib,
       pkgs,
-      pythonWorkspace ? null,
       ...
     }: {
       options.jackpkgs.pre-commit = {
@@ -44,6 +43,7 @@ in {
           type = types.package;
           default = let
             pythonCfg = config.jackpkgs.python or {};
+            pythonWorkspace = config._module.args.pythonWorkspace or null;
             configuredEnvs = pythonCfg.environments or {};
             pythonEnvOutputs = config.jackpkgs.outputs.pythonEnvironments or {};
 
@@ -109,6 +109,34 @@ in {
             same dependencies as CI.
           '';
         };
+
+        numpydocEnable = mkOption {
+          type = types.bool;
+          default = false;
+          description = ''
+            Enable the pre-commit numpydoc docstring validation hook.
+
+            Requires `numpydoc` to be available in `numpydocPackage`.
+          '';
+        };
+
+        numpydocPackage = mkOption {
+          type = types.package;
+          default = config.jackpkgs.pre-commit.mypyPackage;
+          defaultText = "config.jackpkgs.pre-commit.mypyPackage";
+          description = ''
+            Python package (or Python environment) that provides `python -m
+            numpydoc.hooks.validate_docstrings` for the pre-commit numpydoc
+            hook.
+          '';
+        };
+
+        numpydocExtraArgs = mkOption {
+          type = types.listOf types.str;
+          default = [];
+          description = "Extra arguments passed to numpydoc.hooks.validate_docstrings.";
+          example = ["--checks" "all"];
+        };
       };
     });
   };
@@ -136,6 +164,15 @@ in {
           enable = true;
           package = sysCfg.mypyPackage;
           entry = lib.getExe' sysCfg.mypyPackage "mypy";
+          files = "\\.py$";
+          excludes = defaultExcludes.preCommit;
+        };
+        settings.hooks.numpydoc = {
+          enable = sysCfg.numpydocEnable;
+          package = sysCfg.numpydocPackage;
+          entry = let
+            pythonExe = lib.getExe' sysCfg.numpydocPackage "python";
+          in "${pythonExe} -m numpydoc.hooks.validate_docstrings${lib.optionalString (sysCfg.numpydocExtraArgs != []) " ${lib.escapeShellArgs sysCfg.numpydocExtraArgs}"}";
           files = "\\.py$";
           excludes = defaultExcludes.preCommit;
         };

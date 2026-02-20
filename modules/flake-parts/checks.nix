@@ -31,7 +31,7 @@ in {
           // {
             default = config.jackpkgs.python.enable or false;
             description = ''
-              Enable Python CI checks (pytest, mypy, ruff). Automatically enabled
+              Enable Python CI checks (pytest, mypy, ruff, numpydoc). Automatically enabled
               when the Python module is enabled.
             '';
           };
@@ -78,6 +78,26 @@ in {
             default = ["--no-cache"];
             description = "Extra arguments to pass to ruff";
             example = ["--no-cache"];
+          };
+        };
+
+        numpydoc = {
+          enable = mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Enable numpydoc docstring validation.
+
+              Requires `numpydoc` to be available in the selected Python check
+              environment.
+            '';
+          };
+
+          extraArgs = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = "Extra arguments to pass to numpydoc.hooks.validate_docstrings";
+            example = ["--checks" "all"];
           };
         };
       };
@@ -497,6 +517,21 @@ in {
                 workspaceRoot = pythonCfg.workspaceRoot;
                 members = pythonWorkspaceMembers;
                 perMemberCommand = "ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .";
+              };
+            };
+          }
+          // lib.optionalAttrs cfg.python.numpydoc.enable {
+            # numpydoc check
+            python-numpydoc = mkCheck {
+              name = "python-numpydoc";
+              buildInputs = [pythonEnvWithDevTools];
+              setupCommands = ''
+                export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+              '';
+              checkCommands = forEachWorkspaceMember {
+                workspaceRoot = pythonCfg.workspaceRoot;
+                members = pythonWorkspaceMembers;
+                perMemberCommand = "python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs}";
               };
             };
           }
