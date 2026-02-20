@@ -95,9 +95,9 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
-- `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + mypy, with optional numpydoc); mypy defaults to the same dev-tools env selection as CI checks.
+- `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + Python gates + tsc + vitest); Python tool packages default to the same dev-tools env selection as CI checks.
 - `shell` — shared dev shell output to include via `inputsFrom`.
-- `checks` — CI checks for Python (pytest/mypy/ruff, optional numpydoc) and TypeScript (tsc, vitest).
+- `checks` — CI checks for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest).
 - `nodejs` — builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
@@ -233,8 +233,12 @@ in {
     - `enable` (bool, default auto-enabled with Python/Pulumi/Node.js)
     - `python.enable`, `python.pytest.enable`, `python.mypy.enable`, `python.ruff.enable`, `python.numpydoc.enable`
     - `python.pytest.extraArgs`, `python.mypy.extraArgs`, `python.ruff.extraArgs`, `python.numpydoc.extraArgs`
+    - `python.mirrorPreCommit.enable` (bool, default `false`; opt-in default mirroring from `jackpkgs.pre-commit.python.*.enable`)
+    - `python.mirrorPreCommit.gates` (list of `pytest|mypy|ruff|numpydoc`, default `["numpydoc"]`)
     - `typescript.enable`, `typescript.tsc.enable`, `typescript.tsc.packages`, `typescript.tsc.nodeModules`, `typescript.tsc.extraArgs`
     - `vitest.enable`, `vitest.packages`, `vitest.nodeModules`, `vitest.extraArgs`
+
+  - By default, checks and pre-commit remain independently configurable. Enable `python.mirrorPreCommit` only when you want selected Python check gates to follow pre-commit gate toggles.
 
 **Quality-gate parity matrix:**
 

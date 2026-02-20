@@ -101,6 +101,30 @@ in {
             example = ["--checks" "all"];
           };
         };
+
+        mirrorPreCommit = {
+          enable = mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Mirror selected `jackpkgs.pre-commit.python.*.enable` gates into
+              `jackpkgs.checks.python.*.enable`.
+
+              This is opt-in and only affects default values, so explicitly set
+              `jackpkgs.checks.python.<gate>.enable` still wins.
+            '';
+          };
+
+          gates = mkOption {
+            type = types.listOf (types.enum ["pytest" "mypy" "ruff" "numpydoc"]);
+            default = ["numpydoc"];
+            description = ''
+              Python gates eligible for mirroring when
+              `jackpkgs.checks.python.mirrorPreCommit.enable = true`.
+            '';
+            example = ["numpydoc" "ruff"];
+          };
+        };
       };
 
       # Injectable YAML parser (for testing without IFD)
@@ -212,8 +236,29 @@ in {
     };
   };
 
-  config = {
-    perSystem = {
+  config = let
+    mirrorCfg = cfg.python.mirrorPreCommit;
+    mirrorGate = gate:
+      mirrorCfg.enable
+      && builtins.elem gate mirrorCfg.gates;
+    preCommitGateEnabled = gate:
+      lib.attrByPath ["jackpkgs" "pre-commit" "python" gate "enable"] false config;
+  in
+    lib.mkMerge [
+      (lib.mkIf (mirrorGate "pytest") {
+        jackpkgs.checks.python.pytest.enable = lib.mkDefault (preCommitGateEnabled "pytest");
+      })
+      (lib.mkIf (mirrorGate "mypy") {
+        jackpkgs.checks.python.mypy.enable = lib.mkDefault (preCommitGateEnabled "mypy");
+      })
+      (lib.mkIf (mirrorGate "ruff") {
+        jackpkgs.checks.python.ruff.enable = lib.mkDefault (preCommitGateEnabled "ruff");
+      })
+      (lib.mkIf (mirrorGate "numpydoc") {
+        jackpkgs.checks.python.numpydoc.enable = lib.mkDefault (preCommitGateEnabled "numpydoc");
+      })
+      {
+        perSystem = {
       pkgs,
       lib,
       config,
@@ -619,5 +664,6 @@ in {
         {checks = typescriptChecks;}
         {checks = vitestChecks;}
       ];
-  };
+    }
+    ];
 }

@@ -64,6 +64,25 @@
         };
       };
 
+      pre-commit.python = {
+        pytest.enable = mkOption {
+          type = types.bool;
+          default = true;
+        };
+        mypy.enable = mkOption {
+          type = types.bool;
+          default = true;
+        };
+        ruff.enable = mkOption {
+          type = types.bool;
+          default = true;
+        };
+        numpydoc.enable = mkOption {
+          type = types.bool;
+          default = false;
+        };
+      };
+
       outputs.pythonEnvironments = mkOption {
         type = types.attrsOf types.unspecified;
         default = {};
@@ -232,6 +251,67 @@ in {
     };
   in {
     expr = missingCheck checks "python-numpydoc";
+    expected = true;
+  };
+
+  testPythonMirrorPreCommitDisabledByDefault = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.pre-commit.python.numpydoc.enable = true;
+      };
+    };
+  in {
+    expr = missingCheck checks "python-numpydoc";
+    expected = true;
+  };
+
+  testPythonMirrorPreCommitNumpydoc = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig = {
+          jackpkgs.pre-commit.python.numpydoc.enable = true;
+          jackpkgs.checks.python.mirrorPreCommit.enable = true;
+        };
+      };
+    };
+  in {
+    expr = hasCheck checks "python-numpydoc";
+    expected = true;
+  };
+
+  testPythonMirrorPreCommitExplicitCheckOverrideWins = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig = {
+          jackpkgs.pre-commit.python.numpydoc.enable = true;
+          jackpkgs.checks.python.mirrorPreCommit.enable = true;
+          jackpkgs.checks.python.numpydoc.enable = false;
+        };
+      };
+    };
+  in {
+    expr = missingCheck checks "python-numpydoc";
+    expected = true;
+  };
+
+  testPythonMirrorPreCommitCustomGateSelection = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig = {
+          jackpkgs.pre-commit.python.ruff.enable = false;
+          jackpkgs.checks.python.mirrorPreCommit = {
+            enable = true;
+            gates = ["ruff"];
+          };
+        };
+      };
+    };
+  in {
+    expr = missingCheck checks "python-ruff";
     expected = true;
   };
 
