@@ -115,12 +115,10 @@
           docfx = pkgs.callPackage ./pkgs/docfx {};
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           lean = pkgs.callPackage ./pkgs/lean {};
-          npm-lockfile-fix = pkgs.callPackage ./pkgs/npm-lockfile-fix {};
           openchamber = pkgs.callPackage ./pkgs/openchamber {
             opencode = inputs.llm-agents.packages.${system}.opencode;
             bun2nix-cli = inputs.bun2nix.packages.${system}.bun2nix;
           };
-          npm-lockfile-fix = pkgs.callPackage ./pkgs/npm-lockfile-fix {};
           roon-server = pkgs.callPackage ./pkgs/roon-server {};
           tod = pkgs.callPackage ./pkgs/tod {};
         };
