@@ -329,6 +329,8 @@
                 test -d node_modules
                 node packages/app/index.js | grep -qx "pass"
               '';
+              # Darwin workaround: fetchPnpmDeps fails with "chmod: missing operand"
+              # when no *-exec files exist. Sentinel satisfies chmod glob.
               pnpmDepsArgs = {
                 prePnpmInstall = ''
                   touch "$storePath/fetcher-sentinel-exec"
@@ -336,6 +338,7 @@
               };
             };
 
+            # Mirrors nodejs.nix:125-129 installPhase; keep in sync.
             pnpm-nonhoisted-output-layout = mkPnpmFixtureCheck {
               name = "nonhoisted-output-layout";
               src = fixtureNonhoistedDep;
@@ -357,6 +360,8 @@
               extraAttrs = {
                 dontCheckForBrokenSymlinks = true;
               };
+              # Darwin workaround: fetchPnpmDeps fails with "chmod: missing operand"
+              # when no *-exec files exist. Sentinel satisfies chmod glob.
               pnpmDepsArgs = {
                 prePnpmInstall = ''
                   touch "$storePath/fetcher-sentinel-exec"
