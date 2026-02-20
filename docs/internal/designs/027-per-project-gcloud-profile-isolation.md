@@ -10,11 +10,11 @@ Multiple downstream repos (cavinsresearch/zeus, addendalabs/yard, jmmaloney4/gar
 use the jackpkgs `just auth` recipe to authenticate with GCP and Pulumi. Each repo
 authenticates as a different GCP principal:
 
-| Repo   | Account                  | IAM Org            | Pulumi Backend                  |
-|--------|--------------------------|--------------------|---------------------------------|
-| zeus   | jack@cavinsresearch.io   | cavinsresearch.io  | gs://cavins-pulumi-state        |
-| yard   | jack@addendalabs.com     | addendalabs.com    | gs://addenda-pulumi-state       |
-| garden | jmmaloney4@gmail.com     | *(none)*           | gs://jmmaloney4-pulumi-state    |
+| Repo   | Account                | IAM Org           | Pulumi Backend               |
+| ------ | ---------------------- | ----------------- | ---------------------------- |
+| zeus   | jack@cavinsresearch.io | cavinsresearch.io | gs://cavins-pulumi-state     |
+| yard   | jack@addendalabs.com   | addendalabs.com   | gs://addenda-pulumi-state    |
+| garden | jmmaloney4@gmail.com   | *(none)*          | gs://jmmaloney4-pulumi-state |
 
 Today, `gcloud auth login --update-adc` writes Application Default Credentials (ADC)
 to the global path `~/.config/gcloud/application_default_credentials.json`. Running
@@ -100,8 +100,7 @@ auth-status:
 
 ### 4. No changes to `auth` recipe logic
 
-The existing `auth` recipe does not change. It already uses `gcloud auth login
---update-adc`, which respects `CLOUDSDK_CONFIG`. The isolation is achieved entirely
+The existing `auth` recipe does not change. It already uses `gcloud auth login --update-adc`, which respects `CLOUDSDK_CONFIG`. The isolation is achieved entirely
 through the environment variable set by the devshell.
 
 ### 5. Downstream adoption
@@ -164,9 +163,11 @@ Use gcloud's built-in named configurations with `gcloud config configurations cr
 and `gcloud config configurations activate`.
 
 **Pros:**
+
 - Native gcloud feature; no custom env var management.
 
 **Cons:**
+
 - Named configurations isolate CLI account and project settings but **do not isolate
   ADC**. `application_default_credentials.json` is always global. Since ADC is what
   Pulumi, rclone, and other tools use, this does not solve the core problem.
@@ -181,9 +182,11 @@ and other IaC tools.
 Store gcloud config and credentials inside each repository's working directory.
 
 **Pros:**
+
 - Maximum isolation; credentials are truly per-checkout.
 
 **Cons:**
+
 - Must re-authenticate after every `git clone` or new worktree.
 - Credentials in the repo directory risk accidental commits (even with `.gitignore`).
 - Multiple worktrees of the same repo cannot share credentials.
@@ -197,9 +200,11 @@ the real-world usage pattern.
 Each developer manually adds `export CLOUDSDK_CONFIG=...` to their `.envrc.local`.
 
 **Pros:**
+
 - No jackpkgs changes needed.
 
 **Cons:**
+
 - Not reproducible; each developer must manually configure each repo.
 - Easy to forget or misconfigure.
 - Does not appear in `nix flake check` or any validation.
@@ -227,7 +232,7 @@ that jackpkgs exists to provide.
 - Impacted modules: `modules/flake-parts/just.nix`, `modules/flake-parts/pulumi.nix`
 - Downstream repos: `cavinsresearch/zeus`, `addendalabs/yard`, `jmmaloney4/garden`
 
----
+______________________________________________________________________
 
 **Author:** jack
 **Date:** 2026-02-18

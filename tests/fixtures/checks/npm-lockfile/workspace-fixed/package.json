@@ -1,7 +1,0 @@
-{
-	"name": "workspace-fixed-fixture",
-	"private": true,
-	"workspaces": [
-		"packages/*"
-	]
-}

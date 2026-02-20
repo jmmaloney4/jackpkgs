@@ -4,7 +4,7 @@
   lib,
   jackpkgsLib,
   ...
-}: let
+} @ args: let
   inherit (lib) mkOption types mkEnableOption;
   cfg = config.jackpkgs.checks;
   pythonCfg = config.jackpkgs.python or {};
@@ -82,6 +82,14 @@ in {
         };
       };
 
+      # Injectable YAML parser (for testing without IFD)
+      fromYAML = mkOption {
+        type = types.nullOr (types.functionTo types.attrs);
+        default = null;
+        internal = true;
+        description = "YAML parser function. Defaults to IFD-based yq-go parser.";
+      };
+
       # TypeScript ecosystem checks
       typescript = {
         enable =
@@ -121,9 +129,10 @@ in {
               RECOMMENDED: Explicitly list packages for reliability and clarity.
               Example: packages = ["infra" "tools/hello" "apps/web"];
 
-              If null, packages will be auto-discovered from package.json "workspaces"
-              field. Auto-discovery supports simple wildcard patterns (e.g. "packages/*")
-              but does NOT support full recursive globs (e.g. "packages/**").
+              If null, packages will be auto-discovered from pnpm-workspace.yaml
+              "packages" field. Auto-discovery supports simple wildcard patterns
+              (e.g. "packages/*") but does NOT support full recursive globs
+              (e.g. "packages/**").
 
               For complex workspace configurations, use explicit listing.
             '';
@@ -166,7 +175,7 @@ in {
           default = null;
           description = ''
             List of packages to test with Vitest.
-            If null, uses same discovery as tsc (package.json workspaces).
+            If null, uses same discovery as tsc (pnpm-workspace.yaml).
           '';
         };
 
@@ -189,11 +198,71 @@ in {
       config,
       pythonWorkspace ? null,
       jackpkgsProjectRoot ? null,
+      jackpkgsFromYAML ? null,
       ...
     }: let
       # ============================================================
       # Helper Functions
       # ============================================================
+      # Parse pnpm-workspace.yaml to JSON
+      # Checks for .json sibling first (for tests without IFD), falls back to IFD via yq-go
+      # Supports either .yaml or .yml workspace filenames
+      # Can be overridden via jackpkgsFromYAML module arg for testing
+      defaultFromYAML = yamlFile: let
+        yamlFileStr = toString yamlFile;
+        jsonFile = lib.removeSuffix ".yaml" (lib.removeSuffix ".yml" yamlFileStr) + ".json";
+        jsonExists = builtins.pathExists jsonFile;
+      in
+        if jsonExists
+        then builtins.fromJSON (builtins.readFile jsonFile)
+        else let
+          jsonDrv =
+            pkgs.runCommand "yaml-to-json" {
+              nativeBuildInputs = [pkgs.yq-go];
+            } ''
+              yq -o=json '.' ${yamlFile} > $out
+            '';
+        in
+          builtins.fromJSON (builtins.readFile jsonDrv);
+
+      fromYAML =
+        if cfg.fromYAML != null
+        then cfg.fromYAML
+        else defaultFromYAML;
+
+      # Discover packages from pnpm-workspace.yaml
+      discoverPnpmPackages = workspaceRoot: let
+        yamlPathYaml = workspaceRoot + "/pnpm-workspace.yaml";
+        yamlPathYml = workspaceRoot + "/pnpm-workspace.yml";
+        yamlPath =
+          if builtins.pathExists yamlPathYaml
+          then yamlPathYaml
+          else if builtins.pathExists yamlPathYml
+          then yamlPathYml
+          else null;
+        yamlExists = yamlPath != null;
+        workspaceYaml =
+          if yamlExists
+          then fromYAML yamlPath
+          else {};
+        patterns = workspaceYaml.packages or [];
+        workspaceGlobs =
+          if builtins.isList patterns
+          then patterns
+          else [];
+        negationPatterns = lib.filter (p: lib.hasPrefix "!" p) workspaceGlobs;
+        validatedWorkspaceGlobs =
+          if negationPatterns != []
+          then throw "Negation workspace patterns are not supported in jackpkgs.checks auto-discovery yet: ${lib.concatStringsSep ", " negationPatterns}. Use explicit jackpkgs.checks.typescript.tsc.packages / jackpkgs.checks.vitest.packages or track support in issue #157."
+          else workspaceGlobs;
+        allPackages = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) validatedWorkspaceGlobs);
+        hasPackageJson = pkg:
+          builtins.pathExists (workspaceRoot + "/${pkg}/package.json");
+      in
+        if yamlExists
+        then lib.filter hasPackageJson allPackages
+        else [];
+
       # Generic check factory
       mkCheck = {
         name,
@@ -219,25 +288,10 @@ in {
         '')
         members;
 
-      # Validate workspace paths to prevent path traversal and injection attacks
-      # Rejects paths containing "..", starting with "/", or containing newlines
-      validateWorkspacePath = path:
-        if lib.hasInfix ".." path
-        then throw "Invalid workspace path '${path}': contains '..' (path traversal not allowed for security)"
-        else if lib.hasPrefix "/" path
-        then throw "Invalid workspace path '${path}': absolute paths not allowed (must be relative to workspace root)"
-        else if lib.hasInfix "\n" path
-        then throw "Invalid workspace path: contains newline (command injection not allowed)"
-        else path;
-
       # Link node_modules into the sandbox
-      # Strategy: Link root node_modules, then iterate through packages and link their
-      # node_modules if present in the store (primarily for legacy dream2nix layouts).
-      #
-      # Supported layouts:
-      # - buildNpmPackage: <store>/node_modules
-      # - dream2nix (nodejs-granular): <store>/lib/node_modules/default/node_modules
-      # - dream2nix (npm wrapper): <store>/lib/node_modules
+      # Strategy: link root node_modules, then link per-package node_modules when present.
+      # Expected layout:
+      # - nodejs module output: <store>/node_modules
       linkNodeModules = nodeModules: packages:
         if nodeModules == null
         then ""
@@ -245,12 +299,12 @@ in {
           nm_store=${nodeModules}
           echo "Linking node_modules from $nm_store..."
 
-          # Detect layout
+          # Resolve node_modules root from output derivation
           ${jackpkgsLib.nodejs.findNodeModulesRoot "nm_root" "$nm_store"}
 
           if [ -z "$nm_root" ]; then
             echo "ERROR: Unable to find node_modules in $nm_store" >&2
-            echo "Expected one of: node_modules/, lib/node_modules/, or lib/node_modules/default/node_modules/" >&2
+            echo "Expected: node_modules/ at the derivation root" >&2
             echo "Enable Node.js module or provide custom nodeModules via jackpkgs.checks.typescript.tsc.nodeModules" >&2
             exit 1
           fi
@@ -270,24 +324,6 @@ in {
             packages}
         '';
 
-      # Expand workspace globs like "tools/*" -> ["tools/hello", "tools/ocr"]
-      # Used by both Python and TypeScript workspace discovery
-      expandWorkspaceGlob = workspaceRoot: glob: let
-        validatedGlob = validateWorkspacePath glob;
-      in
-        if lib.hasSuffix "/*" validatedGlob
-        then let
-          dir = lib.removeSuffix "/*" validatedGlob;
-          fullPath = workspaceRoot + "/${dir}";
-          entries =
-            if builtins.pathExists fullPath
-            then builtins.readDir fullPath
-            else {};
-          subdirs = lib.filterAttrs (name: type: type == "directory" && name != "." && name != "..") entries;
-        in
-          map (name: "${dir}/${name}") (lib.attrNames subdirs)
-        else [validatedGlob];
-
       # ============================================================
       # Python Workspace Discovery
       # ============================================================
@@ -300,9 +336,8 @@ in {
         pyproject = builtins.fromTOML (builtins.readFile pyprojectPath);
         memberGlobs = pyproject.tool.uv.workspace.members or ["."];
 
-        allMembers = lib.flatten (map (expandWorkspaceGlob workspaceRoot) memberGlobs);
+        allMembers = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) memberGlobs);
 
-        # Filter for directories with pyproject.toml
         hasProject = member:
           builtins.pathExists (workspaceRoot + "/${member}/pyproject.toml");
       in
@@ -312,10 +347,7 @@ in {
       pythonWorkspaceMembers =
         if pythonCfg.enable or false && pythonCfg ? workspaceRoot && pythonCfg ? pyprojectPath && pythonCfg.workspaceRoot != null && pythonCfg.pyprojectPath != null
         then let
-          # Validate and resolve pyprojectPath (string like "./pyproject.toml")
-          # Security: validateWorkspacePath rejects ".." and absolute paths to prevent
-          # reading arbitrary files outside the workspace (e.g., "../../../../etc/passwd")
-          validatedPath = validateWorkspacePath pythonCfg.pyprojectPath;
+          validatedPath = jackpkgsLib.validateWorkspacePath pythonCfg.pyprojectPath;
           resolvedPyprojectPath = pythonCfg.workspaceRoot + "/${validatedPath}";
         in
           discoverPythonMembers pythonCfg.workspaceRoot resolvedPyprojectPath
@@ -391,49 +423,17 @@ in {
         then jackpkgsProjectRoot
         else config.jackpkgs.projectRoot or inputs.self.outPath;
 
-      # Discover npm workspace packages from package.json
-      # Supports 'workspaces' field (list of globs).
-      discoverNpmPackages = workspaceRoot: let
-        jsonPath = workspaceRoot + "/package.json";
-        jsonExists = builtins.pathExists jsonPath;
-        packageJson =
-          if jsonExists
-          then builtins.fromJSON (builtins.readFile jsonPath)
-          else {};
+      # Lazy package discovery - only compute when actually needed
+      # This avoids IFD during module evaluation when checks aren't generated
+      getTsPackages = cfg':
+        if cfg'.typescript.tsc.packages != null
+        then map jackpkgsLib.validateWorkspacePath cfg'.typescript.tsc.packages
+        else discoverPnpmPackages projectRoot;
 
-        # package.json workspaces can be a list of strings
-        # (We don't support the object syntax { packages = [...] } which is rarely used)
-        workspaces = packageJson.workspaces or [];
-
-        # Handle case where workspaces is not a list (e.g. if it's missing or wrong type)
-        workspaceGlobs =
-          if builtins.isList workspaces
-          then workspaces
-          else if workspaces != null
-          then throw "jackpkgs: package.json 'workspaces' field must be a list of strings. Object syntax (e.g. { packages = [...] }) is not supported."
-          else [];
-
-        allPackages = lib.flatten (map (expandWorkspaceGlob workspaceRoot) workspaceGlobs);
-
-        # Filter for directories with package.json
-        hasPackageJson = pkg:
-          builtins.pathExists (workspaceRoot + "/${pkg}/package.json");
-      in
-        if jsonExists
-        then lib.filter hasPackageJson allPackages
-        else [];
-
-      # Determine TypeScript packages to check
-      tsPackages =
-        if cfg.typescript.tsc.packages != null
-        then map validateWorkspacePath cfg.typescript.tsc.packages
-        else discoverNpmPackages projectRoot;
-
-      # Determine Vitest packages
-      vitestPackages =
-        if cfg.vitest.packages != null
-        then map validateWorkspacePath cfg.vitest.packages
-        else discoverNpmPackages projectRoot;
+      getVitestPackages = cfg':
+        if cfg'.vitest.packages != null
+        then map jackpkgsLib.validateWorkspacePath cfg'.vitest.packages
+        else discoverPnpmPackages projectRoot;
 
       # NOTE: We cannot use builtins.pathExists on nodeModules paths at Nix evaluation
       # time because the derivation doesn't exist yet (it's built later). The path
@@ -500,7 +500,9 @@ in {
       # TypeScript Checks
       # ============================================================
 
-      typescriptChecks =
+      typescriptChecks = let
+        tsPackages = getTsPackages cfg;
+      in
         lib.optionalAttrs (cfg.enable && cfg.typescript.enable && tsPackages != [])
         (lib.optionalAttrs cfg.typescript.tsc.enable {
           # tsc check
@@ -509,7 +511,7 @@ in {
             buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
             setupCommands = ''
               # Copy source to writeable directory
-              cp -R ${lib.escapeShellArg projectRoot} src
+              cp -R ${projectRoot} src
               chmod -R +w src
               cd src
               ${linkNodeModules (
@@ -530,12 +532,12 @@ in {
 
                 TypeScript checks require node_modules to be present.
 
-                Enable the Node.js module to build node_modules via buildNpmPackage:
+                Enable the Node.js module to provide node_modules for checks:
 
                     jackpkgs.nodejs.enable = true;
 
                 This provides a pure, reproducible node_modules derivation that works
-                in Nix sandbox builds. See ADR-020 for configuration details.
+                in Nix sandbox builds.
 
                 To disable TypeScript checks: jackpkgs.checks.typescript.enable = false;
                 EOF
@@ -559,56 +561,59 @@ in {
         then cfg.vitest.nodeModules
         else config.jackpkgs.outputs.nodeModules or null;
 
-      vitestChecks = lib.optionalAttrs (cfg.enable && cfg.vitest.enable && vitestPackages != []) {
-        javascript-vitest = mkCheck {
-          name = "javascript-vitest";
-          buildInputs = [pkgs.nodejs];
-          setupCommands = ''
-            # Copy source to writeable directory
-            cp -R ${lib.escapeShellArg projectRoot} src
-            chmod -R +w src
-            cd src
-            ${linkNodeModules vitestNodeModules vitestPackages}
+      vitestChecks = let
+        vitestPackages = getVitestPackages cfg;
+      in
+        lib.optionalAttrs (cfg.enable && cfg.vitest.enable && vitestPackages != []) {
+          javascript-vitest = mkCheck {
+            name = "javascript-vitest";
+            buildInputs = [pkgs.nodejs];
+            setupCommands = ''
+              # Copy source to writeable directory
+              cp -R ${projectRoot} src
+              chmod -R +w src
+              cd src
+              ${linkNodeModules vitestNodeModules vitestPackages}
 
-            # Save root directory for absolute path resolution
-            WORKSPACE_ROOT="$PWD"
-            export WORKSPACE_ROOT
-            ${lib.optionalString (vitestNodeModules != null) ''
-              # Add Nix store node_modules binaries to PATH
-              ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" vitestNodeModules}
-              if [ -n "$nm_bin" ]; then
-                export PATH="$nm_bin:$PATH"
-              fi
-            ''}
+              # Save root directory for absolute path resolution
+              WORKSPACE_ROOT="$PWD"
+              export WORKSPACE_ROOT
+              ${lib.optionalString (vitestNodeModules != null) ''
+                # Add Nix store node_modules binaries to PATH
+                ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" vitestNodeModules}
+                if [ -n "$nm_bin" ]; then
+                  export PATH="$nm_bin:$PATH"
+                fi
+              ''}
 
-            # Locate vitest binary from trusted sources only (once for all packages)
-            # 1. PATH (includes Nix store paths from nodeModules derivation)
-            # 2. Linked node_modules from Nix store (never from source tree)
-            if command -v vitest >/dev/null 2>&1; then
-              VITEST_BIN="vitest"
-            else
-              VITEST_BIN=""
-            fi
-            export VITEST_BIN
-          '';
-          checkCommands =
-            lib.concatMapStringsSep "\n" (pkg: ''
-              echo "Testing ${lib.escapeShellArg pkg}..."
-              cd ${lib.escapeShellArg pkg}
-
-              # Use vitest binary found in setupCommands
-              if [ -n "$VITEST_BIN" ]; then
-                $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
+              # Locate vitest binary from trusted sources only (once for all packages)
+              # 1. PATH (includes Nix store paths from nodeModules derivation)
+              # 2. Linked node_modules from Nix store (never from source tree)
+              if command -v vitest >/dev/null 2>&1; then
+                VITEST_BIN="vitest"
               else
-                echo "WARNING: Vitest binary not found for ${lib.escapeShellArg pkg}, skipping."
-                # Don't fail the build if vitest isn't set up for this specific package
-                # (some packages in workspace might not have tests)
+                VITEST_BIN=""
               fi
-              cd - >/dev/null
-            '')
-            vitestPackages;
+              export VITEST_BIN
+            '';
+            checkCommands =
+              lib.concatMapStringsSep "\n" (pkg: ''
+                echo "Testing ${lib.escapeShellArg pkg}..."
+                cd ${lib.escapeShellArg pkg}
+
+                # Use vitest binary found in setupCommands
+                if [ -n "$VITEST_BIN" ]; then
+                  $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
+                else
+                  echo "WARNING: Vitest binary not found for ${lib.escapeShellArg pkg}, skipping."
+                  # Don't fail the build if vitest isn't set up for this specific package
+                  # (some packages in workspace might not have tests)
+                fi
+                cd - >/dev/null
+              '')
+              vitestPackages;
+          };
         };
-      };
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [

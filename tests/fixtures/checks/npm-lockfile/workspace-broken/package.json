@@ -1,7 +1,0 @@
-{
-	"name": "workspace-broken-fixture",
-	"private": true,
-	"workspaces": [
-		"packages/*"
-	]
-}

@@ -1,3 +1,0 @@
-name: infra-dev
-runtime: nodejs
-description: Development infrastructure stack (test fixture)

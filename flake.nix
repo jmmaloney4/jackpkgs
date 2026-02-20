@@ -120,6 +120,7 @@
             opencode = inputs.llm-agents.packages.${system}.opencode;
             bun2nix-cli = inputs.bun2nix.packages.${system}.bun2nix;
           };
+          npm-lockfile-fix = pkgs.callPackage ./pkgs/npm-lockfile-fix {};
           roon-server = pkgs.callPackage ./pkgs/roon-server {};
           tod = pkgs.callPackage ./pkgs/tod {};
         };
@@ -134,6 +135,51 @@
         moduleJustfileTests = import ./tests/module-justfiles.nix {
           inherit lib pkgs testHelpers;
         };
+
+        integrationFixturesRoot = ./tests/fixtures/integration;
+        fixtureSimplePnpm = integrationFixturesRoot + "/simple-pnpm";
+        fixtureWorkspaceBasic = integrationFixturesRoot + "/pnpm-workspace-basic";
+        fixtureWorkspaceGlob = integrationFixturesRoot + "/pnpm-workspace-glob";
+        fixtureTscCheck = integrationFixturesRoot + "/pnpm-tsc-check";
+        fixtureVitestCheck = integrationFixturesRoot + "/pnpm-vitest-check";
+
+        mkPnpmFixtureCheck = {
+          name,
+          src,
+          depsHash,
+          checkCommand,
+          extraAttrs ? {},
+        }: let
+          cleanSrc = lib.cleanSourceWith {
+            inherit src;
+            filter = path: _type: builtins.baseNameOf path != "node_modules";
+          };
+        in
+          pkgs.stdenv.mkDerivation ({
+              pname = "integration-${name}";
+              version = "1.0.0";
+              src = cleanSrc;
+              pnpmDeps = pkgs.fetchPnpmDeps {
+                pname = "integration-${name}-deps";
+                version = "1.0.0";
+                src = cleanSrc;
+                hash = depsHash;
+                fetcherVersion = 3;
+              };
+              nativeBuildInputs = [
+                pkgs.nodejs
+                pkgs.pnpm_10
+                pkgs.pnpmConfigHook
+              ];
+              dontBuild = true;
+              installPhase = ''
+                runHook preInstall
+                ${checkCommand}
+                mkdir -p "$out"
+                runHook postInstall
+              '';
+            }
+            // extraAttrs);
       in {
         # Make jackLib and platformFilteredPackages available for devShell
         _module.args.jackpkgs =
@@ -195,12 +241,6 @@
             checks = import ./tests/checks.nix {
               inherit inputs lib;
             };
-            lockfileCacheability = import ./tests/lockfile-cacheability.nix {
-              inherit inputs lib;
-            };
-            lockfileNixpkgsIntegration = import ./tests/lockfile-nixpkgs-integration.nix {
-              inherit inputs lib;
-            };
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };
@@ -213,57 +253,73 @@
           # Add module pattern tests
           // lib.mapAttrs' (name: test: lib.nameValuePair "module-${name}" test) moduleJustfileTests
           // {
-            # Test: Simple npm package builds successfully with importNpmLock
-            lockfile-simple-npm-builds = pkgs.buildNpmPackage {
-              pname = "simple-npm-test";
-              version = "1.0.0";
-              src = ./tests/fixtures/integration/simple-npm;
-              npmDeps = pkgs.importNpmLock {
-                npmRoot = ./tests/fixtures/integration/simple-npm;
-              };
-              npmConfigHook = pkgs.importNpmLock.npmConfigHook;
-              dontNpmBuild = true;
-              installPhase = ''
-                mkdir -p $out
-                cp -r node_modules $out/
-                cp index.js $out/
+            pnpm-simple-builds = mkPnpmFixtureCheck {
+              name = "simple-pnpm";
+              src = fixtureSimplePnpm;
+              depsHash = "sha256-Y6FY9XiRcBAgaz2T0E90up0bABCBGl81uqZx1vbDRL8=";
+              checkCommand = ''
+                test -d node_modules
+                node index.js | grep -qx "pass"
               '';
             };
 
-            inherit
-              (let
-                pulumiMonorepoBase = {
-                  version = "1.0.0";
-                  src = ./tests/fixtures/integration/pulumi-monorepo;
-                  npmDeps = pkgs.importNpmLock {
-                    npmRoot = ./tests/fixtures/integration/pulumi-monorepo;
-                  };
-                  npmConfigHook = pkgs.importNpmLock.npmConfigHook;
-                  installPhase = "touch $out";
-                };
-              in {
-                # Test: Pulumi monorepo TypeScript compiles
-                lockfile-pulumi-monorepo-tsc = pkgs.buildNpmPackage (pulumiMonorepoBase
-                  // {
-                    pname = "pulumi-monorepo-tsc";
-                    buildPhase = ''
-                      npx tsc --noEmit
-                    '';
-                  });
+            pnpm-workspace-basic-postinstall = mkPnpmFixtureCheck {
+              name = "workspace-basic";
+              src = fixtureWorkspaceBasic;
+              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
+              checkCommand = ''
+                test -d node_modules
+                pnpm run postinstall
+                test -f lib/dist/index.js
+                node --input-type=module -e "const lib = await import('./lib/dist/index.js'); if (lib.add(2, 3) !== 5) process.exit(1);"
+              '';
+            };
 
-                # Test: Pulumi monorepo Vitest passes
-                lockfile-pulumi-monorepo-vitest = pkgs.buildNpmPackage (pulumiMonorepoBase
-                  // {
-                    pname = "pulumi-monorepo-vitest";
-                    buildPhase = ''
-                      npx tsc --build
-                      npx vitest run
-                    '';
-                  });
-              })
-              lockfile-pulumi-monorepo-tsc
-              lockfile-pulumi-monorepo-vitest
-              ;
+            pnpm-workspace-glob-resolution = mkPnpmFixtureCheck {
+              name = "workspace-glob";
+              src = fixtureWorkspaceGlob;
+              depsHash = "sha256-wuZJSJ4/SYJCOTFYTW1RXrdvn3D1tY6gbMGgou1zoLQ=";
+              checkCommand = ''
+                test -d node_modules
+                node packages/beta/index.js | grep -qx "hello from alpha"
+              '';
+            };
+
+            pnpm-tsc-check = mkPnpmFixtureCheck {
+              name = "tsc-check";
+              src = fixtureTscCheck;
+              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
+              checkCommand = ''
+                test -d node_modules
+                node_modules/.bin/tsc --noEmit --lib ES2020,DOM packages/app/index.ts
+              '';
+            };
+
+            pnpm-vitest-check = mkPnpmFixtureCheck {
+              name = "vitest-check";
+              src = fixtureVitestCheck;
+              depsHash = "sha256-+Yuu23jx65TFnR5F71dDWU8SjFypZpaFdu+GGLe9qQ8=";
+              checkCommand = ''
+                test -d node_modules
+                node_modules/.bin/vitest run --root packages/lib
+              '';
+            };
+
+            pnpm-node-modules-output-layout = mkPnpmFixtureCheck {
+              name = "node-modules-output-layout";
+              src = fixtureWorkspaceBasic;
+              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
+              checkCommand = ''
+                mkdir -p "$out"
+                cp -a node_modules "$out/"
+                test -d "$out/node_modules"
+                test -L "$out/node_modules/.pnpm/node_modules/@test/lib"
+                test ! -e "$out/node_modules/.pnpm/node_modules/@test/lib"
+              '';
+              extraAttrs = {
+                dontCheckForBrokenSymlinks = true;
+              };
+            };
           };
       };
 

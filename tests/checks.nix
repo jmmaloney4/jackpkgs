@@ -9,8 +9,9 @@
 
   pythonWorkspace = ./fixtures/checks/python-workspace;
   pythonWorkspaceDefault = ./fixtures/checks/python-workspace-default;
-  npmWorkspace = ./fixtures/checks/npm-workspace;
-  npmNoWorkspace = ./fixtures/checks/no-npm;
+  pnpmWorkspace = ./fixtures/checks/pnpm-workspace;
+  pnpmWorkspaceYml = ./fixtures/checks/pnpm-workspace-yml;
+  noWorkspaceFixture = ./fixtures/checks/no-workspace;
 
   # pyprojectPath is a string relative path, not a path object
   pythonWorkspacePyproject = "./pyproject.toml";
@@ -73,6 +74,12 @@
   evalFlake = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
+      imports = [optionsModule libModule moduleArgs] ++ modules ++ [checksModule];
+    };
+
+  evalFlakeNoMock = modules:
+    flakeParts.evalFlakeModule {inherit inputs;} {
+      systems = [system];
       imports = [optionsModule libModule] ++ modules ++ [checksModule];
     };
 
@@ -108,6 +115,19 @@
       _module.args.pythonWorkspace = mkPythonWorkspaceStub pkgs;
       _module.args.jackpkgsProjectRoot = projectRoot;
     };
+  };
+
+  mockFromYAML = yamlFile: let
+    pnpmWorkspaceYaml = {
+      packages = ["packages/*" "tools/*"];
+    };
+  in
+    if builtins.baseNameOf yamlFile == "pnpm-workspace.yaml"
+    then pnpmWorkspaceYaml
+    else {};
+
+  moduleArgs = {
+    jackpkgs.checks.fromYAML = mockFromYAML;
   };
 
   baseModule = {
@@ -146,6 +166,15 @@
   in
     perSystemCfg.checks or {};
 
+  mkChecksNoMock = {
+    configModule,
+    projectRoot ? pythonWorkspace,
+  }: let
+    eval = evalFlakeNoMock [baseModule configModule (perSystemArgs projectRoot)];
+    perSystemCfg = eval.config.perSystem system;
+  in
+    perSystemCfg.checks or {};
+
   hasInfixAll = needles: haystack: lib.all (n: lib.hasInfix n haystack) needles;
   hasChecksNamed = checks: names: lib.all (name: lib.hasAttr name checks) names;
   missingChecksNamed = checks: names: lib.all (name: !(lib.hasAttr name checks)) names;
@@ -167,7 +196,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
-      projectRoot = npmNoWorkspace;
+      projectRoot = noWorkspaceFixture;
     };
   in {
     expr = hasCheck checks "typescript-tsc";
@@ -182,7 +211,7 @@ in {
         checksEnable = false;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
-      projectRoot = npmNoWorkspace;
+      projectRoot = noWorkspaceFixture;
     };
   in {
     expr = missingChecksNamed checks ["python-pytest" "python-mypy" "python-ruff" "typescript-tsc"];
@@ -404,7 +433,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.extraArgs = ["--pretty" "false"];
       };
-      projectRoot = npmWorkspace;
+      projectRoot = pnpmWorkspace;
     };
     script = getBuildCommand checks.typescript-tsc;
   in {
@@ -424,7 +453,7 @@ in {
   testTypescriptMissingWorkspace = let
     checks = mkChecks {
       configModule = mkConfigModule {pulumiEnable = true;};
-      projectRoot = npmNoWorkspace;
+      projectRoot = noWorkspaceFixture;
     };
   in {
     expr = missingCheck checks "typescript-tsc";
@@ -437,7 +466,7 @@ in {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra" "tools/hello"];
       };
-      projectRoot = npmNoWorkspace;
+      projectRoot = noWorkspaceFixture;
     };
     script = getBuildCommand checks.typescript-tsc;
   in {
@@ -447,13 +476,43 @@ in {
     expected = true;
   };
 
+  testTypescriptRejectsNegationWorkspacePattern = let
+    result = builtins.tryEval (
+      (mkChecksNoMock {
+        configModule = mkConfigModule {
+          pulumiEnable = true;
+          extraConfig.jackpkgs.checks.fromYAML = _: {
+            packages = ["packages/*" "!packages/ignored"];
+          };
+        };
+        projectRoot = pnpmWorkspace;
+      }).typescript-tsc
+    );
+  in {
+    expr = result.success;
+    expected = false;
+  };
+
+  testTypescriptDiscoversPackagesFromYmlJsonSibling = let
+    checks = mkChecksNoMock {
+      configModule = mkConfigModule {
+        pulumiEnable = true;
+      };
+      projectRoot = pnpmWorkspaceYml;
+    };
+    script = getBuildCommand checks.typescript-tsc;
+  in {
+    expr = hasInfixAll ["Type-checking packages/app" "Type-checking packages/lib"] script;
+    expected = true;
+  };
+
   testTypescriptGuardMessage = let
     checks = mkChecks {
       configModule = mkConfigModule {
         pulumiEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
-      projectRoot = npmNoWorkspace;
+      projectRoot = noWorkspaceFixture;
     };
     script = getBuildCommand checks.typescript-tsc;
   in {
@@ -474,7 +533,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.enable = true;
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
       };
-      projectRoot = npmWorkspace;
+      projectRoot = pnpmWorkspace;
     };
   in {
     expr = hasCheck checks "javascript-vitest";
@@ -489,7 +548,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.extraArgs = ["--coverage"];
       };
-      projectRoot = npmWorkspace;
+      projectRoot = pnpmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {
@@ -523,7 +582,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
       };
-      projectRoot = npmWorkspace;
+      projectRoot = pnpmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {
@@ -531,7 +590,7 @@ in {
     expr =
       hasInfixAll [
         "Testing packages/app"
-        "/lib/node_modules/.bin"
+        "/node_modules/.bin"
         "export PATH="
       ]
       script
@@ -555,7 +614,7 @@ in {
         extraConfig.jackpkgs.checks.vitest.packages = ["packages/app"];
         extraConfig.jackpkgs.checks.vitest.nodeModules = dummyNodeModules;
       };
-      projectRoot = npmWorkspace;
+      projectRoot = pnpmWorkspace;
     };
     script = getBuildCommand checks.javascript-vitest;
   in {
@@ -563,7 +622,7 @@ in {
       hasInfixAll [
         "Linking node_modules"
         "ln -sfn"
-        "/lib/node_modules"
+        "/node_modules"
         "cp -R"
       ]
       script;

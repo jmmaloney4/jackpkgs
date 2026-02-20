@@ -1,6 +1,6 @@
 ---
 id: ADR-026
-title: "Openchamber Packaging Approach"
+title: Openchamber Packaging Approach
 status: proposed
 date: 2026-02-18
 ---
@@ -81,8 +81,3 @@ The package MUST fetch source from GitHub (includes `bun.lockb`) and use a fixed
 - https://github.com/btriapitsyn/openchamber
 - ADR-020 (migrate-to-buildnpmpackage) - similar JS packaging concerns
 
-______________________________________________________________________
-
-Author: jack
-Date: 2026-02-18
-PR: N/A
