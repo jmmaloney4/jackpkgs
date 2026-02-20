@@ -190,21 +190,40 @@ in {
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
 
-  - Enables pre-commit with `treefmt`, `nbstripout` for `.ipynb`, `mypy`, and optional `numpydoc`.
-  - **Important:** For the mypy hook to work, `mypy` must be available in the Python environment. See [Common Patterns: Dev Tools with Pre-commit](#common-patterns-dev-tools-with-pre-commit) below.
+  - Enables pre-commit with `treefmt`, `nbstripout` for `.ipynb`, Python hooks (`mypy`, `ruff`, `pytest`, optional `numpydoc`), `tsc`, and `vitest`.
+  - `pytest` and `vitest` hooks run at the `pre-push` stage.
+  - **Important:** Python tooling hooks require dev tools in the selected Python environment. See [Common Patterns: Dev Tools with Pre-commit](#common-patterns-dev-tools-with-pre-commit) below.
   - Options under `jackpkgs.pre-commit`:
+    - `enable` (bool, default `true`)
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
     - `nbstripoutPackage` (default `config.jackpkgs.pkgs.nbstripout`)
-    - `mypyPackage` (defaults to dev-tools env selection: `dev` non-editable with `includeGroups = true` → any non-editable env with `includeGroups = true` → auto-created CI env with dependency groups → `pythonDefaultEnv` → `config.jackpkgs.pkgs.mypy`)
-    - `numpydocEnable` (bool, default `false`)
-    - `numpydocPackage` (defaults to `config.jackpkgs.pre-commit.mypyPackage`)
-    - `numpydocExtraArgs` (list of strings, default `[]`)
+    - `python.mypy.enable` (bool, default `true`)
+    - `python.mypy.package` (defaults to dev-tools env selection: `dev` non-editable with `includeGroups = true` -> any non-editable env with `includeGroups = true` -> auto-created CI env with dependency groups -> `pythonDefaultEnv` -> `config.jackpkgs.pkgs.mypy`)
+    - `python.mypy.extraArgs` (list of strings, default `[]`)
+    - `python.ruff.enable` (bool, default `true`)
+    - `python.ruff.package` (defaults to `config.jackpkgs.pre-commit.python.mypy.package`)
+    - `python.ruff.extraArgs` (list of strings, default `["--no-cache"]`)
+    - `python.pytest.enable` (bool, default `true`)
+    - `python.pytest.package` (defaults to `config.jackpkgs.pre-commit.python.mypy.package`)
+    - `python.pytest.extraArgs` (list of strings, default `[]`)
+    - `python.numpydoc.enable` (bool, default `false`)
+    - `python.numpydoc.package` (defaults to `config.jackpkgs.pre-commit.python.mypy.package`)
+    - `python.numpydoc.extraArgs` (list of strings, default `[]`)
+    - `typescript.tsc.enable` (bool, default `true`)
+    - `typescript.tsc.package` (defaults to `pkgs.nodePackages.typescript`)
+    - `typescript.tsc.nodeModules` (nullable package, default `null` -> falls back to `jackpkgs.outputs.nodeModules`)
+    - `typescript.tsc.extraArgs` (list of strings, default `[]`)
+    - `javascript.vitest.enable` (bool, default `true`)
+    - `javascript.vitest.package` (defaults to `pkgs.nodejs`)
+    - `javascript.vitest.nodeModules` (nullable package, default `null` -> falls back to `jackpkgs.outputs.nodeModules`)
+    - `javascript.vitest.extraArgs` (list of strings, default `[]`)
 
 - checks (`modules/flake-parts/checks.nix`)
 
-  - Adds CI checks for Python (pytest/mypy/ruff, optional numpydoc) and TypeScript (tsc).
+  - Adds CI checks for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest).
   - **Python CI Environment Selection:**
-    - Automatically selects a suitable environment for CI checks (non-editable with dependency groups).
+    - Automatically selects a suitable environment for Python checks (non-editable with dependency groups).
+    - Pre-commit Python tooling hooks use the same selection logic.
     - Priority order:
       1. Use `dev` environment if it's non-editable and has `includeGroups = true`
       2. Use any non-editable environment with `includeGroups = true`
@@ -213,8 +232,20 @@ in {
   - Options under `jackpkgs.checks` (selected):
     - `enable` (bool, default auto-enabled with Python/Pulumi/Node.js)
     - `python.enable`, `python.pytest.enable`, `python.mypy.enable`, `python.ruff.enable`, `python.numpydoc.enable`
-    - `python.numpydoc.extraArgs`
-    - `typescript.enable`, `typescript.tsc.packages`, `typescript.tsc.extraArgs`
+    - `python.pytest.extraArgs`, `python.mypy.extraArgs`, `python.ruff.extraArgs`, `python.numpydoc.extraArgs`
+    - `typescript.enable`, `typescript.tsc.enable`, `typescript.tsc.packages`, `typescript.tsc.nodeModules`, `typescript.tsc.extraArgs`
+    - `vitest.enable`, `vitest.packages`, `vitest.nodeModules`, `vitest.extraArgs`
+
+**Quality-gate parity matrix:**
+
+| Tool | `jackpkgs.checks` | `jackpkgs.pre-commit` | Default |
+| ---- | ----------------- | --------------------- | ------- |
+| `mypy` | `python.mypy` | `python.mypy` | enabled |
+| `ruff` | `python.ruff` | `python.ruff` | enabled |
+| `pytest` | `python.pytest` | `python.pytest` (pre-push) | enabled |
+| `numpydoc` | `python.numpydoc` | `python.numpydoc` | disabled |
+| `tsc` | `typescript.tsc` | `typescript.tsc` | enabled |
+| `vitest` | `vitest` | `javascript.vitest` (pre-push) | enabled |
 
 - shell (`modules/flake-parts/devshell.nix`)
 
@@ -365,7 +396,7 @@ in {
 
 #### Common Patterns: Dev Tools with Pre-commit
 
-When using the pre-commit module with Python projects, the mypy hook requires `mypy` (and optional numpydoc hook requires `numpydoc`) in the selected Python environment.
+When using the pre-commit module with Python projects, Python tooling hooks require the corresponding dev tools in the selected Python environment (`mypy`, `ruff`, `pytest`; and `numpydoc` only when enabled).
 
 **Step 1: Add dev tools to your `pyproject.toml`**
 
@@ -421,19 +452,19 @@ jackpkgs.python = {
 
 **Why is this necessary?**
 
-- Mypy pre-commit and Python CI checks share the same env selection priority
+- Python pre-commit tooling hooks and Python CI checks share the same env selection priority
 - Preferred env is non-editable with `includeGroups = true`
 - Non-editable environments default to `includeGroups = false` (production-only), so set it explicitly for tooling checks
 - If no matching env exists, jackpkgs auto-creates a temporary CI/check env with dependency groups
 
 **Environment Pattern Summary:**
 
-| Pattern                    | `editable` | `includeGroups`   | Checks + pre-commit tool hooks  |
-| -------------------------- | ---------- | ----------------- | ------------------------------- |
-| Production-only default    | `false`    | `false` (default) | No (no mypy/numpydoc)           |
-| CI/pre-commit-ready        | `false`    | `true`            | Yes                             |
-| Separate prod + dev envs   | mixed      | dev env: `true`   | Yes (dev env is selected)       |
-| No matching configured env | —          | —                 | Yes (auto-created fallback env) |
+| Pattern | `editable` | `includeGroups` | Checks + pre-commit Python hooks |
+| ------- | ---------- | --------------- | -------------------------------- |
+| Production-only default | `false` | `false` (default) | No (no mypy/ruff/pytest tooling) |
+| CI/pre-commit-ready | `false` | `true` | Yes |
+| Separate prod + dev envs | mixed | dev env: `true` | Yes (dev env is selected) |
+| No matching configured env | — | — | Yes (auto-created fallback env) |
 
 #### Path resolution (project root)
 
