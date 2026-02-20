@@ -346,6 +346,7 @@ in {
         "all"
         "--exclude"
         "GL08"
+        " ."
       ]
       script;
     expected = true;

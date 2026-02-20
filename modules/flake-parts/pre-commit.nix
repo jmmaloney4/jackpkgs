@@ -1,6 +1,7 @@
 {jackpkgsInputs}: {
   inputs,
   config,
+  options,
   lib,
   jackpkgsLib,
   ...
@@ -9,11 +10,7 @@
   inherit (jackpkgsInputs.self.lib) defaultExcludes;
   pythonEnvHelpers = import ../../lib/python-env-selection.nix {inherit lib;};
   cfg = config.jackpkgs.pre-commit;
-  # Capture top-level jackpkgs.checks from the outer flake module config.
-  # The `config` here is the top-level flake-parts module config (not per-system),
-  # so config.jackpkgs.checks resolves correctly. This closed-over value is then
-  # used inside `config.perSystem` where `config` refers to per-system scope only.
-  # See ADR-029 Risk R1 and its mitigation.
+  checksOptionsDefined = lib.hasAttrByPath ["jackpkgs" "checks"] options;
   checksCfg = config.jackpkgs.checks;
 in {
   imports = [
@@ -168,136 +165,178 @@ in {
     });
   };
 
-  config = mkIf cfg.enable {
-    perSystem = {
-      pkgs,
-      lib,
-      config,
-      ...
-    }: let
+  config = mkIf cfg.enable (
+    if !checksOptionsDefined
+    then
+      throw ''
+        jackpkgs.pre-commit requires jackpkgs.checks options.
+
+        Import inputs.jackpkgs.flakeModules.checks (or inputs.jackpkgs.flakeModules.default)
+        in your flake modules list before using jackpkgs.pre-commit.
+      ''
+    else {
+      perSystem = {
+        pkgs,
+        lib,
+        config,
+        ...
+      }: let
         sysCfg = config.jackpkgs.pre-commit;
-        # checksCfg is closed over from the top-level module let-binding above.
-        # See the `checksCfg = config.jackpkgs.checks` definition at module top.
 
-      escapeExtraArgs = args:
-        lib.optionalString (args != []) " ${lib.escapeShellArgs args}";
+        escapeExtraArgs = args:
+          lib.optionalString (args != []) " ${lib.escapeShellArgs args}";
 
-      defaultNodeModules = lib.attrByPath ["jackpkgs" "outputs" "nodeModules"] null config;
-      tscNodeModules =
-        if sysCfg.typescript.tsc.nodeModules != null
-        then sysCfg.typescript.tsc.nodeModules
-        else defaultNodeModules;
-      vitestNodeModules =
-        if sysCfg.javascript.vitest.nodeModules != null
-        then sysCfg.javascript.vitest.nodeModules
-        else defaultNodeModules;
+        defaultNodeModules = lib.attrByPath ["jackpkgs" "outputs" "nodeModules"] null config;
+        tscNodeModules =
+          if sysCfg.typescript.tsc.nodeModules != null
+          then sysCfg.typescript.tsc.nodeModules
+          else defaultNodeModules;
+        vitestNodeModules =
+          if sysCfg.javascript.vitest.nodeModules != null
+          then sysCfg.javascript.vitest.nodeModules
+          else defaultNodeModules;
 
-      mkNodeModulesSetup = nodeModules: ''
-        nm_store=${lib.escapeShellArg (toString nodeModules)}
-        ${jackpkgsLib.nodejs.findNodeModulesRoot "nm_root" "$nm_store"}
-        if [ -z "$nm_root" ]; then
-          echo "ERROR: Unable to find node_modules in $nm_store" >&2
-          exit 1
-        fi
-        ln -sfn "$nm_root" node_modules
-        ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" "$nm_store"}
-        if [ -n "$nm_bin" ]; then
-          export PATH="$nm_bin:$PATH"
-        fi
-      '';
+        mkNodeModulesSetup = nodeModules: ''
+          nm_store=${lib.escapeShellArg (toString nodeModules)}
+          ${jackpkgsLib.nodejs.findNodeModulesRoot "nm_root" "$nm_store"}
+          if [ -z "$nm_root" ]; then
+            echo "ERROR: Unable to find node_modules in $nm_store" >&2
+            exit 1
+          fi
+          ln -sfn "$nm_root" node_modules
+          ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" "$nm_store"}
+          if [ -n "$nm_bin" ]; then
+            export PATH="$nm_bin:$PATH"
+          fi
+        '';
 
-      tscExe = lib.getExe' sysCfg.typescript.tsc.package "tsc";
+        tscExe = lib.getExe' sysCfg.typescript.tsc.package "tsc";
 
-      tscEntry =
-        if tscNodeModules != null
-        then
-          "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-            ${mkNodeModulesSetup tscNodeModules}
-            ${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs}
-          ''}"
-        else "${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs}";
+        tscEntry =
+          if tscNodeModules != null
+          then
+            "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
+              ${mkNodeModulesSetup tscNodeModules}
+              ${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs}
+            ''}"
+          else
+            "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
+              cat >&2 <<'EOF'
+              ERROR: node_modules not found for TypeScript pre-commit hook.
 
-      vitestEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-        ${lib.optionalString (vitestNodeModules != null) (mkNodeModulesSetup vitestNodeModules)}
-        if [ -x "./node_modules/.bin/vitest" ]; then
-          VITEST_BIN="./node_modules/.bin/vitest"
-        elif command -v vitest >/dev/null 2>&1; then
-          VITEST_BIN="vitest"
-        else
-          echo "ERROR: vitest binary not found. Configure jackpkgs.pre-commit.javascript.vitest.nodeModules or ensure vitest is available in PATH." >&2
-          exit 1
-        fi
+              TypeScript pre-commit hooks require node_modules to be present.
 
-        "$VITEST_BIN" run${escapeExtraArgs checksCfg.vitest.extraArgs}
-      ''}";
-    in {
-      pre-commit = {
-        check.enable = true;
+              Enable the Node.js module to provide node_modules:
 
-        settings.hooks.treefmt = {
-          enable = true;
-          package = sysCfg.treefmtPackage;
-        };
+                  jackpkgs.nodejs.enable = true;
 
-        settings.hooks.nbstripout = {
-          enable = true;
-          package = sysCfg.nbstripoutPackage;
-          entry = "${lib.getExe sysCfg.nbstripoutPackage}";
-          files = "\\.ipynb$";
-        };
+              Or set a custom node_modules derivation:
 
-        settings.hooks.mypy = {
-          enable = checksCfg.python.mypy.enable;
-          package = sysCfg.python.mypy.package;
-          entry = "${lib.getExe' sysCfg.python.mypy.package "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs}";
-          files = "\\.py$";
-          excludes = defaultExcludes.preCommit;
-        };
+                  jackpkgs.pre-commit.typescript.tsc.nodeModules = <derivation>;
 
-        settings.hooks.ruff = {
-          enable = checksCfg.python.ruff.enable;
-          package = sysCfg.python.ruff.package;
-          entry = "${lib.getExe' sysCfg.python.ruff.package "ruff"} check${escapeExtraArgs checksCfg.python.ruff.extraArgs}";
-          files = "\\.py$";
-          excludes = defaultExcludes.preCommit;
-        };
+              To disable TypeScript pre-commit hook:
 
-        settings.hooks.pytest = {
-          enable = checksCfg.python.pytest.enable;
-          package = sysCfg.python.pytest.package;
-          entry = "${lib.getExe' sysCfg.python.pytest.package "pytest"}${escapeExtraArgs checksCfg.python.pytest.extraArgs}";
-          files = "\\.py$";
-          stages = ["pre-push"];
-          pass_filenames = false;
-        };
+                  jackpkgs.checks.typescript.tsc.enable = false;
+              EOF
+              exit 1
+            ''}";
 
-        settings.hooks.numpydoc = {
-          enable = checksCfg.python.numpydoc.enable;
-          package = sysCfg.python.numpydoc.package;
-          entry = let
-            pythonExe = lib.getExe' sysCfg.python.numpydoc.package "python";
-          in "${pythonExe} -m numpydoc.hooks.validate_docstrings${escapeExtraArgs checksCfg.python.numpydoc.extraArgs}";
-          files = "\\.py$";
-          excludes = defaultExcludes.preCommit;
-        };
+        vitestEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
+          ${lib.optionalString (vitestNodeModules != null) (mkNodeModulesSetup vitestNodeModules)}
+          if [ -x "./node_modules/.bin/vitest" ]; then
+            VITEST_BIN="./node_modules/.bin/vitest"
+          elif command -v vitest >/dev/null 2>&1; then
+            VITEST_BIN="vitest"
+          else
+            cat >&2 <<'EOF'
+            ERROR: vitest binary not found for pre-commit hook.
 
-        settings.hooks.tsc = {
-          enable = checksCfg.typescript.tsc.enable;
-          package = sysCfg.typescript.tsc.package;
-          entry = tscEntry;
-          files = "\\.(ts|tsx)$";
-          pass_filenames = false;
-        };
+            Enable the Node.js module to provide node_modules:
 
-        settings.hooks.vitest = {
-          enable = checksCfg.vitest.enable;
-          package = sysCfg.javascript.vitest.package;
-          entry = vitestEntry;
-          files = "\\.(js|ts|jsx|tsx)$";
-          stages = ["pre-push"];
-          pass_filenames = false;
+                jackpkgs.nodejs.enable = true;
+
+            Or set a custom node_modules derivation:
+
+                jackpkgs.pre-commit.javascript.vitest.nodeModules = <derivation>;
+
+            To disable vitest pre-commit hook:
+
+                jackpkgs.checks.vitest.enable = false;
+            EOF
+            exit 1
+          fi
+
+          "$VITEST_BIN" run${escapeExtraArgs checksCfg.vitest.extraArgs}
+        ''}";
+      in {
+        pre-commit = {
+          check.enable = true;
+
+          settings.hooks.treefmt = {
+            enable = true;
+            package = sysCfg.treefmtPackage;
+          };
+
+          settings.hooks.nbstripout = {
+            enable = true;
+            package = sysCfg.nbstripoutPackage;
+            entry = "${lib.getExe sysCfg.nbstripoutPackage}";
+            files = "\\.ipynb$";
+          };
+
+          settings.hooks.mypy = {
+            enable = checksCfg.python.mypy.enable;
+            package = sysCfg.python.mypy.package;
+            entry = "${lib.getExe' sysCfg.python.mypy.package "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs}";
+            files = "\\.py$";
+            excludes = defaultExcludes.preCommit;
+          };
+
+          settings.hooks.ruff = {
+            enable = checksCfg.python.ruff.enable;
+            package = sysCfg.python.ruff.package;
+            entry = "${lib.getExe' sysCfg.python.ruff.package "ruff"} check${escapeExtraArgs checksCfg.python.ruff.extraArgs}";
+            files = "\\.py$";
+            excludes = defaultExcludes.preCommit;
+          };
+
+          settings.hooks.pytest = {
+            enable = checksCfg.python.pytest.enable;
+            package = sysCfg.python.pytest.package;
+            entry = "${lib.getExe' sysCfg.python.pytest.package "pytest"}${escapeExtraArgs checksCfg.python.pytest.extraArgs}";
+            files = "\\.py$";
+            stages = ["pre-push"];
+            pass_filenames = false;
+          };
+
+          settings.hooks.numpydoc = {
+            enable = checksCfg.python.numpydoc.enable;
+            package = sysCfg.python.numpydoc.package;
+            entry = let
+              pythonExe = lib.getExe' sysCfg.python.numpydoc.package "python";
+            in "${pythonExe} -m numpydoc.hooks.validate_docstrings${escapeExtraArgs checksCfg.python.numpydoc.extraArgs} .";
+            files = "\\.py$";
+            excludes = defaultExcludes.preCommit;
+          };
+
+          settings.hooks.tsc = {
+            enable = checksCfg.typescript.tsc.enable;
+            package = sysCfg.typescript.tsc.package;
+            entry = tscEntry;
+            files = "\\.(ts|tsx)$";
+            pass_filenames = false;
+          };
+
+          settings.hooks.vitest = {
+            enable = checksCfg.vitest.enable;
+            package = sysCfg.javascript.vitest.package;
+            entry = vitestEntry;
+            files = "\\.(js|ts|jsx|tsx)$";
+            stages = ["pre-push"];
+            pass_filenames = false;
+          };
         };
       };
-    };
-  };
+    }
+  );
 }

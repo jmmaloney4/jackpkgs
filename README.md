@@ -192,8 +192,20 @@ in {
 
   - Enables pre-commit with `treefmt`, `nbstripout` for `.ipynb`, Python hooks (`mypy`, `ruff`, `pytest`, optional `numpydoc`), `tsc`, and `vitest`.
   - `pytest` and `vitest` hooks run at the `pre-push` stage.
+  - `numpydoc` is **opt-in** via `jackpkgs.checks.python.numpydoc.enable = true;`.
+  - **Dependency:** when `jackpkgs.pre-commit.enable = true`, you must also import `inputs.jackpkgs.flakeModules.checks` (or `inputs.jackpkgs.flakeModules.default`).
   - **Important:** Python tooling hooks require dev tools in the selected Python environment. See [Common Patterns: Dev Tools with Pre-commit](#common-patterns-dev-tools-with-pre-commit) below.
-  - Hook enables and `extraArgs` are controlled by `jackpkgs.checks` (see below). `jackpkgs.pre-commit` controls only **package** and **nodeModules** overrides:
+  - Hook enables and `extraArgs` are controlled by `jackpkgs.checks` (see below). `jackpkgs.pre-commit` controls only **package** and **nodeModules** overrides.
+  - Python package defaults are chained: set `python.mypy.package` once, and `python.ruff.package`, `python.pytest.package`, and `python.numpydoc.package` inherit it by default.
+  - Minimal imports when enabling pre-commit directly:
+
+    ```nix
+    imports = [
+      inputs.jackpkgs.flakeModules.checks
+      inputs.jackpkgs.flakeModules.pre-commit
+    ];
+    ```
+
   - Options under `jackpkgs.pre-commit`:
     - `enable` (bool, default `true`)
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
@@ -455,6 +467,17 @@ jackpkgs.python = {
       # Non-editable + includeGroups = true is preferred for CI and pre-commit tool checks
     };
   };
+};
+```
+
+**Step 3 (optional): Opt in to numpydoc in checks + pre-commit**
+
+`numpydoc` is disabled by default. Enable it explicitly when you want docstring validation:
+
+```nix
+jackpkgs.checks.python.numpydoc = {
+  enable = true;
+  extraArgs = ["--checks" "all"];
 };
 ```
 

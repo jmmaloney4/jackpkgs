@@ -73,9 +73,17 @@
       imports = [optionsModule libModule pkgsModule checksModule] ++ modules ++ [preCommitModule];
     };
 
+  evalFlakeWithoutChecks = modules:
+    flakeParts.evalFlakeModule {inherit inputs;} {
+      systems = [system];
+      imports = [optionsModule libModule pkgsModule] ++ modules ++ [preCommitModule];
+    };
+
   getPerSystemCfg = modules: (evalFlake modules).config.perSystem system;
+  getPerSystemCfgWithoutChecks = modules: (evalFlakeWithoutChecks modules).config.perSystem system;
 
   getHooks = modules: (getPerSystemCfg modules).pre-commit.settings.hooks;
+  getHooksWithoutChecks = modules: (getPerSystemCfgWithoutChecks modules).pre-commit.settings.hooks;
 
   dummyNodeModules = builtins.derivation {
     name = "dummy-node-modules";
@@ -224,9 +232,15 @@ in {
         "all"
         "--exclude"
         "GL08"
+        " ."
       ]
       hooks.numpydoc.entry;
     expected = true;
+  };
+
+  testPreCommitRequiresChecksModule = {
+    expr = (builtins.tryEval ((getHooksWithoutChecks [(mkConfigModule {})]).mypy.enable)).success;
+    expected = false;
   };
 
   testRuffPytestNumpydocDefaultToMypyPackage = let
@@ -255,6 +269,24 @@ in {
     expected = true;
   };
 
+  testTscMissingNodeModulesGuidance = let
+    hooks = getHooks [
+      (mkConfigModule {
+        topConfig.jackpkgs.nodejs.enable = true;
+      })
+    ];
+  in {
+    expr =
+      hasInfixAll [
+        "ERROR: node_modules not found for TypeScript pre-commit hook."
+        "jackpkgs.nodejs.enable = true;"
+        "jackpkgs.pre-commit.typescript.tsc.nodeModules"
+        "jackpkgs.checks.typescript.tsc.enable = false;"
+      ]
+      hooks.tsc.entry;
+    expected = true;
+  };
+
   testVitestUsesNodeModulesWhenConfigured = let
     hooks = getHooks [
       (mkConfigModule {
@@ -263,6 +295,24 @@ in {
     ];
   in {
     expr = hasInfixAll ["nm_store=" "node_modules/.bin/vitest" "vitest" "run"] hooks.vitest.entry;
+    expected = true;
+  };
+
+  testVitestMissingNodeModulesGuidance = let
+    hooks = getHooks [
+      (mkConfigModule {
+        topConfig.jackpkgs.nodejs.enable = true;
+      })
+    ];
+  in {
+    expr =
+      hasInfixAll [
+        "ERROR: vitest binary not found for pre-commit hook."
+        "jackpkgs.nodejs.enable = true;"
+        "jackpkgs.pre-commit.javascript.vitest.nodeModules"
+        "jackpkgs.checks.vitest.enable = false;"
+      ]
+      hooks.vitest.entry;
     expected = true;
   };
 

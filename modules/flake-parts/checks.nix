@@ -89,6 +89,9 @@ in {
             description = ''
               Enable numpydoc docstring validation.
 
+              Disabled by default; opt in with
+              `jackpkgs.checks.python.numpydoc.enable = true;`.
+
               Requires `numpydoc` to be available in the selected Python check
               environment.
             '';
@@ -479,7 +482,7 @@ in {
               checkCommands = forEachWorkspaceMember {
                 workspaceRoot = pythonCfg.workspaceRoot;
                 members = pythonWorkspaceMembers;
-                perMemberCommand = "python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs}";
+                perMemberCommand = "python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs} .";
               };
             };
           }
