@@ -179,11 +179,12 @@ in {
   - Integrates `just-flake` features; provides a generated `justfile` with:
     - direnv: `just reload` (`direnv reload`)
     - infra: `just auth` (GCloud ADC), `just new-stack <project> <stack>` (Pulumi)
-    - python: `just nbstrip [<notebook>]` (strip outputs)
+    - python: `just nbstrip [<notebook>]` (strip outputs), `just mypy` (per-package type checking)
     - git: `just pre`, `just pre-all` (pre-commit)
     - nix: `just build-all`, `just build-all-verbose` (flake-iter)
+  - **`just mypy`**: Runs mypy on a per-package basis for Python workspaces, avoiding the "source file found twice" error that occurs when running `mypy .` at the monorepo root with PEP 420 namespace packages. The recipe is auto-generated when `jackpkgs.python` is enabled and workspace members are discovered from `[tool.uv.workspace]` in `pyproject.toml`.
   - Options under `jackpkgs.just` to replace tool packages if desired:
-    - `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`
+    - `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `mypyPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`
     - `pulumiBackendUrl` (nullable string)
   - Options under `jackpkgs.gcp`:
     - `iamOrg` (nullable string, default `null`) — GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`

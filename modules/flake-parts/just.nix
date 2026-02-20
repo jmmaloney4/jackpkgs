@@ -6,10 +6,52 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs;
+  pythonCfg = config.jackpkgs.python or {};
 
   # Import justfile generation helpers from shared lib
   justfileHelpers = import ../../lib/justfile-helpers.nix {inherit lib;};
   inherit (justfileHelpers) mkRecipe mkRecipeWithParams optionalLines;
+
+  # Validate workspace paths to prevent path traversal and injection attacks
+  # Rejects paths containing "..", starting with "/", or containing newlines
+  validateWorkspacePath = path:
+    if lib.hasInfix ".." path
+    then throw "Invalid workspace path '${path}': contains '..' (path traversal not allowed for security)"
+    else if lib.hasPrefix "/" path
+    then throw "Invalid workspace path '${path}': absolute paths not allowed (must be relative to workspace root)"
+    else if lib.hasInfix "\n" path
+    then throw "Invalid workspace path: contains newline (command injection not allowed)"
+    else path;
+
+  # Expand workspace globs like "tools/*" -> ["tools/hello", "tools/ocr"]
+  expandWorkspaceGlob = workspaceRoot: glob: let
+    validatedGlob = validateWorkspacePath glob;
+  in
+    if lib.hasSuffix "/*" validatedGlob
+    then let
+      dir = lib.removeSuffix "/*" validatedGlob;
+      fullPath = workspaceRoot + "/${dir}";
+      entries =
+        if builtins.pathExists fullPath
+        then builtins.readDir fullPath
+        else {};
+      subdirs = lib.filterAttrs (name: type: type == "directory" && name != "." && name != "..") entries;
+    in
+      map (name: "${dir}/${name}") (lib.attrNames subdirs)
+    else [validatedGlob];
+
+  # Discover Python workspace members from pyproject.toml
+  discoverPythonMembers = workspaceRoot: pyprojectPath: let
+    pyproject = builtins.fromTOML (builtins.readFile pyprojectPath);
+    memberGlobs = lib.attrByPath ["tool" "uv" "workspace" "members"] ["."] pyproject;
+
+    allMembers = lib.flatten (map (expandWorkspaceGlob workspaceRoot) memberGlobs);
+
+    # Filter for directories with pyproject.toml
+    hasProject = member:
+      builtins.pathExists (workspaceRoot + "/${member}/pyproject.toml");
+  in
+    lib.filter hasProject allMembers;
 in {
   imports = [
     jackpkgsInputs.just-flake.flakeModule
@@ -86,6 +128,18 @@ in {
           defaultText = "config.jackpkgs.pkgs.jq";
           description = "jq package to use.";
         };
+        mypyPackage = mkOption {
+          type = types.package;
+          default = let
+            pythonDefaultEnv =
+              lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
+          in
+            if pythonDefaultEnv != null
+            then pythonDefaultEnv
+            else config.jackpkgs.pkgs.mypy;
+          defaultText = "`jackpkgs.python.environments.default` (when defined) or `config.jackpkgs.pkgs.mypy`";
+          description = "mypy package to use for per-package type checking.";
+        };
         nbstripoutPackage = mkOption {
           type = types.package;
           default = config.jackpkgs.pkgs.nbstripout;
@@ -126,6 +180,50 @@ in {
     }: let
       sysCfg = config.jackpkgs.just; # per-system config scope
       sysCfgQuarto = config.jackpkgs.quarto;
+      pythonWorkspaceConfigReady =
+        (pythonCfg.enable or false)
+        && pythonCfg ? workspaceRoot
+        && pythonCfg ? pyprojectPath
+        && pythonCfg.workspaceRoot != null
+        && pythonCfg.pyprojectPath != null;
+
+      # Discover Python workspace members if Python module is enabled
+      pythonWorkspaceMembers =
+        if pythonWorkspaceConfigReady
+        then let
+          # Validate and resolve pyprojectPath (string like "./pyproject.toml")
+          validatedPath = validateWorkspacePath pythonCfg.pyprojectPath;
+          resolvedPyprojectPath = pythonCfg.workspaceRoot + "/${validatedPath}";
+        in
+          if builtins.pathExists resolvedPyprojectPath
+          then discoverPythonMembers pythonCfg.workspaceRoot resolvedPyprojectPath
+          else []
+        else [];
+
+      # Generate mypy per-package recipe when Python workspace members exist
+      # This avoids the "source file found twice" error that occurs when running
+      # mypy at the monorepo root with PEP 420 namespace packages
+      mypyPerPackageRecipe =
+        if pythonWorkspaceMembers != []
+        then let
+          mypyBin = lib.getExe' sysCfg.mypyPackage "mypy";
+          # Generate the per-package mypy commands
+          memberCommands = lib.concatMap (member: let
+            escapedMember = lib.escapeShellArg member;
+          in [
+            "printf 'Type-checking %s...\\n' ${escapedMember}"
+            "(cd ${escapedMember} && ${mypyBin} .)"
+          ]) pythonWorkspaceMembers;
+        in
+          mkRecipe "mypy" "Run mypy per-package (avoids 'source file found twice' in monorepos)" (
+            [
+              "#!/usr/bin/env bash"
+              "set -euo pipefail"
+            ]
+            ++ memberCommands
+          )
+          true
+        else "";
     in {
       just-flake = {
         features = {
@@ -210,7 +308,8 @@ in {
                 "    ${lib.getExe sysCfg.nbstripoutPackage} \"{{notebook}}\""
                 "fi"
               ]
-              true;
+              true
+              + lib.optionalString (mypyPerPackageRecipe != "") ("\n" + mypyPerPackageRecipe);
           };
           git = {
             enable = true;
