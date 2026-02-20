@@ -204,7 +204,7 @@ in {
                   "# Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)"
                   "new-stack project_path stack_name:"
                   "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} login \"${cfg.pulumi.backendUrl}\""
-                  "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} stack init {{stack_name}} --secrets-provider \"${cfg.pulumi.secretsProvider}\""
+                  "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} stack init {{stack_name}} --secrets-provider ${lib.escapeShellArg cfg.pulumi.secretsProvider}"
                   "    ${lib.getExe' sysCfg.pulumiPackage "pulumi"} -C {{project_path}} stack select {{stack_name}}"
                 ]
               );
