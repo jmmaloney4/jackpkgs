@@ -19,6 +19,14 @@ all `enable`/`extraArgs` options from `jackpkgs.pre-commit`.
 
 ## Pre-Flight: Verify Scope Access (R1 Risk)
 
+**Implementation outcome note (post-execution):**
+
+Direct access to `config.jackpkgs.checks` from the deferred per-system context
+did not resolve reliably. The implemented mitigation matches ADR-029 R1: capture
+`checksCfg = config.jackpkgs.checks` at the module top-level scope in
+`pre-commit.nix`, then close over `checksCfg` inside the per-system config
+function.
+
 Before making any module changes, confirm that `config.jackpkgs.checks` is
 accessible from within the `pre-commit.nix` per-system config block (the
 `mkDeferredModuleOption` scope). This is believed to work because `checks.nix`

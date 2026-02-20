@@ -2,7 +2,18 @@
 
 ## Status
 
-Implemented (2026-01-30)
+Superseded in part (2026-02-20 by ADR-029)
+
+## Supersession Note
+
+This ADR remains useful for the `includeGroups` guidance, but API details for
+pre-commit/checks gate control were superseded by ADR-029.
+
+- `jackpkgs.pre-commit.mypyPackage` was replaced by
+  `jackpkgs.pre-commit.python.mypy.package`.
+- Tool enable/disable and `extraArgs` are now controlled under
+  `jackpkgs.checks.<tool>.*` (single-switch behavior across CI checks and
+  pre-commit hooks).
 
 ## Context
 
@@ -62,7 +73,7 @@ Users who want pre-commit hooks (mypy, ruff, etc.) to work should:
    };
    ```
 
-3. **Or use separate environments with an explicit `mypyPackage` override:**
+3. **Or use separate environments with an explicit `python.mypy.package` override:**
 
    When you want a production-only `default` environment but still need pre-commit hooks to work,
    override `mypyPackage` to point to an environment that includes dev tools:
@@ -84,14 +95,14 @@ Users who want pre-commit hooks (mypy, ruff, etc.) to work should:
      };
    };
 
-   # Override mypyPackage to use the dev environment for pre-commit hooks
+   # Override pre-commit mypy package to use the dev environment
    perSystem = { config, ... }: {
-     jackpkgs.pre-commit.mypyPackage = config.jackpkgs.outputs.pythonEnvironments.dev;
+      jackpkgs.pre-commit.python.mypy.package = config.jackpkgs.outputs.pythonEnvironments.dev;
    };
    ```
 
-   **Important:** Without the `mypyPackage` override, the pre-commit mypy hook will fail because
-   it defaults to using `pythonDefaultEnv` (the `default` environment), which lacks `mypy`.
+   **Important:** Without a dev-tools-capable package selection, the pre-commit
+   mypy hook can fail if the chosen environment lacks `mypy`.
 
 ## Environment Patterns Summary
 
@@ -101,14 +112,13 @@ Users who want pre-commit hooks (mypy, ruff, etc.) to work should:
 | **Development**         | `true`                           | `true` (default)  | Local dev, devshell             | Yes (if used as default)        |
 | **CI Checks**           | `false`                          | `true` (explicit) | Hermetic tests, pre-commit      | Yes                             |
 | **Default + Hooks**     | `false`                          | `true` (explicit) | Simple setup with working hooks | Yes                             |
-| **Separate prod + dev** | `default`: prod, `dev`: editable | —                 | Production default + dev shell  | Requires `mypyPackage` override |
+| **Separate prod + dev** | `default`: prod, `dev`: editable | —                 | Production default + dev shell  | Requires `python.mypy.package` override |
 
 ### Pre-commit Hook Resolution
 
-The pre-commit module (`pre-commit.nix`) resolves the mypy package as:
-
-1. `jackpkgs.outputs.pythonDefaultEnv` (when `jackpkgs.python.environments.default` exists)
-2. Falls back to `config.jackpkgs.pkgs.mypy` (standalone package from nixpkgs)
+The pre-commit module (`pre-commit.nix`) resolves the mypy package using the
+same dev-tools environment selection strategy as `checks.nix`, then falls back
+to `jackpkgs.outputs.pythonDefaultEnv`, then `config.jackpkgs.pkgs.mypy`.
 
 For the hook to find `mypy` in the default environment, the environment must include it. This happens when:
 
@@ -135,6 +145,7 @@ For the hook to find `mypy` in the default environment, the environment must inc
 
 - [ADR-018: Python Dependency Groups for CI Checks](./018-python-optional-dependencies.md) — `includeGroups` implementation
 - [ADR-016: CI Checks Module](./016-ci-checks-module.md) — CI check environment selection
+- [ADR-029: Unified Quality-Gate Controls](./029-unified-quality-gate-controls.md) — current checks/pre-commit gate API
 
 ______________________________________________________________________
 

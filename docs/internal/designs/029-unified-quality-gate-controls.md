@@ -144,14 +144,17 @@ jackpkgs.pre-commit = {
 
 ### How `pre-commit.nix` Reads Gate State
 
-Inside `pre-commit.nix`'s config block, every hook reads enable and extraArgs
-from the top-level `jackpkgs.checks` option:
+`pre-commit.nix` captures `checksCfg = config.jackpkgs.checks` at the
+top-level module scope (outside the deferred per-system option scope) and closes
+over that value in the per-system config block. Every hook then reads enable and
+extraArgs from `checksCfg`:
 
 ```nix
-# pre-commit.nix config block (within perSystem context)
+# pre-commit.nix module top-level
 let
   checksCfg = config.jackpkgs.checks;
 in {
+  config.perSystem = { ... }: {
   settings.hooks.mypy = {
     enable = checksCfg.python.mypy.enable;
     entry  = "${pythonExe} mypy${escapeExtraArgs checksCfg.python.mypy.extraArgs}";
@@ -162,7 +165,8 @@ in {
     entry  = "${ruffExe} check${escapeExtraArgs checksCfg.python.ruff.extraArgs}";
     # ...
   };
-  # tsc, vitest, pytest, numpydoc follow the same pattern
+    # tsc, vitest, pytest, numpydoc follow the same pattern
+  };
 }
 ```
 
@@ -216,25 +220,23 @@ ______________________________________________________________________
 
 **R1 — `mkDeferredModuleOption` scope: can `pre-commit.nix` read `jackpkgs.checks`?**
 
-`jackpkgs.pre-commit` per-system options are declared via `mkDeferredModuleOption`,
-meaning option declarations and config expressions are evaluated in a
-`perSystem.<system>` scope. The question is whether `config.jackpkgs.checks` —
-a top-level module option — is accessible from within that scope.
+`jackpkgs.pre-commit` per-system options are declared via
+`mkDeferredModuleOption`, where per-system config does not reliably expose
+top-level options like `jackpkgs.checks`.
 
-- **Evidence it works:** `checks.nix` already reads `config.jackpkgs.python.enable`
-  from within its own `config.perSystem` block. This works because flake-parts
-  passes the top-level `config` argument through to deferred per-system modules.
-- **Verification step:** During implementation, add a minimal guard assertion
-  (`assert config ? jackpkgs && config.jackpkgs ? checks;`) in the pre-commit
-  per-system config block and confirm it evaluates without error.
-- **Fallback design:** If the reference does not resolve, `all.nix` can inject
-  the values via `_module.args`:
+- **Chosen mitigation (implemented):** Capture
+  `checksCfg = config.jackpkgs.checks` at the module top-level scope and close
+  over it from inside the per-system config function.
+- **Why this works:** top-level module scope resolves `jackpkgs.checks`; deferred
+  per-system scope only consumes the already-resolved `checksCfg` value.
+- **Fallback design:** If closure capture ever becomes insufficient, inject via
+  `_module.args`:
   ```nix
-  perSystem.args.jackpkgsChecksCfg = config.jackpkgs.checks;
+  perSystem = { config, ... }: {
+    _module.args.jackpkgsChecksCfg = config.jackpkgs.checks;
+  };
   ```
-  `pre-commit.nix` then reads from `args.jackpkgsChecksCfg` instead of
-  `config.jackpkgs.checks` directly. This is guaranteed to work because `args`
-  is explicitly threaded through the module system.
+  Then read `jackpkgsChecksCfg` from per-system args in `pre-commit.nix`.
 
 **R2 — Option removal breaks in-flight consumer code**
 
@@ -299,7 +301,7 @@ ______________________________________________________________________
   gating logic and the pre-commit/checks option split)
 - **Modules:** `modules/flake-parts/checks.nix`, `modules/flake-parts/pre-commit.nix`,
   `lib/python-env-selection.nix`
-- **Implementation plan:** `docs/internal/plans/029-unified-quality-gate-controls.md`
+- **Implementation plan:** `docs/internal/plans/2026-02-20-unified-quality-gate-controls.md`
 
 ______________________________________________________________________
 
