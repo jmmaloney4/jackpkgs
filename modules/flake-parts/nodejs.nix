@@ -122,7 +122,8 @@ in {
         installPhase = ''
           mkdir -p "$out"
           cp -a node_modules "$out/"
-          find . -mindepth 2 -name 'node_modules' -type d | while read dir; do
+          find . -mindepth 2 -name 'node_modules' -type d \
+            -not -path './node_modules/*' | while read -r dir; do
             mkdir -p "$out/$(dirname "$dir")"
             cp -a "$dir" "$out/$dir"
           done

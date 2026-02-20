@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -135,6 +135,88 @@ See `docs/internal/plans/2026-02-19-pnpm-workspace-node-modules-capture.md`.
 - **Remediation v2 plan:** Fixed `$out` layout bug and added `dontCheckForBrokenSymlinks`.
 - `modules/flake-parts/nodejs.nix` — `nodeModules` derivation.
 - `modules/flake-parts/checks.nix` — `linkNodeModules` and `typescript-tsc` check.
+
+## Appendix A: Testing Analysis and Plan
+
+### Existing Test Infrastructure
+
+jackpkgs uses two complementary testing patterns:
+
+1. **nix-unit evaluation tests** (`tests/*.nix`): Pure Nix expressions that compare `expr` against `expected` without building derivations. Tests are wired into `flake.nix` via `nix-unit.tests`. Used for testing module option evaluation, script generation, workspace discovery logic, and linking script correctness.
+
+2. **Integration checks** (`flake.nix` `checks.*`): Real Nix derivations that build fixtures from `tests/fixtures/integration/` using a `mkPnpmFixtureCheck` helper. This helper fetches real pnpm dependencies, runs `pnpmConfigHook`, and executes a `checkCommand`. Success = derivation builds; failure = build error.
+
+### Existing pnpm/Node.js Test Coverage
+
+| Test | Layer | What It Covers |
+|------|-------|---------------|
+| `pnpm-simple-builds` | Integration | Single-package project resolves npm deps |
+| `pnpm-workspace-basic-postinstall` | Integration | Postinstall runs, workspace lib builds |
+| `pnpm-workspace-glob-resolution` | Integration | `workspace:*` cross-package imports work |
+| `pnpm-tsc-check` | Integration | `tsc --noEmit` passes on workspace packages |
+| `pnpm-vitest-check` | Integration | Vitest runs in Nix sandbox |
+| `pnpm-node-modules-output-layout` | Integration | `$out/node_modules` layout, dangling symlink handling |
+| `testNodeModulesLinking` | Eval (nix-unit) | `linkNodeModules` script shape: `ln -sfn`, `cp -R` |
+| `testTypescriptWorkspaceDiscovery` | Eval (nix-unit) | pnpm-workspace.yaml parsing, glob expansion |
+
+### Gap Analysis
+
+**Every existing fixture only uses `workspace:*` internal references.** No fixture has an npm dependency declared in a workspace package but absent from root `package.json`. This means:
+
+- No test exercises pnpm's workspace-level `node_modules/` linking for non-hoisted deps.
+- No test verifies that the `nodeModules` derivation output includes workspace-level `node_modules/` directories.
+- No test catches the exact failure observed in zeus (`TS2307: Cannot find module '@pulumi/command'`).
+
+The `pnpm-tsc-check` fixture passes because `@test/lib` is resolved via `workspace:*` protocol, which pnpm handles through root-level `.pnpm/` symlinks — it never needs workspace-level `node_modules/`.
+
+### Proposed New Tests
+
+#### 1. Integration Fixture: `pnpm-workspace-nonhoisted-dep`
+
+A minimal workspace where `packages/app` depends on an npm package (`is-odd`) that is **not** declared in root `package.json`. This forces pnpm to create `packages/app/node_modules/is-odd` instead of hoisting to root.
+
+Structure:
+```
+tests/fixtures/integration/pnpm-workspace-nonhoisted-dep/
+  package.json              # root: private, devDeps: typescript only
+  pnpm-workspace.yaml       # packages: ["packages/*"]
+  pnpm-lock.yaml            # locked with is-odd in packages/app only
+  tsconfig.base.json
+  packages/
+    lib/
+      package.json          # @test/lib, no external deps
+      tsconfig.json
+      index.ts              # export function double(n: number): number
+    app/
+      package.json          # @test/app, depends on is-odd (NOT in root)
+      tsconfig.json
+      index.ts              # import isOdd from "is-odd"; import {double} from "@test/lib"
+```
+
+#### 2. Integration Check: `pnpm-nonhoisted-tsc-check`
+
+Runs `tsc --noEmit` on the app package from the fixture above. This is the direct regression test — it would have failed before the `nodejs.nix` fix and passes after.
+
+#### 3. Integration Check: `pnpm-nonhoisted-output-layout`
+
+Builds the `nodeModules` derivation from the fixture and verifies:
+- `$out/node_modules/.pnpm/is-odd*` exists (virtual store has it)
+- `$out/packages/app/node_modules/is-odd` exists (workspace-level dir captured)
+- `$out/node_modules/is-odd` does NOT exist (confirming non-hoisted behavior)
+
+#### 4. Eval-time Test: `testNodeModulesLinkingWorkspaceLevel`
+
+Extends `testNodeModulesLinking` in `tests/checks.nix`. Creates a mock `nodeModules` derivation whose output path includes a workspace-level `node_modules/` directory, then verifies the `linkNodeModules`-generated script contains the conditional linking logic for workspace dirs.
+
+### Why This Combination
+
+| Test | Catches |
+|------|---------|
+| `pnpm-nonhoisted-tsc-check` | End-to-end: tsc resolves non-hoisted deps in Nix sandbox |
+| `pnpm-nonhoisted-output-layout` | `nodejs.nix` installPhase captures workspace-level dirs |
+| `testNodeModulesLinkingWorkspaceLevel` | `checks.nix` linkNodeModules handles workspace dirs |
+
+The integration tests are the primary regression guard. The eval-time test adds defense-in-depth for the linking logic without requiring a full build.
 
 ______________________________________________________________________
 

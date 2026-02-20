@@ -180,6 +180,14 @@
   missingChecksNamed = checks: names: lib.all (name: !(lib.hasAttr name checks)) names;
   hasCheck = checks: name: lib.hasAttr name checks;
   missingCheck = checks: name: !(lib.hasAttr name checks);
+
+  # Dummy nodeModules derivation used by script-generation tests
+  dummyNodeModules = builtins.derivation {
+    name = "dummy-node-modules";
+    system = "x86_64-linux";
+    builder = "/bin/sh";
+    args = ["-c" "mkdir -p $out"];
+  };
 in {
   testChecksEnabledByPythonDefault = let
     checks = mkChecks {
@@ -522,6 +530,59 @@ in {
         "jackpkgs.nodejs.enable = true"
         "jackpkgs.checks.typescript.enable = false"
       ]
+      script
+      && !lib.hasInfix "Linking node_modules from" script;
+    expected = true;
+  };
+
+  testTypescriptScriptWithNodeModules = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pulumiEnable = true;
+        extraConfig = {
+          jackpkgs.checks.typescript.tsc.packages = ["packages/app" "tools/cli"];
+          jackpkgs.checks.typescript.tsc.nodeModules = dummyNodeModules;
+        };
+      };
+      projectRoot = pnpmWorkspace;
+    };
+    script = getBuildCommand checks.typescript-tsc;
+  in {
+    expr =
+      hasInfixAll [
+        "Linking node_modules from $nm_store..."
+        ''ln -sfn "$nm_root" node_modules''
+        ''if [ -d "$nm_store"/''
+        ''ln -sfn "$nm_store"/''
+        ''elif [ -d "$nm_root"/''
+        ''ln -sfn "$nm_root"/''
+        "packages/app/node_modules"
+        "tools/cli/node_modules"
+        ''if [ ! -d "node_modules" ] && [ ! -d ''
+      ]
+      script
+      && !lib.hasInfix "$PWD/node_modules/.bin" script;
+    expected = true;
+  };
+
+  testTypescriptNodeModulesLinkingIncludesDiscoveredPackages = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pulumiEnable = true;
+        extraConfig.jackpkgs.checks.typescript.tsc.nodeModules = dummyNodeModules;
+      };
+      projectRoot = pnpmWorkspace;
+    };
+    script = getBuildCommand checks.typescript-tsc;
+  in {
+    expr =
+      hasInfixAll [
+        ''if [ -d "$nm_store"/''
+        "packages/app/node_modules"
+        "packages/lib/node_modules"
+        "tools/cli/node_modules"
+        ''elif [ -d "$nm_root"/''
+      ]
       script;
     expected = true;
   };
@@ -562,19 +623,13 @@ in {
         "chmod -R +w"
         "cd src"
       ]
-      script;
+      script
+      && !lib.hasInfix "Linking node_modules from" script;
     expected = true;
   };
 
   # Test that PATH is set to Nix store binaries when nodeModules is provided
   testVitestScriptWithNodeModules = let
-    # Create a dummy derivation to simulate nodeModules
-    dummyNodeModules = builtins.derivation {
-      name = "dummy-node-modules";
-      system = "x86_64-linux";
-      builder = "/bin/sh";
-      args = ["-c" "mkdir -p $out"];
-    };
     checks = mkChecks {
       configModule = mkConfigModule {
         extraConfig.jackpkgs.checks.enable = true;
@@ -600,13 +655,6 @@ in {
   };
 
   testNodeModulesLinking = let
-    # Create a dummy derivation to simulate nodeModules
-    dummyNodeModules = builtins.derivation {
-      name = "dummy-node-modules";
-      system = "x86_64-linux";
-      builder = "/bin/sh";
-      args = ["-c" "mkdir -p $out"];
-    };
     checks = mkChecks {
       configModule = mkConfigModule {
         extraConfig.jackpkgs.checks.enable = true;
@@ -621,8 +669,12 @@ in {
     expr =
       hasInfixAll [
         "Linking node_modules"
-        "ln -sfn"
-        "/node_modules"
+        ''ln -sfn "$nm_root" node_modules''
+        ''if [ -d "$nm_store"/''
+        ''ln -sfn "$nm_store"/''
+        ''elif [ -d "$nm_root"/''
+        ''ln -sfn "$nm_root"/''
+        "packages/app/node_modules"
         "cp -R"
       ]
       script;
