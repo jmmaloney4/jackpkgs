@@ -95,9 +95,9 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
-- `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + Python gates + tsc + vitest); Python tool packages default to the same dev-tools env selection as CI checks.
+- `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + Python gates + tsc + vitest); hook enables/args are controlled by `jackpkgs.checks`, packages by `jackpkgs.pre-commit`.
 - `shell` — shared dev shell output to include via `inputsFrom`.
-- `checks` — CI checks for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest).
+- `checks` — CI checks and quality-gate controls for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
 - `nodejs` — builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
@@ -193,34 +193,23 @@ in {
   - Enables pre-commit with `treefmt`, `nbstripout` for `.ipynb`, Python hooks (`mypy`, `ruff`, `pytest`, optional `numpydoc`), `tsc`, and `vitest`.
   - `pytest` and `vitest` hooks run at the `pre-push` stage.
   - **Important:** Python tooling hooks require dev tools in the selected Python environment. See [Common Patterns: Dev Tools with Pre-commit](#common-patterns-dev-tools-with-pre-commit) below.
+  - Hook enables and `extraArgs` are controlled by `jackpkgs.checks` (see below). `jackpkgs.pre-commit` controls only **package** and **nodeModules** overrides:
   - Options under `jackpkgs.pre-commit`:
     - `enable` (bool, default `true`)
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
     - `nbstripoutPackage` (default `config.jackpkgs.pkgs.nbstripout`)
-    - `python.mypy.enable` (bool, default `true`)
-    - `python.mypy.package` (defaults to dev-tools env selection: `dev` non-editable with `includeGroups = true` -> any non-editable env with `includeGroups = true` -> auto-created CI env with dependency groups -> `pythonDefaultEnv` -> `config.jackpkgs.pkgs.mypy`)
-    - `python.mypy.extraArgs` (list of strings, default `[]`)
-    - `python.ruff.enable` (bool, default `true`)
+    - `python.mypy.package` (defaults to dev-tools env selection: `dev` non-editable with `includeGroups = true` → any non-editable env with `includeGroups = true` → auto-created CI env with dependency groups → `pythonDefaultEnv` → `config.jackpkgs.pkgs.mypy`)
     - `python.ruff.package` (defaults to `config.jackpkgs.pre-commit.python.mypy.package`)
-    - `python.ruff.extraArgs` (list of strings, default `["--no-cache"]`)
-    - `python.pytest.enable` (bool, default `true`)
     - `python.pytest.package` (defaults to `config.jackpkgs.pre-commit.python.mypy.package`)
-    - `python.pytest.extraArgs` (list of strings, default `[]`)
-    - `python.numpydoc.enable` (bool, default `false`)
     - `python.numpydoc.package` (defaults to `config.jackpkgs.pre-commit.python.mypy.package`)
-    - `python.numpydoc.extraArgs` (list of strings, default `[]`)
-    - `typescript.tsc.enable` (bool, default `true`)
     - `typescript.tsc.package` (defaults to `pkgs.nodePackages.typescript`)
-    - `typescript.tsc.nodeModules` (nullable package, default `null` -> falls back to `jackpkgs.outputs.nodeModules`)
-    - `typescript.tsc.extraArgs` (list of strings, default `[]`)
-    - `javascript.vitest.enable` (bool, default `true`)
+    - `typescript.tsc.nodeModules` (nullable package, default `null` → falls back to `jackpkgs.outputs.nodeModules`)
     - `javascript.vitest.package` (defaults to `pkgs.nodejs`)
-    - `javascript.vitest.nodeModules` (nullable package, default `null` -> falls back to `jackpkgs.outputs.nodeModules`)
-    - `javascript.vitest.extraArgs` (list of strings, default `[]`)
+    - `javascript.vitest.nodeModules` (nullable package, default `null` → falls back to `jackpkgs.outputs.nodeModules`)
 
 - checks (`modules/flake-parts/checks.nix`)
 
-  - Adds CI checks for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest).
+  - Adds CI checks **and controls quality-gate enables/args** for both CI checks and pre-commit hooks. Setting `jackpkgs.checks.python.mypy.enable = false` disables the CI check *and* the pre-commit hook with a single option.
   - **Python CI Environment Selection:**
     - Automatically selects a suitable environment for Python checks (non-editable with dependency groups).
     - Pre-commit Python tooling hooks use the same selection logic.
@@ -229,27 +218,42 @@ in {
       2. Use any non-editable environment with `includeGroups = true`
       3. Auto-create a temporary CI environment with all dependency groups enabled
     - Editable environments are never used for CI (they can't be used in pure Nix builds).
-  - Options under `jackpkgs.checks` (selected):
-    - `enable` (bool, default auto-enabled with Python/Pulumi/Node.js)
-    - `python.enable`, `python.pytest.enable`, `python.mypy.enable`, `python.ruff.enable`, `python.numpydoc.enable`
-    - `python.pytest.extraArgs`, `python.mypy.extraArgs`, `python.ruff.extraArgs`, `python.numpydoc.extraArgs`
-    - `python.mirrorPreCommit.enable` (bool, default `false`; opt-in default mirroring from `jackpkgs.pre-commit.python.*.enable`)
-    - `python.mirrorPreCommit.gates` (list of `pytest|mypy|ruff|numpydoc`, default `["numpydoc"]`)
-    - `typescript.enable`, `typescript.tsc.enable`, `typescript.tsc.packages`, `typescript.tsc.nodeModules`, `typescript.tsc.extraArgs`
-    - `vitest.enable`, `vitest.packages`, `vitest.nodeModules`, `vitest.extraArgs`
+  - Options under `jackpkgs.checks`:
+    - `enable` (bool, default auto-enabled when `jackpkgs.python.enable` or `jackpkgs.nodejs.enable`)
+    - `python.enable` (bool, default `jackpkgs.python.enable`)
+    - `python.mypy.enable` (bool, default `true`), `python.mypy.extraArgs` (list, default `[]`)
+    - `python.ruff.enable` (bool, default `true`), `python.ruff.extraArgs` (list, default `["--no-cache"]`)
+    - `python.pytest.enable` (bool, default `true`), `python.pytest.extraArgs` (list, default `[]`)
+    - `python.numpydoc.enable` (bool, **default `false`** — explicit opt-in), `python.numpydoc.extraArgs` (list, default `[]`)
+    - `typescript.tsc.enable` (bool, default `jackpkgs.nodejs.enable`), `typescript.tsc.packages`, `typescript.tsc.nodeModules`, `typescript.tsc.extraArgs`
+    - `vitest.enable` (bool, default `jackpkgs.nodejs.enable`), `vitest.packages`, `vitest.nodeModules`, `vitest.extraArgs`
 
-  - By default, checks and pre-commit remain independently configurable. Enable `python.mirrorPreCommit` only when you want selected Python check gates to follow pre-commit gate toggles.
+**Quality-gate controls (single switch across CI + pre-commit):**
 
-**Quality-gate parity matrix:**
+```nix
+# Disable mypy in both CI checks and pre-commit hook:
+jackpkgs.checks.python.mypy.enable = false;
 
-| Tool | `jackpkgs.checks` | `jackpkgs.pre-commit` | Default |
-| ---- | ----------------- | --------------------- | ------- |
-| `mypy` | `python.mypy` | `python.mypy` | enabled |
-| `ruff` | `python.ruff` | `python.ruff` | enabled |
-| `pytest` | `python.pytest` | `python.pytest` (pre-push) | enabled |
-| `numpydoc` | `python.numpydoc` | `python.numpydoc` | disabled |
-| `tsc` | `typescript.tsc` | `typescript.tsc` | enabled |
-| `vitest` | `vitest` | `javascript.vitest` (pre-push) | enabled |
+# Enable numpydoc in both surfaces (opt-in):
+jackpkgs.checks.python.numpydoc.enable = true;
+
+# Override ruff args for both surfaces:
+jackpkgs.checks.python.ruff.extraArgs = ["--no-cache" "--select" "ALL"];
+
+# Override the mypy package used only by the pre-commit hook:
+jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
+```
+
+**Quality-gate surface matrix:**
+
+| Tool | CI check derivation | Pre-commit hook | Stage | Default |
+| ---- | ------------------- | --------------- | ----- | ------- |
+| `mypy` | `python-mypy` | `mypy` | commit | enabled |
+| `ruff` | `python-ruff` | `ruff` | commit | enabled |
+| `pytest` | `python-pytest` | `pytest` | **pre-push** | enabled |
+| `numpydoc` | `python-numpydoc` | `numpydoc` | commit | **disabled** |
+| `tsc` | `typescript-tsc` | `tsc` | commit | enabled when `nodejs.enable` |
+| `vitest` | `javascript-vitest` | `vitest` | **pre-push** | enabled when `nodejs.enable` |
 
 - shell (`modules/flake-parts/devshell.nix`)
 

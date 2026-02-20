@@ -64,20 +64,8 @@
         };
       };
 
-      pre-commit.python = {
-        pytest.enable = mkOption {
-          type = types.bool;
-          default = true;
-        };
-        mypy.enable = mkOption {
-          type = types.bool;
-          default = true;
-        };
-        ruff.enable = mkOption {
-          type = types.bool;
-          default = true;
-        };
-        numpydoc.enable = mkOption {
+      nodejs = {
+        enable = mkOption {
           type = types.bool;
           default = false;
         };
@@ -156,6 +144,7 @@
   mkConfigModule = {
     pythonEnable ? false,
     pulumiEnable ? false,
+    nodejsEnable ? false,
     checksEnable ? null,
     pythonWorkspaceRoot ? pythonWorkspace,
     pyprojectPath ? pythonWorkspacePyproject,
@@ -169,6 +158,7 @@
           pyprojectPath = pyprojectPath;
         };
         pulumi.enable = pulumiEnable;
+        nodejs.enable = nodejsEnable;
       };
     };
     withChecksEnable =
@@ -217,7 +207,20 @@ in {
     expected = true;
   };
 
-  testChecksEnabledByPulumiDefault = let
+  testChecksEnabledByNodejsDefault = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        nodejsEnable = true;
+        extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
+      };
+      projectRoot = noWorkspaceFixture;
+    };
+  in {
+    expr = hasCheck checks "typescript-tsc";
+    expected = true;
+  };
+
+  testTscNotEnabledByPulumiAlone = let
     checks = mkChecks {
       configModule = mkConfigModule {
         pulumiEnable = true;
@@ -226,7 +229,7 @@ in {
       projectRoot = noWorkspaceFixture;
     };
   in {
-    expr = hasCheck checks "typescript-tsc";
+    expr = missingCheck checks "typescript-tsc";
     expected = true;
   };
 
@@ -251,67 +254,6 @@ in {
     };
   in {
     expr = missingCheck checks "python-numpydoc";
-    expected = true;
-  };
-
-  testPythonMirrorPreCommitDisabledByDefault = let
-    checks = mkChecks {
-      configModule = mkConfigModule {
-        pythonEnable = true;
-        extraConfig.jackpkgs.pre-commit.python.numpydoc.enable = true;
-      };
-    };
-  in {
-    expr = missingCheck checks "python-numpydoc";
-    expected = true;
-  };
-
-  testPythonMirrorPreCommitNumpydoc = let
-    checks = mkChecks {
-      configModule = mkConfigModule {
-        pythonEnable = true;
-        extraConfig = {
-          jackpkgs.pre-commit.python.numpydoc.enable = true;
-          jackpkgs.checks.python.mirrorPreCommit.enable = true;
-        };
-      };
-    };
-  in {
-    expr = hasCheck checks "python-numpydoc";
-    expected = true;
-  };
-
-  testPythonMirrorPreCommitExplicitCheckOverrideWins = let
-    checks = mkChecks {
-      configModule = mkConfigModule {
-        pythonEnable = true;
-        extraConfig = {
-          jackpkgs.pre-commit.python.numpydoc.enable = true;
-          jackpkgs.checks.python.mirrorPreCommit.enable = true;
-          jackpkgs.checks.python.numpydoc.enable = false;
-        };
-      };
-    };
-  in {
-    expr = missingCheck checks "python-numpydoc";
-    expected = true;
-  };
-
-  testPythonMirrorPreCommitCustomGateSelection = let
-    checks = mkChecks {
-      configModule = mkConfigModule {
-        pythonEnable = true;
-        extraConfig = {
-          jackpkgs.pre-commit.python.ruff.enable = false;
-          jackpkgs.checks.python.mirrorPreCommit = {
-            enable = true;
-            gates = ["ruff"];
-          };
-        };
-      };
-    };
-  in {
-    expr = missingCheck checks "python-ruff";
     expected = true;
   };
 
@@ -552,7 +494,7 @@ in {
   testTypescriptWorkspaceDiscovery = let
     checks = mkChecks {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.extraArgs = ["--pretty" "false"];
       };
       projectRoot = pnpmWorkspace;
@@ -574,7 +516,7 @@ in {
 
   testTypescriptMissingWorkspace = let
     checks = mkChecks {
-      configModule = mkConfigModule {pulumiEnable = true;};
+      configModule = mkConfigModule {nodejsEnable = true;};
       projectRoot = noWorkspaceFixture;
     };
   in {
@@ -585,7 +527,7 @@ in {
   testTypescriptPackageOverride = let
     checks = mkChecks {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra" "tools/hello"];
       };
       projectRoot = noWorkspaceFixture;
@@ -602,7 +544,7 @@ in {
     result = builtins.tryEval (
       (mkChecksNoMock {
         configModule = mkConfigModule {
-          pulumiEnable = true;
+          nodejsEnable = true;
           extraConfig.jackpkgs.checks.fromYAML = _: {
             packages = ["packages/*" "!packages/ignored"];
           };
@@ -618,7 +560,7 @@ in {
   testTypescriptDiscoversPackagesFromYmlJsonSibling = let
     checks = mkChecksNoMock {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
       };
       projectRoot = pnpmWorkspaceYml;
     };
@@ -631,7 +573,7 @@ in {
   testTypescriptGuardMessage = let
     checks = mkChecks {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
       projectRoot = noWorkspaceFixture;
@@ -642,7 +584,7 @@ in {
       hasInfixAll [
         "node_modules not found"
         "jackpkgs.nodejs.enable = true"
-        "jackpkgs.checks.typescript.enable = false"
+        "jackpkgs.checks.typescript.tsc.enable = false"
       ]
       script
       && !lib.hasInfix "Linking node_modules from" script;
@@ -652,7 +594,7 @@ in {
   testTypescriptScriptWithNodeModules = let
     checks = mkChecks {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
         extraConfig = {
           jackpkgs.checks.typescript.tsc.packages = ["packages/app" "tools/cli"];
           jackpkgs.checks.typescript.tsc.nodeModules = dummyNodeModules;
@@ -682,7 +624,7 @@ in {
   testTypescriptNodeModulesLinkingIncludesDiscoveredPackages = let
     checks = mkChecks {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.nodeModules = dummyNodeModules;
       };
       projectRoot = pnpmWorkspace;

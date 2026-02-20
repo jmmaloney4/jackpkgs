@@ -101,30 +101,6 @@ in {
             example = ["--checks" "all"];
           };
         };
-
-        mirrorPreCommit = {
-          enable = mkOption {
-            type = types.bool;
-            default = false;
-            description = ''
-              Mirror selected `jackpkgs.pre-commit.python.*.enable` gates into
-              `jackpkgs.checks.python.*.enable`.
-
-              This is opt-in and only affects default values, so explicitly set
-              `jackpkgs.checks.python.<gate>.enable` still wins.
-            '';
-          };
-
-          gates = mkOption {
-            type = types.listOf (types.enum ["pytest" "mypy" "ruff" "numpydoc"]);
-            default = ["numpydoc"];
-            description = ''
-              Python gates eligible for mirroring when
-              `jackpkgs.checks.python.mirrorPreCommit.enable = true`.
-            '';
-            example = ["numpydoc" "ruff"];
-          };
-        };
       };
 
       # Injectable YAML parser (for testing without IFD)
@@ -136,22 +112,14 @@ in {
       };
 
       # TypeScript ecosystem checks
-      typescript = {
-        enable =
-          mkEnableOption "TypeScript CI checks"
-          // {
-            default = config.jackpkgs.pulumi.enable or false;
-            description = ''
-              Enable TypeScript CI checks (tsc). Automatically enabled when the
-              Pulumi module is enabled.
-            '';
-          };
-
-        tsc = {
+      typescript.tsc = {
           enable = mkOption {
             type = types.bool;
-            default = true;
-            description = "Enable TypeScript type checking with tsc";
+            default = config.jackpkgs.nodejs.enable or false;
+            description = ''
+              Enable TypeScript type checking with tsc. Automatically enabled
+              when the Node.js module is enabled.
+            '';
           };
 
           nodeModules = mkOption {
@@ -190,7 +158,6 @@ in {
             description = "Extra arguments to pass to tsc";
             example = ["--strict"];
           };
-        };
       };
 
       # Vitest check
@@ -236,29 +203,8 @@ in {
     };
   };
 
-  config = let
-    mirrorCfg = cfg.python.mirrorPreCommit;
-    mirrorGate = gate:
-      mirrorCfg.enable
-      && builtins.elem gate mirrorCfg.gates;
-    preCommitGateEnabled = gate:
-      lib.attrByPath ["jackpkgs" "pre-commit" "python" gate "enable"] false config;
-  in
-    lib.mkMerge [
-      (lib.mkIf (mirrorGate "pytest") {
-        jackpkgs.checks.python.pytest.enable = lib.mkDefault (preCommitGateEnabled "pytest");
-      })
-      (lib.mkIf (mirrorGate "mypy") {
-        jackpkgs.checks.python.mypy.enable = lib.mkDefault (preCommitGateEnabled "mypy");
-      })
-      (lib.mkIf (mirrorGate "ruff") {
-        jackpkgs.checks.python.ruff.enable = lib.mkDefault (preCommitGateEnabled "ruff");
-      })
-      (lib.mkIf (mirrorGate "numpydoc") {
-        jackpkgs.checks.python.numpydoc.enable = lib.mkDefault (preCommitGateEnabled "numpydoc");
-      })
-      {
-        perSystem = {
+  config = {
+    perSystem = {
       pkgs,
       lib,
       config,
@@ -546,8 +492,7 @@ in {
       typescriptChecks = let
         tsPackages = getTsPackages cfg;
       in
-        lib.optionalAttrs (cfg.enable && cfg.typescript.enable && tsPackages != [])
-        (lib.optionalAttrs cfg.typescript.tsc.enable {
+        lib.optionalAttrs (cfg.enable && cfg.typescript.tsc.enable && tsPackages != []) {
           # tsc check
           typescript-tsc = mkCheck {
             name = "typescript-tsc";
@@ -582,7 +527,7 @@ in {
                 This provides a pure, reproducible node_modules derivation that works
                 in Nix sandbox builds.
 
-                To disable TypeScript checks: jackpkgs.checks.typescript.enable = false;
+                To disable TypeScript checks: jackpkgs.checks.typescript.tsc.enable = false;
                 EOF
                                               exit 1
                                             fi
@@ -593,7 +538,7 @@ in {
               '')
               tsPackages;
           };
-        });
+        };
 
       # ============================================================
       # Vitest Checks
@@ -664,6 +609,5 @@ in {
         {checks = typescriptChecks;}
         {checks = vitestChecks;}
       ];
-    }
-    ];
+  };
 }

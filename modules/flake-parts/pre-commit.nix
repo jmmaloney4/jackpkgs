@@ -9,6 +9,12 @@
   inherit (jackpkgsInputs.self.lib) defaultExcludes;
   pythonEnvHelpers = import ../../lib/python-env-selection.nix {inherit lib;};
   cfg = config.jackpkgs.pre-commit;
+  # Capture top-level jackpkgs.checks from the outer flake module config.
+  # The `config` here is the top-level flake-parts module config (not per-system),
+  # so config.jackpkgs.checks resolves correctly. This closed-over value is then
+  # used inside `config.perSystem` where `config` refers to per-system scope only.
+  # See ADR-029 Risk R1 and its mitigation.
+  checksCfg = config.jackpkgs.checks;
 in {
   imports = [
     jackpkgsInputs.pre-commit-hooks.flakeModule
@@ -60,12 +66,6 @@ in {
 
         python = {
           mypy = {
-            enable = mkOption {
-              type = types.bool;
-              default = true;
-              description = "Enable the pre-commit mypy hook.";
-            };
-
             package = mkOption {
               type = types.package;
               default = mypyDefaultPackage;
@@ -86,70 +86,27 @@ in {
                 with dependency groups enabled.
               '';
             };
-
-            extraArgs = mkOption {
-              type = types.listOf types.str;
-              default = [];
-              description = "Extra arguments passed to mypy.";
-              example = ["--strict"];
-            };
           };
 
           ruff = {
-            enable = mkOption {
-              type = types.bool;
-              default = true;
-              description = "Enable the pre-commit ruff hook.";
-            };
-
             package = mkOption {
               type = types.package;
               default = config.jackpkgs.pre-commit.python.mypy.package;
               defaultText = "config.jackpkgs.pre-commit.python.mypy.package";
               description = "ruff package (or Python environment containing ruff) to use.";
             };
-
-            extraArgs = mkOption {
-              type = types.listOf types.str;
-              default = ["--no-cache"];
-              description = "Extra arguments passed to ruff check.";
-              example = ["--no-cache"];
-            };
           };
 
           pytest = {
-            enable = mkOption {
-              type = types.bool;
-              default = true;
-              description = "Enable the pre-commit pytest hook.";
-            };
-
             package = mkOption {
               type = types.package;
               default = config.jackpkgs.pre-commit.python.mypy.package;
               defaultText = "config.jackpkgs.pre-commit.python.mypy.package";
               description = "pytest package (or Python environment containing pytest) to use.";
             };
-
-            extraArgs = mkOption {
-              type = types.listOf types.str;
-              default = [];
-              description = "Extra arguments passed to pytest.";
-              example = ["-q"];
-            };
           };
 
           numpydoc = {
-            enable = mkOption {
-              type = types.bool;
-              default = false;
-              description = ''
-                Enable the pre-commit numpydoc docstring validation hook.
-
-                Requires `numpydoc` to be available in `package`.
-              '';
-            };
-
             package = mkOption {
               type = types.package;
               default = config.jackpkgs.pre-commit.python.mypy.package;
@@ -159,24 +116,11 @@ in {
                 `python -m numpydoc.hooks.validate_docstrings`.
               '';
             };
-
-            extraArgs = mkOption {
-              type = types.listOf types.str;
-              default = [];
-              description = "Extra arguments passed to numpydoc.hooks.validate_docstrings.";
-              example = ["--checks" "all"];
-            };
           };
         };
 
         typescript = {
           tsc = {
-            enable = mkOption {
-              type = types.bool;
-              default = true;
-              description = "Enable the pre-commit tsc hook.";
-            };
-
             package = mkOption {
               type = types.package;
               default = pkgs.nodePackages.typescript;
@@ -195,24 +139,11 @@ in {
                 if available.
               '';
             };
-
-            extraArgs = mkOption {
-              type = types.listOf types.str;
-              default = [];
-              description = "Extra arguments passed to tsc --noEmit.";
-              example = ["--pretty" "false"];
-            };
           };
         };
 
         javascript = {
           vitest = {
-            enable = mkOption {
-              type = types.bool;
-              default = true;
-              description = "Enable the pre-commit vitest hook.";
-            };
-
             package = mkOption {
               type = types.package;
               default = pkgs.nodejs;
@@ -231,13 +162,6 @@ in {
                 if available.
               '';
             };
-
-            extraArgs = mkOption {
-              type = types.listOf types.str;
-              default = [];
-              description = "Extra arguments passed to `vitest run`.";
-              example = ["--coverage"];
-            };
           };
         };
       };
@@ -251,7 +175,9 @@ in {
       config,
       ...
     }: let
-      sysCfg = config.jackpkgs.pre-commit;
+        sysCfg = config.jackpkgs.pre-commit;
+        # checksCfg is closed over from the top-level module let-binding above.
+        # See the `checksCfg = config.jackpkgs.checks` definition at module top.
 
       escapeExtraArgs = args:
         lib.optionalString (args != []) " ${lib.escapeShellArgs args}";
@@ -287,9 +213,9 @@ in {
         then
           "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
             ${mkNodeModulesSetup tscNodeModules}
-            ${tscExe} --noEmit${escapeExtraArgs sysCfg.typescript.tsc.extraArgs}
+            ${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs}
           ''}"
-        else "${tscExe} --noEmit${escapeExtraArgs sysCfg.typescript.tsc.extraArgs}";
+        else "${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs}";
 
       vitestEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
         ${lib.optionalString (vitestNodeModules != null) (mkNodeModulesSetup vitestNodeModules)}
@@ -302,7 +228,7 @@ in {
           exit 1
         fi
 
-        "$VITEST_BIN" run${escapeExtraArgs sysCfg.javascript.vitest.extraArgs}
+        "$VITEST_BIN" run${escapeExtraArgs checksCfg.vitest.extraArgs}
       ''}";
     in {
       pre-commit = {
@@ -321,42 +247,42 @@ in {
         };
 
         settings.hooks.mypy = {
-          enable = sysCfg.python.mypy.enable;
+          enable = checksCfg.python.mypy.enable;
           package = sysCfg.python.mypy.package;
-          entry = "${lib.getExe' sysCfg.python.mypy.package "mypy"}${escapeExtraArgs sysCfg.python.mypy.extraArgs}";
+          entry = "${lib.getExe' sysCfg.python.mypy.package "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs}";
           files = "\\.py$";
           excludes = defaultExcludes.preCommit;
         };
 
         settings.hooks.ruff = {
-          enable = sysCfg.python.ruff.enable;
+          enable = checksCfg.python.ruff.enable;
           package = sysCfg.python.ruff.package;
-          entry = "${lib.getExe' sysCfg.python.ruff.package "ruff"} check${escapeExtraArgs sysCfg.python.ruff.extraArgs}";
+          entry = "${lib.getExe' sysCfg.python.ruff.package "ruff"} check${escapeExtraArgs checksCfg.python.ruff.extraArgs}";
           files = "\\.py$";
           excludes = defaultExcludes.preCommit;
         };
 
         settings.hooks.pytest = {
-          enable = sysCfg.python.pytest.enable;
+          enable = checksCfg.python.pytest.enable;
           package = sysCfg.python.pytest.package;
-          entry = "${lib.getExe' sysCfg.python.pytest.package "pytest"}${escapeExtraArgs sysCfg.python.pytest.extraArgs}";
+          entry = "${lib.getExe' sysCfg.python.pytest.package "pytest"}${escapeExtraArgs checksCfg.python.pytest.extraArgs}";
           files = "\\.py$";
           stages = ["pre-push"];
           pass_filenames = false;
         };
 
         settings.hooks.numpydoc = {
-          enable = sysCfg.python.numpydoc.enable;
+          enable = checksCfg.python.numpydoc.enable;
           package = sysCfg.python.numpydoc.package;
           entry = let
             pythonExe = lib.getExe' sysCfg.python.numpydoc.package "python";
-          in "${pythonExe} -m numpydoc.hooks.validate_docstrings${escapeExtraArgs sysCfg.python.numpydoc.extraArgs}";
+          in "${pythonExe} -m numpydoc.hooks.validate_docstrings${escapeExtraArgs checksCfg.python.numpydoc.extraArgs}";
           files = "\\.py$";
           excludes = defaultExcludes.preCommit;
         };
 
         settings.hooks.tsc = {
-          enable = sysCfg.typescript.tsc.enable;
+          enable = checksCfg.typescript.tsc.enable;
           package = sysCfg.typescript.tsc.package;
           entry = tscEntry;
           files = "\\.(ts|tsx)$";
@@ -364,7 +290,7 @@ in {
         };
 
         settings.hooks.vitest = {
-          enable = sysCfg.javascript.vitest.enable;
+          enable = checksCfg.vitest.enable;
           package = sysCfg.javascript.vitest.package;
           entry = vitestEntry;
           files = "\\.(js|ts|jsx|tsx)$";

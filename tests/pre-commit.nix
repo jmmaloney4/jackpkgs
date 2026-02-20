@@ -6,8 +6,11 @@
   flakeParts = inputs.flake-parts.lib;
   libModule = import ../modules/flake-parts/lib.nix {jackpkgsInputs = inputs;};
   pkgsModule = import ../modules/flake-parts/pkgs.nix {jackpkgsInputs = inputs;};
+  checksModule = import ../modules/flake-parts/checks.nix {jackpkgsInputs = inputs;};
   preCommitModule = import ../modules/flake-parts/pre-commit.nix {jackpkgsInputs = inputs;};
 
+  # Stubs module: declares only options that aren't covered by the real modules
+  # but are needed to evaluate cleanly in the test harness.
   optionsModule = {lib, ...}: let
     inherit (lib) mkOption types;
   in {
@@ -35,6 +38,16 @@
         };
       };
 
+      nodejs.enable = mkOption {
+        type = types.bool;
+        default = false;
+      };
+
+      pulumi.enable = mkOption {
+        type = types.bool;
+        default = false;
+      };
+
       outputs = {
         pythonEnvironments = mkOption {
           type = types.attrsOf types.unspecified;
@@ -55,7 +68,9 @@
   evalFlake = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = [optionsModule libModule pkgsModule] ++ modules ++ [preCommitModule];
+      # Import real checksModule so jackpkgs.checks options are declared and
+      # pre-commit.nix can read checksCfg = config.jackpkgs.checks correctly.
+      imports = [optionsModule libModule pkgsModule checksModule] ++ modules ++ [preCommitModule];
     };
 
   getPerSystemCfg = modules: (evalFlake modules).config.perSystem system;
@@ -69,98 +84,113 @@
     args = ["-c" "mkdir -p $out/node_modules/.bin"];
   };
 
-  mkConfigModule = {extraConfig ? {}}: {
-    _module.check = false;
-    jackpkgs.pre-commit.enable = true;
-    jackpkgs.outputs = {
-      pythonEnvironments = {};
-      pythonDefaultEnv = null;
-      nodeModules = null;
-    };
-    perSystem = {pkgs, ...}:
-      lib.recursiveUpdate
+  # mkConfigModule builds a test module.
+  # - topConfig: top-level jackpkgs.checks overrides (attrset merged at module top level)
+  # - perSystemConfig: per-system jackpkgs.pre-commit overrides (merged inside perSystem)
+  mkConfigModule = {
+    topConfig ? {},
+    perSystemConfig ? {},
+  }: {
+    imports = [
       {
-        jackpkgs = {
-          pre-commit = {
-            treefmtPackage = pkgs.treefmt;
-            nbstripoutPackage = pkgs.nbstripout;
-
-            python = {};
-          };
+        _module.check = false;
+        jackpkgs.pre-commit.enable = true;
+        jackpkgs.outputs = {
+          pythonEnvironments = {};
+          pythonDefaultEnv = null;
+          nodeModules = null;
         };
       }
-      extraConfig;
+      topConfig
+      {
+        perSystem = {pkgs, ...}:
+          lib.recursiveUpdate
+          {
+            jackpkgs.pre-commit = {
+              treefmtPackage = pkgs.treefmt;
+              nbstripoutPackage = pkgs.nbstripout;
+            };
+          }
+          perSystemConfig;
+      }
+    ];
   };
 
   hasInfixAll = needles: haystack: lib.all (needle: lib.hasInfix needle haystack) needles;
 in {
   testMypyEnabledByDefault = let
-    hooks = getHooks [
-      (mkConfigModule {})
-    ];
+    hooks = getHooks [(mkConfigModule {})];
   in {
     expr = hooks.mypy.enable;
     expected = true;
   };
 
   testRuffEnabledByDefault = let
-    hooks = getHooks [
-      (mkConfigModule {})
-    ];
+    hooks = getHooks [(mkConfigModule {})];
   in {
     expr = hooks.ruff.enable;
     expected = true;
   };
 
   testPytestEnabledByDefault = let
-    hooks = getHooks [
-      (mkConfigModule {})
-    ];
+    hooks = getHooks [(mkConfigModule {})];
   in {
     expr = hooks.pytest.enable;
     expected = true;
   };
 
   testNumpydocDisabledByDefault = let
-    hooks = getHooks [
-      (mkConfigModule {})
-    ];
+    hooks = getHooks [(mkConfigModule {})];
   in {
     expr = hooks.numpydoc.enable;
     expected = false;
   };
 
-  testTscEnabledByDefault = let
+  testTscEnabledWhenNodejsEnabled = let
     hooks = getHooks [
-      (mkConfigModule {})
+      (mkConfigModule {
+        topConfig.jackpkgs.nodejs.enable = true;
+      })
     ];
   in {
     expr = hooks.tsc.enable;
     expected = true;
   };
 
-  testVitestEnabledByDefault = let
+  testTscDisabledByDefault = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hooks.tsc.enable;
+    expected = false;
+  };
+
+  testVitestEnabledWhenNodejsEnabled = let
     hooks = getHooks [
-      (mkConfigModule {})
+      (mkConfigModule {
+        topConfig.jackpkgs.nodejs.enable = true;
+      })
     ];
   in {
     expr = hooks.vitest.enable;
     expected = true;
   };
 
+  testVitestDisabledByDefault = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hooks.vitest.enable;
+    expected = false;
+  };
+
   testPytestPrePushStage = let
-    hooks = getHooks [
-      (mkConfigModule {})
-    ];
+    hooks = getHooks [(mkConfigModule {})];
   in {
     expr = hooks.pytest.stages == ["pre-push"];
     expected = true;
   };
 
   testVitestPrePushStage = let
-    hooks = getHooks [
-      (mkConfigModule {})
-    ];
+    hooks = getHooks [(mkConfigModule {})];
   in {
     expr = hooks.vitest.stages == ["pre-push"];
     expected = true;
@@ -169,7 +199,7 @@ in {
   testRuffExtraArgsAppearInEntry = let
     hooks = getHooks [
       (mkConfigModule {
-        extraConfig.jackpkgs.pre-commit.python.ruff.extraArgs = ["--fix" "--unsafe-fixes"];
+        topConfig.jackpkgs.checks.python.ruff.extraArgs = ["--fix" "--unsafe-fixes"];
       })
     ];
   in {
@@ -180,7 +210,7 @@ in {
   testNumpydocExtraArgsAppearInEntry = let
     hooks = getHooks [
       (mkConfigModule {
-        extraConfig.jackpkgs.pre-commit.python.numpydoc = {
+        topConfig.jackpkgs.checks.python.numpydoc = {
           enable = true;
           extraArgs = ["--checks" "all" "--exclude" "GL08"];
         };
@@ -202,11 +232,7 @@ in {
   testRuffPytestNumpydocDefaultToMypyPackage = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
-        extraConfig.jackpkgs.pre-commit = {
-          python = {
-            mypy.package = dummyNodeModules;
-          };
-        };
+        perSystemConfig.jackpkgs.pre-commit.python.mypy.package = dummyNodeModules;
       })
     ];
     pcfg = perSystemCfg.jackpkgs.pre-commit.python;
@@ -221,7 +247,7 @@ in {
   testTscUsesNodeModulesWhenConfigured = let
     hooks = getHooks [
       (mkConfigModule {
-        extraConfig.jackpkgs.pre-commit.typescript.tsc.nodeModules = dummyNodeModules;
+        perSystemConfig.jackpkgs.pre-commit.typescript.tsc.nodeModules = dummyNodeModules;
       })
     ];
   in {
@@ -232,7 +258,7 @@ in {
   testVitestUsesNodeModulesWhenConfigured = let
     hooks = getHooks [
       (mkConfigModule {
-        extraConfig.jackpkgs.pre-commit.javascript.vitest.nodeModules = dummyNodeModules;
+        perSystemConfig.jackpkgs.pre-commit.javascript.vitest.nodeModules = dummyNodeModules;
       })
     ];
   in {
@@ -243,7 +269,7 @@ in {
   testDisableMypyHook = let
     hooks = getHooks [
       (mkConfigModule {
-        extraConfig.jackpkgs.pre-commit.python.mypy.enable = false;
+        topConfig.jackpkgs.checks.python.mypy.enable = false;
       })
     ];
   in {
@@ -254,7 +280,7 @@ in {
   testDisableRuffHook = let
     hooks = getHooks [
       (mkConfigModule {
-        extraConfig.jackpkgs.pre-commit.python.ruff.enable = false;
+        topConfig.jackpkgs.checks.python.ruff.enable = false;
       })
     ];
   in {
