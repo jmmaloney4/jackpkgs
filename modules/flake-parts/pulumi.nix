@@ -7,10 +7,6 @@
   inherit (lib) mkIf;
   cfg = config.jackpkgs.pulumi;
 in {
-  imports = [
-    (import ./gcp.nix {inherit jackpkgsInputs;})
-  ];
-
   options = let
     inherit (lib) types mkOption mkEnableOption;
     inherit (jackpkgsInputs.flake-parts.lib) mkDeferredModuleOption;
