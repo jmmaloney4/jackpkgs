@@ -11,7 +11,7 @@
   pythonEnvHelpers = import ../../lib/python-env-selection.nix {inherit lib;};
   cfg = config.jackpkgs.pre-commit;
   checksOptionsDefined = lib.hasAttrByPath ["jackpkgs" "checks"] options;
-  checksCfg = config.jackpkgs.checks;
+  checksCfg = lib.attrByPath ["jackpkgs" "checks"] {} config;
 in {
   imports = [
     jackpkgsInputs.pre-commit-hooks.flakeModule
@@ -31,11 +31,11 @@ in {
       pkgs,
       ...
     }: let
-      pythonCfg = config.jackpkgs.python or {};
       pythonWorkspace = config._module.args.pythonWorkspace or null;
       pythonEnvOutputs = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
       pythonEnvWithDevTools = pythonEnvHelpers.selectPythonEnvWithDevTools {
-        inherit pythonCfg pythonWorkspace pythonEnvOutputs;
+        pythonCfg = config.jackpkgs.python or {};
+        inherit pythonWorkspace pythonEnvOutputs;
       };
       pythonDefaultEnv = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
 

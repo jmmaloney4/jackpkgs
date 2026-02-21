@@ -95,7 +95,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
-- `pre-commit` — pre-commit hooks (treefmt + nbstripout for `.ipynb` + Python gates + tsc + vitest); hook enables/args are controlled by `jackpkgs.checks`, packages by `jackpkgs.pre-commit`.
+- `pre-commit` — pre-commit hooks (treefmt, nbstripout, Python/TS/JS quality gates). Requires `flakeModules.checks`; hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`.
 - `shell` — shared dev shell output to include via `inputsFrom`.
 - `checks` — CI checks and quality-gate controls for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
 - `nodejs` — builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
@@ -190,8 +190,7 @@ in {
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
 
-  - Enables pre-commit with `treefmt`, `nbstripout` for `.ipynb`, Python hooks (`mypy`, `ruff`, `pytest`, optional `numpydoc`), `tsc`, and `vitest`.
-  - `pytest` and `vitest` hooks run at the `pre-push` stage.
+  - Enables pre-commit with `treefmt`, `nbstripout` (`.ipynb`), Python hooks (`mypy`, `ruff`, `pytest`; opt-in: `numpydoc`), and `tsc`/`vitest` (at `pre-push` stage).
   - `numpydoc` is **opt-in** via `jackpkgs.checks.python.numpydoc.enable = true;`.
   - **Dependency:** when `jackpkgs.pre-commit.enable = true`, you must also import `inputs.jackpkgs.flakeModules.checks` (or `inputs.jackpkgs.flakeModules.default`).
   - **Important:** Python tooling hooks require dev tools in the selected Python environment. See [Common Patterns: Dev Tools with Pre-commit](#common-patterns-dev-tools-with-pre-commit) below.
@@ -210,10 +209,8 @@ in {
     - `enable` (bool, default `true`)
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
     - `nbstripoutPackage` (default `config.jackpkgs.pkgs.nbstripout`)
-    - `python.mypy.package` (defaults to dev-tools env selection: `dev` non-editable with `includeGroups = true` → any non-editable env with `includeGroups = true` → auto-created CI env with dependency groups → `pythonDefaultEnv` → `config.jackpkgs.pkgs.mypy`)
-    - `python.ruff.package` (defaults to `config.jackpkgs.pre-commit.python.mypy.package`)
-    - `python.pytest.package` (defaults to `config.jackpkgs.pre-commit.python.mypy.package`)
-    - `python.numpydoc.package` (defaults to `config.jackpkgs.pre-commit.python.mypy.package`)
+    - `python.mypy.package` (dev-tools env selection: prefers non-editable env with `includeGroups = true`; falls back to `pythonDefaultEnv`, then `pkgs.mypy`)
+    - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package` (each defaults to `python.mypy.package`)
     - `typescript.tsc.package` (defaults to `pkgs.nodePackages.typescript`)
     - `typescript.tsc.nodeModules` (nullable package, default `null` → falls back to `jackpkgs.outputs.nodeModules`)
     - `javascript.vitest.package` (defaults to `pkgs.nodejs`)
@@ -416,7 +413,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
 
 #### Common Patterns: Dev Tools with Pre-commit
 
-When using the pre-commit module with Python projects, Python tooling hooks require the corresponding dev tools in the selected Python environment (`mypy`, `ruff`, `pytest`; and `numpydoc` only when enabled).
+When using the pre-commit module with Python projects, Python tooling hooks require the corresponding dev tools in the selected Python environment (`mypy`, `ruff`, `pytest`, and optionally `numpydoc`).
 
 **Step 1: Add dev tools to your `pyproject.toml`**
 

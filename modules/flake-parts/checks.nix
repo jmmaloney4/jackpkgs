@@ -32,8 +32,9 @@ in {
           // {
             default = config.jackpkgs.python.enable or false;
             description = ''
-              Enable Python CI checks (pytest, mypy, ruff, numpydoc). Automatically enabled
-              when the Python module is enabled.
+              Enable Python CI checks (pytest, mypy, ruff). Automatically enabled when the
+              Python module is enabled. numpydoc checks are opt-in; enable separately with
+              `python.numpydoc.enable = true`.
             '';
           };
 

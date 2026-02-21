@@ -1,4 +1,4 @@
-{lib}: {
+{lib, ...}: {
   selectPythonEnvWithDevTools = {
     pythonCfg ? {},
     pythonWorkspace ? null,
@@ -9,24 +9,24 @@
     isEditableEnv = envCfg: envCfg != null && (envCfg.editable or false);
     isNonEditableEnv = envCfg: envCfg != null && !isEditableEnv envCfg;
 
-    isCiEnvCandidate = envCfg:
+    isDevToolsEnvCandidate = envCfg:
       isNonEditableEnv envCfg
       && (envCfg.includeGroups or null) == true;
 
     hasDevEnv = configuredEnvs ? dev;
     devEnvConfig = configuredEnvs.dev or null;
 
-    envWithGroups =
+    envWithDevTools =
       lib.findFirst
-      (envName: isCiEnvCandidate (configuredEnvs.${envName} or null))
+      (envName: isDevToolsEnvCandidate (configuredEnvs.${envName} or null))
       null
       (lib.attrNames configuredEnvs);
 
     selectedEnv =
-      if hasDevEnv && isCiEnvCandidate devEnvConfig
+      if hasDevEnv && isDevToolsEnvCandidate devEnvConfig
       then pythonEnvOutputs.dev or null
-      else if envWithGroups != null
-      then pythonEnvOutputs.${envWithGroups} or null
+      else if envWithDevTools != null
+      then pythonEnvOutputs.${envWithDevTools} or null
       else null;
   in
     if selectedEnv != null
