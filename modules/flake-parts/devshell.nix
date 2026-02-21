@@ -84,8 +84,8 @@ in {
           ++ lib.optional cfg.welcome.showJustHint ''echo "Run 'just --list' to see available commands"''
         );
     in {
-      jackpkgs.outputs.devShell =
-        pkgs.mkShell {
+      jackpkgs.outputs.devShell = pkgs.mkShell (
+        {
           inputsFrom =
             [
               config.just-flake.outputs.devShell
@@ -97,11 +97,11 @@ in {
           packages = sysCfg.packages;
 
           shellHook = lib.concatStringsSep "\n" shellHookParts;
-
-          # Hide direnv environment variable diff output
-          # This sets DIRENV_LOG_FORMAT to empty, silencing the verbose export lines
         }
-        // lib.optionalAttrs cfg.direnv.hideEnvDiff {DIRENV_LOG_FORMAT = "";};
+        # Hide direnv environment variable diff output by passing DIRENV_LOG_FORMAT=""
+        # directly into mkShell's argument set rather than merging onto its output.
+        // lib.optionalAttrs cfg.direnv.hideEnvDiff {DIRENV_LOG_FORMAT = "";}
+      );
     };
   };
 }
