@@ -95,7 +95,7 @@ in {
         # GCP profile isolation - must come before other shell hooks
         shellHook =
           (lib.optionalString (gcpProfile != null) ''
-            export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/${gcpProfile}"
+            export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/"${lib.escapeShellArg gcpProfile}
             mkdir -p "$CLOUDSDK_CONFIG"
           '')
           + welcomeHook;
