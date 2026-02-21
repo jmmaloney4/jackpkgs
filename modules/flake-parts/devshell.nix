@@ -22,6 +22,14 @@ in {
       welcome = {
         enable = mkEnableOption "welcome message on shell entry" // {default = true;};
         showJustHint = mkEnableOption "hint about just --list" // {default = true;};
+        justHintMessage = mkOption {
+          type = types.str;
+          default = "Run 'just --list' to see available commands";
+          example = "Run 'just' to see available recipes";
+          description = ''
+            Text to display as the just hint when showJustHint is enabled.
+          '';
+        };
         message = mkOption {
           type = types.nullOr types.str;
           default = null;
@@ -82,7 +90,7 @@ in {
         ''
         ++ lib.optionals cfg.welcome.enable (
           lib.optional (cfg.welcome.message != null) ''echo ${lib.escapeShellArg cfg.welcome.message}''
-          ++ lib.optional cfg.welcome.showJustHint ''echo "Run 'just --list' to see available commands"''
+          ++ lib.optional cfg.welcome.showJustHint ''echo ${lib.escapeShellArg cfg.welcome.justHintMessage}''
         );
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell (
