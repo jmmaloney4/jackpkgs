@@ -73,13 +73,16 @@ in {
       sysCfg = config.jackpkgs.shell;
       gcpProfile = lib.attrByPath ["jackpkgs" "gcp" "profile"] null config;
 
-      # Build the welcome shellHook based on options
-      welcomeHook = lib.optionalString cfg.welcome.enable (
-        lib.concatStringsSep "\n" (
+      # Build shellHook segments as a list and join with newlines for safe concatenation
+      shellHookParts =
+        lib.optional (gcpProfile != null) ''
+          export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/"${lib.escapeShellArg gcpProfile}
+          mkdir -p "$CLOUDSDK_CONFIG"
+        ''
+        ++ lib.optionals cfg.welcome.enable (
           lib.optional (cfg.welcome.message != null) ''echo ${lib.escapeShellArg cfg.welcome.message}''
           ++ lib.optional cfg.welcome.showJustHint ''echo "Run 'just --list' to see available commands"''
-        )
-      );
+        );
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell {
         inputsFrom =
@@ -92,13 +95,7 @@ in {
           ++ sysCfg.inputsFrom;
         packages = sysCfg.packages;
 
-        # GCP profile isolation - must come before other shell hooks
-        shellHook =
-          (lib.optionalString (gcpProfile != null) ''
-            export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/"${lib.escapeShellArg gcpProfile}
-            mkdir -p "$CLOUDSDK_CONFIG"
-          '')
-          + welcomeHook;
+        shellHook = lib.concatStringsSep "\n" shellHookParts;
 
         # Hide direnv environment variable diff output
         # This sets DIRENV_LOG_FORMAT to empty, silencing the verbose export lines
