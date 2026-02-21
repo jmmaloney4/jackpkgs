@@ -173,6 +173,13 @@ in {
     - `projectRootFile` (str, default `config.flake-root.projectRootFile`)
     - `excludes` (list of str, default `["**/node_modules/**" "**/dist/**"]`)
   - Enables formatters: Alejandra (Nix), Biome (JS/TS), HuJSON, latexindent, Ruff (check + format), Rustfmt, Taplo (TOML), Yamlfmt.
+  - Optional notebook formatting via `jackpkgs.fmt.nbqa`:
+    - `enable` (bool, default `false`) — format Python code in `.ipynb`/`.qmd` files using `ruff format` via nbqa. Notebook *linting* is controlled by `jackpkgs.checks.python.notebook.ruff`.
+    - `includes` (list of str, default `["*.ipynb" "*.qmd"]`)
+    - `nbqaPackage` (package, default `pkgs.nbqa`)
+    - `ruffPackage` (package, default `pkgs.ruff`) — set to `null` to use `ruffCommand` instead
+    - `ruffCommand` (nullable str, default `null`) — absolute path to ruff; takes precedence over `ruffPackage`
+    - `ruffFormatOptions` (list of str, default `[]`) — extra args for `ruff format` (e.g. `["--line-length=88"]`)
 
 - just (`modules/flake-parts/just.nix`)
 
@@ -217,7 +224,8 @@ in {
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
     - `nbstripoutPackage` (default `config.jackpkgs.pkgs.nbstripout`)
     - `python.mypy.package` (dev-tools env selection: prefers non-editable env with `includeGroups = true`; falls back to `pythonDefaultEnv`, then `pkgs.mypy`)
-    - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package` (each defaults to `python.mypy.package`)
+    - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package`, `python.notebook.ruff.package` (each defaults to `python.mypy.package`)
+    - `nbqa.package` (default `pkgs.nbqa`) — package providing `nbqa` for the notebook ruff hook
     - `typescript.tsc.package` (defaults to `pkgs.nodePackages.typescript`)
     - `typescript.tsc.nodeModules` (nullable package, default `null` → falls back to `jackpkgs.outputs.nodeModules`)
     - `javascript.vitest.package` (defaults to `pkgs.nodejs`)
@@ -241,6 +249,8 @@ in {
     - `python.ruff.enable` (bool, default `true`), `python.ruff.extraArgs` (list, default `["--no-cache"]`)
     - `python.pytest.enable` (bool, default `true`), `python.pytest.extraArgs` (list, default `[]`)
     - `python.numpydoc.enable` (bool, **default `false`** — explicit opt-in), `python.numpydoc.extraArgs` (list, default `[]`)
+    - `python.notebook.ruff.enable` (bool, **default mirrors `python.ruff.enable`**) — run `ruff check` via nbqa on `.ipynb`/`.qmd` files; requires `nbqa` in the Python check environment
+    - `python.notebook.ruff.extraArgs` (list, default `["--no-cache"]`)
     - `typescript.tsc.enable` (bool, default `jackpkgs.nodejs.enable`), `typescript.tsc.packages`, `typescript.tsc.nodeModules`, `typescript.tsc.extraArgs`
     - `vitest.enable` (bool, default `jackpkgs.nodejs.enable`), `vitest.packages`, `vitest.nodeModules`, `vitest.extraArgs`
 
@@ -262,14 +272,15 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
 
 **Quality-gate surface matrix:**
 
-| Tool       | CI check derivation | Pre-commit hook | Stage        | Default                      |
-| ---------- | ------------------- | --------------- | ------------ | ---------------------------- |
-| `mypy`     | `python-mypy`       | `mypy`          | commit       | enabled                      |
-| `ruff`     | `python-ruff`       | `ruff`          | commit       | enabled                      |
-| `pytest`   | `python-pytest`     | `pytest`        | **pre-push** | enabled                      |
-| `numpydoc` | `python-numpydoc`   | `numpydoc`      | commit       | **disabled**                 |
-| `tsc`      | `typescript-tsc`    | `tsc`           | commit       | enabled when `nodejs.enable` |
-| `vitest`   | `javascript-vitest` | `vitest`        | **pre-push** | enabled when `nodejs.enable` |
+| Tool            | CI check derivation    | Pre-commit hook | Stage        | Default                      |
+| --------------- | ---------------------- | --------------- | ------------ | ---------------------------- |
+| `mypy`          | `python-mypy`          | `mypy`          | commit       | enabled                      |
+| `ruff`          | `python-ruff`          | `ruff`          | commit       | enabled                      |
+| `pytest`        | `python-pytest`        | `pytest`        | **pre-push** | enabled                      |
+| `numpydoc`      | `python-numpydoc`      | `numpydoc`      | commit       | **disabled**                 |
+| `notebook.ruff` | `python-notebook-ruff` | `nbqa-ruff`     | commit       | mirrors `ruff` enable        |
+| `tsc`           | `typescript-tsc`       | `tsc`           | commit       | enabled when `nodejs.enable` |
+| `vitest`        | `javascript-vitest`    | `vitest`        | **pre-push** | enabled when `nodejs.enable` |
 
 - shell (`modules/flake-parts/devshell.nix`)
 

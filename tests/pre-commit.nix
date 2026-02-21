@@ -338,4 +338,112 @@ in {
     expr = hooks.ruff.enable;
     expected = false;
   };
+
+  # ============================================================
+  # nbqa-ruff hook (notebook linting)
+  # ============================================================
+
+  # nbqa-ruff mirrors checks.python.notebook.ruff.enable which mirrors python.ruff.enable (true by default)
+  testNbqaRuffEnabledByDefault = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hooks.nbqa-ruff.enable;
+    expected = true;
+  };
+
+  # nbqa-ruff is disabled when python.ruff is disabled
+  testNbqaRuffDisabledWhenPythonRuffDisabled = let
+    hooks = getHooks [
+      (mkConfigModule {
+        topConfig.jackpkgs.checks.python.ruff.enable = false;
+      })
+    ];
+  in {
+    expr = hooks.nbqa-ruff.enable;
+    expected = false;
+  };
+
+  # nbqa-ruff can be explicitly disabled independently
+  testNbqaRuffCanBeExplicitlyDisabled = let
+    hooks = getHooks [
+      (mkConfigModule {
+        topConfig.jackpkgs.checks.python.notebook.ruff.enable = false;
+      })
+    ];
+  in {
+    expr = hooks.nbqa-ruff.enable;
+    expected = false;
+  };
+
+  # nbqa-ruff can be enabled even when python.ruff is off
+  testNbqaRuffCanBeExplicitlyEnabled = let
+    hooks = getHooks [
+      (mkConfigModule {
+        topConfig.jackpkgs.checks.python.ruff = {
+          enable = false;
+        };
+        topConfig.jackpkgs.checks.python.notebook.ruff.enable = true;
+      })
+    ];
+  in {
+    expr = hooks.nbqa-ruff.enable;
+    expected = true;
+  };
+
+  # entry contains nbqa and ruff check with --nbqa-shell
+  testNbqaRuffEntryContainsNbqaAndRuffCheck = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hasInfixAll ["nbqa" "ruff check" "--nbqa-shell"] hooks.nbqa-ruff.entry;
+    expected = true;
+  };
+
+  # files pattern matches .ipynb and .qmd
+  testNbqaRuffFilesPattern = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hasInfixAll ["ipynb" "qmd"] hooks.nbqa-ruff.files;
+    expected = true;
+  };
+
+  # pass_filenames is false (nbqa scans the repo itself)
+  testNbqaRuffPassFilenamesFalse = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = !(hooks.nbqa-ruff.pass_filenames or true);
+    expected = true;
+  };
+
+  # extraArgs are reflected in the entry string
+  testNbqaRuffExtraArgsInEntry = let
+    hooks = getHooks [
+      (mkConfigModule {
+        topConfig.jackpkgs.checks.python.notebook.ruff.extraArgs = ["--no-cache" "--select=I,E,F"];
+      })
+    ];
+  in {
+    expr = hasInfixAll ["--no-cache" "--select=I,E,F"] hooks.nbqa-ruff.entry;
+    expected = true;
+  };
+
+  # Default extraArgs include --no-cache
+  testNbqaRuffDefaultExtraArgsInEntry = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = lib.hasInfix "--no-cache" hooks.nbqa-ruff.entry;
+    expected = true;
+  };
+
+  # notebook.ruff.package defaults to the same as mypy.package
+  testNotebookRuffPackageDefaultsToMypyPackage = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        perSystemConfig.jackpkgs.pre-commit.python.mypy.package = dummyNodeModules;
+      })
+    ];
+    pcfg = perSystemCfg.jackpkgs.pre-commit.python;
+  in {
+    expr = pcfg.notebook.ruff.package == pcfg.mypy.package;
+    expected = true;
+  };
 }

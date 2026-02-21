@@ -21,23 +21,23 @@
     eval = evalFlake modules;
     perSystemCfg = eval.config.perSystem system;
   in
-    perSystemCfg.treefmt.config or {};
+    perSystemCfg.treefmt;
 
   getSettingsFormatter = modules:
     (getTreefmtConfig modules).settings.formatter or {};
 
   hasInfixAll = needles: haystack: lib.all (n: lib.hasInfix n haystack) needles;
 in {
-  # Test that nbqa formatters are not created when disabled (default)
+  # Test that nbqa formatter is not created when disabled (default)
   testNbqaDisabledByDefault = let
     formatters = getSettingsFormatter [{}];
   in {
-    expr = !(lib.hasAttr "python-notebook-format" formatters) && !(lib.hasAttr "python-notebook-lint" formatters);
+    expr = !(lib.hasAttr "python-notebook-format" formatters);
     expected = true;
   };
 
-  # Test that nbqa formatters are created when enabled
-  testNbqaEnabledCreatesFormatters = let
+  # Test that nbqa formatter is created when enabled (format only; lint is in checks.nix)
+  testNbqaEnabledCreatesFormatFormatter = let
     formatters = getSettingsFormatter [
       {
         perSystem = {pkgs, ...}: {
@@ -46,11 +46,25 @@ in {
       }
     ];
   in {
-    expr = lib.hasAttr "python-notebook-format" formatters && lib.hasAttr "python-notebook-lint" formatters;
+    expr = lib.hasAttr "python-notebook-format" formatters;
     expected = true;
   };
 
-  # Test that formatters have correct command
+  # Test that no lint formatter is created (lint moved to checks.nix)
+  testNbqaNoLintFormatter = let
+    formatters = getSettingsFormatter [
+      {
+        perSystem = {pkgs, ...}: {
+          jackpkgs.fmt.nbqa.enable = true;
+        };
+      }
+    ];
+  in {
+    expr = !(lib.hasAttr "python-notebook-lint" formatters);
+    expected = true;
+  };
+
+  # Test that formatter has correct command
   testNbqaFormatterCommand = let
     formatters = getSettingsFormatter [
       {
@@ -114,26 +128,8 @@ in {
     expected = true;
   };
 
-  # Test ruff check options are passed
-  testNbqaRuffCheckOptions = let
-    formatters = getSettingsFormatter [
-      {
-        perSystem = {pkgs, ...}: {
-          jackpkgs.fmt.nbqa = {
-            enable = true;
-            ruffCheckOptions = ["--line-length=88" "--select=I,E,F"];
-          };
-        };
-      }
-    ];
-    options = formatters.python-notebook-lint.options;
-    optionsStr = lib.concatStringsSep " " options;
-  in {
-    expr = lib.hasInfix "--line-length=88" optionsStr && lib.hasInfix "--select=I,E,F" optionsStr;
-    expected = true;
-  };
-
-  # Test format options include shell mode and ruff format command
+  # Test format options include shell mode flag and ruff format subcommand
+  # Correct order: "<ruffCmd> format" is the positional command, then "--nbqa-shell" flag
   testNbqaFormatOptionsStructure = let
     formatters = getSettingsFormatter [
       {
@@ -149,8 +145,8 @@ in {
     expected = true;
   };
 
-  # Test lint options include shell mode and ruff check --fix command
-  testNbqaLintOptionsStructure = let
+  # Test that the positional ruff command comes before --nbqa-shell flag
+  testNbqaFormatArgOrder = let
     formatters = getSettingsFormatter [
       {
         perSystem = {pkgs, ...}: {
@@ -158,10 +154,12 @@ in {
         };
       }
     ];
-    options = formatters.python-notebook-lint.options;
-    optionsStr = lib.concatStringsSep " " options;
+    options = formatters.python-notebook-format.options;
+    # First element is the tool command (ruff format), second is the flag
+    firstOption = builtins.head options;
+    secondOption = builtins.elemAt options 1;
   in {
-    expr = lib.hasInfix "--nbqa-shell" optionsStr && lib.hasInfix "check --fix" optionsStr;
+    expr = lib.hasInfix "format" firstOption && secondOption == "--nbqa-shell";
     expected = true;
   };
 
@@ -181,6 +179,22 @@ in {
     optionsStr = lib.concatStringsSep " " options;
   in {
     expr = lib.hasInfix "/custom/path/to/ruff" optionsStr;
+    expected = true;
+  };
+
+  # Test trailing "--" sentinel is added (required by treefmt/nbqa)
+  testNbqaFormatTrailingSentinel = let
+    formatters = getSettingsFormatter [
+      {
+        perSystem = {pkgs, ...}: {
+          jackpkgs.fmt.nbqa.enable = true;
+        };
+      }
+    ];
+    options = formatters.python-notebook-format.options;
+    lastOption = lib.last options;
+  in {
+    expr = lastOption == "--";
     expected = true;
   };
 }

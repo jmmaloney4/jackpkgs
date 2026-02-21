@@ -105,6 +105,31 @@ in {
             example = ["--checks" "all"];
           };
         };
+
+        notebook = {
+          ruff = {
+            enable = mkOption {
+              type = types.bool;
+              # Mirrors python.ruff.enable so enabling Python checks automatically
+              # includes notebook linting when Python ruff is enabled.
+              default = config.jackpkgs.checks.python.ruff.enable;
+              description = ''
+                Enable ruff linting for Jupyter notebooks and Quarto files via nbqa.
+
+                Defaults to matching jackpkgs.checks.python.ruff.enable.
+
+                Requires `nbqa` and `ruff` to be available in the Python check environment.
+              '';
+            };
+
+            extraArgs = mkOption {
+              type = types.listOf types.str;
+              default = ["--no-cache"];
+              description = "Extra arguments to pass to ruff check when linting notebooks";
+              example = ["--no-cache" "--select=I,E,F"];
+            };
+          };
+        };
       };
 
       # Injectable YAML parser (for testing without IFD)
@@ -484,6 +509,21 @@ in {
                 workspaceRoot = pythonCfg.workspaceRoot;
                 members = pythonWorkspaceMembers;
                 perMemberCommand = "python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs} .";
+              };
+            };
+          }
+          // lib.optionalAttrs cfg.python.notebook.ruff.enable {
+            # nbqa ruff check for Jupyter notebooks and Quarto files
+            python-notebook-ruff = mkCheck {
+              name = "python-notebook-ruff";
+              buildInputs = [pythonEnvWithDevTools pkgs.nbqa];
+              setupCommands = ''
+                export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
+              '';
+              checkCommands = forEachWorkspaceMember {
+                workspaceRoot = pythonCfg.workspaceRoot;
+                members = pythonWorkspaceMembers;
+                perMemberCommand = "nbqa \"ruff check\" --nbqa-shell ${lib.escapeShellArgs cfg.python.notebook.ruff.extraArgs} .";
               };
             };
           }

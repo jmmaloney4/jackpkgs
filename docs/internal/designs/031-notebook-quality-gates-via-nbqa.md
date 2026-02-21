@@ -189,7 +189,7 @@ surfaces.
 - ADR-016: CI Checks Module
 - ADR-029: Unified Quality-Gate Controls
 
----
+______________________________________________________________________
 
 Author: OpenCode
 Date: 2026-02-21

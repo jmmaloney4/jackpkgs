@@ -28,7 +28,7 @@ coverage model as `.py`:
 - [ ] Confirm `tests/fmt.nix` is already wired into `flake.nix` nix-unit tests.
 - [ ] Confirm no existing issue tracks notebook output CI semantics (open follow-up after implementation).
 
----
+______________________________________________________________________
 
 ## Step 1: Refactor `modules/flake-parts/fmt.nix`
 
@@ -52,8 +52,8 @@ options = [ "${toolCommand}" "--nbqa-shell" ] ++ toolOptions ++ [ "--" ];
 - [ ] Remove notebook lint formatter entry (`python-notebook-lint`).
 - [ ] Keep notebook formatter entry for `ruff format`.
 - [ ] Rename formatter key if needed for extensibility (for example
-      `python-notebook-ruff-format`) only if it does not break expected naming
-      conventions; otherwise keep stable existing key.
+  `python-notebook-ruff-format`) only if it does not break expected naming
+  conventions; otherwise keep stable existing key.
 
 ### 1.3 Adopt generalized tool configuration shape
 
@@ -85,9 +85,9 @@ jackpkgs.fmt.nbqa = {
 ### 1.4 Ruff package source consistency
 
 - [ ] Resolve notebook ruff package from the same chain used by current
-      `.py` checks/hooks.
+  `.py` checks/hooks.
 - [ ] Avoid introducing independent notebook-specific ruff package knobs unless
-      strictly required.
+  strictly required.
 
 Acceptance criteria:
 
@@ -95,7 +95,7 @@ Acceptance criteria:
 - [ ] Notebook lint no longer exists in `fmt` formatter surface.
 - [ ] Formatter definitions are generated from generalized `tools` config.
 
----
+______________________________________________________________________
 
 ## Step 2: Extend `modules/flake-parts/checks.nix`
 
@@ -116,7 +116,7 @@ Create check name (proposed): `python-notebook-ruff`.
 
 - [ ] Build inputs include nbqa + ruff package.
 - [ ] Script discovers notebook files from project root (and handles no-match
-      case clearly).
+  case clearly).
 - [ ] Script runs nbqa ruff check with forwarded `extraArgs`.
 
 Acceptance criteria:
@@ -125,7 +125,7 @@ Acceptance criteria:
 - [ ] Check absent when notebook ruff check disabled.
 - [ ] Build script contains expected command fragments and args.
 
----
+______________________________________________________________________
 
 ## Step 3: Extend `modules/flake-parts/pre-commit.nix`
 
@@ -140,7 +140,7 @@ Proposed hook: `nbqa-ruff`.
 ### 3.2 Preserve ADR-029 control model
 
 - [ ] Do not add independent enable toggle under `jackpkgs.pre-commit` for
-      notebook linting.
+  notebook linting.
 - [ ] Keep `checks` as single source of truth for gate enablement.
 
 Acceptance criteria:
@@ -148,7 +148,7 @@ Acceptance criteria:
 - [ ] Hook enable/disable tracks checks enable/disable.
 - [ ] Hook entry string reflects extraArgs from checks config.
 
----
+______________________________________________________________________
 
 ## Step 4: Unit Tests (nix-unit) — Detailed Plan
 
@@ -170,12 +170,7 @@ Add/adjust tests:
   - ensure format formatter exists; lint formatter does not.
 - [ ] `testNbqaFormatOptionsExactOrder`
   - assert exact vector order:
-    `[
-      "<ruff command> format"
-      "--nbqa-shell"
-      ...extra options...
-      "--"
-    ]`
+    `[   "<ruff command> format"   "--nbqa-shell"   ...extra options...   "--" ]`
 - [ ] `testNbqaToolRegistryRendersFormatters`
   - define additional tool in `tools` attrset and assert formatter appears.
 - [ ] `testNbqaIncludesDefaultAndOverride`
@@ -231,7 +226,7 @@ Consistency checks:
 - [ ] Keep existing style of enabling/disabling via `topConfig.jackpkgs.checks...`.
 - [ ] Avoid introducing pre-commit-local enable toggles for notebook lint.
 
----
+______________________________________________________________________
 
 ## Step 5: Documentation updates
 
@@ -247,9 +242,9 @@ Per repo AGENTS guidance, update README when module options and behavior change.
 ### 5.2 Follow-up tracking issue
 
 - [ ] Open issue: clarify/verify CI semantics for notebook output stripping
-      (`nbstripout`) independent of this change.
+  (`nbstripout`) independent of this change.
 
----
+______________________________________________________________________
 
 ## Step 6: Verification and completion
 
@@ -274,7 +269,7 @@ nix eval --json .#checks.x86_64-linux.nix-unit.tests.fmt
 - [ ] README updated for consumer-facing option changes.
 - [ ] Follow-up issue created for notebook output CI semantics.
 
----
+______________________________________________________________________
 
 ## Implementation order recommendation
 

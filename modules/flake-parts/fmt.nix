@@ -53,7 +53,8 @@ in {
             default = false;
             description = ''
               Enable nbqa-based formatting for Jupyter notebooks and Quarto files.
-              Uses ruff to format and lint Python code within notebooks.
+              Uses ruff to format Python code within notebooks.
+              Notebook linting (ruff check) is handled by jackpkgs.checks.python.notebook.ruff.
             '';
           };
 
@@ -99,16 +100,6 @@ in {
             '';
             example = ["--line-length=88" "--target-version=py312"];
           };
-
-          ruffCheckOptions = mkOption {
-            type = types.listOf types.str;
-            default = [];
-            description = ''
-              Extra options to pass to ruff check.
-              Example: ["--line-length=88" "--target-version=py312" "--select=I,E,F"]
-            '';
-            example = ["--line-length=88" "--target-version=py312" "--select=I,E,F"];
-          };
         };
       };
     });
@@ -132,21 +123,13 @@ in {
         then "${nbqaCfg.ruffPackage}/bin/ruff"
         else "ruff"; # fallback to PATH
 
-      # Build nbqa formatter configurations
+      # Build nbqa formatter configurations (format-only; lint is in checks.nix)
       nbqaFormatters = lib.optionalAttrs nbqaCfg.enable {
-        # Jupyter notebooks - formatting with ruff format
+        # Jupyter notebooks / Quarto files — format with ruff format
+        # nbqa positional argument is the tool command; --nbqa-shell is a boolean flag
         python-notebook-format = {
           command = "${nbqaCfg.nbqaPackage}/bin/nbqa";
-          # Use nbqa in shell mode with pinned ruff path
-          options = ["--nbqa-shell" "${ruffCmd} format"] ++ nbqaCfg.ruffFormatOptions ++ ["--"];
-          includes = nbqaCfg.includes;
-        };
-
-        # Jupyter notebooks - linting with ruff check (includes import sorting)
-        python-notebook-lint = {
-          command = "${nbqaCfg.nbqaPackage}/bin/nbqa";
-          # Shell mode avoids nbqa's import requirement for ruff
-          options = ["--nbqa-shell" "${ruffCmd} check --fix"] ++ nbqaCfg.ruffCheckOptions ++ ["--"];
+          options = ["${ruffCmd} format" "--nbqa-shell"] ++ nbqaCfg.ruffFormatOptions ++ ["--"];
           includes = nbqaCfg.includes;
         };
       };

@@ -114,6 +114,29 @@ in {
               '';
             };
           };
+
+          notebook = {
+            ruff = {
+              package = mkOption {
+                type = types.package;
+                default = config.jackpkgs.pre-commit.python.mypy.package;
+                defaultText = "config.jackpkgs.pre-commit.python.mypy.package";
+                description = ''
+                  Python package (or environment) that provides the `ruff`
+                  executable for notebook linting via nbqa.
+                '';
+              };
+            };
+          };
+        };
+
+        nbqa = {
+          package = mkOption {
+            type = types.package;
+            default = pkgs.nbqa;
+            defaultText = "pkgs.nbqa";
+            description = "nbqa package to use for notebook pre-commit hooks.";
+          };
         };
 
         typescript = {
@@ -315,6 +338,18 @@ in {
             in "${pythonExe} -m numpydoc.hooks.validate_docstrings${escapeExtraArgs checksCfg.python.numpydoc.extraArgs} .";
             files = "\\.py$";
             excludes = defaultExcludes.preCommit;
+          };
+
+          settings.hooks.nbqa-ruff = {
+            enable = checksCfg.python.notebook.ruff.enable;
+            package = sysCfg.nbqa.package;
+            entry = let
+              ruffExe = lib.getExe' sysCfg.python.notebook.ruff.package "ruff";
+              nbqaExe = lib.getExe' sysCfg.nbqa.package "nbqa";
+            in "${nbqaExe} \"${ruffExe} check\" --nbqa-shell${escapeExtraArgs checksCfg.python.notebook.ruff.extraArgs}";
+            files = "\\.(ipynb|qmd)$";
+            # nbqa operates on whole files; don't pass filenames (it scans the repo)
+            pass_filenames = false;
           };
 
           settings.hooks.tsc = {

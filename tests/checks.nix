@@ -757,4 +757,118 @@ in {
     expr = lib.isDerivation minimalPythonCheck.python-pytest;
     expected = true;
   };
+
+  # ============================================================
+  # Notebook checks (python.notebook.ruff)
+  # ============================================================
+
+  # notebook.ruff defaults to matching python.ruff.enable (which defaults to true when python enabled)
+  testNotebookRuffEnabledWhenPythonRuffEnabled = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+  in {
+    expr = hasCheck checks "python-notebook-ruff";
+    expected = true;
+  };
+
+  # When python.ruff is explicitly disabled, notebook.ruff should also be disabled
+  testNotebookRuffDisabledWhenPythonRuffDisabled = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.ruff.enable = false;
+      };
+    };
+  in {
+    expr = missingCheck checks "python-notebook-ruff";
+    expected = true;
+  };
+
+  # notebook.ruff can be explicitly disabled independent of python.ruff
+  testNotebookRuffCanBeExplicitlyDisabled = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.notebook.ruff.enable = false;
+      };
+    };
+  in {
+    expr = missingCheck checks "python-notebook-ruff";
+    expected = true;
+  };
+
+  # notebook.ruff can be explicitly enabled even when python.ruff is disabled
+  testNotebookRuffCanBeExplicitlyEnabled = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.ruff.enable = false;
+        extraConfig.jackpkgs.checks.python.notebook.ruff.enable = true;
+      };
+    };
+  in {
+    expr = hasCheck checks "python-notebook-ruff";
+    expected = true;
+  };
+
+  # notebook.ruff script should contain nbqa and ruff check
+  testNotebookRuffScript = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.python-notebook-ruff;
+  in {
+    expr = hasInfixAll ["nbqa" "ruff check" "--nbqa-shell"] script;
+    expected = true;
+  };
+
+  # notebook.ruff extraArgs are passed to the command
+  testNotebookRuffExtraArgs = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.notebook.ruff.extraArgs = ["--no-cache" "--select=I,E,F"];
+      };
+    };
+    script = getBuildCommand checks.python-notebook-ruff;
+  in {
+    expr = hasInfixAll ["--no-cache" "--select=I,E,F"] script;
+    expected = true;
+  };
+
+  # Default extraArgs include --no-cache
+  testNotebookRuffDefaultExtraArgs = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.python-notebook-ruff;
+  in {
+    expr = hasInfixAll ["--no-cache"] script;
+    expected = true;
+  };
+
+  # RUFF_CACHE_DIR is exported (mirrors python-ruff behavior)
+  testNotebookRuffSetsRuffCacheDir = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.python-notebook-ruff;
+  in {
+    expr = hasInfixAll ["RUFF_CACHE_DIR=$TMPDIR"] script;
+    expected = true;
+  };
+
+  # notebook checks are absent when checks globally disabled
+  testNotebookRuffAbsentWhenChecksDisabled = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        checksEnable = false;
+      };
+    };
+  in {
+    expr = missingCheck checks "python-notebook-ruff";
+    expected = true;
+  };
 }
