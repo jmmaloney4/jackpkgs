@@ -6,7 +6,7 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.shell;
-  gcpProfile = config.jackpkgs.gcp.profile;
+  gcpProfile = lib.attrByPath ["jackpkgs" "gcp" "profile"] null config;
 in {
   imports = [
     jackpkgsInputs.flake-root.flakeModule
