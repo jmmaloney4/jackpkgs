@@ -76,7 +76,8 @@ in {
       # Build shellHook segments as a list and join with newlines for safe concatenation
       shellHookParts =
         lib.optional (gcpProfile != null) ''
-          export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/"${lib.escapeShellArg gcpProfile}
+          gcp_profile_name=${lib.escapeShellArg gcpProfile}
+          export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/$gcp_profile_name"
           mkdir -p "$CLOUDSDK_CONFIG"
         ''
         ++ lib.optionals cfg.welcome.enable (
