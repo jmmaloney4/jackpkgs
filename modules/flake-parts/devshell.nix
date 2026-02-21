@@ -34,7 +34,7 @@ in {
       };
 
       direnv = {
-        hideEnvDiff = mkEnableOption "hiding direnv environment variable diff output" // {default = true;};
+        showEnvDiff = mkEnableOption "showing direnv environment variable diff output" // {default = false;};
       };
     };
 
@@ -98,9 +98,9 @@ in {
 
           shellHook = lib.concatStringsSep "\n" shellHookParts;
         }
-        # Hide direnv environment variable diff output by passing DIRENV_LOG_FORMAT=""
-        # directly into mkShell's argument set rather than merging onto its output.
-        // lib.optionalAttrs cfg.direnv.hideEnvDiff {DIRENV_LOG_FORMAT = "";}
+        # Hide direnv environment variable diff output unless showEnvDiff is enabled.
+        # Passes DIRENV_LOG_FORMAT="" directly into mkShell's argument set.
+        // lib.optionalAttrs (!cfg.direnv.showEnvDiff) {DIRENV_LOG_FORMAT = "";}
       );
     };
   };
