@@ -76,7 +76,7 @@ in {
       # Build the welcome shellHook based on options
       welcomeHook = lib.optionalString cfg.welcome.enable (
         lib.concatStringsSep "\n" (
-          lib.optional (cfg.welcome.message != null) ''echo "${lib.escapeShellArg cfg.welcome.message}"''
+          lib.optional (cfg.welcome.message != null) ''echo ${lib.escapeShellArg cfg.welcome.message}''
           ++ lib.optional cfg.welcome.showJustHint ''echo "Run 'just --list' to see available commands"''
         )
       );
