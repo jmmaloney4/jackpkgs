@@ -191,11 +191,17 @@ in {
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
 
   - Enables pre-commit with `treefmt`, `nbstripout` (`.ipynb`), Python hooks (`mypy`, `ruff`, `pytest`; opt-in: `numpydoc`), and `tsc`/`vitest` (at `pre-push` stage).
+
   - `numpydoc` is **opt-in** via `jackpkgs.checks.python.numpydoc.enable = true;`.
+
   - **Dependency:** when `jackpkgs.pre-commit.enable = true`, you must also import `inputs.jackpkgs.flakeModules.checks` (or `inputs.jackpkgs.flakeModules.default`).
+
   - **Important:** Python tooling hooks require dev tools in the selected Python environment. See [Common Patterns: Dev Tools with Pre-commit](#common-patterns-dev-tools-with-pre-commit) below.
+
   - Hook enables and `extraArgs` are controlled by `jackpkgs.checks` (see below). `jackpkgs.pre-commit` controls only **package** and **nodeModules** overrides.
+
   - Python package defaults are chained: set `python.mypy.package` once, and `python.ruff.package`, `python.pytest.package`, and `python.numpydoc.package` inherit it by default.
+
   - Minimal imports when enabling pre-commit directly:
 
     ```nix
@@ -206,6 +212,7 @@ in {
     ```
 
   - Options under `jackpkgs.pre-commit`:
+
     - `enable` (bool, default `true`)
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
     - `nbstripoutPackage` (default `config.jackpkgs.pkgs.nbstripout`)
@@ -255,14 +262,14 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
 
 **Quality-gate surface matrix:**
 
-| Tool | CI check derivation | Pre-commit hook | Stage | Default |
-| ---- | ------------------- | --------------- | ----- | ------- |
-| `mypy` | `python-mypy` | `mypy` | commit | enabled |
-| `ruff` | `python-ruff` | `ruff` | commit | enabled |
-| `pytest` | `python-pytest` | `pytest` | **pre-push** | enabled |
-| `numpydoc` | `python-numpydoc` | `numpydoc` | commit | **disabled** |
-| `tsc` | `typescript-tsc` | `tsc` | commit | enabled when `nodejs.enable` |
-| `vitest` | `javascript-vitest` | `vitest` | **pre-push** | enabled when `nodejs.enable` |
+| Tool       | CI check derivation | Pre-commit hook | Stage        | Default                      |
+| ---------- | ------------------- | --------------- | ------------ | ---------------------------- |
+| `mypy`     | `python-mypy`       | `mypy`          | commit       | enabled                      |
+| `ruff`     | `python-ruff`       | `ruff`          | commit       | enabled                      |
+| `pytest`   | `python-pytest`     | `pytest`        | **pre-push** | enabled                      |
+| `numpydoc` | `python-numpydoc`   | `numpydoc`      | commit       | **disabled**                 |
+| `tsc`      | `typescript-tsc`    | `tsc`           | commit       | enabled when `nodejs.enable` |
+| `vitest`   | `javascript-vitest` | `vitest`        | **pre-push** | enabled when `nodejs.enable` |
 
 - shell (`modules/flake-parts/devshell.nix`)
 
@@ -487,12 +494,12 @@ jackpkgs.checks.python.numpydoc = {
 
 **Environment Pattern Summary:**
 
-| Pattern | `editable` | `includeGroups` | Checks + pre-commit Python hooks |
-| ------- | ---------- | --------------- | -------------------------------- |
-| Production-only default | `false` | `false` (default) | No (no mypy/ruff/pytest tooling) |
-| CI/pre-commit-ready | `false` | `true` | Yes |
-| Separate prod + dev envs | mixed | dev env: `true` | Yes (dev env is selected) |
-| No matching configured env | — | — | Yes (auto-created fallback env) |
+| Pattern                    | `editable` | `includeGroups`   | Checks + pre-commit Python hooks |
+| -------------------------- | ---------- | ----------------- | -------------------------------- |
+| Production-only default    | `false`    | `false` (default) | No (no mypy/ruff/pytest tooling) |
+| CI/pre-commit-ready        | `false`    | `true`            | Yes                              |
+| Separate prod + dev envs   | mixed      | dev env: `true`   | Yes (dev env is selected)        |
+| No matching configured env | —          | —                 | Yes (auto-created fallback env)  |
 
 #### Path resolution (project root)
 

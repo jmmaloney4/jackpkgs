@@ -148,16 +148,16 @@ jackpkgs uses two complementary testing patterns:
 
 ### Existing pnpm/Node.js Test Coverage
 
-| Test | Layer | What It Covers |
-|------|-------|---------------|
-| `pnpm-simple-builds` | Integration | Single-package project resolves npm deps |
-| `pnpm-workspace-basic-postinstall` | Integration | Postinstall runs, workspace lib builds |
-| `pnpm-workspace-glob-resolution` | Integration | `workspace:*` cross-package imports work |
-| `pnpm-tsc-check` | Integration | `tsc --noEmit` passes on workspace packages |
-| `pnpm-vitest-check` | Integration | Vitest runs in Nix sandbox |
-| `pnpm-node-modules-output-layout` | Integration | `$out/node_modules` layout, dangling symlink handling |
-| `testNodeModulesLinking` | Eval (nix-unit) | `linkNodeModules` script shape: `ln -sfn`, `cp -R` |
-| `testTypescriptWorkspaceDiscovery` | Eval (nix-unit) | pnpm-workspace.yaml parsing, glob expansion |
+| Test                               | Layer           | What It Covers                                        |
+| ---------------------------------- | --------------- | ----------------------------------------------------- |
+| `pnpm-simple-builds`               | Integration     | Single-package project resolves npm deps              |
+| `pnpm-workspace-basic-postinstall` | Integration     | Postinstall runs, workspace lib builds                |
+| `pnpm-workspace-glob-resolution`   | Integration     | `workspace:*` cross-package imports work              |
+| `pnpm-tsc-check`                   | Integration     | `tsc --noEmit` passes on workspace packages           |
+| `pnpm-vitest-check`                | Integration     | Vitest runs in Nix sandbox                            |
+| `pnpm-node-modules-output-layout`  | Integration     | `$out/node_modules` layout, dangling symlink handling |
+| `testNodeModulesLinking`           | Eval (nix-unit) | `linkNodeModules` script shape: `ln -sfn`, `cp -R`    |
+| `testTypescriptWorkspaceDiscovery` | Eval (nix-unit) | pnpm-workspace.yaml parsing, glob expansion           |
 
 ### Gap Analysis
 
@@ -176,6 +176,7 @@ The `pnpm-tsc-check` fixture passes because `@test/lib` is resolved via `workspa
 A minimal workspace where `packages/app` depends on an npm package (`is-odd`) that is **not** declared in root `package.json`. This forces pnpm to create `packages/app/node_modules/is-odd` instead of hoisting to root.
 
 Structure:
+
 ```
 tests/fixtures/integration/pnpm-workspace-nonhoisted-dep/
   package.json              # root: private, devDeps: typescript only
@@ -200,6 +201,7 @@ Runs `tsc --noEmit` on the app package from the fixture above. This is the direc
 #### 3. Integration Check: `pnpm-nonhoisted-output-layout`
 
 Builds the `nodeModules` derivation from the fixture and verifies:
+
 - `$out/node_modules/.pnpm/is-odd*` exists (virtual store has it)
 - `$out/packages/app/node_modules/is-odd` exists (workspace-level dir captured)
 - `$out/node_modules/is-odd` does NOT exist (confirming non-hoisted behavior)
@@ -210,11 +212,11 @@ Extends `testNodeModulesLinking` in `tests/checks.nix`. Creates a mock `nodeModu
 
 ### Why This Combination
 
-| Test | Catches |
-|------|---------|
-| `pnpm-nonhoisted-tsc-check` | End-to-end: tsc resolves non-hoisted deps in Nix sandbox |
-| `pnpm-nonhoisted-output-layout` | `nodejs.nix` installPhase captures workspace-level dirs |
-| `testNodeModulesLinkingWorkspaceLevel` | `checks.nix` linkNodeModules handles workspace dirs |
+| Test                                   | Catches                                                  |
+| -------------------------------------- | -------------------------------------------------------- |
+| `pnpm-nonhoisted-tsc-check`            | End-to-end: tsc resolves non-hoisted deps in Nix sandbox |
+| `pnpm-nonhoisted-output-layout`        | `nodejs.nix` installPhase captures workspace-level dirs  |
+| `testNodeModulesLinkingWorkspaceLevel` | `checks.nix` linkNodeModules handles workspace dirs      |
 
 The integration tests are the primary regression guard. The eval-time test adds defense-in-depth for the linking logic without requiring a full build.
 

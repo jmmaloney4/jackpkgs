@@ -15,6 +15,7 @@ Implement isolated gcloud configuration per-project by setting `CLOUDSDK_CONFIG`
 **Location**: After line 47 (after `quotaProject` option)
 
 **Add option definition**:
+
 ```nix
 profile = mkOption {
   type = types.nullOr types.str;
@@ -30,17 +31,19 @@ profile = mkOption {
 ```
 
 **Acceptance Criteria**:
+
 - [ ] Option compiles and is accessible via `config.jackpkgs.gcp.profile`
 - [ ] Defaults to `iamOrg` when `iamOrg` is set
 - [ ] Defaults to `null` when `iamOrg` is not set
 
----
+______________________________________________________________________
 
 ### 2. Add `auth-status` recipe to `modules/flake-parts/just.nix`
 
 **Location**: After line 204 (after `authRecipe` definition in infra feature)
 
 **Add recipe definition**:
+
 ```nix
 # auth-status recipe - shows current GCP authentication status
 authStatusRecipe =
@@ -60,15 +63,17 @@ authStatusRecipe =
 ```
 
 **Update justfile output logic**:
+
 - Include `authStatusRecipe` in the infra justfile when `jackpkgs.gcp.profile != null`
 - This recipe should be available whenever profile isolation is active (not gated on `pulumi.enable`)
 
 **Acceptance Criteria**:
+
 - [ ] Recipe generates valid justfile syntax
 - [ ] Recipe is included when `profile` is set
 - [ ] Recipe is not included when `profile` is `null`
 
----
+______________________________________________________________________
 
 ### 3. Add `CLOUDSDK_CONFIG` environment variable to `modules/flake-parts/devshell.nix`
 
@@ -77,6 +82,7 @@ authStatusRecipe =
 **Location**: `modules/flake-parts/devshell.nix` `shellHook` for `jackpkgs.devshell.infra`
 
 **Current code**:
+
 ```nix
 env = {
   PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
@@ -86,6 +92,7 @@ env = {
 ```
 
 **Replace with**:
+
 ```nix
 env = let
   gcpCfg = config.jackpkgs.gcp;
@@ -101,11 +108,12 @@ in
 ```
 
 **Acceptance Criteria**:
+
 - [ ] `CLOUDSDK_CONFIG` is set when `profile` is non-null
 - [ ] `CLOUDSDK_CONFIG` is not set when `profile` is null
 - [ ] Existing env vars remain unchanged
 
----
+______________________________________________________________________
 
 ### 4. Ensure profile directory creation in `modules/flake-parts/devshell.nix`
 
@@ -114,6 +122,7 @@ in
 **Location**: `modules/flake-parts/devshell.nix` infra `shellHook`
 
 **Add**:
+
 ```nix
 shellHook = lib.optionalString (config.jackpkgs.gcp.profile != null) ''
   mkdir -p "$CLOUDSDK_CONFIG"
@@ -121,17 +130,19 @@ shellHook = lib.optionalString (config.jackpkgs.gcp.profile != null) ''
 ```
 
 **Acceptance Criteria**:
+
 - [ ] Directory is created on shell entry when `profile` is set
 - [ ] No action when `profile` is null
 - [ ] Works with existing shellHooks (if any are added later, use `lib.concatStringsSep "\n"`)
 
----
+______________________________________________________________________
 
 ### 5. Add test for `auth-status` recipe to `tests/module-justfiles.nix`
 
 **Location**: After line 123 (after existing test definitions)
 
 **Add test**:
+
 ```nix
 # Test auth-status recipe pattern with CLOUDSDK_CONFIG variable
 testAuthStatus = mkJustParseTest "auth-status" ''
@@ -150,23 +161,25 @@ testAuthStatus = mkJustParseTest "auth-status" ''
 ```
 
 **Add to test list**:
+
 ```nix
 testAuthStatus
 ```
 
 **Acceptance Criteria**:
+
 - [ ] Test passes (`just --dump` parses successfully)
 - [ ] Test runs in CI
 
----
+______________________________________________________________________
 
 ## Files Changed Summary
 
-| File | Change Type |
-|------|-------------|
-| `modules/flake-parts/just.nix` | Add option + recipe |
+| File                             | Change Type             |
+| -------------------------------- | ----------------------- |
+| `modules/flake-parts/just.nix`   | Add option + recipe     |
 | `modules/flake-parts/pulumi.nix` | Add env var + shellHook |
-| `tests/module-justfiles.nix` | Add test |
+| `tests/module-justfiles.nix`     | Add test                |
 
 ## Verification Steps
 
@@ -180,10 +193,10 @@ testAuthStatus
    ```bash
    echo $CLOUDSDK_CONFIG
    # Should output: /home/user/.config/gcloud-profiles/test-project
-   
+
    just auth-status
    # Should show profile, account, project, token status
-   
+
    ls ~/.config/gcloud-profiles/test-project
    # Directory should exist
    ```
@@ -191,14 +204,15 @@ testAuthStatus
 ## Rollback Plan
 
 If issues arise:
+
 1. Set `jackpkgs.gcp.profile = null;` in affected downstream repo
 2. Revert changes to the three files
 3. Delete any created `~/.config/gcloud-profiles/<profile>` directories
 
 ## Downstream Impact
 
-| Repo | Action Required |
-|------|-----------------|
-| zeus | None (profile defaults to iamOrg) |
-| yard | None (profile defaults to iamOrg) |
+| Repo   | Action Required                                            |
+| ------ | ---------------------------------------------------------- |
+| zeus   | None (profile defaults to iamOrg)                          |
+| yard   | None (profile defaults to iamOrg)                          |
 | garden | Set `jackpkgs.gcp.profile = "jmmaloney4";` (separate task) |

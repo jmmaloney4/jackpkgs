@@ -117,51 +117,51 @@ in {
 
       # TypeScript ecosystem checks
       typescript.tsc = {
-          enable = mkOption {
-            type = types.bool;
-            default = config.jackpkgs.nodejs.enable or false;
-            description = ''
-              Enable TypeScript type checking with tsc. Automatically enabled
-              when the Node.js module is enabled.
-            '';
-          };
+        enable = mkOption {
+          type = types.bool;
+          default = config.jackpkgs.nodejs.enable or false;
+          description = ''
+            Enable TypeScript type checking with tsc. Automatically enabled
+            when the Node.js module is enabled.
+          '';
+        };
 
-          nodeModules = mkOption {
-            type = types.nullOr types.package;
-            default = null;
-            description = ''
-              Derivation containing the `node_modules` structure to link before running checks.
-              Typically provided automatically by `jackpkgs.nodejs`.
+        nodeModules = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          description = ''
+            Derivation containing the `node_modules` structure to link before running checks.
+            Typically provided automatically by `jackpkgs.nodejs`.
 
-              When null, falls back to config.jackpkgs.outputs.nodeModules if available.
-            '';
-          };
+            When null, falls back to config.jackpkgs.outputs.nodeModules if available.
+          '';
+        };
 
-          packages = mkOption {
-            type = types.nullOr (types.listOf types.str);
-            default = null;
-            description = ''
-              List of packages to type-check.
+        packages = mkOption {
+          type = types.nullOr (types.listOf types.str);
+          default = null;
+          description = ''
+            List of packages to type-check.
 
-              RECOMMENDED: Explicitly list packages for reliability and clarity.
-              Example: packages = ["infra" "tools/hello" "apps/web"];
+            RECOMMENDED: Explicitly list packages for reliability and clarity.
+            Example: packages = ["infra" "tools/hello" "apps/web"];
 
-              If null, packages will be auto-discovered from pnpm-workspace.yaml
-              "packages" field. Auto-discovery supports simple wildcard patterns
-              (e.g. "packages/*") but does NOT support full recursive globs
-              (e.g. "packages/**").
+            If null, packages will be auto-discovered from pnpm-workspace.yaml
+            "packages" field. Auto-discovery supports simple wildcard patterns
+            (e.g. "packages/*") but does NOT support full recursive globs
+            (e.g. "packages/**").
 
-              For complex workspace configurations, use explicit listing.
-            '';
-            example = ["infra" "tools/hello"];
-          };
+            For complex workspace configurations, use explicit listing.
+          '';
+          example = ["infra" "tools/hello"];
+        };
 
-          extraArgs = mkOption {
-            type = types.listOf types.str;
-            default = [];
-            description = "Extra arguments to pass to tsc";
-            example = ["--strict"];
-          };
+        extraArgs = mkOption {
+          type = types.listOf types.str;
+          default = [];
+          description = "Extra arguments to pass to tsc";
+          example = ["--strict"];
+        };
       };
 
       # Vitest check

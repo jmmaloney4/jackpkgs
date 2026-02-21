@@ -1,9 +1,9 @@
 {
-  "name": "@test/app",
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "@test/lib": "workspace:*",
-    "is-odd": "3.0.1"
-  }
+	"name": "@test/app",
+	"version": "1.0.0",
+	"type": "module",
+	"dependencies": {
+		"@test/lib": "workspace:*",
+		"is-odd": "3.0.1"
+	}
 }

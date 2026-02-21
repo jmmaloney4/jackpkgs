@@ -214,32 +214,30 @@ in {
 
         tscEntry =
           if tscNodeModules != null
-          then
-            "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-              ${mkNodeModulesSetup tscNodeModules}
-              ${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs}
-            ''}"
-          else
-            "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-              cat >&2 <<'EOF'
-              ERROR: node_modules not found for TypeScript pre-commit hook.
+          then "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
+            ${mkNodeModulesSetup tscNodeModules}
+            ${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs}
+          ''}"
+          else "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
+            cat >&2 <<'EOF'
+            ERROR: node_modules not found for TypeScript pre-commit hook.
 
-              TypeScript pre-commit hooks require node_modules to be present.
+            TypeScript pre-commit hooks require node_modules to be present.
 
-              Enable the Node.js module to provide node_modules:
+            Enable the Node.js module to provide node_modules:
 
-                  jackpkgs.nodejs.enable = true;
+                jackpkgs.nodejs.enable = true;
 
-              Or set a custom node_modules derivation:
+            Or set a custom node_modules derivation:
 
-                  jackpkgs.pre-commit.typescript.tsc.nodeModules = <derivation>;
+                jackpkgs.pre-commit.typescript.tsc.nodeModules = <derivation>;
 
-              To disable TypeScript pre-commit hook:
+            To disable TypeScript pre-commit hook:
 
-                  jackpkgs.checks.typescript.tsc.enable = false;
-              EOF
-              exit 1
-            ''}";
+                jackpkgs.checks.typescript.tsc.enable = false;
+            EOF
+            exit 1
+          ''}";
 
         vitestEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
           ${lib.optionalString (vitestNodeModules != null) (mkNodeModulesSetup vitestNodeModules)}

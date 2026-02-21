@@ -65,7 +65,7 @@ Then read `args.jackpkgsChecksCfg` in `pre-commit.nix` instead of
 assume direct access; substitute `args.jackpkgsChecksCfg` if the fallback is
 needed.
 
----
+______________________________________________________________________
 
 ## Step 1 — Refactor `modules/flake-parts/checks.nix`
 
@@ -150,7 +150,7 @@ config = {
 
 Also remove the `let mirrorCfg = ...; mirrorGate = ...; preCommitGateEnabled = ...;` bindings.
 
----
+______________________________________________________________________
 
 ## Step 2 — Refactor `modules/flake-parts/pre-commit.nix`
 
@@ -159,13 +159,13 @@ Also remove the `let mirrorCfg = ...; mirrorGate = ...; preCommitGateEnabled = .
 For each tool, delete the `enable` and `extraArgs` option definitions from the
 `mkDeferredModuleOption` options block:
 
-| Tool | Remove |
-|------|--------|
-| `python.mypy` | `enable`, `extraArgs` |
-| `python.ruff` | `enable`, `extraArgs` |
-| `python.pytest` | `enable`, `extraArgs` |
-| `python.numpydoc` | `enable`, `extraArgs` |
-| `typescript.tsc` | `enable`, `extraArgs` |
+| Tool                | Remove                |
+| ------------------- | --------------------- |
+| `python.mypy`       | `enable`, `extraArgs` |
+| `python.ruff`       | `enable`, `extraArgs` |
+| `python.pytest`     | `enable`, `extraArgs` |
+| `python.numpydoc`   | `enable`, `extraArgs` |
+| `typescript.tsc`    | `enable`, `extraArgs` |
 | `javascript.vitest` | `enable`, `extraArgs` |
 
 Keep `package` and (for tsc/vitest) `nodeModules`.
@@ -198,34 +198,34 @@ enable = checksCfg.python.mypy.enable;
 
 Full mapping:
 
-| Hook | Old source | New source |
-|------|-----------|-----------|
-| `mypy` | `sysCfg.python.mypy.enable` | `checksCfg.python.mypy.enable` |
-| `ruff` | `sysCfg.python.ruff.enable` | `checksCfg.python.ruff.enable` |
-| `pytest` | `sysCfg.python.pytest.enable` | `checksCfg.python.pytest.enable` |
-| `numpydoc` | `sysCfg.python.numpydoc.enable` | `checksCfg.python.numpydoc.enable` |
-| `tsc` | `sysCfg.typescript.tsc.enable` | `checksCfg.typescript.tsc.enable` |
-| `vitest` | `sysCfg.javascript.vitest.enable` | `checksCfg.vitest.enable` |
+| Hook       | Old source                        | New source                         |
+| ---------- | --------------------------------- | ---------------------------------- |
+| `mypy`     | `sysCfg.python.mypy.enable`       | `checksCfg.python.mypy.enable`     |
+| `ruff`     | `sysCfg.python.ruff.enable`       | `checksCfg.python.ruff.enable`     |
+| `pytest`   | `sysCfg.python.pytest.enable`     | `checksCfg.python.pytest.enable`   |
+| `numpydoc` | `sysCfg.python.numpydoc.enable`   | `checksCfg.python.numpydoc.enable` |
+| `tsc`      | `sysCfg.typescript.tsc.enable`    | `checksCfg.typescript.tsc.enable`  |
+| `vitest`   | `sysCfg.javascript.vitest.enable` | `checksCfg.vitest.enable`          |
 
 ### 2d. Repoint all hook `entry` extraArgs references
 
 For every hook whose `entry` string currently interpolates
 `sysCfg.<tool>.extraArgs`, replace with the corresponding `checksCfg` path:
 
-| Hook | Old path | New path |
-|------|---------|---------|
-| `mypy` | `sysCfg.python.mypy.extraArgs` | `checksCfg.python.mypy.extraArgs` |
-| `ruff` | `sysCfg.python.ruff.extraArgs` | `checksCfg.python.ruff.extraArgs` |
-| `pytest` | `sysCfg.python.pytest.extraArgs` | `checksCfg.python.pytest.extraArgs` |
-| `numpydoc` | `sysCfg.python.numpydoc.extraArgs` | `checksCfg.python.numpydoc.extraArgs` |
-| `tsc` | `sysCfg.typescript.tsc.extraArgs` | `checksCfg.typescript.tsc.extraArgs` |
-| `vitest` | `sysCfg.javascript.vitest.extraArgs` | `checksCfg.vitest.extraArgs` |
+| Hook       | Old path                             | New path                              |
+| ---------- | ------------------------------------ | ------------------------------------- |
+| `mypy`     | `sysCfg.python.mypy.extraArgs`       | `checksCfg.python.mypy.extraArgs`     |
+| `ruff`     | `sysCfg.python.ruff.extraArgs`       | `checksCfg.python.ruff.extraArgs`     |
+| `pytest`   | `sysCfg.python.pytest.extraArgs`     | `checksCfg.python.pytest.extraArgs`   |
+| `numpydoc` | `sysCfg.python.numpydoc.extraArgs`   | `checksCfg.python.numpydoc.extraArgs` |
+| `tsc`      | `sysCfg.typescript.tsc.extraArgs`    | `checksCfg.typescript.tsc.extraArgs`  |
+| `vitest`   | `sysCfg.javascript.vitest.extraArgs` | `checksCfg.vitest.extraArgs`          |
 
 The `tscEntry` and `vitestEntry` local `let` bindings that embed `extraArgs`
 must be updated to pull from `checksCfg` before they are used in the hook
 `entry` field.
 
----
+______________________________________________________________________
 
 ## Step 3 — Update `tests/checks.nix`
 
@@ -284,7 +284,7 @@ testPythonMypyDisabledBySwitch = {
 
 Apply the same pattern for `ruff` and `pytest` if not already covered.
 
----
+______________________________________________________________________
 
 ## Step 4 — Update `tests/pre-commit.nix`
 
@@ -344,7 +344,7 @@ form — `hooks.mypy.enable == true` — but now exercise the `checksCfg` path.
 No test changes needed unless `mkConfigModule` no longer sets `jackpkgs.checks`
 defaults; confirm defaults flow correctly when running the suite.
 
----
+______________________________________________________________________
 
 ## Step 5 — Update `README.md`
 
@@ -396,7 +396,7 @@ jackpkgs.checks.python.numpydoc.enable = true;
 The quality-gate parity matrix row description can be simplified: the "Default"
 column now just reflects `jackpkgs.checks.*` defaults; no mention of mirror.
 
----
+______________________________________________________________________
 
 ## Step 6 — Run nix-unit and Commit
 
@@ -428,7 +428,7 @@ refactor(checks): unify quality-gate controls under jackpkgs.checks
 Closes #168
 ```
 
----
+______________________________________________________________________
 
 ## Rollback
 

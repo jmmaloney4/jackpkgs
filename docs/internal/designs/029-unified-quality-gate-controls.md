@@ -1,6 +1,6 @@
 ---
 id: ADR-029
-title: "Unified Quality Gate Controls"
+title: Unified Quality Gate Controls
 status: proposed
 date: 2026-02-20
 ---

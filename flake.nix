@@ -160,12 +160,13 @@
               version = "1.0.0";
               src = cleanSrc;
               pnpmDeps = pkgs.fetchPnpmDeps ({
-                pname = "integration-${name}-deps";
-                version = "1.0.0";
-                src = cleanSrc;
-                hash = depsHash;
-                fetcherVersion = 3;
-              } // pnpmDepsArgs);
+                  pname = "integration-${name}-deps";
+                  version = "1.0.0";
+                  src = cleanSrc;
+                  hash = depsHash;
+                  fetcherVersion = 3;
+                }
+                // pnpmDepsArgs);
               nativeBuildInputs = [
                 pkgs.nodejs
                 pkgs.pnpm_10

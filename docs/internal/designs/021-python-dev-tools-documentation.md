@@ -106,12 +106,12 @@ Users who want pre-commit hooks (mypy, ruff, etc.) to work should:
 
 ## Environment Patterns Summary
 
-| Environment Type        | `editable`                       | `includeGroups`   | Use Case                        | Pre-commit works?               |
-| ----------------------- | -------------------------------- | ----------------- | ------------------------------- | ------------------------------- |
-| **Production**          | `false`                          | `false` (default) | Deployment, minimal deps        | No (no mypy)                    |
-| **Development**         | `true`                           | `true` (default)  | Local dev, devshell             | Yes (if used as default)        |
-| **CI Checks**           | `false`                          | `true` (explicit) | Hermetic tests, pre-commit      | Yes                             |
-| **Default + Hooks**     | `false`                          | `true` (explicit) | Simple setup with working hooks | Yes                             |
+| Environment Type        | `editable`                       | `includeGroups`   | Use Case                        | Pre-commit works?                       |
+| ----------------------- | -------------------------------- | ----------------- | ------------------------------- | --------------------------------------- |
+| **Production**          | `false`                          | `false` (default) | Deployment, minimal deps        | No (no mypy)                            |
+| **Development**         | `true`                           | `true` (default)  | Local dev, devshell             | Yes (if used as default)                |
+| **CI Checks**           | `false`                          | `true` (explicit) | Hermetic tests, pre-commit      | Yes                                     |
+| **Default + Hooks**     | `false`                          | `true` (explicit) | Simple setup with working hooks | Yes                                     |
 | **Separate prod + dev** | `default`: prod, `dev`: editable | —                 | Production default + dev shell  | Requires `python.mypy.package` override |
 
 ### Pre-commit Hook Resolution

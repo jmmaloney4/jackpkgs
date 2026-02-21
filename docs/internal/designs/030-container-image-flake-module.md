@@ -55,7 +55,7 @@ just recipe names, and registry auth approaches.
    through correctly.
 6. **Auth is hardcoded to each repo's registry.** No opinionated but configurable auth abstraction.
 
----
+______________________________________________________________________
 
 ## Decision
 
@@ -285,7 +285,7 @@ image-push-all tag="latest":
 Recipe names use the `image-*` prefix (matching yard's convention, which is more explicit than
 zeus's `push-image` name, and consistent with the `image-build` / `image-digest` pair).
 
----
+______________________________________________________________________
 
 ## Consequences
 
@@ -325,7 +325,7 @@ zeus's `push-image` name, and consistent with the `image-build` / `image-digest`
   **Mitigation:** Wrap image derivations in `builtins.seq (assert currentSystem == linuxSystem)`
   or use `pkgs.lib.systems.elaborate` to guard evaluation.
 
----
+______________________________________________________________________
 
 ## Alternatives Considered
 
@@ -378,7 +378,7 @@ Use nix2container's `passthru.copyTo` (zeus's approach) rather than explicitly i
   the registry and tag are runtime parameters, not eval-time constants. This matches yard's
   working pattern and is necessary for tag-per-git-sha workflows (Pulumi, CI).
 
----
+______________________________________________________________________
 
 ## Implementation Plan
 
@@ -386,6 +386,7 @@ Use nix2container's `passthru.copyTo` (zeus's approach) rather than explicitly i
    Pin to a recent stable commit. Wire through `jackpkgsInputs` to the new module.
 
 2. **Create `modules/flake-parts/container.nix`.**
+
    - Define `jackpkgs.images.*` options (top-level and perSystem).
    - Implement `foldImageLayers` helper inline (or in `lib/container-helpers.nix`).
    - Wire `config.flake.images` output using `pkgsFor.x86_64-linux` (or the `linuxSystem` option).
@@ -397,6 +398,7 @@ Use nix2container's `passthru.copyTo` (zeus's approach) rather than explicitly i
 
 4. **Migrate yard.**
    Replace `nix/images/default.nix` + manual flake-module wiring with:
+
    ```nix
    jackpkgs.images = {
      registry = "us-east1-docker.pkg.dev/addenda-admin/addenda";
@@ -412,10 +414,12 @@ Use nix2container's `passthru.copyTo` (zeus's approach) rather than explicitly i
      };
    };
    ```
+
    Remove `nix2container` from yard's flake inputs. Remove hand-written just image recipes.
 
 5. **Migrate zeus.**
    Replace `nix/images/default.nix` perSystem module with:
+
    ```nix
    jackpkgs.images = {
      registry = "ghcr.io/cavinsresearch/zeus";
@@ -430,12 +434,13 @@ Use nix2container's `passthru.copyTo` (zeus's approach) rather than explicitly i
      };
    };
    ```
+
    Remove `nix2container` from zeus's flake inputs. Remove hand-written just image recipes.
    Fix the `push-image` hardcoded name bug in the process.
 
 6. **Write nix-unit tests** for `foldImageLayers` and option defaults.
 
----
+______________________________________________________________________
 
 ## Related
 
@@ -446,7 +451,7 @@ Use nix2container's `passthru.copyTo` (zeus's approach) rather than explicitly i
 - https://github.com/nlewo/nix2container
 - https://blog.eigenvalue.net/2023-nix2container-everything-once/ (layer deduplication)
 
----
+______________________________________________________________________
 
 ## Appendix A — Multiarch Images (Future Enhancement)
 
@@ -484,7 +489,7 @@ pushing.
 node pools (e.g., graviton + x86 on EKS/GKE). For the current GKE x86_64 and local Docker use
 cases, single-arch is sufficient.
 
----
+______________________________________________________________________
 
 Author: jmmaloney4
 Date: 2026-02-20

@@ -252,7 +252,8 @@ in {
     pcfg = perSystemCfg.jackpkgs.pre-commit.python;
   in {
     expr =
-      pcfg.ruff.package == pcfg.mypy.package
+      pcfg.ruff.package
+      == pcfg.mypy.package
       && pcfg.pytest.package == pcfg.mypy.package
       && pcfg.numpydoc.package == pcfg.mypy.package;
     expected = true;
