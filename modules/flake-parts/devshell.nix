@@ -6,6 +6,7 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.shell;
+  gcpProfile = config.jackpkgs.gcp.profile;
 in {
   imports = [
     jackpkgsInputs.flake-root.flakeModule
@@ -71,7 +72,6 @@ in {
       ...
     }: let
       sysCfg = config.jackpkgs.shell;
-      gcpProfile = lib.attrByPath ["jackpkgs" "gcp" "profile"] null config;
 
       # Build shellHook segments as a list and join with newlines for safe concatenation
       shellHookParts =
@@ -84,22 +84,24 @@ in {
           ++ lib.optional cfg.welcome.showJustHint ''echo "Run 'just --list' to see available commands"''
         );
     in {
-      jackpkgs.outputs.devShell = pkgs.mkShell {
-        inputsFrom =
-          [
-            config.just-flake.outputs.devShell
-            config.flake-root.devShell
-            config.pre-commit.devShell
-            config.treefmt.build.devShell
-          ]
-          ++ sysCfg.inputsFrom;
-        packages = sysCfg.packages;
+      jackpkgs.outputs.devShell =
+        pkgs.mkShell {
+          inputsFrom =
+            [
+              config.just-flake.outputs.devShell
+              config.flake-root.devShell
+              config.pre-commit.devShell
+              config.treefmt.build.devShell
+            ]
+            ++ sysCfg.inputsFrom;
+          packages = sysCfg.packages;
 
-        shellHook = lib.concatStringsSep "\n" shellHookParts;
+          shellHook = lib.concatStringsSep "\n" shellHookParts;
 
-        # Hide direnv environment variable diff output
-        # This sets DIRENV_LOG_FORMAT to empty, silencing the verbose export lines
-      } // lib.optionalAttrs cfg.direnv.hideEnvDiff { DIRENV_LOG_FORMAT = ""; };
+          # Hide direnv environment variable diff output
+          # This sets DIRENV_LOG_FORMAT to empty, silencing the verbose export lines
+        }
+        // lib.optionalAttrs cfg.direnv.hideEnvDiff {DIRENV_LOG_FORMAT = "";};
     };
   };
 }
