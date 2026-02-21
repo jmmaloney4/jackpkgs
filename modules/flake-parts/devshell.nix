@@ -6,6 +6,7 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.shell;
+  gcpProfile = lib.attrByPath ["jackpkgs" "gcp" "profile"] null config;
 in {
   imports = [
     jackpkgsInputs.flake-root.flakeModule
@@ -17,6 +18,32 @@ in {
   in {
     jackpkgs.shell = {
       enable = mkEnableOption "jackpkgs-devshell" // {default = true;};
+
+      welcome = {
+        enable = mkEnableOption "welcome message on shell entry" // {default = true;};
+        showJustHint = mkEnableOption "hint about just --list" // {default = true;};
+        justHintMessage = mkOption {
+          type = types.str;
+          default = "Run 'just --list' to see available commands";
+          example = "Run 'just' to see available recipes";
+          description = ''
+            Text to display as the just hint when showJustHint is enabled.
+          '';
+        };
+        message = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          example = "Welcome to my project!";
+          description = ''
+            Custom welcome message to display on shell entry.
+            If null, only the just hint is shown (if enabled).
+          '';
+        };
+      };
+
+      direnv = {
+        showEnvDiff = mkEnableOption "showing direnv environment variable diff output" // {default = false;};
+      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -53,23 +80,40 @@ in {
       ...
     }: let
       sysCfg = config.jackpkgs.shell;
-      gcpProfile = lib.attrByPath ["jackpkgs" "gcp" "profile"] null config;
+
+      # Build shellHook segments as a list and join with newlines for safe concatenation
+      shellHookParts =
+        lib.optional (gcpProfile != null) (
+          if builtins.match "[a-zA-Z0-9._-]+" gcpProfile == null
+          then throw "jackpkgs.gcp.profile contains invalid characters. Only [a-zA-Z0-9._-] are allowed."
+          else ''
+            export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/${gcpProfile}"
+            mkdir -p "$CLOUDSDK_CONFIG"
+          ''
+        )
+        ++ lib.optionals cfg.welcome.enable (
+          lib.optional (cfg.welcome.message != null) ''echo ${lib.escapeShellArg cfg.welcome.message}''
+          ++ lib.optional cfg.welcome.showJustHint ''echo ${lib.escapeShellArg cfg.welcome.justHintMessage}''
+        );
     in {
-      jackpkgs.outputs.devShell = pkgs.mkShell {
-        inputsFrom =
-          [
-            config.just-flake.outputs.devShell
-            config.flake-root.devShell
-            config.pre-commit.devShell
-            config.treefmt.build.devShell
-          ]
-          ++ sysCfg.inputsFrom;
-        packages = sysCfg.packages;
-        shellHook = lib.optionalString (gcpProfile != null) ''
-          export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/${gcpProfile}"
-          mkdir -p "$CLOUDSDK_CONFIG"
-        '';
-      };
+      jackpkgs.outputs.devShell = pkgs.mkShell (
+        {
+          inputsFrom =
+            [
+              config.just-flake.outputs.devShell
+              config.flake-root.devShell
+              config.pre-commit.devShell
+              config.treefmt.build.devShell
+            ]
+            ++ sysCfg.inputsFrom;
+          packages = sysCfg.packages;
+
+          shellHook = lib.concatStringsSep "\n" shellHookParts;
+        }
+        # Hide direnv environment variable diff output unless showEnvDiff is enabled.
+        # Passes DIRENV_LOG_FORMAT="" directly into mkShell's argument set.
+        // lib.optionalAttrs (!cfg.direnv.showEnvDiff) {DIRENV_LOG_FORMAT = "";}
+      );
     };
   };
 }
