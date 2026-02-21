@@ -117,6 +117,11 @@ in {
           enable = true;
           inherit excludes;
         };
+        # toml
+        programs.taplo = {
+          enable = true;
+          inherit excludes;
+        };
         # yaml
         programs.yamlfmt = {
           enable = true;
