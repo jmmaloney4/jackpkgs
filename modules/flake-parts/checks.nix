@@ -6,6 +6,7 @@
   ...
 } @ args: let
   inherit (lib) mkOption types mkEnableOption;
+  pythonEnvHelpers = import ../../lib/python-env-selection.nix {inherit lib;};
   cfg = config.jackpkgs.checks;
   pythonCfg = config.jackpkgs.python or {};
 in {
@@ -31,8 +32,9 @@ in {
           // {
             default = config.jackpkgs.python.enable or false;
             description = ''
-              Enable Python CI checks (pytest, mypy, ruff). Automatically enabled
-              when the Python module is enabled.
+              Enable Python CI checks (pytest, mypy, ruff). Automatically enabled when the
+              Python module is enabled. numpydoc checks are opt-in; enable separately with
+              `python.numpydoc.enable = true`.
             '';
           };
 
@@ -80,6 +82,29 @@ in {
             example = ["--no-cache"];
           };
         };
+
+        numpydoc = {
+          enable = mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Enable numpydoc docstring validation.
+
+              Disabled by default; opt in with
+              `jackpkgs.checks.python.numpydoc.enable = true;`.
+
+              Requires `numpydoc` to be available in the selected Python check
+              environment.
+            '';
+          };
+
+          extraArgs = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = "Extra arguments to pass to numpydoc.hooks.validate_docstrings";
+            example = ["--checks" "all"];
+          };
+        };
       };
 
       # Injectable YAML parser (for testing without IFD)
@@ -91,22 +116,14 @@ in {
       };
 
       # TypeScript ecosystem checks
-      typescript = {
-        enable =
-          mkEnableOption "TypeScript CI checks"
-          // {
-            default = config.jackpkgs.pulumi.enable or false;
-            description = ''
-              Enable TypeScript CI checks (tsc). Automatically enabled when the
-              Pulumi module is enabled.
-            '';
-          };
-
-        tsc = {
+      typescript.tsc = {
           enable = mkOption {
             type = types.bool;
-            default = true;
-            description = "Enable TypeScript type checking with tsc";
+            default = config.jackpkgs.nodejs.enable or false;
+            description = ''
+              Enable TypeScript type checking with tsc. Automatically enabled
+              when the Node.js module is enabled.
+            '';
           };
 
           nodeModules = mkOption {
@@ -145,7 +162,6 @@ in {
             description = "Extra arguments to pass to tsc";
             example = ["--strict"];
           };
-        };
       };
 
       # Vitest check
@@ -359,57 +375,13 @@ in {
           discoverPythonMembers pythonCfg.workspaceRoot resolvedPyprojectPath
         else [];
 
-      # Build Python environment with dev tools for CI checks
-      # Priority order:
-      # 1. Use explicitly defined 'dev' environment if it's non-editable and has groups enabled
-      # 2. Use any non-editable environment with includeGroups enabled
-      # 3. Create a new environment with all dependency groups enabled
-      pythonEnvWithDevTools = let
-        # Get configured environments
-        configuredEnvs = pythonCfg.environments or {};
+      # Build Python environment with dev tools for CI checks using the
+      # shared helper to keep checks and pre-commit selection in sync.
+      pythonEnvWithDevTools = pythonEnvHelpers.selectPythonEnvWithDevTools {
+        inherit pythonCfg;
+        pythonWorkspace = pythonWorkspaceArg;
         pythonEnvOutputs = config.jackpkgs.outputs.pythonEnvironments or {};
-
-        isEditableEnv = envCfg: envCfg != null && (envCfg.editable or false);
-        isNonEditableEnv = envCfg: envCfg != null && !isEditableEnv envCfg;
-
-        # Check if an environment is suitable for CI (non-editable + groups enabled)
-        # Note: envCfg.includeGroups can be null, true, or false (nullOr bool type).
-        # Using `== true` correctly handles all cases: null→false, true→true, false→false.
-        isCiEnvCandidate = envCfg:
-          isNonEditableEnv envCfg
-          && (envCfg.includeGroups or null) == true;
-
-        # Check if a 'dev' environment is configured
-        hasDevEnv = configuredEnvs ? dev;
-        devEnvConfig = configuredEnvs.dev or null;
-
-        # Find any environment with groups enabled
-        envWithGroups =
-          lib.findFirst
-          (envName: isCiEnvCandidate (configuredEnvs.${envName} or null))
-          null
-          (lib.attrNames configuredEnvs);
-
-        # Get the appropriate environment based on priority
-        selectedEnv =
-          if hasDevEnv && isCiEnvCandidate devEnvConfig
-          then pythonEnvOutputs.dev or null
-          else if envWithGroups != null
-          then pythonEnvOutputs.${envWithGroups} or null
-          else null;
-      in
-        if selectedEnv != null
-        then selectedEnv
-        else if pythonWorkspaceArg != null
-        then
-          # Create environment with all dependency groups for CI
-          pythonWorkspaceArg.mkEnv {
-            name = "python-ci-checks";
-            spec = pythonWorkspaceArg.computeSpec {
-              includeGroups = true;
-            };
-          }
-        else null;
+      };
 
       # Extract Python version from environment for PYTHONPATH
       pythonVersion =
@@ -500,6 +472,21 @@ in {
               };
             };
           }
+          // lib.optionalAttrs cfg.python.numpydoc.enable {
+            # numpydoc check
+            python-numpydoc = mkCheck {
+              name = "python-numpydoc";
+              buildInputs = [pythonEnvWithDevTools];
+              setupCommands = ''
+                export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+              '';
+              checkCommands = forEachWorkspaceMember {
+                workspaceRoot = pythonCfg.workspaceRoot;
+                members = pythonWorkspaceMembers;
+                perMemberCommand = "python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs} .";
+              };
+            };
+          }
         );
 
       # ============================================================
@@ -509,8 +496,7 @@ in {
       typescriptChecks = let
         tsPackages = getTsPackages cfg;
       in
-        lib.optionalAttrs (cfg.enable && cfg.typescript.enable && tsPackages != [])
-        (lib.optionalAttrs cfg.typescript.tsc.enable {
+        lib.optionalAttrs (cfg.enable && cfg.typescript.tsc.enable && tsPackages != []) {
           # tsc check
           typescript-tsc = mkCheck {
             name = "typescript-tsc";
@@ -545,7 +531,7 @@ in {
                 This provides a pure, reproducible node_modules derivation that works
                 in Nix sandbox builds.
 
-                To disable TypeScript checks: jackpkgs.checks.typescript.enable = false;
+                To disable TypeScript checks: jackpkgs.checks.typescript.tsc.enable = false;
                 EOF
                                               exit 1
                                             fi
@@ -556,7 +542,7 @@ in {
               '')
               tsPackages;
           };
-        });
+        };
 
       # ============================================================
       # Vitest Checks

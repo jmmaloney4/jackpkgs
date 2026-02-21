@@ -241,6 +241,9 @@
             checks = import ./tests/checks.nix {
               inherit inputs lib;
             };
+            pre-commit = import ./tests/pre-commit.nix {
+              inherit inputs lib;
+            };
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };

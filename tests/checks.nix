@@ -64,6 +64,13 @@
         };
       };
 
+      nodejs = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+        };
+      };
+
       outputs.pythonEnvironments = mkOption {
         type = types.attrsOf types.unspecified;
         default = {};
@@ -137,6 +144,7 @@
   mkConfigModule = {
     pythonEnable ? false,
     pulumiEnable ? false,
+    nodejsEnable ? false,
     checksEnable ? null,
     pythonWorkspaceRoot ? pythonWorkspace,
     pyprojectPath ? pythonWorkspacePyproject,
@@ -150,6 +158,7 @@
           pyprojectPath = pyprojectPath;
         };
         pulumi.enable = pulumiEnable;
+        nodejs.enable = nodejsEnable;
       };
     };
     withChecksEnable =
@@ -198,7 +207,20 @@ in {
     expected = true;
   };
 
-  testChecksEnabledByPulumiDefault = let
+  testChecksEnabledByNodejsDefault = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        nodejsEnable = true;
+        extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
+      };
+      projectRoot = noWorkspaceFixture;
+    };
+  in {
+    expr = hasCheck checks "typescript-tsc";
+    expected = true;
+  };
+
+  testTscNotEnabledByPulumiAlone = let
     checks = mkChecks {
       configModule = mkConfigModule {
         pulumiEnable = true;
@@ -207,7 +229,7 @@ in {
       projectRoot = noWorkspaceFixture;
     };
   in {
-    expr = hasCheck checks "typescript-tsc";
+    expr = missingCheck checks "typescript-tsc";
     expected = true;
   };
 
@@ -222,7 +244,16 @@ in {
       projectRoot = noWorkspaceFixture;
     };
   in {
-    expr = missingChecksNamed checks ["python-pytest" "python-mypy" "python-ruff" "typescript-tsc"];
+    expr = missingChecksNamed checks ["python-pytest" "python-mypy" "python-ruff" "python-numpydoc" "typescript-tsc"];
+    expected = true;
+  };
+
+  testPythonNumpydocDisabledByDefault = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+  in {
+    expr = missingCheck checks "python-numpydoc";
     expected = true;
   };
 
@@ -292,6 +323,32 @@ in {
     script = getBuildCommand checks.python-ruff;
   in {
     expr = hasInfixAll ["ruff check" "--no-cache"] script;
+    expected = true;
+  };
+
+  testPythonNumpydocScript = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.numpydoc = {
+          enable = true;
+          extraArgs = ["--checks" "all" "--exclude" "GL08"];
+        };
+      };
+    };
+    script = getBuildCommand checks.python-numpydoc;
+  in {
+    expr =
+      hasInfixAll [
+        "PYTHONPATH="
+        "python -m numpydoc.hooks.validate_docstrings"
+        "--checks"
+        "all"
+        "--exclude"
+        "GL08"
+        " ."
+      ]
+      script;
     expected = true;
   };
 
@@ -438,7 +495,7 @@ in {
   testTypescriptWorkspaceDiscovery = let
     checks = mkChecks {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.extraArgs = ["--pretty" "false"];
       };
       projectRoot = pnpmWorkspace;
@@ -460,7 +517,7 @@ in {
 
   testTypescriptMissingWorkspace = let
     checks = mkChecks {
-      configModule = mkConfigModule {pulumiEnable = true;};
+      configModule = mkConfigModule {nodejsEnable = true;};
       projectRoot = noWorkspaceFixture;
     };
   in {
@@ -471,7 +528,7 @@ in {
   testTypescriptPackageOverride = let
     checks = mkChecks {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra" "tools/hello"];
       };
       projectRoot = noWorkspaceFixture;
@@ -488,7 +545,7 @@ in {
     result = builtins.tryEval (
       (mkChecksNoMock {
         configModule = mkConfigModule {
-          pulumiEnable = true;
+          nodejsEnable = true;
           extraConfig.jackpkgs.checks.fromYAML = _: {
             packages = ["packages/*" "!packages/ignored"];
           };
@@ -504,7 +561,7 @@ in {
   testTypescriptDiscoversPackagesFromYmlJsonSibling = let
     checks = mkChecksNoMock {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
       };
       projectRoot = pnpmWorkspaceYml;
     };
@@ -517,7 +574,7 @@ in {
   testTypescriptGuardMessage = let
     checks = mkChecks {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
       };
       projectRoot = noWorkspaceFixture;
@@ -528,7 +585,7 @@ in {
       hasInfixAll [
         "node_modules not found"
         "jackpkgs.nodejs.enable = true"
-        "jackpkgs.checks.typescript.enable = false"
+        "jackpkgs.checks.typescript.tsc.enable = false"
       ]
       script
       && !lib.hasInfix "Linking node_modules from" script;
@@ -538,7 +595,7 @@ in {
   testTypescriptScriptWithNodeModules = let
     checks = mkChecks {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
         extraConfig = {
           jackpkgs.checks.typescript.tsc.packages = ["packages/app" "tools/cli"];
           jackpkgs.checks.typescript.tsc.nodeModules = dummyNodeModules;
@@ -568,7 +625,7 @@ in {
   testTypescriptNodeModulesLinkingIncludesDiscoveredPackages = let
     checks = mkChecks {
       configModule = mkConfigModule {
-        pulumiEnable = true;
+        nodejsEnable = true;
         extraConfig.jackpkgs.checks.typescript.tsc.nodeModules = dummyNodeModules;
       };
       projectRoot = pnpmWorkspace;
