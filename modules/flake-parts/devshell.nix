@@ -83,11 +83,14 @@ in {
 
       # Build shellHook segments as a list and join with newlines for safe concatenation
       shellHookParts =
-        lib.optional (gcpProfile != null) ''
-          gcp_profile_name=${lib.escapeShellArg gcpProfile}
-          export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/$gcp_profile_name"
-          mkdir -p "$CLOUDSDK_CONFIG"
-        ''
+        lib.optional (gcpProfile != null) (
+          if builtins.match "[a-zA-Z0-9._-]+" gcpProfile == null
+          then throw "jackpkgs.gcp.profile contains invalid characters. Only [a-zA-Z0-9._-] are allowed."
+          else ''
+            export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/${gcpProfile}"
+            mkdir -p "$CLOUDSDK_CONFIG"
+          ''
+        )
         ++ lib.optionals cfg.welcome.enable (
           lib.optional (cfg.welcome.message != null) ''echo ${lib.escapeShellArg cfg.welcome.message}''
           ++ lib.optional cfg.welcome.showJustHint ''echo ${lib.escapeShellArg cfg.welcome.justHintMessage}''
