@@ -117,13 +117,13 @@ in {
           enable = true;
           inherit excludes;
         };
-        # yaml
-        programs.yamlfmt = {
+        # toml
+        programs.taplo = {
           enable = true;
           inherit excludes;
         };
-        # toml
-        programs.taplo = {
+        # yaml
+        programs.yamlfmt = {
           enable = true;
           inherit excludes;
         };
