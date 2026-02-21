@@ -76,7 +76,7 @@ in {
       # Build the welcome shellHook based on options
       welcomeHook = lib.optionalString cfg.welcome.enable (
         lib.concatStringsSep "\n" (
-          lib.optional (cfg.welcome.message != null) ''echo "${cfg.welcome.message}"''
+          lib.optional (cfg.welcome.message != null) ''echo "${lib.escapeShellArg cfg.welcome.message}"''
           ++ lib.optional cfg.welcome.showJustHint ''echo "Run 'just --list' to see available commands"''
         )
       );
@@ -102,8 +102,7 @@ in {
 
         # Hide direnv environment variable diff output
         # This sets DIRENV_LOG_FORMAT to empty, silencing the verbose export lines
-        DIRENV_LOG_FORMAT = lib.mkIf cfg.direnv.hideEnvDiff "";
-      };
+      } // lib.optionalAttrs cfg.direnv.hideEnvDiff { DIRENV_LOG_FORMAT = ""; };
     };
   };
 }
