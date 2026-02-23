@@ -139,7 +139,6 @@ in {
 
           allStackNames = lib.unique (lib.concatMap (s: s.stacks) stacks);
           displayStacks = lib.concatStringsSep ", " allStackNames;
-          escapedDefaultStack = lib.escapeShellArg defaultStack;
 
           validationLogic = [
             "# Validate stack name"
@@ -162,7 +161,7 @@ in {
           ];
 
           previewRecipe =
-            mkRecipeWithParams "preview" ["env=${escapedDefaultStack}"] "Preview changes for all Pulumi projects (run 'just deploy' to apply)"
+            mkRecipeWithParams "preview" ["env=${defaultStack}"] "Preview changes for all Pulumi projects (run 'just deploy' to apply)"
             ([
                 "#!/usr/bin/env bash"
                 "set -euo pipefail"
@@ -176,11 +175,16 @@ in {
               ]
               ++ lib.concatMap (s: let
                 escapedPath = lib.escapeShellArg s.path;
+                projectStackChecks = lib.concatStringsSep " || " (map (stack: "[[ \"\$env\" == ${lib.escapeShellArg stack} ]]") s.stacks);
               in [
                 "echo \"\""
                 "project_path=${escapedPath}"
-                "printf '📦 Previewing %s (stack: %s)...\\n' \"\$project_path\" \"\$env\""
-                "${pulumiExe} -C \"\$project_path\" preview --stack \"\$env\""
+                "if ${projectStackChecks}; then"
+                "    printf '📦 Previewing %s (stack: %s)...\\n' \"\$project_path\" \"\$env\""
+                "    ${pulumiExe} -C \"\$project_path\" preview --stack \"\$env\""
+                "else"
+                "    printf '⏭️  Skipping %s (stack %s not configured for this project)\\n' \"\$project_path\" \"\$env\""
+                "fi"
               ])
               stacks
               ++ [
@@ -191,7 +195,7 @@ in {
             true;
 
           deployRecipe =
-            mkRecipeWithParams "deploy" ["env=${escapedDefaultStack}"] "Deploy all Pulumi projects in dependency order"
+            mkRecipeWithParams "deploy" ["env=${defaultStack}"] "Deploy all Pulumi projects in dependency order"
             ([
                 "#!/usr/bin/env bash"
                 "set -euo pipefail"
@@ -211,11 +215,16 @@ in {
               ++ lib.concatLists (lib.imap0 (i: s: let
                   stepNum = i + 1;
                   escapedPath = lib.escapeShellArg s.path;
+                  projectStackChecks = lib.concatStringsSep " || " (map (stack: "[[ \"\$env\" == ${lib.escapeShellArg stack} ]]") s.stacks);
                 in [
                   "project_path=${escapedPath}"
-                  "printf '📦 Step ${toString stepNum}/${toString projectCount}: Deploying %s...\\n' \"\$project_path\""
-                  "if ! ${pulumiExe} -C \"\$project_path\" up --yes --stack \"\$env\"; then"
-                  "    failed_stacks+=(\"\$project_path (\$env)\")"
+                  "if ${projectStackChecks}; then"
+                  "    printf '📦 Step ${toString stepNum}/${toString projectCount}: Deploying %s...\\n' \"\$project_path\""
+                  "    if ! ${pulumiExe} -C \"\$project_path\" up --yes --stack \"\$env\"; then"
+                  "        failed_stacks+=(\"\$project_path (\$env)\")"
+                  "    fi"
+                  "else"
+                  "    printf '⏭️  Step ${toString stepNum}/${toString projectCount}: Skipping %s (stack %s not configured for this project)\\n' \"\$project_path\" \"\$env\""
                   "fi"
                   "echo \"\""
                   ""
