@@ -38,6 +38,16 @@ in {
               type = types.listOf types.str;
               description = "Stack names available for this project (e.g. [\"dev\" \"stage\" \"prod\"]).";
             };
+            alwaysDeploy = mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                When true, this project is always deployed regardless of the selected
+                environment stack. The effective stack is determined by matching the
+                requested env against the project's stacks list; if no match is found,
+                the first entry in stacks is used as a fallback.
+              '';
+            };
           };
         });
         default = [];
@@ -175,17 +185,32 @@ in {
               ]
               ++ lib.concatMap (s: let
                 escapedPath = lib.escapeShellArg s.path;
+                fallbackStack = lib.escapeShellArg (lib.head s.stacks);
                 projectStackChecks = lib.concatStringsSep " || " (map (stack: "[[ \"\$env\" == ${lib.escapeShellArg stack} ]]") s.stacks);
-              in [
-                "echo \"\""
-                "project_path=${escapedPath}"
-                "if ${projectStackChecks}; then"
-                "    printf '📦 Previewing %s (stack: %s)...\\n' \"\$project_path\" \"\$env\""
-                "    ${pulumiExe} -C \"\$project_path\" preview --stack \"\$env\""
-                "else"
-                "    printf '⏭️  Skipping %s (stack %s not configured for this project)\\n' \"\$project_path\" \"\$env\""
-                "fi"
-              ])
+              in
+                if s.alwaysDeploy
+                then [
+                  "echo \"\""
+                  "project_path=${escapedPath}"
+                  "# Determine effective stack: use env if it matches, else fallback to ${lib.head s.stacks}"
+                  "if ${projectStackChecks}; then"
+                  "    _effective_stack=\"\$env\""
+                  "else"
+                  "    _effective_stack=${fallbackStack}"
+                  "fi"
+                  "printf '📦 Previewing %s (stack: %s, alwaysDeploy)...\\n' \"\$project_path\" \"\$_effective_stack\""
+                  "${pulumiExe} -C \"\$project_path\" preview --stack \"\$_effective_stack\""
+                ]
+                else [
+                  "echo \"\""
+                  "project_path=${escapedPath}"
+                  "if ${projectStackChecks}; then"
+                  "    printf '📦 Previewing %s (stack: %s)...\\n' \"\$project_path\" \"\$env\""
+                  "    ${pulumiExe} -C \"\$project_path\" preview --stack \"\$env\""
+                  "else"
+                  "    printf '⏭️  Skipping %s (stack %s not configured for this project)\\n' \"\$project_path\" \"\$env\""
+                  "fi"
+                ])
               stacks
               ++ [
                 ""
@@ -215,20 +240,38 @@ in {
               ++ lib.concatLists (lib.imap0 (i: s: let
                   stepNum = i + 1;
                   escapedPath = lib.escapeShellArg s.path;
+                  fallbackStack = lib.escapeShellArg (lib.head s.stacks);
                   projectStackChecks = lib.concatStringsSep " || " (map (stack: "[[ \"\$env\" == ${lib.escapeShellArg stack} ]]") s.stacks);
-                in [
-                  "project_path=${escapedPath}"
-                  "if ${projectStackChecks}; then"
-                  "    printf '📦 Step ${toString stepNum}/${toString projectCount}: Deploying %s...\\n' \"\$project_path\""
-                  "    if ! ${pulumiExe} -C \"\$project_path\" up --yes --stack \"\$env\"; then"
-                  "        failed_stacks+=(\"\$project_path (\$env)\")"
-                  "    fi"
-                  "else"
-                  "    printf '⏭️  Step ${toString stepNum}/${toString projectCount}: Skipping %s (stack %s not configured for this project)\\n' \"\$project_path\" \"\$env\""
-                  "fi"
-                  "echo \"\""
-                  ""
-                ])
+                in
+                  if s.alwaysDeploy
+                  then [
+                    "project_path=${escapedPath}"
+                    "# Determine effective stack: use env if it matches, else fallback to ${lib.head s.stacks}"
+                    "if ${projectStackChecks}; then"
+                    "    _effective_stack=\"\$env\""
+                    "else"
+                    "    _effective_stack=${fallbackStack}"
+                    "fi"
+                    "printf '📦 Step ${toString stepNum}/${toString projectCount}: Deploying %s (stack: %s, alwaysDeploy)...\\n' \"\$project_path\" \"\$_effective_stack\""
+                    "if ! ${pulumiExe} -C \"\$project_path\" up --yes --stack \"\$_effective_stack\"; then"
+                    "    failed_stacks+=(\"\$project_path (\$_effective_stack)\")"
+                    "fi"
+                    "echo \"\""
+                    ""
+                  ]
+                  else [
+                    "project_path=${escapedPath}"
+                    "if ${projectStackChecks}; then"
+                    "    printf '📦 Step ${toString stepNum}/${toString projectCount}: Deploying %s...\\n' \"\$project_path\""
+                    "    if ! ${pulumiExe} -C \"\$project_path\" up --yes --stack \"\$env\"; then"
+                    "        failed_stacks+=(\"\$project_path (\$env)\")"
+                    "    fi"
+                    "else"
+                    "    printf '⏭️  Step ${toString stepNum}/${toString projectCount}: Skipping %s (stack %s not configured for this project)\\n' \"\$project_path\" \"\$env\""
+                    "fi"
+                    "echo \"\""
+                    ""
+                  ])
                 stacks)
               ++ [
                 "# Report summary"
