@@ -217,7 +217,7 @@ in
           (pkgs.mkShell {
             shellHook = ''
               if [ -n "''${PRJ_ROOT:-}" ]; then
-                ln -sf ${configFile} "$PRJ_ROOT/opencode.json"
+                ln -sf ${lib.escapeShellArg configFile} "$PRJ_ROOT/opencode.json"
               fi
             '';
           })

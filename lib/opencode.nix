@@ -125,7 +125,9 @@ let
               url = "https://mcp.context7.com/mcp";
               enabled = true;
             } // lib.optionalAttrs (ocCfg.mcp.context7.apiKeyEnvVar != null) {
-              headers.CONTEXT7_API_KEY = "{env:${ocCfg.mcp.context7.apiKeyEnvVar}}";
+              headers = {
+                CONTEXT7_API_KEY = "{env:${ocCfg.mcp.context7.apiKeyEnvVar}}";
+              };
             };
           }
         );
