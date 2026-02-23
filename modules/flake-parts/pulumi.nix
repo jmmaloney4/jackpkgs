@@ -138,13 +138,15 @@ in {
           projectCount = builtins.length stacks;
 
           allStackNames = lib.unique (lib.concatMap (s: s.stacks) stacks);
-          validStacksList = lib.concatStringsSep " " (map lib.escapeShellArg allStackNames);
           displayStacks = lib.concatStringsSep ", " allStackNames;
           escapedDefaultStack = lib.escapeShellArg defaultStack;
 
           validationLogic = [
             "# Validate stack name"
-            "valid_stacks=(${validStacksList})"
+            "valid_stacks=()"
+          ]
+          ++ map (stack: "valid_stacks+=(${lib.escapeShellArg stack})") allStackNames
+          ++ [
             "is_valid=0"
             "for s in \"\${valid_stacks[@]}\"; do"
             "    if [[ \"\$s\" == \"\$env\" ]]; then"
@@ -153,7 +155,8 @@ in {
             "    fi"
             "done"
             "if [[ \$is_valid -eq 0 ]]; then"
-            "    echo \"❌ Unknown stack: \$env (valid: ${displayStacks})\""
+            "    valid_stacks_display=${lib.escapeShellArg displayStacks}"
+            "    printf '❌ Unknown stack: %s (valid: %s)\\n' \"\$env\" \"\$valid_stacks_display\""
             "    exit 1"
             "fi"
           ];
@@ -175,8 +178,9 @@ in {
                 escapedPath = lib.escapeShellArg s.path;
               in [
                 "echo \"\""
-                "echo \"📦 Previewing ${escapedPath} (stack: \$env)...\""
-                "${pulumiExe} -C ${escapedPath} preview --stack \"\$env\""
+                "project_path=${escapedPath}"
+                "printf '📦 Previewing %s (stack: %s)...\\n' \"\$project_path\" \"\$env\""
+                "${pulumiExe} -C \"\$project_path\" preview --stack \"\$env\""
               ])
               stacks
               ++ [
@@ -208,9 +212,10 @@ in {
                   stepNum = i + 1;
                   escapedPath = lib.escapeShellArg s.path;
                 in [
-                  "echo \"📦 Step ${toString stepNum}/${toString projectCount}: Deploying ${escapedPath}...\""
-                  "if ! ${pulumiExe} -C ${escapedPath} up --yes --stack \"\$env\"; then"
-                  "    failed_stacks+=(\"${escapedPath} (\$env)\")"
+                  "project_path=${escapedPath}"
+                  "printf '📦 Step ${toString stepNum}/${toString projectCount}: Deploying %s...\\n' \"\$project_path\""
+                  "if ! ${pulumiExe} -C \"\$project_path\" up --yes --stack \"\$env\"; then"
+                  "    failed_stacks+=(\"\$project_path (\$env)\")"
                   "fi"
                   "echo \"\""
                   ""
