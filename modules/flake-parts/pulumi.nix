@@ -175,6 +175,7 @@ in {
             ([
                 "#!/usr/bin/env bash"
                 "set -euo pipefail"
+                "env=\"\${1:-${defaultStack}}\""
                 ""
               ]
               ++ validationLogic
@@ -224,6 +225,7 @@ in {
             ([
                 "#!/usr/bin/env bash"
                 "set -euo pipefail"
+                "env=\"\${1:-${defaultStack}}\""
                 ""
               ]
               ++ validationLogic
