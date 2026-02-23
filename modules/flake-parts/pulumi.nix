@@ -4,8 +4,11 @@
   lib,
   ...
 }: let
-  inherit (lib) mkIf;
+  inherit (lib) mkIf optionalStrings;
   cfg = config.jackpkgs.pulumi;
+
+  justfileHelpers = import ../../lib/justfile-helpers.nix {inherit lib;};
+  inherit (justfileHelpers) mkRecipe mkRecipeWithParams optionalLines;
 in {
   options = let
     inherit (lib) types mkOption mkEnableOption;
@@ -22,6 +25,30 @@ in {
       secretsProvider = mkOption {
         type = types.str;
         description = "Pulumi secrets provider to use for authentication and stack operations. Required when enable is true.";
+      };
+
+      stacks = mkOption {
+        type = types.listOf (types.submodule {
+          options = {
+            path = mkOption {
+              type = types.str;
+              description = "Path to the Pulumi project directory (relative to repo root).";
+            };
+            stack = mkOption {
+              type = types.str;
+              default = "dev";
+              description = "Stack name to use for this project (default: dev).";
+            };
+          };
+        });
+        default = [];
+        description = "List of Pulumi stacks to deploy in order (for multi-stack preview/deploy commands).";
+      };
+
+      defaultStack = mkOption {
+        type = types.str;
+        default = "dev";
+        description = "Default stack name used when not specified in preview/deploy commands.";
       };
     };
 
@@ -55,6 +82,12 @@ in {
         '';
         description = "Packages included in the ci-pulumi devshell";
       };
+
+      options.jackpkgs.outputs.pulumiJustfile = mkOption {
+        type = types.str;
+        readOnly = true;
+        description = "Generated justfile fragment for pulumi preview/deploy commands.";
+      };
     });
   };
 
@@ -66,7 +99,11 @@ in {
         lib,
         config,
         ...
-      }: {
+      }: let
+        pulumiExe = lib.getExe' pkgs.pulumi-bin "pulumi";
+        stacks = cfg.stacks;
+        defaultStack = cfg.defaultStack;
+      in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
           packages = with pkgs; [
             pulumi-bin
@@ -77,33 +114,94 @@ in {
             nodePackages.typescript
           ];
           env = {
-            # Disable discovering additional plugins by examining $PATH.
-            # Pulumi will download the relevant plugin versions instead.
             PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-            # Export configured backend and secrets provider
             PULUMI_BACKEND_URL = cfg.backendUrl;
             PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
           };
         };
 
-        # CI devshell with minimal dependencies for running Pulumi in CI
         devShells.ci-pulumi = pkgs.mkShell {
           packages = config.jackpkgs.pulumi.ci.packages;
 
           env = {
-            # Disable discovering additional plugins by examining $PATH.
-            # Pulumi will download the relevant plugin versions instead.
             PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-            # Export configured backend and secrets provider
             PULUMI_BACKEND_URL = cfg.backendUrl;
             PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
           };
         };
 
-        # Contribute this fragment to the composed devshell
         jackpkgs.shell.inputsFrom = [
           config.jackpkgs.outputs.pulumiDevShell
         ];
+
+        jackpkgs.outputs.pulumiJustfile = let
+          hasStacks = stacks != [];
+          stackCount = builtins.length stacks;
+
+          # Generate the preview recipe
+          previewRecipe = mkRecipeWithParams "preview" ["env=\"\${1:-${defaultStack}}\""] "Preview changes for all Pulumi stacks (run 'just deploy' to apply)"
+            ([
+              "#!/usr/bin/env bash"
+              "set -euo pipefail"
+              ""
+              "echo \"🔍 Previewing all Pulumi stacks for \\$env environment...\""
+              ""
+            ]
+            ++ lib.concatMap (s: [
+              "echo \"\""
+              "echo \"📦 Previewing ${s.path} (stack: ${s.stack})...\""
+              "${pulumiExe} -C ${s.path} preview --stack ${s.stack}"
+            ]) stacks
+            ++ [
+              ""
+              "echo \"\""
+              "echo \"✅ Preview complete! Run 'just deploy' to apply changes.\""
+            ])
+            true;
+
+          # Generate the deploy recipe
+          deployRecipe = mkRecipeWithParams "deploy" ["env=\"\${1:-${defaultStack}}\""] "Deploy all Pulumi stacks in dependency order"
+            ([
+              "#!/usr/bin/env bash"
+              "set +e"
+              ""
+              "echo \"🚀 Deploying all Pulumi stacks for \\$env environment...\""
+              "echo \"\""
+              ""
+              "failed_stacks=()"
+              ""
+            ]
+            # Generate commands for each stack with stack-specific or env-based stack name
+            ++ lib.imap0 (i: s: let
+              stackName = if s.stack != "dev" then s.stack else "$env";
+              stepNum = i + 1;
+            in ''
+              echo "📦 Step ${toString stackCount}/${toString stepNum}: Deploying ${s.path}..."
+              if ! ${pulumiExe} -C ${s.path} up --yes --stack ${stackName}; then
+                  failed_stacks+=("${s.path} (${stackName})")
+              fi
+              echo ""
+            '') stacks
+            ++ [
+              "# Report summary"
+              "if [ ${lib.escapeShellArg "\${#failed_stacks[@]}"} -eq 0 ]; then"
+              "    echo \"✅ All stacks deployed successfully!\""
+              "    exit 0"
+              "else"
+              "    echo \"⚠️  Deployment completed with failures\""
+              "    echo \"\""
+              "    echo \"❌ Failed stacks:\""
+              "    for stack in \"${lib.escapeShellArg "\${failed_stacks[@]}"}\"; do"
+              "        echo \"   - $stack\""
+              "    done"
+              "    exit 1"
+              "fi"
+            ])
+            true;
+        in
+          if hasStacks
+          then lib.concatStringsSep "\n\n" [previewRecipe deployRecipe]
+          else "";
       };
     };
 }
