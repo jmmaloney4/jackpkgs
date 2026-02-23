@@ -4,7 +4,7 @@
   lib,
   ...
 }: let
-  inherit (lib) mkIf optionalStrings;
+  inherit (lib) mkIf;
   cfg = config.jackpkgs.pulumi;
 
   justfileHelpers = import ../../lib/justfile-helpers.nix {inherit lib;};
@@ -147,10 +147,12 @@ in {
               "echo \"🔍 Previewing all Pulumi stacks for \\$env environment...\""
               ""
             ]
-            ++ lib.concatMap (s: [
+            ++ lib.concatMap (s: let
+              stackName = if s.stack != "dev" then s.stack else "$env";
+            in [
               "echo \"\""
-              "echo \"📦 Previewing ${s.path} (stack: ${s.stack})...\""
-              "${pulumiExe} -C ${s.path} preview --stack ${s.stack}"
+              "echo \"📦 Previewing ${s.path} (stack: ${stackName})...\""
+              "${pulumiExe} -C ${s.path} preview --stack ${stackName}"
             ]) stacks
             ++ [
               ""
@@ -172,27 +174,28 @@ in {
               ""
             ]
             # Generate commands for each stack with stack-specific or env-based stack name
-            ++ lib.imap0 (i: s: let
+            ++ lib.concatLists (lib.imap0 (i: s: let
               stackName = if s.stack != "dev" then s.stack else "$env";
               stepNum = i + 1;
-            in ''
-              echo "📦 Step ${toString stackCount}/${toString stepNum}: Deploying ${s.path}..."
-              if ! ${pulumiExe} -C ${s.path} up --yes --stack ${stackName}; then
-                  failed_stacks+=("${s.path} (${stackName})")
-              fi
-              echo ""
-            '') stacks
+            in [
+              "echo \"📦 Step ${toString stepNum}/${toString stackCount}: Deploying ${s.path}...\""
+              "if ! ${pulumiExe} -C ${s.path} up --yes --stack ${stackName}; then"
+              "    failed_stacks+=(\"${s.path} (${stackName})\")"
+              "fi"
+              "echo \"\""
+              ""
+            ]) stacks)
             ++ [
               "# Report summary"
-              "if [ ${lib.escapeShellArg "\${#failed_stacks[@]}"} -eq 0 ]; then"
+              "if [ \${#failed_stacks[@]} -eq 0 ]; then"
               "    echo \"✅ All stacks deployed successfully!\""
               "    exit 0"
               "else"
               "    echo \"⚠️  Deployment completed with failures\""
               "    echo \"\""
               "    echo \"❌ Failed stacks:\""
-              "    for stack in \"${lib.escapeShellArg "\${failed_stacks[@]}"}\"; do"
-              "        echo \"   - $stack\""
+              "    for stack in \"\${failed_stacks[@]}\"; do"
+              "        echo \"   - \\$stack\""
               "    done"
               "    exit 1"
               "fi"
