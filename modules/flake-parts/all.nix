@@ -13,5 +13,6 @@
     (import ./pulumi.nix {inherit jackpkgsInputs;})
     (import ./quarto.nix {inherit jackpkgsInputs;})
     (import ./checks.nix {inherit jackpkgsInputs;})
+    (import ./opencode.nix {inherit jackpkgsInputs;})
   ];
 }

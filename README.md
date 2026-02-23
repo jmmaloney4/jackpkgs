@@ -102,6 +102,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
 - `python` — opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
+- `opencode` — generates a project-scoped `opencode.json` config with typed options for MCP servers (time, serena, github, context7, jujutsu, claude-context); symlinks it into `$PRJ_ROOT` via shellHook.
 
 ### Import (one-liner: everything)
 
@@ -126,6 +127,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     inputs.jackpkgs.flakeModules.pulumi
     inputs.jackpkgs.flakeModules.quarto
     inputs.jackpkgs.flakeModules.python
+    inputs.jackpkgs.flakeModules.opencode
   ];
 }
 ```
@@ -417,6 +419,41 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
       };
     };
     ```
+
+- opencode (`modules/flake-parts/opencode.nix`)
+
+  - Generates a project-scoped `opencode.json` that merges Nix-packaged MCP servers (via `mcp-servers-nix`) with remote and npx-based servers.
+  - Symlinks the generated config into `$PRJ_ROOT/opencode.json` via a `shellHook` (requires `PRJ_ROOT` to be set, e.g. by `flake-root`).
+  - Exposes the config derivation as `packages.opencode-config` and `jackpkgs.opencode.configFile`.
+  - Secrets are never embedded in the Nix store — use `{env:VAR_NAME}` placeholders (resolved by OpenCode at runtime).
+  - Options under `jackpkgs.opencode`:
+    - `enable` (bool, top-level — enables the module)
+    - `mcp.time.enable` / `mcp.time.timezone` (str, default `"America/Chicago"`) — Nix-packaged MCP time server
+    - `mcp.serena.enable` / `mcp.serena.context` (nullOr enum) / `mcp.serena.extraPackages` — Nix-packaged Serena server
+    - `mcp.github.enable` / `mcp.github.remote` (bool, default `true`) / `mcp.github.tokenEnvVar` (str, default `"GITHUB_TOKEN"`) — GitHub MCP; remote mode uses Copilot API endpoint
+    - `mcp.context7.enable` / `mcp.context7.apiKeyEnvVar` (nullOr str, default `"CONTEXT7_API_KEY"`) — remote context7 server
+    - `mcp.jujutsu.enable` — local npx `jj-mcp-server`
+    - `mcp.claudeContext.enable` — local npx `@zilliz/claude-context-mcp`
+    - `mcp.extra` (attrsOf anything, default `{}`) — freeform additional MCP server entries; wins on key conflict
+    - `settings` (attrsOf anything, default `{}`) — freeform top-level OpenCode config passthrough; wins over everything
+    - `configFile` (readOnly) — the generated store path
+
+  - Example:
+
+    ```nix
+    perSystem = { ... }: {
+      jackpkgs.opencode = {
+        mcp.github.enable = true;
+        mcp.context7.enable = true;
+        mcp.jujutsu.enable = true;
+        mcp.time.enable = true;
+        mcp.time.timezone = "America/New_York";
+        settings.model = "anthropic/claude-sonnet-4-5";
+      };
+    };
+    ```
+
+  - `lib.opencode.mkConfig pkgs cfg` is also exposed on the flake lib for use in Home Manager or other contexts.
 
 #### Common Patterns: Dev Tools with Pre-commit
 

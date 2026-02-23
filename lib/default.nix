@@ -1,10 +1,18 @@
-{pkgs}:
+{pkgs, mcpNixFlake ? null}:
 with pkgs.lib; rec {
   # Add your library functions here
 
   # Justfile generation helpers
   # These helpers make it easy to generate justfile content without indentation issues
   justfile = import ./justfile-helpers.nix {lib = pkgs.lib;};
+
+  # OpenCode config helpers
+  # Exposed as lib.opencode.mkConfig pkgs config — see lib/opencode.nix for details.
+  # mcpNixFlake is required for Nix-packaged MCP servers (serena, time, github local).
+  opencode = import ./opencode.nix {
+    lib = pkgs.lib;
+    mcpNixFlake = mcpNixFlake;
+  };
 
   /**
   Filter an attribute set so that it is returned only when the

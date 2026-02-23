@@ -17,6 +17,7 @@
       pulumi = import ./pulumi.nix {jackpkgsInputs = inputs;};
       quarto = import ./quarto.nix {jackpkgsInputs = inputs;};
       python = import ./python.nix {jackpkgsInputs = inputs;};
+      opencode = import ./opencode.nix {jackpkgsInputs = inputs;};
     };
   };
 }

@@ -109,7 +109,7 @@
         self',
         ...
       }: let
-        jackLib = import ./lib {inherit pkgs;};
+        jackLib = import ./lib {inherit pkgs; mcpNixFlake = inputs.mcp-servers-nix;};
         # Make flake lib available for tests
         flakeLib = inputs.nixpkgs.lib.extend (
           final: prev: jackLib
@@ -252,6 +252,9 @@
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };
+            opencode = import ./tests/opencode.nix {
+              inherit inputs lib;
+            };
           };
         };
 
@@ -386,7 +389,7 @@
         # Expose lib for backward compatibility
         lib = inputs.nixpkgs.lib.extend (
           final: prev:
-            import ./lib {pkgs = inputs.nixpkgs.legacyPackages.${builtins.head (import inputs.systems)};}
+            import ./lib {pkgs = inputs.nixpkgs.legacyPackages.${builtins.head (import inputs.systems)}; mcpNixFlake = inputs.mcp-servers-nix;}
         );
 
         # Expose just templates
