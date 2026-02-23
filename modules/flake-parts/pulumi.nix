@@ -34,15 +34,14 @@ in {
               type = types.str;
               description = "Path to the Pulumi project directory (relative to repo root).";
             };
-            stack = mkOption {
-              type = types.str;
-              default = "dev";
-              description = "Stack name to use for this project (default: dev).";
+            stacks = mkOption {
+              type = types.listOf types.str;
+              description = "Stack names available for this project (e.g. [\"dev\" \"stage\" \"prod\"]).";
             };
           };
         });
         default = [];
-        description = "List of Pulumi stacks to deploy in order (for multi-stack preview/deploy commands).";
+        description = "List of Pulumi projects and their available stacks, deployed in order.";
       };
 
       defaultStack = mkOption {
@@ -136,23 +135,32 @@ in {
 
         jackpkgs.outputs.pulumiJustfile = let
           hasStacks = stacks != [];
-          stackCount = builtins.length stacks;
+          projectCount = builtins.length stacks;
+
+          # Collect all unique stack names across all projects for validation
+          allStackNames = lib.unique (lib.concatMap (s: s.stacks) stacks);
+          validStacksList = lib.concatStringsSep " " allStackNames;
 
           # Generate the preview recipe
-          previewRecipe = mkRecipeWithParams "preview" ["env=\"\${1:-${defaultStack}}\""] "Preview changes for all Pulumi stacks (run 'just deploy' to apply)"
+          previewRecipe = mkRecipeWithParams "preview" ["env=\"\${1:-${defaultStack}}\""] "Preview changes for all Pulumi projects (run 'just deploy' to apply)"
             ([
               "#!/usr/bin/env bash"
               "set -euo pipefail"
               ""
-              "echo \"🔍 Previewing all Pulumi stacks for \\$env environment...\""
+              "# Validate stack name"
+              "valid_stacks=(${validStacksList})"
+              "if [[ ! \" \${valid_stacks[*]} \" =~ \" \$env \" ]]; then"
+              "    echo \"❌ Unknown stack: \$env (valid: ${validStacksList})\""
+              "    exit 1"
+              "fi"
+              ""
+              "echo \"🔍 Previewing all Pulumi projects for \\$env stack...\""
               ""
             ]
-            ++ lib.concatMap (s: let
-              stackName = if s.stack != "dev" then s.stack else "$env";
-            in [
+            ++ lib.concatMap (s: [
               "echo \"\""
-              "echo \"📦 Previewing ${s.path} (stack: ${stackName})...\""
-              "${pulumiExe} -C ${s.path} preview --stack ${stackName}"
+              "echo \"📦 Previewing ${s.path} (stack: \\$env)...\""
+              "${pulumiExe} -C ${s.path} preview --stack \$env"
             ]) stacks
             ++ [
               ""
@@ -162,25 +170,31 @@ in {
             true;
 
           # Generate the deploy recipe
-          deployRecipe = mkRecipeWithParams "deploy" ["env=\"\${1:-${defaultStack}}\""] "Deploy all Pulumi stacks in dependency order"
+          deployRecipe = mkRecipeWithParams "deploy" ["env=\"\${1:-${defaultStack}}\""] "Deploy all Pulumi projects in dependency order"
             ([
               "#!/usr/bin/env bash"
+              ""
+              "# Validate stack name"
+              "valid_stacks=(${validStacksList})"
+              "if [[ ! \" \${valid_stacks[*]} \" =~ \" \$env \" ]]; then"
+              "    echo \"❌ Unknown stack: \$env (valid: ${validStacksList})\""
+              "    exit 1"
+              "fi"
+              ""
               "set +e"
               ""
-              "echo \"🚀 Deploying all Pulumi stacks for \\$env environment...\""
+              "echo \"🚀 Deploying all Pulumi projects for \\$env stack...\""
               "echo \"\""
               ""
               "failed_stacks=()"
               ""
             ]
-            # Generate commands for each stack with stack-specific or env-based stack name
             ++ lib.concatLists (lib.imap0 (i: s: let
-              stackName = if s.stack != "dev" then s.stack else "$env";
               stepNum = i + 1;
             in [
-              "echo \"📦 Step ${toString stepNum}/${toString stackCount}: Deploying ${s.path}...\""
-              "if ! ${pulumiExe} -C ${s.path} up --yes --stack ${stackName}; then"
-              "    failed_stacks+=(\"${s.path} (${stackName})\")"
+              "echo \"📦 Step ${toString stepNum}/${toString projectCount}: Deploying ${s.path}...\""
+              "if ! ${pulumiExe} -C ${s.path} up --yes --stack \$env; then"
+              "    failed_stacks+=(\"${s.path} (\$env)\")"
               "fi"
               "echo \"\""
               ""
@@ -188,12 +202,12 @@ in {
             ++ [
               "# Report summary"
               "if [ \${#failed_stacks[@]} -eq 0 ]; then"
-              "    echo \"✅ All stacks deployed successfully!\""
+              "    echo \"✅ All projects deployed successfully!\""
               "    exit 0"
               "else"
               "    echo \"⚠️  Deployment completed with failures\""
               "    echo \"\""
-              "    echo \"❌ Failed stacks:\""
+              "    echo \"❌ Failed projects:\""
               "    for stack in \"\${failed_stacks[@]}\"; do"
               "        echo \"   - \\$stack\""
               "    done"
