@@ -45,6 +45,16 @@ in {
           default = defaultExcludes.treefmt;
           description = "Excludes for treefmt. User-provided excludes will be appended to the defaults.";
         };
+        mdformat.validate = mkOption {
+          type = types.bool;
+          default = true;
+          description = ''
+            Whether mdformat should validate markdown after formatting.
+            Set to false to disable validation (equivalent to --no-validate),
+            which is useful for markdown files containing non-standard syntax
+            such as LaTeX.
+          '';
+        };
       };
     });
   };
@@ -97,11 +107,15 @@ in {
             ps.mdformat-gfm
             ps.mdformat-footnote
           ];
-          settings = {
-            end-of-line = "lf";
-            number = true;
-            wrap = "keep";
-          };
+          settings =
+            {
+              end-of-line = "lf";
+              number = true;
+              wrap = "keep";
+            }
+            // lib.optionalAttrs (!sysCfg.mdformat.validate) {
+              validate = false;
+            };
         };
         # ruff lints and formats python code
         programs.ruff-check = {
