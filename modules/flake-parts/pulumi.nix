@@ -6,6 +6,7 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.pulumi;
+  gcpCfg = config.jackpkgs.gcp;
 
   justfileHelpers = import ../../lib/justfile-helpers.nix {inherit lib;};
   inherit (justfileHelpers) mkRecipe mkRecipeWithParams optionalLines;
@@ -122,21 +123,29 @@ in {
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
             nodePackages.typescript
           ];
-          env = {
-            PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-            PULUMI_BACKEND_URL = cfg.backendUrl;
-            PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
-          };
+          env =
+            {
+              PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+              PULUMI_BACKEND_URL = cfg.backendUrl;
+              PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
+            }
+            // lib.optionalAttrs (gcpCfg.profile != null) {
+              GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
+            };
         };
 
         devShells.ci-pulumi = pkgs.mkShell {
           packages = config.jackpkgs.pulumi.ci.packages;
 
-          env = {
-            PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-            PULUMI_BACKEND_URL = cfg.backendUrl;
-            PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
-          };
+          env =
+            {
+              PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+              PULUMI_BACKEND_URL = cfg.backendUrl;
+              PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
+            }
+            // lib.optionalAttrs (gcpCfg.profile != null) {
+              GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
+            };
         };
 
         jackpkgs.shell.inputsFrom = [
