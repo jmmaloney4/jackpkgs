@@ -140,25 +140,26 @@ in {
           allStackNames = lib.unique (lib.concatMap (s: s.stacks) stacks);
           displayStacks = lib.concatStringsSep ", " allStackNames;
 
-          validationLogic = [
-            "# Validate stack name"
-            "valid_stacks=()"
-          ]
-          ++ map (stack: "valid_stacks+=(${lib.escapeShellArg stack})") allStackNames
-          ++ [
-            "is_valid=0"
-            "for s in \"\${valid_stacks[@]}\"; do"
-            "    if [[ \"\$s\" == \"\$env\" ]]; then"
-            "        is_valid=1"
-            "        break"
-            "    fi"
-            "done"
-            "if [[ \$is_valid -eq 0 ]]; then"
-            "    valid_stacks_display=${lib.escapeShellArg displayStacks}"
-            "    printf '❌ Unknown stack: %s (valid: %s)\\n' \"\$env\" \"\$valid_stacks_display\""
-            "    exit 1"
-            "fi"
-          ];
+          validationLogic =
+            [
+              "# Validate stack name"
+              "valid_stacks=()"
+            ]
+            ++ map (stack: "valid_stacks+=(${lib.escapeShellArg stack})") allStackNames
+            ++ [
+              "is_valid=0"
+              "for s in \"\${valid_stacks[@]}\"; do"
+              "    if [[ \"\$s\" == \"\$env\" ]]; then"
+              "        is_valid=1"
+              "        break"
+              "    fi"
+              "done"
+              "if [[ \$is_valid -eq 0 ]]; then"
+              "    valid_stacks_display=${lib.escapeShellArg displayStacks}"
+              "    printf '❌ Unknown stack: %s (valid: %s)\\n' \"\$env\" \"\$valid_stacks_display\""
+              "    exit 1"
+              "fi"
+            ];
 
           previewRecipe =
             mkRecipeWithParams "preview" ["env=${defaultStack}"] "Preview changes for all Pulumi projects (run 'just deploy' to apply)"

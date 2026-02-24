@@ -1,11 +1,12 @@
 ---
 id: ADR-031
-title: "Notebook Quality Gates Via Nbqa"
+title: Notebook Quality Gates Via Nbqa
 status: proposed
 date: 2026-02-21
 ---
 
 # ADR 031: Notebook Quality Gates Via Nbqa
+
 *Date:* 2026-02-21
 *Status:* proposed
 

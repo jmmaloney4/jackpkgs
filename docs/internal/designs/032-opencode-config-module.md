@@ -1,11 +1,12 @@
 ---
 id: ADR-032
-title: "Opencode Config Module"
+title: Opencode Config Module
 status: proposed
 date: 2026-02-23
 ---
 
 # ADR 032: Opencode Config Module
+
 *Date:* 2026-02-23
 *Status:* proposed
 
