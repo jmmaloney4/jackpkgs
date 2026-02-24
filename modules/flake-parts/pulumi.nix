@@ -219,7 +219,7 @@ in {
                 "echo \"\""
                 "echo \"✅ Preview complete! Run 'just deploy' to apply changes.\""
               ])
-            true;
+            false;
 
           deployRecipe =
             mkRecipeWithParams "deploy" ["env=${defaultStack}"] "Deploy all Pulumi projects in dependency order"
@@ -291,7 +291,7 @@ in {
                 "    exit 1"
                 "fi"
               ])
-            true;
+            false;
         in
           if hasStacks
           then lib.concatStringsSep "\n\n" [previewRecipe deployRecipe]
