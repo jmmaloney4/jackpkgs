@@ -106,6 +106,7 @@ in {
             ps.mdformat-frontmatter
             ps.mdformat-gfm
             ps.mdformat-footnote
+            ps.mdformat-myst
           ];
           settings = {
             end-of-line = "lf";
