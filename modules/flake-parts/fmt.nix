@@ -107,16 +107,15 @@ in {
             ps.mdformat-gfm
             ps.mdformat-footnote
           ];
-          settings =
-            {
-              end-of-line = "lf";
-              number = true;
-              wrap = "keep";
-            }
-            // lib.optionalAttrs (!sysCfg.mdformat.validate) {
-              validate = false;
-            };
+          settings = {
+            end-of-line = "lf";
+            number = true;
+            wrap = "keep";
+          };
         };
+        settings.formatter.mdformat.options = lib.mkAfter (
+          lib.optional (!sysCfg.mdformat.validate) "--no-validate"
+        );
         # ruff lints and formats python code
         programs.ruff-check = {
           enable = true;
