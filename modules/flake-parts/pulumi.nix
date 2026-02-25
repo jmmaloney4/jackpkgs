@@ -123,16 +123,6 @@ in {
   config =
     mkIf cfg.enable
     {
-      assertions = [
-        {
-          assertion = !(cfg.ci.authMode == "application-default-credentials" && gcpCfg.profile == null);
-          message = ''
-            jackpkgs.pulumi.ci.authMode = "application-default-credentials" requires
-            jackpkgs.gcp.profile to be set to a non-null value.
-          '';
-        }
-      ];
-
       perSystem = {
         pkgs,
         lib,
