@@ -60,6 +60,25 @@ in {
         default = "dev";
         description = "Default stack name used when not specified in preview/deploy commands.";
       };
+
+      ci.authMode = mkOption {
+        type = types.enum ["workload-identity" "application-default-credentials"];
+        default = "workload-identity";
+        description = ''
+          Authentication mode for the ci-pulumi devShell.
+
+          - `"workload-identity"` (default): rely on `GOOGLE_WORKLOAD_IDENTITY_PROVIDER`
+            and `GOOGLE_SERVICE_ACCOUNT_EMAIL` injected by the CI runner (e.g. via
+            google-github-actions/auth). `GOOGLE_APPLICATION_CREDENTIALS` is NOT set,
+            so ADC falls through to ambient WIF credentials. Use this for GitHub
+            Actions with Workload Identity Federation.
+
+          - `"application-default-credentials"`: set `GOOGLE_APPLICATION_CREDENTIALS`
+            to the per-profile ADC file under `$HOME/.config/gcloud-profiles/<profile>/`.
+            Requires `jackpkgs.gcp.profile` to be non-null. Use this for self-hosted
+            runners or local testing of the CI shell against a named gcloud profile.
+        '';
+      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -104,6 +123,16 @@ in {
   config =
     mkIf cfg.enable
     {
+      assertions = [
+        {
+          assertion = !(cfg.ci.authMode == "application-default-credentials" && gcpCfg.profile == null);
+          message = ''
+            jackpkgs.pulumi.ci.authMode = "application-default-credentials" requires
+            jackpkgs.gcp.profile to be set to a non-null value.
+          '';
+        }
+      ];
+
       perSystem = {
         pkgs,
         lib,
@@ -113,6 +142,18 @@ in {
         pulumiExe = lib.getExe' pkgs.pulumi-bin "pulumi";
         stacks = cfg.stacks;
         defaultStack = cfg.defaultStack;
+
+        # Shared base env vars present in every Pulumi shell.
+        pulumiBaseEnv = {
+          PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+          PULUMI_BACKEND_URL = cfg.backendUrl;
+          PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
+        };
+
+        # ADC file path for the active gcp.profile (null-safe: only used when profile != null).
+        profileAdcPath = lib.optionalAttrs (gcpCfg.profile != null) {
+          GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
+        };
       in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
           packages = with pkgs; [
@@ -123,34 +164,54 @@ in {
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
             nodePackages.typescript
           ];
-          env =
-            {
-              PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-              PULUMI_BACKEND_URL = cfg.backendUrl;
-              PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
-            }
-            // lib.optionalAttrs (gcpCfg.profile != null) {
-              GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
-            };
+          # Dev shell always sets GOOGLE_APPLICATION_CREDENTIALS when a profile is
+          # active: Go-based GCP clients (including Pulumi providers) do not honour
+          # CLOUDSDK_CONFIG and require this explicit env var (see issue #182 and
+          # ADR 027).
+          env = pulumiBaseEnv // profileAdcPath;
         };
 
         devShells.ci-pulumi = pkgs.mkShell {
           packages = config.jackpkgs.pulumi.ci.packages;
 
+          # CI shell auth strategy is controlled by jackpkgs.pulumi.ci.authMode:
+          #   "workload-identity" (default) — do not bake GOOGLE_APPLICATION_CREDENTIALS;
+          #     WIF credentials are injected by the CI runner (google-github-actions/auth).
+          #   "application-default-credentials" — set GOOGLE_APPLICATION_CREDENTIALS to
+          #     the profile ADC file; requires jackpkgs.gcp.profile to be non-null.
           env =
-            {
-              PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-              PULUMI_BACKEND_URL = cfg.backendUrl;
-              PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
-            }
-            // lib.optionalAttrs (gcpCfg.profile != null) {
-              GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
-            };
+            pulumiBaseEnv
+            // lib.optionalAttrs (cfg.ci.authMode == "application-default-credentials") profileAdcPath;
         };
 
         jackpkgs.shell.inputsFrom = [
           config.jackpkgs.outputs.pulumiDevShell
         ];
+
+        # Verify that the ci-pulumi env block is well-formed and that authMode
+        # controls GOOGLE_APPLICATION_CREDENTIALS as expected.
+        checks.pulumi-ci-env = pkgs.runCommand "pulumi-ci-env-check" {} ''
+          set -euo pipefail
+          ciEnv='${builtins.toJSON (config.devShells.ci-pulumi.env or {})}'
+          echo "ci-pulumi env: $ciEnv"
+
+          # PULUMI_IGNORE_AMBIENT_PLUGINS must always be present.
+          echo "$ciEnv" | ${pkgs.jq}/bin/jq -e '.PULUMI_IGNORE_AMBIENT_PLUGINS == "1"' \
+            || (echo "FAIL: PULUMI_IGNORE_AMBIENT_PLUGINS missing or wrong"; exit 1)
+
+          authMode='${cfg.ci.authMode}'
+          if [ "$authMode" = "workload-identity" ]; then
+            # WIF mode: GOOGLE_APPLICATION_CREDENTIALS must NOT be set.
+            echo "$ciEnv" | ${pkgs.jq}/bin/jq -e '.GOOGLE_APPLICATION_CREDENTIALS == null' \
+              || (echo "FAIL: GOOGLE_APPLICATION_CREDENTIALS must not be set in workload-identity mode"; exit 1)
+          else
+            # ADC mode: GOOGLE_APPLICATION_CREDENTIALS must be present.
+            echo "$ciEnv" | ${pkgs.jq}/bin/jq -e '.GOOGLE_APPLICATION_CREDENTIALS != null' \
+              || (echo "FAIL: GOOGLE_APPLICATION_CREDENTIALS must be set in application-default-credentials mode"; exit 1)
+          fi
+
+          touch $out
+        '';
 
         jackpkgs.outputs.pulumiJustfile = let
           hasStacks = stacks != [];
@@ -250,41 +311,41 @@ in {
                 ""
               ]
               ++ lib.concatLists (lib.imap0 (i: s: let
-                  stepNum = i + 1;
-                  escapedPath = lib.escapeShellArg s.path;
-                  fallbackStack = lib.escapeShellArg (lib.head s.stacks);
-                  projectStackChecks = lib.concatStringsSep " || " (map (stack: "[[ \"\$env\" == ${lib.escapeShellArg stack} ]]") s.stacks);
-                in
-                  if s.alwaysDeploy
-                  then [
-                    "project_path=${escapedPath}"
-                    "# Determine effective stack: use env if it matches, else fallback to ${lib.head s.stacks}"
-                    "if ${projectStackChecks}; then"
-                    "    _effective_stack=\"\$env\""
-                    "else"
-                    "    _effective_stack=${fallbackStack}"
-                    "fi"
-                    "printf '📦 Step ${toString stepNum}/${toString projectCount}: Deploying %s (stack: %s, alwaysDeploy)...\\n' \"\$project_path\" \"\$_effective_stack\""
-                    "if ! ${pulumiExe} -C \"\$project_path\" up --yes --stack \"\$_effective_stack\"; then"
-                    "    failed_stacks+=(\"\$project_path (\$_effective_stack)\")"
-                    "fi"
-                    "echo \"\""
-                    ""
-                  ]
-                  else [
-                    "project_path=${escapedPath}"
-                    "if ${projectStackChecks}; then"
-                    "    printf '📦 Step ${toString stepNum}/${toString projectCount}: Deploying %s...\\n' \"\$project_path\""
-                    "    if ! ${pulumiExe} -C \"\$project_path\" up --yes --stack \"\$env\"; then"
-                    "        failed_stacks+=(\"\$project_path (\$env)\")"
-                    "    fi"
-                    "else"
-                    "    printf '⏭️  Step ${toString stepNum}/${toString projectCount}: Skipping %s (stack %s not configured for this project)\\n' \"\$project_path\" \"\$env\""
-                    "fi"
-                    "echo \"\""
-                    ""
-                  ])
-                stacks)
+                stepNum = i + 1;
+                escapedPath = lib.escapeShellArg s.path;
+                fallbackStack = lib.escapeShellArg (lib.head s.stacks);
+                projectStackChecks = lib.concatStringsSep " || " (map (stack: "[[ \"\$env\" == ${lib.escapeShellArg stack} ]]") s.stacks);
+              in
+                if s.alwaysDeploy
+                then [
+                  "project_path=${escapedPath}"
+                  "# Determine effective stack: use env if it matches, else fallback to ${lib.head s.stacks}"
+                  "if ${projectStackChecks}; then"
+                  "    _effective_stack=\"\$env\""
+                  "else"
+                  "    _effective_stack=${fallbackStack}"
+                  "fi"
+                  "printf '📦 Step ${toString stepNum}/${toString projectCount}: Deploying %s (stack: %s, alwaysDeploy)...\\n' \"\$project_path\" \"\$_effective_stack\""
+                  "if ! ${pulumiExe} -C \"\$project_path\" up --yes --stack \"\$_effective_stack\"; then"
+                  "    failed_stacks+=(\"\$project_path (\$_effective_stack)\")"
+                  "fi"
+                  "echo \"\""
+                  ""
+                ]
+                else [
+                  "project_path=${escapedPath}"
+                  "if ${projectStackChecks}; then"
+                  "    printf '📦 Step ${toString stepNum}/${toString projectCount}: Deploying %s...\\n' \"\$project_path\""
+                  "    if ! ${pulumiExe} -C \"\$project_path\" up --yes --stack \"\$env\"; then"
+                  "        failed_stacks+=(\"\$project_path (\$env)\")"
+                  "    fi"
+                  "else"
+                  "    printf '⏭️  Step ${toString stepNum}/${toString projectCount}: Skipping %s (stack %s not configured for this project)\\n' \"\$project_path\" \"\$env\""
+                  "fi"
+                  "echo \"\""
+                  ""
+                ])
+              stacks)
               ++ [
                 "# Report summary"
                 "if [ \${#failed_stacks[@]} -eq 0 ]; then"
