@@ -166,7 +166,15 @@
                   hash = depsHash;
                   fetcherVersion = 3;
                 }
-                // pnpmDepsArgs);
+                // ({
+                  # Darwin workaround: fetchPnpmDeps fixupPhase runs `chmod 555`
+                  # on `*-exec` glob; empty glob → "chmod: missing operand".
+                  # Sentinel file satisfies the glob on every platform.
+                  prePnpmInstall = ''
+                    touch "$storePath/fetcher-sentinel-exec"
+                  '';
+                }
+                // pnpmDepsArgs));
               nativeBuildInputs = [
                 pkgs.nodejs
                 pkgs.pnpm_10
@@ -333,13 +341,6 @@
                 test -d node_modules
                 node packages/app/index.js | grep -qx "pass"
               '';
-              # Darwin workaround: fetchPnpmDeps fails with "chmod: missing operand"
-              # when no *-exec files exist. Sentinel satisfies chmod glob.
-              pnpmDepsArgs = {
-                prePnpmInstall = ''
-                  touch "$storePath/fetcher-sentinel-exec"
-                '';
-              };
             };
 
             # Mirrors nodejs.nix:125-129 installPhase; keep in sync.
@@ -363,13 +364,6 @@
               '';
               extraAttrs = {
                 dontCheckForBrokenSymlinks = true;
-              };
-              # Darwin workaround: fetchPnpmDeps fails with "chmod: missing operand"
-              # when no *-exec files exist. Sentinel satisfies chmod glob.
-              pnpmDepsArgs = {
-                prePnpmInstall = ''
-                  touch "$storePath/fetcher-sentinel-exec"
-                '';
               };
             };
           };
