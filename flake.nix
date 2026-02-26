@@ -167,11 +167,15 @@
                   fetcherVersion = 3;
                 }
                 // ({
-                    # Darwin workaround: fetchPnpmDeps fixupPhase runs `chmod 555`
-                    # on `*-exec` glob; empty glob → "chmod: missing operand".
-                    # Sentinel file satisfies the glob on every platform.
-                    prePnpmInstall = ''
-                      touch "$storePath/fetcher-sentinel-exec"
+                    # On some fixtures, fetchPnpmDeps fixup's `find ... | xargs chmod`
+                    # receives empty input and invokes chmod with no operands.
+                    # Use GNU xargs `-r` in this derivation to no-op on empty input,
+                    # without modifying fetched pnpm store contents.
+                    preFixup = ''
+                      xargs() {
+                        command xargs -r "$@"
+                      }
+                      ${pnpmDepsArgs.preFixup or ""}
                     '';
                   }
                   // pnpmDepsArgs));
@@ -268,7 +272,7 @@
             pnpm-simple-builds = mkPnpmFixtureCheck {
               name = "simple-pnpm";
               src = fixtureSimplePnpm;
-              depsHash = "sha256-Y6FY9XiRcBAgaz2T0E90up0bABCBGl81uqZx1vbDRL8=";
+              depsHash = "sha256-Pg995/qFmh6ehdZOBdR0q94JhiLR6oBHI3CdPJK9ipQ=";
               checkCommand = ''
                 test -d node_modules
                 node index.js | grep -qx "pass"
@@ -290,7 +294,7 @@
             pnpm-workspace-glob-resolution = mkPnpmFixtureCheck {
               name = "workspace-glob";
               src = fixtureWorkspaceGlob;
-              depsHash = "sha256-wuZJSJ4/SYJCOTFYTW1RXrdvn3D1tY6gbMGgou1zoLQ=";
+              depsHash = "sha256-u0GOAX5B1f2ANWbOezScp/eKQRRZA/JoYfQ5zLrNip4=";
               checkCommand = ''
                 test -d node_modules
                 node packages/beta/index.js | grep -qx "hello from alpha"
