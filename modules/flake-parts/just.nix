@@ -144,7 +144,10 @@ in {
                   "GCP_ACCOUNT_USER=\"\${GCP_ACCOUNT_USER:-$USER}\""
                 ])
                 ++ [
-                  "${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}"
+                  # Unset GOOGLE_APPLICATION_CREDENTIALS for this call only: when it is set,
+                  # gcloud prompts Y/n before overwriting the ADC file even though it would
+                  # write to the same location. env -u avoids the interactive prompt.
+                  "env -u GOOGLE_APPLICATION_CREDENTIALS ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}"
                 ]
                 ++ optionalLines (cfg.gcp.quotaProject != null) [
                   "${lib.getExe sysCfg.googleCloudSdkPackage} auth application-default set-quota-project ${cfg.gcp.quotaProject}"

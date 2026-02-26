@@ -287,6 +287,9 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     - `backendUrl` (str, required) - Pulumi backend URL
     - `secretsProvider` (str, required) - Pulumi secrets provider
     - `ci.packages` (list of packages) - Packages included in ci-pulumi devshell
+    - `ci.authMode` (enum, default `"workload-identity"`) - Authentication strategy for `ci-pulumi`:
+      - `"workload-identity"`: relies on `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` / `GOOGLE_SERVICE_ACCOUNT_EMAIL` injected by the CI runner (GitHub Actions WIF). `GOOGLE_APPLICATION_CREDENTIALS` is **not** set.
+      - `"application-default-credentials"`: sets `GOOGLE_APPLICATION_CREDENTIALS` to the per-profile ADC file. Requires `jackpkgs.gcp.profile` to be non-null. Use for self-hosted runners or local testing of the CI shell.
 
 - nodejs (`modules/flake-parts/nodejs.nix`)
 
