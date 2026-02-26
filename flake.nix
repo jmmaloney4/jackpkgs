@@ -167,14 +167,14 @@
                   fetcherVersion = 3;
                 }
                 // ({
-                  # Darwin workaround: fetchPnpmDeps fixupPhase runs `chmod 555`
-                  # on `*-exec` glob; empty glob → "chmod: missing operand".
-                  # Sentinel file satisfies the glob on every platform.
-                  prePnpmInstall = ''
-                    touch "$storePath/fetcher-sentinel-exec"
-                  '';
-                }
-                // pnpmDepsArgs));
+                    # Darwin workaround: fetchPnpmDeps fixupPhase runs `chmod 555`
+                    # on `*-exec` glob; empty glob → "chmod: missing operand".
+                    # Sentinel file satisfies the glob on every platform.
+                    prePnpmInstall = ''
+                      touch "$storePath/fetcher-sentinel-exec"
+                    '';
+                  }
+                  // pnpmDepsArgs));
               nativeBuildInputs = [
                 pkgs.nodejs
                 pkgs.pnpm_10
