@@ -144,6 +144,10 @@ in {
         profileAdcPath = lib.optionalAttrs (gcpCfg.profile != null) {
           GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
         };
+
+        ciPulumiEnv =
+          pulumiBaseEnv
+          // lib.optionalAttrs (cfg.ci.authMode == "application-default-credentials") profileAdcPath;
       in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
           packages = with pkgs; [
@@ -169,9 +173,7 @@ in {
           #     WIF credentials are injected by the CI runner (google-github-actions/auth).
           #   "application-default-credentials" — set GOOGLE_APPLICATION_CREDENTIALS to
           #     the profile ADC file; requires jackpkgs.gcp.profile to be non-null.
-          env =
-            pulumiBaseEnv
-            // lib.optionalAttrs (cfg.ci.authMode == "application-default-credentials") profileAdcPath;
+          env = ciPulumiEnv;
         };
 
         jackpkgs.shell.inputsFrom = [
@@ -182,7 +184,7 @@ in {
         # controls GOOGLE_APPLICATION_CREDENTIALS as expected.
         checks.pulumi-ci-env = pkgs.runCommand "pulumi-ci-env-check" {} ''
           set -euo pipefail
-          ciEnv='${builtins.toJSON (config.devShells.ci-pulumi.env or {})}'
+          ciEnv='${builtins.toJSON ciPulumiEnv}'
           echo "ci-pulumi env: $ciEnv"
 
           # PULUMI_IGNORE_AMBIENT_PLUGINS must always be present.
