@@ -184,7 +184,7 @@ in {
         # controls GOOGLE_APPLICATION_CREDENTIALS as expected.
         checks.pulumi-ci-env = pkgs.runCommand "pulumi-ci-env-check" {} ''
           set -euo pipefail
-          ciEnv='${builtins.toJSON ciPulumiEnv}'
+          ciEnv=${lib.escapeShellArg (builtins.toJSON ciPulumiEnv)}
           echo "ci-pulumi env: $ciEnv"
 
           # PULUMI_IGNORE_AMBIENT_PLUGINS must always be present.
