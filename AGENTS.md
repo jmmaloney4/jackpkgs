@@ -8,7 +8,7 @@ Keep `README.md` flake-only and accurate. Update it when anything changes that u
   - Input snippet to add the flake
   - Package usage (via `jackpkgs.packages.${system}`) and overlay example
   - Modules list (`default`, `fmt`, `just`, `pre-commit`, `shell`) + minimal import examples
-  - Notable constraints (e.g., `roon-server` is x86_64-linux only)
+  - Notable constraints (if any)
   - Available templates
 - Style: short, copy‑pasteable snippets; consistent headings; bullets over verbosity.
 - Commit: Conventional Commit, docs-only (e.g., `docs(readme): keep flake-only docs up to date`).

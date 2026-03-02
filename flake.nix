@@ -119,7 +119,6 @@
             opencode = inputs.llm-agents.packages.${system}.opencode;
             bun2nix-cli = inputs.bun2nix.packages.${system}.bun2nix;
           };
-          roon-server = pkgs.callPackage ./pkgs/roon-server {};
           tod = pkgs.callPackage ./pkgs/tod {};
         };
         platformFilteredPackages = jackLib.filterByPlatforms system allPackages;

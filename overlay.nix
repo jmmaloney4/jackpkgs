@@ -13,7 +13,6 @@ self: super: let
     docfx = super.callPackage ./pkgs/docfx {};
     epub2tts = super.callPackage ./pkgs/epub2tts {};
     lean = super.callPackage ./pkgs/lean {};
-    roon-server = super.callPackage ./pkgs/roon-server {};
     tod = super.callPackage ./pkgs/tod {};
   };
   jackLib = import ./lib {pkgs = super;};

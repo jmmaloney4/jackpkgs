@@ -63,15 +63,6 @@ ______________________________________________________________________
 
 Notes:
 
-- `roon-server` is packaged for `x86_64-linux` only.
-- `roon-server` is unfree; enable unfree in your `nixpkgs` config when consuming it:
-
-```nix
-{
-  nixpkgs.config.allowUnfree = true;
-}
-```
-
 - `openchamber` defaults to `opencode` from `numtide/llm-agents.nix`.
 - Override `openchamber`'s `opencode` dependency with:
 
@@ -537,7 +528,6 @@ ______________________________________________________________________
 - `docfx` — .NET docs generator
 - `epub2tts` — EPUB → TTS
 - `lean` — Lean theorem prover
-- `roon-server` — Roon server (x86_64-linux only, unfree)
 - `openchamber` — Web and desktop interface for OpenCode AI agent
 - `tod` — Todoist CLI
 
