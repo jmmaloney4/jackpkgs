@@ -123,13 +123,6 @@ in {
   config =
     mkIf cfg.enable
     {
-      assertions = [
-        {
-          assertion = cfg.ci.authMode != "application-default-credentials" || gcpCfg.profile != null;
-          message = "jackpkgs.pulumi.ci.authMode 'application-default-credentials' requires jackpkgs.gcp.profile to be set";
-        }
-      ];
-
       perSystem = {
         pkgs,
         lib,
@@ -148,9 +141,14 @@ in {
         };
 
         # ADC file path for the active gcp.profile (null-safe: only used when profile != null).
-        profileAdcPath = lib.optionalAttrs (gcpCfg.profile != null) {
-          GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
-        };
+        # Validate that profile is set when authMode requires it.
+        profileAdcPath =
+          if cfg.ci.authMode == "application-default-credentials" && gcpCfg.profile == null
+          then throw "jackpkgs.pulumi.ci.authMode 'application-default-credentials' requires jackpkgs.gcp.profile to be set"
+          else
+            lib.optionalAttrs (gcpCfg.profile != null) {
+              GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
+            };
 
         ciPulumiEnv =
           pulumiBaseEnv
