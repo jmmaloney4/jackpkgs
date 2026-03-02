@@ -123,6 +123,13 @@ in {
   config =
     mkIf cfg.enable
     {
+      assertions = [
+        {
+          assertion = cfg.ci.authMode != "application-default-credentials" || gcpCfg.profile != null;
+          message = "jackpkgs.pulumi.ci.authMode 'application-default-credentials' requires jackpkgs.gcp.profile to be set";
+        }
+      ];
+
       perSystem = {
         pkgs,
         lib,
@@ -144,6 +151,10 @@ in {
         profileAdcPath = lib.optionalAttrs (gcpCfg.profile != null) {
           GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
         };
+
+        ciPulumiEnv =
+          pulumiBaseEnv
+          // lib.optionalAttrs (cfg.ci.authMode == "application-default-credentials") profileAdcPath;
       in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
           packages = with pkgs; [
@@ -169,9 +180,7 @@ in {
           #     WIF credentials are injected by the CI runner (google-github-actions/auth).
           #   "application-default-credentials" — set GOOGLE_APPLICATION_CREDENTIALS to
           #     the profile ADC file; requires jackpkgs.gcp.profile to be non-null.
-          env =
-            pulumiBaseEnv
-            // lib.optionalAttrs (cfg.ci.authMode == "application-default-credentials") profileAdcPath;
+          env = ciPulumiEnv;
         };
 
         jackpkgs.shell.inputsFrom = [
@@ -182,21 +191,21 @@ in {
         # controls GOOGLE_APPLICATION_CREDENTIALS as expected.
         checks.pulumi-ci-env = pkgs.runCommand "pulumi-ci-env-check" {} ''
           set -euo pipefail
-          ciEnv='${builtins.toJSON (config.devShells.ci-pulumi.env or {})}'
+          ciEnv=${lib.escapeShellArg (builtins.toJSON ciPulumiEnv)}
           echo "ci-pulumi env: $ciEnv"
 
           # PULUMI_IGNORE_AMBIENT_PLUGINS must always be present.
-          echo "$ciEnv" | ${pkgs.jq}/bin/jq -e '.PULUMI_IGNORE_AMBIENT_PLUGINS == "1"' \
+          echo $ciEnv | ${pkgs.jq}/bin/jq -e '.PULUMI_IGNORE_AMBIENT_PLUGINS == "1"' \
             || (echo "FAIL: PULUMI_IGNORE_AMBIENT_PLUGINS missing or wrong"; exit 1)
 
           authMode='${cfg.ci.authMode}'
           if [ "$authMode" = "workload-identity" ]; then
             # WIF mode: GOOGLE_APPLICATION_CREDENTIALS must NOT be set.
-            echo "$ciEnv" | ${pkgs.jq}/bin/jq -e '.GOOGLE_APPLICATION_CREDENTIALS == null' \
+            echo $ciEnv | ${pkgs.jq}/bin/jq -e '.GOOGLE_APPLICATION_CREDENTIALS == null' \
               || (echo "FAIL: GOOGLE_APPLICATION_CREDENTIALS must not be set in workload-identity mode"; exit 1)
           else
             # ADC mode: GOOGLE_APPLICATION_CREDENTIALS must be present.
-            echo "$ciEnv" | ${pkgs.jq}/bin/jq -e '.GOOGLE_APPLICATION_CREDENTIALS != null' \
+            echo $ciEnv | ${pkgs.jq}/bin/jq -e '.GOOGLE_APPLICATION_CREDENTIALS != null' \
               || (echo "FAIL: GOOGLE_APPLICATION_CREDENTIALS must be set in application-default-credentials mode"; exit 1)
           fi
 
