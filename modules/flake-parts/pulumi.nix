@@ -195,17 +195,17 @@ in {
           echo "ci-pulumi env: $ciEnv"
 
           # PULUMI_IGNORE_AMBIENT_PLUGINS must always be present.
-          echo "$ciEnv" | ${pkgs.jq}/bin/jq -e '.PULUMI_IGNORE_AMBIENT_PLUGINS == "1"' \
+          echo $ciEnv | ${pkgs.jq}/bin/jq -e '.PULUMI_IGNORE_AMBIENT_PLUGINS == "1"' \
             || (echo "FAIL: PULUMI_IGNORE_AMBIENT_PLUGINS missing or wrong"; exit 1)
 
           authMode='${cfg.ci.authMode}'
           if [ "$authMode" = "workload-identity" ]; then
             # WIF mode: GOOGLE_APPLICATION_CREDENTIALS must NOT be set.
-            echo "$ciEnv" | ${pkgs.jq}/bin/jq -e '.GOOGLE_APPLICATION_CREDENTIALS == null' \
+            echo $ciEnv | ${pkgs.jq}/bin/jq -e '.GOOGLE_APPLICATION_CREDENTIALS == null' \
               || (echo "FAIL: GOOGLE_APPLICATION_CREDENTIALS must not be set in workload-identity mode"; exit 1)
           else
             # ADC mode: GOOGLE_APPLICATION_CREDENTIALS must be present.
-            echo "$ciEnv" | ${pkgs.jq}/bin/jq -e '.GOOGLE_APPLICATION_CREDENTIALS != null' \
+            echo $ciEnv | ${pkgs.jq}/bin/jq -e '.GOOGLE_APPLICATION_CREDENTIALS != null' \
               || (echo "FAIL: GOOGLE_APPLICATION_CREDENTIALS must be set in application-default-credentials mode"; exit 1)
           fi
 
