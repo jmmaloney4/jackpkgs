@@ -203,7 +203,7 @@ in {
       configModule = mkConfigModule {pythonEnable = true;};
     };
   in {
-    expr = hasChecksNamed checks ["python-pytest" "python-mypy" "python-ruff"];
+    expr = hasChecksNamed checks ["pytest" "mypy" "ruff"];
     expected = true;
   };
 
@@ -216,7 +216,7 @@ in {
       projectRoot = noWorkspaceFixture;
     };
   in {
-    expr = hasCheck checks "typescript-tsc";
+    expr = hasCheck checks "tsc";
     expected = true;
   };
 
@@ -229,7 +229,7 @@ in {
       projectRoot = noWorkspaceFixture;
     };
   in {
-    expr = missingCheck checks "typescript-tsc";
+    expr = missingCheck checks "tsc";
     expected = true;
   };
 
@@ -244,7 +244,7 @@ in {
       projectRoot = noWorkspaceFixture;
     };
   in {
-    expr = missingChecksNamed checks ["python-pytest" "python-mypy" "python-ruff" "python-numpydoc" "typescript-tsc"];
+    expr = missingChecksNamed checks ["pytest" "mypy" "ruff" "numpydoc" "tsc"];
     expected = true;
   };
 
@@ -253,7 +253,7 @@ in {
       configModule = mkConfigModule {pythonEnable = true;};
     };
   in {
-    expr = missingCheck checks "python-numpydoc";
+    expr = missingCheck checks "numpydoc";
     expected = true;
   };
 
@@ -262,7 +262,7 @@ in {
       configModule = mkConfigModule {pythonEnable = true;};
       projectRoot = pythonWorkspace;
     };
-    script = getBuildCommand checks.python-pytest;
+    script = getBuildCommand checks.pytest;
   in {
     expr =
       hasInfixAll ["/packages/pkg-a" "/packages/pkg-b" "/tools/cli"] script
@@ -279,7 +279,7 @@ in {
       };
       projectRoot = pythonWorkspaceDefault;
     };
-    script = getBuildCommand checks.python-pytest;
+    script = getBuildCommand checks.pytest;
   in {
     expr = lib.hasInfix "Checking ." script;
     expected = true;
@@ -292,7 +292,7 @@ in {
         extraConfig.jackpkgs.checks.python.pytest.extraArgs = ["--color=yes" "-v"];
       };
     };
-    script = getBuildCommand checks.python-pytest;
+    script = getBuildCommand checks.pytest;
   in {
     expr =
       hasInfixAll ["PYTHONPATH=" "COVERAGE_FILE=" "pytest" "--color=yes" "-v"] script;
@@ -306,7 +306,7 @@ in {
         extraConfig.jackpkgs.checks.python.mypy.extraArgs = ["--strict"];
       };
     };
-    script = getBuildCommand checks.python-mypy;
+    script = getBuildCommand checks.mypy;
   in {
     expr =
       hasInfixAll ["PYTHONPATH=" "MYPY_CACHE_DIR=" "mypy" "--strict"] script;
@@ -320,7 +320,7 @@ in {
         extraConfig.jackpkgs.checks.python.ruff.extraArgs = ["--no-cache"];
       };
     };
-    script = getBuildCommand checks.python-ruff;
+    script = getBuildCommand checks.ruff;
   in {
     expr = hasInfixAll ["ruff check" "--no-cache"] script;
     expected = true;
@@ -336,7 +336,7 @@ in {
         };
       };
     };
-    script = getBuildCommand checks.python-numpydoc;
+    script = getBuildCommand checks.numpydoc;
   in {
     expr =
       hasInfixAll [
@@ -356,7 +356,7 @@ in {
     checks = mkChecks {
       configModule = mkConfigModule {pythonEnable = true;};
     };
-    script = getBuildCommand checks.python-ruff;
+    script = getBuildCommand checks.ruff;
   in {
     expr = hasInfixAll ["ruff check" "--no-cache"] script;
     expected = true;
@@ -366,7 +366,7 @@ in {
     checks = mkChecks {
       configModule = mkConfigModule {pythonEnable = true;};
     };
-    script = getBuildCommand checks.python-ruff;
+    script = getBuildCommand checks.ruff;
   in {
     expr = hasInfixAll ["RUFF_CACHE_DIR=$TMPDIR"] script;
     expected = true;
@@ -380,7 +380,7 @@ in {
       };
     };
   in {
-    expr = missingCheck checks "python-ruff";
+    expr = missingCheck checks "ruff";
     expected = true;
   };
 
@@ -407,7 +407,7 @@ in {
         };
       };
     };
-    script = getBuildCommand checks.python-pytest;
+    script = getBuildCommand checks.pytest;
   in {
     # Verify that pytest runs (which means an env with groups was found/created)
     expr = lib.hasInfix "pytest" script;
@@ -437,7 +437,7 @@ in {
         };
       };
     };
-    script = getBuildCommand checks.python-pytest;
+    script = getBuildCommand checks.pytest;
   in {
     # Verify that pytest runs (which means dev env was selected)
     expr = lib.hasInfix "pytest" script;
@@ -461,7 +461,7 @@ in {
         };
       };
     };
-    script = getBuildCommand checks.python-pytest;
+    script = getBuildCommand checks.pytest;
   in {
     # Verify that pytest still runs (auto-created CI env should be used)
     expr = lib.hasInfix "pytest" script;
@@ -485,7 +485,7 @@ in {
         };
       };
     };
-    script = getBuildCommand checks.python-pytest;
+    script = getBuildCommand checks.pytest;
   in {
     # Verify that pytest runs (auto-created CI env should be used)
     expr = lib.hasInfix "pytest" script;
@@ -500,7 +500,7 @@ in {
       };
       projectRoot = pnpmWorkspace;
     };
-    script = getBuildCommand checks.typescript-tsc;
+    script = getBuildCommand checks.tsc;
   in {
     expr =
       hasInfixAll [
@@ -521,7 +521,7 @@ in {
       projectRoot = noWorkspaceFixture;
     };
   in {
-    expr = missingCheck checks "typescript-tsc";
+    expr = missingCheck checks "tsc";
     expected = true;
   };
 
@@ -533,7 +533,7 @@ in {
       };
       projectRoot = noWorkspaceFixture;
     };
-    script = getBuildCommand checks.typescript-tsc;
+    script = getBuildCommand checks.tsc;
   in {
     expr =
       hasInfixAll ["Type-checking infra" "Type-checking tools/hello"] script
@@ -551,7 +551,7 @@ in {
           };
         };
         projectRoot = pnpmWorkspace;
-      }).typescript-tsc
+      }).tsc
     );
   in {
     expr = result.success;
@@ -565,7 +565,7 @@ in {
       };
       projectRoot = pnpmWorkspaceYml;
     };
-    script = getBuildCommand checks.typescript-tsc;
+    script = getBuildCommand checks.tsc;
   in {
     expr = hasInfixAll ["Type-checking packages/app" "Type-checking packages/lib"] script;
     expected = true;
@@ -579,7 +579,7 @@ in {
       };
       projectRoot = noWorkspaceFixture;
     };
-    script = getBuildCommand checks.typescript-tsc;
+    script = getBuildCommand checks.tsc;
   in {
     expr =
       hasInfixAll [
@@ -603,7 +603,7 @@ in {
       };
       projectRoot = pnpmWorkspace;
     };
-    script = getBuildCommand checks.typescript-tsc;
+    script = getBuildCommand checks.tsc;
   in {
     expr =
       hasInfixAll [
@@ -630,7 +630,7 @@ in {
       };
       projectRoot = pnpmWorkspace;
     };
-    script = getBuildCommand checks.typescript-tsc;
+    script = getBuildCommand checks.tsc;
   in {
     expr =
       hasInfixAll [
@@ -654,7 +654,7 @@ in {
       projectRoot = pnpmWorkspace;
     };
   in {
-    expr = hasCheck checks "javascript-vitest";
+    expr = hasCheck checks "vitest";
     expected = true;
   };
 
@@ -668,7 +668,7 @@ in {
       };
       projectRoot = pnpmWorkspace;
     };
-    script = getBuildCommand checks.javascript-vitest;
+    script = getBuildCommand checks.vitest;
   in {
     # Note: When nodeModules is null, no PATH export is generated (security: no source-tree binaries)
     expr =
@@ -696,7 +696,7 @@ in {
       };
       projectRoot = pnpmWorkspace;
     };
-    script = getBuildCommand checks.javascript-vitest;
+    script = getBuildCommand checks.vitest;
   in {
     # Verify PATH is set to Nix store binaries (trusted only, not source tree)
     expr =
@@ -721,7 +721,7 @@ in {
       };
       projectRoot = pnpmWorkspace;
     };
-    script = getBuildCommand checks.javascript-vitest;
+    script = getBuildCommand checks.vitest;
   in {
     expr =
       hasInfixAll [
@@ -754,7 +754,7 @@ in {
     };
   in {
     # Verify the check is a valid derivation
-    expr = lib.isDerivation minimalPythonCheck.python-pytest;
+    expr = lib.isDerivation minimalPythonCheck.pytest;
     expected = true;
   };
 }

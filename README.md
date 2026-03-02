@@ -256,12 +256,12 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
 
 | Tool       | CI check derivation | Pre-commit hook | Stage        | Default                      |
 | ---------- | ------------------- | --------------- | ------------ | ---------------------------- |
-| `mypy`     | `python-mypy`       | `mypy`          | commit       | enabled                      |
-| `ruff`     | `python-ruff`       | `ruff`          | commit       | enabled                      |
-| `pytest`   | `python-pytest`     | `pytest`        | **pre-push** | enabled                      |
-| `numpydoc` | `python-numpydoc`   | `numpydoc`      | commit       | **disabled**                 |
-| `tsc`      | `typescript-tsc`    | `tsc`           | commit       | enabled when `nodejs.enable` |
-| `vitest`   | `javascript-vitest` | `vitest`        | **pre-push** | enabled when `nodejs.enable` |
+| `mypy`     | `mypy`              | `mypy`          | commit       | enabled                      |
+| `ruff`     | `ruff`              | `ruff`          | commit       | enabled                      |
+| `pytest`   | `pytest`            | `pytest`        | **pre-push** | enabled                      |
+| `numpydoc` | `numpydoc`          | `numpydoc`      | commit       | **disabled**                 |
+| `tsc`      | `tsc`               | `tsc`           | commit       | enabled when `nodejs.enable` |
+| `vitest`   | `vitest`            | `vitest`        | **pre-push** | enabled when `nodejs.enable` |
 
 - shell (`modules/flake-parts/devshell.nix`)
 

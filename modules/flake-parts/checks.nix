@@ -427,8 +427,8 @@ in {
         (
           lib.optionalAttrs cfg.python.pytest.enable {
             # pytest check
-            python-pytest = mkCheck {
-              name = "python-pytest";
+            pytest = mkCheck {
+              name = "pytest";
               buildInputs = [pythonEnvWithDevTools];
               setupCommands = ''
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
@@ -443,8 +443,8 @@ in {
           }
           // lib.optionalAttrs cfg.python.mypy.enable {
             # mypy check
-            python-mypy = mkCheck {
-              name = "python-mypy";
+            mypy = mkCheck {
+              name = "mypy";
               buildInputs = [pythonEnvWithDevTools];
               setupCommands = ''
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
@@ -459,8 +459,8 @@ in {
           }
           // lib.optionalAttrs cfg.python.ruff.enable {
             # ruff check
-            python-ruff = mkCheck {
-              name = "python-ruff";
+            ruff = mkCheck {
+              name = "ruff";
               buildInputs = [pythonEnvWithDevTools];
               setupCommands = ''
                 export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
@@ -474,8 +474,8 @@ in {
           }
           // lib.optionalAttrs cfg.python.numpydoc.enable {
             # numpydoc check
-            python-numpydoc = mkCheck {
-              name = "python-numpydoc";
+            numpydoc = mkCheck {
+              name = "numpydoc";
               buildInputs = [pythonEnvWithDevTools];
               setupCommands = ''
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
@@ -498,8 +498,8 @@ in {
       in
         lib.optionalAttrs (cfg.enable && cfg.typescript.tsc.enable && tsPackages != []) {
           # tsc check
-          typescript-tsc = mkCheck {
-            name = "typescript-tsc";
+          tsc = mkCheck {
+            name = "tsc";
             buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
             setupCommands = ''
               # Copy source to writeable directory
@@ -557,8 +557,8 @@ in {
         vitestPackages = getVitestPackages cfg;
       in
         lib.optionalAttrs (cfg.enable && cfg.vitest.enable && vitestPackages != []) {
-          javascript-vitest = mkCheck {
-            name = "javascript-vitest";
+          vitest = mkCheck {
+            name = "vitest";
             buildInputs = [pkgs.nodejs];
             setupCommands = ''
               # Copy source to writeable directory
