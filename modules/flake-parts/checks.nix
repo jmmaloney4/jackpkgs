@@ -270,10 +270,6 @@ in {
       # ============================================================
       # Helper Functions
       # ============================================================
-      # Parse pnpm-workspace.yaml to JSON
-      # Checks for .json sibling first (for tests without IFD), falls back to IFD via yq-go
-      # Supports either .yaml or .yml workspace filenames
-      # Can be overridden via jackpkgsFromYAML module arg for testing
       defaultFromYAML = yamlFile: let
         yamlFileStr = toString yamlFile;
         jsonFile = lib.removeSuffix ".yaml" (lib.removeSuffix ".yml" yamlFileStr) + ".json";
@@ -296,38 +292,10 @@ in {
         then cfg.fromYAML
         else defaultFromYAML;
 
-      # Discover packages from pnpm-workspace.yaml
-      discoverPnpmPackages = workspaceRoot: let
-        yamlPathYaml = workspaceRoot + "/pnpm-workspace.yaml";
-        yamlPathYml = workspaceRoot + "/pnpm-workspace.yml";
-        yamlPath =
-          if builtins.pathExists yamlPathYaml
-          then yamlPathYaml
-          else if builtins.pathExists yamlPathYml
-          then yamlPathYml
-          else null;
-        yamlExists = yamlPath != null;
-        workspaceYaml =
-          if yamlExists
-          then fromYAML yamlPath
-          else {};
-        patterns = workspaceYaml.packages or [];
-        workspaceGlobs =
-          if builtins.isList patterns
-          then patterns
-          else [];
-        negationPatterns = lib.filter (p: lib.hasPrefix "!" p) workspaceGlobs;
-        validatedWorkspaceGlobs =
-          if negationPatterns != []
-          then throw "Negation workspace patterns are not supported in jackpkgs.checks auto-discovery yet: ${lib.concatStringsSep ", " negationPatterns}. Use explicit jackpkgs.checks.typescript.tsc.packages / jackpkgs.checks.vitest.packages or track support in issue #157."
-          else workspaceGlobs;
-        allPackages = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) validatedWorkspaceGlobs);
-        hasPackageJson = pkg:
-          builtins.pathExists (workspaceRoot + "/${pkg}/package.json");
-      in
-        if yamlExists
-        then lib.filter hasPackageJson allPackages
-        else [];
+      discoverPnpmPackages = workspaceRoot:
+        jackpkgsLib.discoverPnpmPackages {
+          inherit workspaceRoot fromYAML jackpkgsLib;
+        };
 
       # Generic check factory
       mkCheck = {
@@ -353,29 +321,6 @@ in {
           (cd ${lib.escapeShellArg "${workspaceRoot}/${member}"} && ${perMemberCommand})
         '')
         members;
-
-      # Recreate workspace symlinks in the sandbox so that `workspace:*` inter-package
-      # dependencies resolve correctly.  Package names are read from package.json at Nix
-      # eval time (projectRoot is a store path, so the read is cheap and IFD-free).
-      # The symlink targets use $(pwd)/<pkg> so they remain correct after `cd src`.
-      mkWorkspaceSymlinks = packages:
-        lib.concatMapStringsSep "\n" (pkg: let
-          pkgJsonPath = projectRoot + "/${pkg}/package.json";
-          pkgName =
-            if builtins.pathExists pkgJsonPath
-            then (builtins.fromJSON (builtins.readFile pkgJsonPath)).name
-            else null;
-          # Scoped packages like @scope/name need the @scope/ directory first.
-          nameparts = lib.optionals (pkgName != null) (lib.splitString "/" pkgName);
-          isScoped = pkgName != null && lib.hasPrefix "@" pkgName && builtins.length nameparts == 2;
-          scope = lib.optionalString isScoped (builtins.elemAt nameparts 0);
-        in
-          if pkgName == null
-          then "# Skipping workspace symlink for ${pkg}: package.json not found"
-          else
-            lib.optionalString isScoped "mkdir -p node_modules/${lib.escapeShellArg scope}"
-            + "\nln -sfn \"$(pwd)/${lib.escapeShellArg pkg}\" node_modules/${lib.escapeShellArg pkgName}")
-        packages;
 
       # Link node_modules into the sandbox
       # Strategy: link root node_modules, then link per-package node_modules when present.
@@ -585,8 +530,7 @@ in {
                   else config.jackpkgs.outputs.nodeModules or null
                 )
                 tsPackages}
-              # Recreate workspace symlinks so workspace:* dependencies resolve
-              ${mkWorkspaceSymlinks tsPackages}
+              ${jackpkgsLib.mkWorkspaceSymlinks projectRoot tsPackages}
             '';
             checkCommands =
               lib.concatMapStringsSep "\n" (pkg: ''
@@ -713,8 +657,7 @@ in {
               chmod -R +w src
               cd src
               ${linkNodeModules biomeNodeModules biomePackages}
-              # Recreate workspace symlinks so workspace:* dependencies resolve
-              ${mkWorkspaceSymlinks biomePackages}
+              ${jackpkgsLib.mkWorkspaceSymlinks projectRoot biomePackages}
               ${lib.optionalString (biomeNodeModules != null) ''
                 # Add Nix store node_modules binaries (including biome) to PATH
                 ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" biomeNodeModules}
@@ -753,7 +696,6 @@ in {
               biomePackages;
           };
         };
-
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [
