@@ -164,6 +164,56 @@ in {
         };
       };
 
+      # Biome lint check
+      # Note: Biome formatting is handled separately by the `fmt` module via treefmt.
+      # This check runs `biome lint` (lint only, no format enforcement) per workspace
+      # package, mirroring the same fan-out pattern as `typescript.tsc`.
+      biome.lint = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = ''
+            Enable Biome lint checks. Disabled by default; opt in with
+            `jackpkgs.checks.biome.lint.enable = true;`.
+
+            Runs `biome lint` per workspace package. Biome formatting is handled
+            separately by the `fmt` module (treefmt); this check is lint-only to
+            avoid duplicate reporting.
+          '';
+        };
+
+        nodeModules = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          description = ''
+            Derivation containing the `node_modules` structure (and the `biome`
+            binary within it) to link before running checks.
+
+            When null, falls back to `config.jackpkgs.outputs.nodeModules` if
+            available.
+          '';
+        };
+
+        packages = mkOption {
+          type = types.nullOr (types.listOf types.str);
+          default = null;
+          description = ''
+            List of workspace packages to lint.
+
+            If null, packages will be auto-discovered from pnpm-workspace.yaml,
+            matching the same default as `typescript.tsc.packages`.
+          '';
+          example = ["infra" "tools/hello"];
+        };
+
+        extraArgs = mkOption {
+          type = types.listOf types.str;
+          default = [];
+          description = "Extra arguments to pass to `biome lint`";
+          example = ["--reporter=github"];
+        };
+      };
+
       # Vitest check
       vitest = {
         enable =
@@ -303,6 +353,29 @@ in {
           (cd ${lib.escapeShellArg "${workspaceRoot}/${member}"} && ${perMemberCommand})
         '')
         members;
+
+      # Recreate workspace symlinks in the sandbox so that `workspace:*` inter-package
+      # dependencies resolve correctly.  Package names are read from package.json at Nix
+      # eval time (projectRoot is a store path, so the read is cheap and IFD-free).
+      # The symlink targets use $(pwd)/<pkg> so they remain correct after `cd src`.
+      mkWorkspaceSymlinks = packages:
+        lib.concatMapStringsSep "\n" (pkg: let
+          pkgJsonPath = projectRoot + "/${pkg}/package.json";
+          pkgName =
+            if builtins.pathExists pkgJsonPath
+            then (builtins.fromJSON (builtins.readFile pkgJsonPath)).name
+            else null;
+          # Scoped packages like @scope/name need the @scope/ directory first.
+          nameparts = lib.optionals (pkgName != null) (lib.splitString "/" pkgName);
+          isScoped = pkgName != null && lib.hasPrefix "@" pkgName && builtins.length nameparts == 2;
+          scope = lib.optionalString isScoped (builtins.elemAt nameparts 0);
+        in
+          if pkgName == null
+          then "# Skipping workspace symlink for ${pkg}: package.json not found"
+          else
+            lib.optionalString isScoped "mkdir -p node_modules/${lib.escapeShellArg scope}"
+            + "\nln -sfn \"$(pwd)/${lib.escapeShellArg pkg}\" node_modules/${lib.escapeShellArg pkgName}")
+        packages;
 
       # Link node_modules into the sandbox
       # Strategy: link root node_modules, then link per-package node_modules when present.
@@ -512,6 +585,8 @@ in {
                   else config.jackpkgs.outputs.nodeModules or null
                 )
                 tsPackages}
+              # Recreate workspace symlinks so workspace:* dependencies resolve
+              ${mkWorkspaceSymlinks tsPackages}
             '';
             checkCommands =
               lib.concatMapStringsSep "\n" (pkg: ''
@@ -611,12 +686,81 @@ in {
               vitestPackages;
           };
         };
+      # ============================================================
+      # Biome Lint Checks
+      # ============================================================
+
+      biomeNodeModules =
+        if cfg.biome.lint.nodeModules != null
+        then cfg.biome.lint.nodeModules
+        else config.jackpkgs.outputs.nodeModules or null;
+
+      getBiomePackages = cfg':
+        if cfg'.biome.lint.packages != null
+        then map jackpkgsLib.validateWorkspacePath cfg'.biome.lint.packages
+        else discoverPnpmPackages projectRoot;
+
+      biomeChecks = let
+        biomePackages = getBiomePackages cfg;
+      in
+        lib.optionalAttrs (cfg.enable && cfg.biome.lint.enable && biomePackages != []) {
+          biome-lint = mkCheck {
+            name = "biome-lint";
+            buildInputs = [pkgs.nodejs];
+            setupCommands = ''
+              # Copy source to writeable directory
+              cp -R ${projectRoot} src
+              chmod -R +w src
+              cd src
+              ${linkNodeModules biomeNodeModules biomePackages}
+              # Recreate workspace symlinks so workspace:* dependencies resolve
+              ${mkWorkspaceSymlinks biomePackages}
+              ${lib.optionalString (biomeNodeModules != null) ''
+                # Add Nix store node_modules binaries (including biome) to PATH
+                ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" biomeNodeModules}
+                if [ -n "$nm_bin" ]; then
+                  export PATH="$nm_bin:$PATH"
+                fi
+              ''}
+              # Locate biome binary
+              if command -v biome >/dev/null 2>&1; then
+                BIOME_BIN="biome"
+              else
+                cat >&2 <<'EOF'
+              ERROR: biome binary not found for lint check.
+
+              Enable the Node.js module so that biome is available in node_modules:
+
+                  jackpkgs.nodejs.enable = true;
+
+              Or set a custom node_modules derivation:
+
+                  jackpkgs.checks.biome.lint.nodeModules = <derivation>;
+
+              To disable Biome lint checks: jackpkgs.checks.biome.lint.enable = false;
+              EOF
+                exit 1
+              fi
+              export BIOME_BIN
+            '';
+            checkCommands =
+              lib.concatMapStringsSep "\n" (pkg: ''
+                echo "Linting ${lib.escapeShellArg pkg}..."
+                cd ${lib.escapeShellArg pkg}
+                "$BIOME_BIN" lint ${lib.escapeShellArgs cfg.biome.lint.extraArgs} .
+                cd - >/dev/null
+              '')
+              biomePackages;
+          };
+        };
+
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [
         {checks = pythonChecks;}
         {checks = typescriptChecks;}
         {checks = vitestChecks;}
+        {checks = biomeChecks;}
       ];
   };
 }

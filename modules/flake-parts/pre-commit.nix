@@ -136,6 +136,19 @@ in {
                 if available.
               '';
             };
+
+            packages = mkOption {
+              type = types.nullOr (types.listOf types.str);
+              default = null;
+              description = ''
+                List of workspace packages to type-check per-commit.
+
+                Defaults to `jackpkgs.checks.typescript.tsc.packages` (which
+                itself defaults to auto-discovery from pnpm-workspace.yaml).
+                Override here only if you need a different set for the pre-commit
+                hook than for CI.
+              '';
+            };
           };
         };
 
@@ -159,6 +172,55 @@ in {
                 if available.
               '';
             };
+
+            packages = mkOption {
+              type = types.nullOr (types.listOf types.str);
+              default = null;
+              description = ''
+                List of workspace packages to run vitest for pre-push.
+
+                Defaults to `jackpkgs.checks.vitest.packages` (which itself
+                defaults to auto-discovery from pnpm-workspace.yaml).
+                Override here only if you need a different set for the pre-commit
+                hook than for CI.
+              '';
+            };
+          };
+        };
+
+        biome = {
+          lint = {
+            package = mkOption {
+              type = types.package;
+              default = pkgs.nodejs;
+              defaultText = "pkgs.nodejs";
+              description = "Node.js runtime package used to execute biome.";
+            };
+
+            nodeModules = mkOption {
+              type = types.nullOr types.package;
+              default = null;
+              description = ''
+                Derivation containing a `node_modules` tree (including the
+                `biome` binary) to link before running the hook.
+
+                When null, falls back to `config.jackpkgs.outputs.nodeModules`
+                if available.
+              '';
+            };
+
+            packages = mkOption {
+              type = types.nullOr (types.listOf types.str);
+              default = null;
+              description = ''
+                List of workspace packages to lint per-commit.
+
+                Defaults to `jackpkgs.checks.biome.lint.packages` (which itself
+                defaults to auto-discovery from pnpm-workspace.yaml).
+                Override here only if you need a different set for the pre-commit
+                hook than for CI.
+              '';
+            };
           };
         };
       };
@@ -179,6 +241,7 @@ in {
         pkgs,
         lib,
         config,
+        jackpkgsProjectRoot ? null,
         ...
       }: let
         sysCfg = config.jackpkgs.pre-commit;
@@ -196,6 +259,68 @@ in {
           then sysCfg.javascript.vitest.nodeModules
           else defaultNodeModules;
 
+        # Mirror checks.nix: resolve projectRoot the same way so workspace
+        # package discovery is consistent between CI checks and pre-commit hooks.
+        projectRoot =
+          if jackpkgsProjectRoot != null
+          then jackpkgsProjectRoot
+          else config.jackpkgs.projectRoot or inputs.self.outPath;
+
+        # Replicated from checks.nix (pure-Nix portion only; yq fallback omitted
+        # since pre-commit runs at dev-time where pnpm-workspace.yaml is always
+        # a plain YAML file readable by builtins.fromJSON after yq conversion --
+        # but here we only need the pure path since projectRoot is a store path).
+        discoverPnpmPackages = workspaceRoot: let
+          yamlPathYaml = workspaceRoot + "/pnpm-workspace.yaml";
+          yamlPathYml = workspaceRoot + "/pnpm-workspace.yml";
+          yamlPath =
+            if builtins.pathExists yamlPathYaml
+            then yamlPathYaml
+            else if builtins.pathExists yamlPathYml
+            then yamlPathYml
+            else null;
+          workspaceYaml =
+            if yamlPath != null
+            then builtins.fromJSON (builtins.readFile (pkgs.runCommand "yaml-to-json" {nativeBuildInputs = [pkgs.yq-go];} ''yq -o=json '.' ${yamlPath} > $out''))
+            else {};
+          patterns = workspaceYaml.packages or [];
+          workspaceGlobs =
+            if builtins.isList patterns
+            then lib.filter (p: !lib.hasPrefix "!" p) patterns
+            else [];
+          allPackages = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) workspaceGlobs);
+          hasPackageJson = pkg: builtins.pathExists (workspaceRoot + "/${pkg}/package.json");
+        in
+          if yamlPath != null
+          then lib.filter hasPackageJson allPackages
+          else [];
+
+        tscPackages =
+          if sysCfg.typescript.tsc.packages != null
+          then map jackpkgsLib.validateWorkspacePath sysCfg.typescript.tsc.packages
+          else if (lib.attrByPath ["typescript" "tsc" "packages"] null checksCfg) != null
+          then map jackpkgsLib.validateWorkspacePath checksCfg.typescript.tsc.packages
+          else discoverPnpmPackages projectRoot;
+
+        vitestPackages =
+          if sysCfg.javascript.vitest.packages != null
+          then map jackpkgsLib.validateWorkspacePath sysCfg.javascript.vitest.packages
+          else if (lib.attrByPath ["vitest" "packages"] null checksCfg) != null
+          then map jackpkgsLib.validateWorkspacePath checksCfg.vitest.packages
+          else discoverPnpmPackages projectRoot;
+
+        biomeNodeModules =
+          if sysCfg.biome.lint.nodeModules != null
+          then sysCfg.biome.lint.nodeModules
+          else defaultNodeModules;
+
+        biomePackages =
+          if sysCfg.biome.lint.packages != null
+          then map jackpkgsLib.validateWorkspacePath sysCfg.biome.lint.packages
+          else if (lib.attrByPath ["biome" "lint" "packages"] null checksCfg) != null
+          then map jackpkgsLib.validateWorkspacePath checksCfg.biome.lint.packages
+          else discoverPnpmPackages projectRoot;
+
         mkNodeModulesSetup = nodeModules: ''
           nm_store=${lib.escapeShellArg (toString nodeModules)}
           ${jackpkgsLib.nodejs.findNodeModulesRoot "nm_root" "$nm_store"}
@@ -210,13 +335,66 @@ in {
           fi
         '';
 
+        # Recreate workspace symlinks so that workspace:* inter-package dependencies
+        # resolve correctly. Package names are read from package.json at Nix eval
+        # time (projectRoot is a store path). Mirrors the same helper in checks.nix.
+        mkWorkspaceSymlinks = packages:
+          lib.concatMapStringsSep "\n" (pkg: let
+            pkgJsonPath = projectRoot + "/${pkg}/package.json";
+            pkgName =
+              if builtins.pathExists pkgJsonPath
+              then (builtins.fromJSON (builtins.readFile pkgJsonPath)).name
+              else null;
+            nameparts = lib.optionals (pkgName != null) (lib.splitString "/" pkgName);
+            isScoped = pkgName != null && lib.hasPrefix "@" pkgName && builtins.length nameparts == 2;
+            scope = lib.optionalString isScoped (builtins.elemAt nameparts 0);
+          in
+            if pkgName == null
+            then "# Skipping workspace symlink for ${pkg}: package.json not found"
+            else
+              lib.optionalString isScoped "mkdir -p node_modules/${lib.escapeShellArg scope}\n"
+              + "ln -sfn \"$(pwd)/${lib.escapeShellArg pkg}\" node_modules/${lib.escapeShellArg pkgName}")
+          packages;
+
+        biomeLintEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
+          ${lib.optionalString (biomeNodeModules != null) (mkNodeModulesSetup biomeNodeModules)}
+          ${lib.optionalString (biomeNodeModules != null) (mkWorkspaceSymlinks biomePackages)}
+          if command -v biome >/dev/null 2>&1; then
+            BIOME_BIN="biome"
+          else
+            cat >&2 <<'EOF'
+            ERROR: biome binary not found for lint pre-commit hook.
+
+            Enable the Node.js module so that biome is available via node_modules:
+
+                jackpkgs.nodejs.enable = true;
+
+            Or set a custom node_modules derivation:
+
+                jackpkgs.pre-commit.biome.lint.nodeModules = <derivation>;
+
+            To disable the Biome lint hook:
+
+                jackpkgs.checks.biome.lint.enable = false;
+            EOF
+            exit 1
+          fi
+
+          ${lib.concatMapStringsSep "\n" (pkg: ''
+            (cd ${lib.escapeShellArg pkg} && "$BIOME_BIN" lint${escapeExtraArgs checksCfg.biome.lint.extraArgs} .)
+          '') biomePackages}
+        ''}";
+
         tscExe = lib.getExe' sysCfg.typescript.tsc.package "tsc";
 
         tscEntry =
           if tscNodeModules != null
           then "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
             ${mkNodeModulesSetup tscNodeModules}
-            ${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs}
+            ${mkWorkspaceSymlinks tscPackages}
+            ${lib.concatMapStringsSep "\n" (pkg: ''
+              (cd ${lib.escapeShellArg pkg} && ${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs})
+            '') tscPackages}
           ''}"
           else "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
             cat >&2 <<'EOF'
@@ -241,6 +419,7 @@ in {
 
         vitestEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
           ${lib.optionalString (vitestNodeModules != null) (mkNodeModulesSetup vitestNodeModules)}
+          ${lib.optionalString (vitestNodeModules != null) (mkWorkspaceSymlinks vitestPackages)}
           if [ -x "./node_modules/.bin/vitest" ]; then
             VITEST_BIN="./node_modules/.bin/vitest"
           elif command -v vitest >/dev/null 2>&1; then
@@ -264,7 +443,9 @@ in {
             exit 1
           fi
 
-          "$VITEST_BIN" run${escapeExtraArgs checksCfg.vitest.extraArgs}
+          ${lib.concatMapStringsSep "\n" (pkg: ''
+            (cd ${lib.escapeShellArg pkg} && "$VITEST_BIN" run${escapeExtraArgs checksCfg.vitest.extraArgs})
+          '') vitestPackages}
         ''}";
       in {
         pre-commit = {
@@ -331,6 +512,14 @@ in {
             entry = vitestEntry;
             files = "\\.(js|ts|jsx|tsx)$";
             stages = ["pre-push"];
+            pass_filenames = false;
+          };
+
+          settings.hooks.biome-lint = {
+            enable = lib.attrByPath ["biome" "lint" "enable"] false checksCfg;
+            package = sysCfg.biome.lint.package;
+            entry = biomeLintEntry;
+            files = "\\.(js|ts|jsx|tsx|json|jsonc|json5)$";
             pass_filenames = false;
           };
         };
