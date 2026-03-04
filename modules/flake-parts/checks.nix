@@ -548,10 +548,21 @@ in {
       # Vitest Checks
       # ============================================================
 
-      vitestNodeModules =
-        if cfg.vitest.nodeModules != null
-        then cfg.vitest.nodeModules
-        else config.jackpkgs.outputs.nodeModules or null;
+      vitestNodeModules = let
+        resolved =
+          if cfg.vitest.nodeModules != null
+          then cfg.vitest.nodeModules
+          else config.jackpkgs.outputs.nodeModules or null;
+      in
+        if cfg.enable && cfg.vitest.enable && resolved == null
+        then
+          throw ''
+            jackpkgs.checks.vitest is enabled but no nodeModules derivation is available.
+            Either enable `jackpkgs.nodejs` (which provides nodeModules automatically) or set
+            `jackpkgs.checks.vitest.nodeModules` to a derivation containing node_modules.
+            Without nodeModules, the vitest binary cannot be found in the check environment.
+          ''
+        else resolved;
 
       vitestChecks = let
         vitestPackages = getVitestPackages cfg;
@@ -582,9 +593,11 @@ in {
               # 1. PATH (includes Nix store paths from nodeModules derivation)
               # 2. Linked node_modules from Nix store (never from source tree)
               if command -v vitest >/dev/null 2>&1; then
-                VITEST_BIN="vitest"
+                VITEST_BIN="$(command -v vitest)"
               else
-                VITEST_BIN=""
+                echo "ERROR: vitest binary not found in PATH." >&2
+                echo "Ensure vitest is listed as a devDependency and nodeModules is provided." >&2
+                exit 1
               fi
               export VITEST_BIN
             '';
@@ -592,15 +605,7 @@ in {
               lib.concatMapStringsSep "\n" (pkg: ''
                 echo "Testing ${lib.escapeShellArg pkg}..."
                 cd ${lib.escapeShellArg pkg}
-
-                # Use vitest binary found in setupCommands
-                if [ -n "$VITEST_BIN" ]; then
-                  $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
-                else
-                  echo "WARNING: Vitest binary not found for ${lib.escapeShellArg pkg}, skipping."
-                  # Don't fail the build if vitest isn't set up for this specific package
-                  # (some packages in workspace might not have tests)
-                fi
+                "$VITEST_BIN" ${lib.escapeShellArgs cfg.vitest.extraArgs}
                 cd - >/dev/null
               '')
               vitestPackages;
