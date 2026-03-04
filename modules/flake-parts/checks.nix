@@ -518,34 +518,31 @@ in {
                 tsPackages}
               ${jackpkgsLib.mkWorkspaceSymlinks projectRoot tsPackages}
             '';
-            checkCommands =
-              lib.concatMapStringsSep "\n" (pkg: ''
-                                            echo "Type-checking ${lib.escapeShellArg pkg}..."
-
-                                            # Validate node_modules exists
-                                            if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg pkg}/node_modules ]; then
-                                              cat >&2 <<'EOF'
-                ERROR: node_modules not found for package: ${lib.escapeShellArg pkg}
-
-                TypeScript checks require node_modules to be present.
-
-                Enable the Node.js module to provide node_modules for checks:
-
-                    jackpkgs.nodejs.enable = true;
-
-                This provides a pure, reproducible node_modules derivation that works
-                in Nix sandbox builds.
-
-                To disable TypeScript checks: jackpkgs.checks.typescript.tsc.enable = false;
-                EOF
-                                              exit 1
-                                            fi
-
-                                            cd ${lib.escapeShellArg pkg}
-                                            tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
-                                            cd - >/dev/null
-              '')
-              tsPackages;
+            checkCommands = ''
+              # Validate node_modules exists before iterating packages
+              if [ ! -d "node_modules" ]; then
+                printf '%s\n' \
+                  "ERROR: node_modules not found." \
+                  "" \
+                  "TypeScript checks require node_modules to be present." \
+                  "" \
+                  "Enable the Node.js module to provide node_modules for checks:" \
+                  "" \
+                  "    jackpkgs.nodejs.enable = true;" \
+                  "" \
+                  "This provides a pure, reproducible node_modules derivation that works" \
+                  "in Nix sandbox builds." \
+                  "" \
+                  "To disable TypeScript checks: jackpkgs.checks.typescript.tsc.enable = false;" \
+                  >&2
+                exit 1
+              fi
+              ${forEachWorkspaceMember {
+                workspaceRoot = ".";
+                members = tsPackages;
+                perMemberCommand = "tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}";
+              }}
+            '';
           };
         };
 
@@ -606,14 +603,16 @@ in {
               fi
               export VITEST_BIN
             '';
-            checkCommands =
-              lib.concatMapStringsSep "\n" (pkg: ''
-                echo "Testing ${lib.escapeShellArg pkg}..."
-                cd ${lib.escapeShellArg pkg}
-                "$VITEST_BIN" ${lib.escapeShellArgs cfg.vitest.extraArgs}
-                cd - >/dev/null
-              '')
-              vitestPackages;
+            checkCommands = forEachWorkspaceMember {
+              workspaceRoot = ".";
+              members = vitestPackages;
+              perMemberCommand = ''
+                if [ -n "$VITEST_BIN" ]; then
+                  $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
+                else
+                  echo "WARNING: Vitest binary not found, skipping."
+                fi'';
+            };
           };
         };
       # ============================================================
@@ -655,31 +654,28 @@ in {
               if command -v biome >/dev/null 2>&1; then
                 BIOME_BIN="biome"
               else
-                cat >&2 <<'EOF'
-              ERROR: biome binary not found for lint check.
-
-              Enable the Node.js module so that biome is available in node_modules:
-
-                  jackpkgs.nodejs.enable = true;
-
-              Or set a custom node_modules derivation:
-
-                  jackpkgs.checks.biome.lint.nodeModules = <derivation>;
-
-              To disable Biome lint checks: jackpkgs.checks.biome.lint.enable = false;
-              EOF
+                printf '%s\n' \
+                  "ERROR: biome binary not found for lint check." \
+                  "" \
+                  "Enable the Node.js module so that biome is available in node_modules:" \
+                  "" \
+                  "    jackpkgs.nodejs.enable = true;" \
+                  "" \
+                  "Or set a custom node_modules derivation:" \
+                  "" \
+                  "    jackpkgs.checks.biome.lint.nodeModules = <derivation>;" \
+                  "" \
+                  "To disable Biome lint checks: jackpkgs.checks.biome.lint.enable = false;" \
+                  >&2
                 exit 1
               fi
               export BIOME_BIN
             '';
-            checkCommands =
-              lib.concatMapStringsSep "\n" (pkg: ''
-                echo "Linting ${lib.escapeShellArg pkg}..."
-                cd ${lib.escapeShellArg pkg}
-                "$BIOME_BIN" lint ${lib.escapeShellArgs cfg.biome.lint.extraArgs} .
-                cd - >/dev/null
-              '')
-              biomePackages;
+            checkCommands = forEachWorkspaceMember {
+              workspaceRoot = ".";
+              members = biomePackages;
+              perMemberCommand = ''"$BIOME_BIN" lint ${lib.escapeShellArgs cfg.biome.lint.extraArgs} .'';
+            };
           };
         };
     in
