@@ -266,12 +266,12 @@ in {
           then jackpkgsProjectRoot
           else config.jackpkgs.projectRoot or inputs.self.outPath;
 
-        # YAML parser for pnpm-workspace.yaml using yq-go IFD.
-        # Pre-commit runs at dev-time where the workspace file is always present.
-        preCommitFromYAML = yamlFile:
-          builtins.fromJSON (builtins.readFile (pkgs.runCommand "yaml-to-json" {
-            nativeBuildInputs = [pkgs.yq-go];
-          } "yq -o=json '.' ${yamlFile} > $out"));
+        # YAML parser for pnpm-workspace.yaml.
+        # Uses the shared mkFromYAML from jackpkgsLib with the JSON-sidecar
+        # optimisation enabled, matching checks.nix behaviour.  Previously
+        # pre-commit.nix always invoked yq-go IFD, which was slower and
+        # silently diverged from the CI path.
+        preCommitFromYAML = jackpkgsLib.mkFromYAML {jsonSidecar = true;};
 
         discoverPnpmPackages = workspaceRoot:
           jackpkgsLib.discoverPnpmPackages {

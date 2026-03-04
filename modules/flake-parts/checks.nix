@@ -270,27 +270,13 @@ in {
       # ============================================================
       # Helper Functions
       # ============================================================
-      defaultFromYAML = yamlFile: let
-        yamlFileStr = toString yamlFile;
-        jsonFile = lib.removeSuffix ".yaml" (lib.removeSuffix ".yml" yamlFileStr) + ".json";
-        jsonExists = builtins.pathExists jsonFile;
-      in
-        if jsonExists
-        then builtins.fromJSON (builtins.readFile jsonFile)
-        else let
-          jsonDrv =
-            pkgs.runCommand "yaml-to-json" {
-              nativeBuildInputs = [pkgs.yq-go];
-            } ''
-              yq -o=json '.' ${yamlFile} > $out
-            '';
-        in
-          builtins.fromJSON (builtins.readFile jsonDrv);
-
+      # Use the shared mkFromYAML from jackpkgsLib (with JSON-sidecar optimisation
+      # enabled: if a .json file exists beside the .yaml/.yml it is read directly,
+      # avoiding an IFD build for each evaluation).
       fromYAML =
         if cfg.fromYAML != null
         then cfg.fromYAML
-        else defaultFromYAML;
+        else jackpkgsLib.mkFromYAML {jsonSidecar = true;};
 
       discoverPnpmPackages = workspaceRoot:
         jackpkgsLib.discoverPnpmPackages {
