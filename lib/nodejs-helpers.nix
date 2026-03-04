@@ -2,21 +2,29 @@
   # ---------------------------------------------------------------------------
   # Validation helpers
   # ---------------------------------------------------------------------------
+  # Private primitive: throw if `needle` is found in `s`, otherwise return `s`.
+  # Used to compose validateWorkspacePath and validatePackageName without
+  # repeating the hasInfix pattern for every checked substring.
+  assertNotContains = needle: msg: s:
+    if lib.hasInfix needle s
+    then throw msg
+    else s;
+
   validateWorkspacePath = path:
-    if lib.hasInfix ".." path
-    then throw "Invalid workspace path '${path}': contains '..' (path traversal not allowed)"
-    else if lib.hasPrefix "/" path
-    then throw "Invalid workspace path '${path}': absolute paths not allowed"
-    else if lib.hasInfix "\n" path
-    then throw "Invalid workspace path '${path}': contains newline"
-    else path;
+    lib.pipe path [
+      (assertNotContains ".." "Invalid workspace path '${path}': contains '..' (path traversal not allowed)")
+      (assertNotContains "\n" "Invalid workspace path '${path}': contains newline")
+      (p:
+        if lib.hasPrefix "/" p
+        then throw "Invalid workspace path '${path}': absolute paths not allowed"
+        else p)
+    ];
 
   validatePackageName = name:
-    if lib.hasInfix ".." name
-    then throw "Invalid package name '${name}': contains '..' (path traversal not allowed)"
-    else if lib.hasInfix "\n" name
-    then throw "Invalid package name '${name}': contains newline"
-    else name;
+    lib.pipe name [
+      (assertNotContains ".." "Invalid package name '${name}': contains '..' (path traversal not allowed)")
+      (assertNotContains "\n" "Invalid package name '${name}': contains newline")
+    ];
 
   # ---------------------------------------------------------------------------
   # Workspace glob expansion
