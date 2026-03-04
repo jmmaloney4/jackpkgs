@@ -51,8 +51,8 @@
       if pkgName == null
       then "# Skipping workspace symlink for ${pkg}: package.json not found"
       else
-        lib.optionalString isScoped "mkdir -p node_modules/${lib.escapeShellArg scope}"
-        + "\nln -sfn \"$(pwd)/${lib.escapeShellArg pkg}\" node_modules/${lib.escapeShellArg pkgName}")
+        lib.optionalString isScoped "mkdir -p ${lib.escapeShellArg "node_modules/${scope}"}"
+        + "\nln -sfn ${lib.escapeShellArg "$(pwd)/${pkg}"} ${lib.escapeShellArg "node_modules/${pkgName}"}")
     packages;
 
   discoverPnpmPackages = {
