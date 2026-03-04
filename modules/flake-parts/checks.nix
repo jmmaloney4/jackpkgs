@@ -294,7 +294,7 @@ in {
 
       discoverPnpmPackages = workspaceRoot:
         jackpkgsLib.discoverPnpmPackages {
-          inherit workspaceRoot fromYAML jackpkgsLib;
+          inherit workspaceRoot fromYAML;
         };
 
       # Generic check factory

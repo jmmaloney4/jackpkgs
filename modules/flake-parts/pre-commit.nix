@@ -275,7 +275,7 @@ in {
 
         discoverPnpmPackages = workspaceRoot:
           jackpkgsLib.discoverPnpmPackages {
-            inherit workspaceRoot jackpkgsLib;
+            inherit workspaceRoot;
             fromYAML = preCommitFromYAML;
           };
 
