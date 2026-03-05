@@ -724,7 +724,7 @@ in {
             '';
             checkCommands = ''
               bean-check ${lib.escapeShellArgs cfg.beancount.extraArgs} \
-                ledger/${builtins.baseNameOf cfg.beancount.ledgerFile}
+                ledger/${lib.escapeShellArg (builtins.baseNameOf cfg.beancount.ledgerFile)}
             '';
           };
         };
