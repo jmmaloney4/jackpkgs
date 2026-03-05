@@ -114,6 +114,7 @@
         perSystem = {pkgs, ...}:
           lib.recursiveUpdate
           {
+            _module.args.jackpkgsProjectRoot = null;
             jackpkgs.pre-commit = {
               treefmtPackage = pkgs.treefmt;
               nbstripoutPackage = pkgs.nbstripout;
