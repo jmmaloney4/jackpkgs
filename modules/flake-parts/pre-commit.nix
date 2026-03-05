@@ -246,6 +246,13 @@ in {
       }: let
         sysCfg = config.jackpkgs.pre-commit;
 
+        # jackpkgsLib (from top-level _module.args) only contains nodejs-helpers
+        # which are lib-only.  Augment it with pkgs-aware helpers from
+        # lib/default.nix (mkFromYAML, etc.) that require pkgs, only available
+        # inside perSystem.
+        jackpkgsLibFull =
+          jackpkgsLib // (import ../../lib {inherit pkgs;});
+
         escapeExtraArgs = args:
           lib.optionalString (args != []) " ${lib.escapeShellArgs args}";
 
@@ -271,7 +278,7 @@ in {
         # optimisation enabled, matching checks.nix behaviour.  Previously
         # pre-commit.nix always invoked yq-go IFD, which was slower and
         # silently diverged from the CI path.
-        preCommitFromYAML = jackpkgsLib.mkFromYAML {jsonSidecar = true;};
+        preCommitFromYAML = jackpkgsLibFull.mkFromYAML {jsonSidecar = true;};
 
         discoverPnpmPackages = workspaceRoot:
           jackpkgsLib.discoverPnpmPackages {
