@@ -7,6 +7,40 @@ with pkgs.lib; rec {
   justfile = import ./justfile-helpers.nix {lib = pkgs.lib;};
 
   /**
+  Build a YAML-to-Nix parser backed by yq-go IFD with an optional JSON
+  sidecar optimisation.
+
+  Returns a function `fromYAML :: path -> attrset` suitable for passing to
+  `discoverPnpmPackages` and other helpers that need to read YAML at
+  evaluation time.
+
+  The `jsonSidecar` flag (default: true) enables the fast path: if a
+  pre-generated `.json` file exists adjacent to the `.yaml`/`.yml` file it
+  is read with `builtins.fromJSON` and no derivation is built.  When false
+  (or when the sidecar is absent) a `pkgs.runCommand` derivation invoking
+  `yq -o=json` is used instead.
+
+  Example:
+
+  ```nix
+  let fromYAML = jackpkgsLib.mkFromYAML { jsonSidecar = true; };
+  in jackpkgsLib.discoverPnpmPackages { inherit workspaceRoot fromYAML; }
+  ```
+  */
+  mkFromYAML = {jsonSidecar ? true}: yamlFile: let
+    yamlFileStr = toString yamlFile;
+    jsonFile = removeSuffix ".yaml" (removeSuffix ".yml" yamlFileStr) + ".json";
+    jsonExists = jsonSidecar && builtins.pathExists jsonFile;
+  in
+    if jsonExists
+    then builtins.fromJSON (builtins.readFile jsonFile)
+    else
+      builtins.fromJSON (builtins.readFile (pkgs.runCommand "yaml-to-json" {
+          nativeBuildInputs = [pkgs.yq-go];
+        }
+        "yq -o=json '.' ${yamlFile} > $out"));
+
+  /**
   Filter an attribute set so that it is returned only when the
   evaluation `system` is included in `systems`.
 

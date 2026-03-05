@@ -85,7 +85,22 @@ in {
         # biome lints and formats js/ts code
         programs.biome = {
           enable = true;
-          includes = ["**/*.ts" "**/*.tsx" "**/*.json" "**/*.jsonc" "**/*.json5"];
+          # Include both bare patterns (for root-level files) and ** patterns
+          # (for nested files). treefmt's ** glob requires at least one directory
+          # separator, so root-level files like package.json are excluded without
+          # the bare *.ext forms.
+          includes = [
+            "*.ts"
+            "*.tsx"
+            "*.json"
+            "*.jsonc"
+            "*.json5"
+            "**/*.ts"
+            "**/*.tsx"
+            "**/*.json"
+            "**/*.jsonc"
+            "**/*.json5"
+          ];
           inherit excludes;
         };
         programs.hujsonfmt = {

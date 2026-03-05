@@ -164,6 +164,56 @@ in {
         };
       };
 
+      # Biome lint check
+      # Note: Biome formatting is handled separately by the `fmt` module via treefmt.
+      # This check runs `biome lint` (lint only, no format enforcement) per workspace
+      # package, mirroring the same fan-out pattern as `typescript.tsc`.
+      biome.lint = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = ''
+            Enable Biome lint checks. Disabled by default; opt in with
+            `jackpkgs.checks.biome.lint.enable = true;`.
+
+            Runs `biome lint` per workspace package. Biome formatting is handled
+            separately by the `fmt` module (treefmt); this check is lint-only to
+            avoid duplicate reporting.
+          '';
+        };
+
+        nodeModules = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          description = ''
+            Derivation containing the `node_modules` structure (and the `biome`
+            binary within it) to link before running checks.
+
+            When null, falls back to `config.jackpkgs.outputs.nodeModules` if
+            available.
+          '';
+        };
+
+        packages = mkOption {
+          type = types.nullOr (types.listOf types.str);
+          default = null;
+          description = ''
+            List of workspace packages to lint.
+
+            If null, packages will be auto-discovered from pnpm-workspace.yaml,
+            matching the same default as `typescript.tsc.packages`.
+          '';
+          example = ["infra" "tools/hello"];
+        };
+
+        extraArgs = mkOption {
+          type = types.listOf types.str;
+          default = [];
+          description = "Extra arguments to pass to `biome lint`";
+          example = ["--reporter=github"];
+        };
+      };
+
       # Vitest check
       vitest = {
         enable =
@@ -220,64 +270,18 @@ in {
       # ============================================================
       # Helper Functions
       # ============================================================
-      # Parse pnpm-workspace.yaml to JSON
-      # Checks for .json sibling first (for tests without IFD), falls back to IFD via yq-go
-      # Supports either .yaml or .yml workspace filenames
-      # Can be overridden via jackpkgsFromYAML module arg for testing
-      defaultFromYAML = yamlFile: let
-        yamlFileStr = toString yamlFile;
-        jsonFile = lib.removeSuffix ".yaml" (lib.removeSuffix ".yml" yamlFileStr) + ".json";
-        jsonExists = builtins.pathExists jsonFile;
-      in
-        if jsonExists
-        then builtins.fromJSON (builtins.readFile jsonFile)
-        else let
-          jsonDrv =
-            pkgs.runCommand "yaml-to-json" {
-              nativeBuildInputs = [pkgs.yq-go];
-            } ''
-              yq -o=json '.' ${yamlFile} > $out
-            '';
-        in
-          builtins.fromJSON (builtins.readFile jsonDrv);
-
+      # Use the shared mkFromYAML from jackpkgsLib (with JSON-sidecar optimisation
+      # enabled: if a .json file exists beside the .yaml/.yml it is read directly,
+      # avoiding an IFD build for each evaluation).
       fromYAML =
         if cfg.fromYAML != null
         then cfg.fromYAML
-        else defaultFromYAML;
+        else jackpkgsLib.mkFromYAML {jsonSidecar = true;};
 
-      # Discover packages from pnpm-workspace.yaml
-      discoverPnpmPackages = workspaceRoot: let
-        yamlPathYaml = workspaceRoot + "/pnpm-workspace.yaml";
-        yamlPathYml = workspaceRoot + "/pnpm-workspace.yml";
-        yamlPath =
-          if builtins.pathExists yamlPathYaml
-          then yamlPathYaml
-          else if builtins.pathExists yamlPathYml
-          then yamlPathYml
-          else null;
-        yamlExists = yamlPath != null;
-        workspaceYaml =
-          if yamlExists
-          then fromYAML yamlPath
-          else {};
-        patterns = workspaceYaml.packages or [];
-        workspaceGlobs =
-          if builtins.isList patterns
-          then patterns
-          else [];
-        negationPatterns = lib.filter (p: lib.hasPrefix "!" p) workspaceGlobs;
-        validatedWorkspaceGlobs =
-          if negationPatterns != []
-          then throw "Negation workspace patterns are not supported in jackpkgs.checks auto-discovery yet: ${lib.concatStringsSep ", " negationPatterns}. Use explicit jackpkgs.checks.typescript.tsc.packages / jackpkgs.checks.vitest.packages or track support in issue #157."
-          else workspaceGlobs;
-        allPackages = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) validatedWorkspaceGlobs);
-        hasPackageJson = pkg:
-          builtins.pathExists (workspaceRoot + "/${pkg}/package.json");
-      in
-        if yamlExists
-        then lib.filter hasPackageJson allPackages
-        else [];
+      discoverPnpmPackages = workspaceRoot:
+        jackpkgsLib.discoverPnpmPackages {
+          inherit workspaceRoot fromYAML;
+        };
 
       # Generic check factory
       mkCheck = {
@@ -512,35 +516,33 @@ in {
                   else config.jackpkgs.outputs.nodeModules or null
                 )
                 tsPackages}
+              ${jackpkgsLib.mkWorkspaceSymlinks projectRoot tsPackages}
             '';
-            checkCommands =
-              lib.concatMapStringsSep "\n" (pkg: ''
-                                            echo "Type-checking ${lib.escapeShellArg pkg}..."
-
-                                            # Validate node_modules exists
-                                            if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg pkg}/node_modules ]; then
-                                              cat >&2 <<'EOF'
-                ERROR: node_modules not found for package: ${lib.escapeShellArg pkg}
-
-                TypeScript checks require node_modules to be present.
-
-                Enable the Node.js module to provide node_modules for checks:
-
-                    jackpkgs.nodejs.enable = true;
-
-                This provides a pure, reproducible node_modules derivation that works
-                in Nix sandbox builds.
-
-                To disable TypeScript checks: jackpkgs.checks.typescript.tsc.enable = false;
-                EOF
-                                              exit 1
-                                            fi
-
-                                            cd ${lib.escapeShellArg pkg}
-                                            tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
-                                            cd - >/dev/null
-              '')
-              tsPackages;
+            checkCommands = ''
+              # Validate node_modules exists before iterating packages
+              if [ ! -d "node_modules" ]; then
+                printf '%s\n' \
+                  "ERROR: node_modules not found." \
+                  "" \
+                  "TypeScript checks require node_modules to be present." \
+                  "" \
+                  "Enable the Node.js module to provide node_modules for checks:" \
+                  "" \
+                  "    jackpkgs.nodejs.enable = true;" \
+                  "" \
+                  "This provides a pure, reproducible node_modules derivation that works" \
+                  "in Nix sandbox builds." \
+                  "" \
+                  "To disable TypeScript checks: jackpkgs.checks.typescript.tsc.enable = false;" \
+                  >&2
+                exit 1
+              fi
+              ${forEachWorkspaceMember {
+                workspaceRoot = ".";
+                members = tsPackages;
+                perMemberCommand = "tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}";
+              }}
+            '';
           };
         };
 
@@ -601,14 +603,79 @@ in {
               fi
               export VITEST_BIN
             '';
-            checkCommands =
-              lib.concatMapStringsSep "\n" (pkg: ''
-                echo "Testing ${lib.escapeShellArg pkg}..."
-                cd ${lib.escapeShellArg pkg}
-                "$VITEST_BIN" ${lib.escapeShellArgs cfg.vitest.extraArgs}
-                cd - >/dev/null
-              '')
-              vitestPackages;
+            checkCommands = forEachWorkspaceMember {
+              workspaceRoot = ".";
+              members = vitestPackages;
+              perMemberCommand = ''
+                if [ -n "$VITEST_BIN" ]; then
+                  $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
+                else
+                  echo "WARNING: Vitest binary not found, skipping."
+                fi'';
+            };
+          };
+        };
+      # ============================================================
+      # Biome Lint Checks
+      # ============================================================
+
+      biomeNodeModules =
+        if cfg.biome.lint.nodeModules != null
+        then cfg.biome.lint.nodeModules
+        else config.jackpkgs.outputs.nodeModules or null;
+
+      getBiomePackages = cfg':
+        if cfg'.biome.lint.packages != null
+        then map jackpkgsLib.validateWorkspacePath cfg'.biome.lint.packages
+        else discoverPnpmPackages projectRoot;
+
+      biomeChecks = let
+        biomePackages = getBiomePackages cfg;
+      in
+        lib.optionalAttrs (cfg.enable && cfg.biome.lint.enable && biomePackages != []) {
+          biome-lint = mkCheck {
+            name = "biome-lint";
+            buildInputs = [pkgs.nodejs];
+            setupCommands = ''
+              # Copy source to writeable directory
+              cp -R ${projectRoot} src
+              chmod -R +w src
+              cd src
+              ${linkNodeModules biomeNodeModules biomePackages}
+              ${jackpkgsLib.mkWorkspaceSymlinks projectRoot biomePackages}
+              ${lib.optionalString (biomeNodeModules != null) ''
+                # Add Nix store node_modules binaries (including biome) to PATH
+                ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" biomeNodeModules}
+                if [ -n "$nm_bin" ]; then
+                  export PATH="$nm_bin:$PATH"
+                fi
+              ''}
+              # Locate biome binary
+              if command -v biome >/dev/null 2>&1; then
+                BIOME_BIN="biome"
+              else
+                printf '%s\n' \
+                  "ERROR: biome binary not found for lint check." \
+                  "" \
+                  "Enable the Node.js module so that biome is available in node_modules:" \
+                  "" \
+                  "    jackpkgs.nodejs.enable = true;" \
+                  "" \
+                  "Or set a custom node_modules derivation:" \
+                  "" \
+                  "    jackpkgs.checks.biome.lint.nodeModules = <derivation>;" \
+                  "" \
+                  "To disable Biome lint checks: jackpkgs.checks.biome.lint.enable = false;" \
+                  >&2
+                exit 1
+              fi
+              export BIOME_BIN
+            '';
+            checkCommands = forEachWorkspaceMember {
+              workspaceRoot = ".";
+              members = biomePackages;
+              perMemberCommand = ''"$BIOME_BIN" lint ${lib.escapeShellArgs cfg.biome.lint.extraArgs} .'';
+            };
           };
         };
     in
@@ -617,6 +684,7 @@ in {
         {checks = pythonChecks;}
         {checks = typescriptChecks;}
         {checks = vitestChecks;}
+        {checks = biomeChecks;}
       ];
   };
 }
