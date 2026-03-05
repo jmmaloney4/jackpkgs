@@ -370,7 +370,9 @@ in {
           # Create a writable node_modules directory populated with symlinks into the
           # store.  A single symlink to the read-only store would prevent
           # mkWorkspaceSymlinks from later running `mkdir -p node_modules/@scope`.
+          # Use dotglob so hidden entries like .bin are included.
           mkdir -p node_modules
+          shopt -s dotglob
           for entry in "$nm_root"/*/; do
             entry_name="$(basename "$entry")"
             if [[ "$entry_name" == @* ]]; then
@@ -384,6 +386,7 @@ in {
               ln -sfn "$entry" "node_modules/$entry_name"
             fi
           done
+          shopt -u dotglob
 
           # Link package-level node_modules
           ${lib.concatMapStringsSep "\n" (pkg: ''
