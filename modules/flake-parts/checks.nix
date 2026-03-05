@@ -270,13 +270,19 @@ in {
       # ============================================================
       # Helper Functions
       # ============================================================
-      # Use the shared mkFromYAML from jackpkgsLib (with JSON-sidecar optimisation
-      # enabled: if a .json file exists beside the .yaml/.yml it is read directly,
-      # avoiding an IFD build for each evaluation).
+      # jackpkgsLibFull extends jackpkgsLib (nodejs-helpers) with pkgs-aware
+      # helpers from lib/default.nix (mkFromYAML, etc.) that need pkgs at
+      # evaluation time.
+      jackpkgsLibFull =
+        jackpkgsLib // (import ../../lib {inherit pkgs;});
+
+      # Use the shared mkFromYAML from jackpkgsLibFull (with JSON-sidecar
+      # optimisation enabled: if a .json file exists beside the .yaml/.yml it
+      # is read directly, avoiding an IFD build for each evaluation).
       fromYAML =
         if cfg.fromYAML != null
         then cfg.fromYAML
-        else jackpkgsLib.mkFromYAML {jsonSidecar = true;};
+        else jackpkgsLibFull.mkFromYAML {jsonSidecar = true;};
 
       discoverPnpmPackages = workspaceRoot:
         jackpkgsLib.discoverPnpmPackages {
@@ -301,9 +307,10 @@ in {
         workspaceRoot,
         members,
         perMemberCommand,
+        label ? "Checking",
       }:
         lib.concatMapStringsSep "\n" (member: ''
-          echo "Checking ${member}..."
+          echo "${label} ${member}..."
           (cd ${lib.escapeShellArg "${workspaceRoot}/${member}"} && ${perMemberCommand})
         '')
         members;
@@ -519,8 +526,9 @@ in {
               ${jackpkgsLib.mkWorkspaceSymlinks projectRoot tsPackages}
             '';
             checkCommands = ''
-              # Validate node_modules exists before iterating packages
-              if [ ! -d "node_modules" ]; then
+              # Validate node_modules exists before iterating packages.
+              # Allow per-package node_modules (linked by linkNodeModules) as alternative.
+              if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg "${lib.head tsPackages}/node_modules"} ]; then
                 printf '%s\n' \
                   "ERROR: node_modules not found." \
                   "" \
@@ -541,6 +549,7 @@ in {
                 workspaceRoot = ".";
                 members = tsPackages;
                 perMemberCommand = "tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}";
+                label = "Type-checking";
               }}
             '';
           };
@@ -550,21 +559,10 @@ in {
       # Vitest Checks
       # ============================================================
 
-      vitestNodeModules = let
-        resolved =
-          if cfg.vitest.nodeModules != null
-          then cfg.vitest.nodeModules
-          else config.jackpkgs.outputs.nodeModules or null;
-      in
-        if cfg.enable && cfg.vitest.enable && resolved == null
-        then
-          throw ''
-            jackpkgs.checks.vitest is enabled but no nodeModules derivation is available.
-            Either enable `jackpkgs.nodejs` (which provides nodeModules automatically) or set
-            `jackpkgs.checks.vitest.nodeModules` to a derivation containing node_modules.
-            Without nodeModules, the vitest binary cannot be found in the check environment.
-          ''
-        else resolved;
+      vitestNodeModules =
+        if cfg.vitest.nodeModules != null
+        then cfg.vitest.nodeModules
+        else config.jackpkgs.outputs.nodeModules or null;
 
       vitestChecks = let
         vitestPackages = getVitestPackages cfg;
@@ -606,6 +604,7 @@ in {
             checkCommands = forEachWorkspaceMember {
               workspaceRoot = ".";
               members = vitestPackages;
+              label = "Testing";
               perMemberCommand = ''
                 if [ -n "$VITEST_BIN" ]; then
                   $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
