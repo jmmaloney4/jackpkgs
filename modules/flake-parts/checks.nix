@@ -707,26 +707,27 @@ in {
             };
           };
         };
-        beancountChecks =
-          lib.optionalAttrs (cfg.enable && cfg.beancount.enable
-            && cfg.beancount.ledgerFile != null
-            && pythonEnvWithDevTools != null)
-          {
-            bean-check = mkCheck {
-              name = "bean-check";
-              buildInputs = [pythonEnvWithDevTools];
-              setupCommands = ''
-                # Copy the entire ledger directory so that include directives
-                # and glob patterns in the ledger file resolve correctly.
-                cp -R ${builtins.dirOf cfg.beancount.ledgerFile} ledger
-                chmod -R +w ledger
-              '';
-              checkCommands = ''
-                bean-check ${lib.escapeShellArgs cfg.beancount.extraArgs} \
-                  ledger/${builtins.baseNameOf cfg.beancount.ledgerFile}
-              '';
-            };
+      beancountChecks =
+        lib.optionalAttrs (cfg.enable
+          && cfg.beancount.enable
+          && cfg.beancount.ledgerFile != null
+          && pythonEnvWithDevTools != null)
+        {
+          bean-check = mkCheck {
+            name = "bean-check";
+            buildInputs = [pythonEnvWithDevTools];
+            setupCommands = ''
+              # Copy the entire ledger directory so that include directives
+              # and glob patterns in the ledger file resolve correctly.
+              cp -R ${lib.escapeShellArg (builtins.dirOf cfg.beancount.ledgerFile)} ledger
+              chmod -R +w ledger
+            '';
+            checkCommands = ''
+              bean-check ${lib.escapeShellArgs cfg.beancount.extraArgs} \
+                ledger/${builtins.baseNameOf cfg.beancount.ledgerFile}
+            '';
           };
+        };
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [

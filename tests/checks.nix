@@ -12,6 +12,7 @@
   pnpmWorkspace = ./fixtures/checks/pnpm-workspace;
   pnpmWorkspaceYml = ./fixtures/checks/pnpm-workspace-yml;
   noWorkspaceFixture = ./fixtures/checks/no-workspace;
+  beancountLedger = ./fixtures/checks/beancount/ledger.beancount;
 
   # pyprojectPath is a string relative path, not a path object
   pythonWorkspacePyproject = "./pyproject.toml";
@@ -733,6 +734,34 @@ in {
         ''ln -sfn "$nm_root"/''
         "packages/app/node_modules"
         "cp -R"
+      ]
+      script;
+    expected = true;
+  };
+
+  testBeancountSetupEscapesLedgerDirectory = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        checksEnable = true;
+        extraConfig.jackpkgs.checks.python.pytest.enable = false;
+        extraConfig.jackpkgs.checks.python.mypy.enable = false;
+        extraConfig.jackpkgs.checks.python.ruff.enable = false;
+        extraConfig.jackpkgs.checks.python.numpydoc.enable = false;
+        extraConfig.jackpkgs.checks.beancount.enable = true;
+        extraConfig.jackpkgs.checks.beancount.ledgerFile = beancountLedger;
+        extraConfig.jackpkgs.checks.beancount.extraArgs = ["--verbose"];
+      };
+      projectRoot = noWorkspaceFixture;
+    };
+    script = getBuildCommand checks.bean-check;
+    ledgerDir = builtins.dirOf beancountLedger;
+  in {
+    expr =
+      hasInfixAll [
+        "bean-check"
+        "--verbose"
+        "cp -R ${lib.escapeShellArg ledgerDir} ledger"
       ]
       script;
     expected = true;
