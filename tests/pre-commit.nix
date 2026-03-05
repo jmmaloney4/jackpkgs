@@ -263,7 +263,10 @@ in {
   testTscUsesNodeModulesWhenConfigured = let
     hooks = getHooks [
       (mkConfigModule {
-        perSystemConfig.jackpkgs.pre-commit.typescript.tsc.nodeModules = dummyNodeModules;
+        perSystemConfig.jackpkgs.pre-commit.typescript.tsc = {
+          nodeModules = dummyNodeModules;
+          packages = ["fake/pkg"];
+        };
       })
     ];
   in {
@@ -292,7 +295,10 @@ in {
   testVitestUsesNodeModulesWhenConfigured = let
     hooks = getHooks [
       (mkConfigModule {
-        perSystemConfig.jackpkgs.pre-commit.javascript.vitest.nodeModules = dummyNodeModules;
+        perSystemConfig.jackpkgs.pre-commit.javascript.vitest = {
+          nodeModules = dummyNodeModules;
+          packages = ["fake/pkg"];
+        };
       })
     ];
   in {
