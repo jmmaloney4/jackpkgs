@@ -367,8 +367,23 @@ in {
             exit 1
           fi
 
-          # Link root node_modules
-          ln -sfn "$nm_root" node_modules
+          # Create a writable node_modules directory populated with symlinks into the
+          # store.  A single symlink to the read-only store would prevent
+          # mkWorkspaceSymlinks from later running `mkdir -p node_modules/@scope`.
+          mkdir -p node_modules
+          for entry in "$nm_root"/*/; do
+            entry_name="$(basename "$entry")"
+            if [[ "$entry_name" == @* ]]; then
+              # Scoped package directory: link each package inside the scope individually
+              # so that the scope directory itself remains writable.
+              mkdir -p "node_modules/$entry_name"
+              for scoped_pkg in "$entry"*/; do
+                ln -sfn "$scoped_pkg" "node_modules/$entry_name/$(basename "$scoped_pkg")"
+              done
+            else
+              ln -sfn "$entry" "node_modules/$entry_name"
+            fi
+          done
 
           # Link package-level node_modules
           ${lib.concatMapStringsSep "\n" (pkg: ''
