@@ -253,6 +253,36 @@ in {
         };
       };
 
+      beancount = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = ''
+            Whether to run bean-check on the beancount ledger.
+            Disabled by default; must be explicitly opted in.
+            Requires jackpkgs.python.enable = true and a configured ledgerFile.
+          '';
+        };
+
+        ledgerFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = ''
+            Path to the main beancount ledger file
+            (e.g., ./books/beancount/ledger/main.beancount).
+            The entire parent directory is copied to the Nix store so that
+            include directives and glob patterns in the ledger resolve correctly.
+            Required when jackpkgs.checks.beancount.enable = true.
+          '';
+        };
+
+        extraArgs = mkOption {
+          type = types.listOf types.str;
+          default = [];
+          description = "Extra arguments to pass to bean-check.";
+        };
+      };
+
       # Future: golang, rust, etc. can be added here
     };
   };
@@ -677,6 +707,26 @@ in {
             };
           };
         };
+        beancountChecks =
+          lib.optionalAttrs (cfg.enable && cfg.beancount.enable
+            && cfg.beancount.ledgerFile != null
+            && pythonEnvWithDevTools != null)
+          {
+            bean-check = mkCheck {
+              name = "bean-check";
+              buildInputs = [pythonEnvWithDevTools];
+              setupCommands = ''
+                # Copy the entire ledger directory so that include directives
+                # and glob patterns in the ledger file resolve correctly.
+                cp -R ${builtins.dirOf cfg.beancount.ledgerFile} ledger
+                chmod -R +w ledger
+              '';
+              checkCommands = ''
+                bean-check ${lib.escapeShellArgs cfg.beancount.extraArgs} \
+                  ledger/${builtins.baseNameOf cfg.beancount.ledgerFile}
+              '';
+            };
+          };
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [
@@ -684,6 +734,7 @@ in {
         {checks = typescriptChecks;}
         {checks = vitestChecks;}
         {checks = biomeChecks;}
+        {checks = beancountChecks;}
       ];
   };
 }
