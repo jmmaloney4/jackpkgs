@@ -118,6 +118,7 @@
             jackpkgs.pre-commit = {
               treefmtPackage = pkgs.treefmt;
               nbstripoutPackage = pkgs.nbstripout;
+              adr.package = pkgs.writeShellScriptBin "adr-conflict-check" "";
             };
           }
           perSystemConfig;
@@ -343,6 +344,58 @@ in {
     ];
   in {
     expr = hooks.ruff.enable;
+    expected = false;
+  };
+
+  # ── ADR conflict-check hook ────────────────────────────────────────────────
+
+  testAdrHookEnabledByDefault = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hooks.adr-conflict-check.enable;
+    expected = true;
+  };
+
+  testAdrHookPassFilenamesFalse = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hooks.adr-conflict-check.pass_filenames;
+    expected = false;
+  };
+
+  testAdrHookDefaultDirectory = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hasInfixAll ["--adr-dir" "docs/internal/decisions"] hooks.adr-conflict-check.entry;
+    expected = true;
+  };
+
+  testAdrHookEntryContainsBinary = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hasInfixAll ["adr-conflict-check"] hooks.adr-conflict-check.entry;
+    expected = true;
+  };
+
+  testAdrHookCustomDirectory = let
+    hooks = getHooks [
+      (mkConfigModule {
+        perSystemConfig.jackpkgs.pre-commit.adr.directory = "records/decisions";
+      })
+    ];
+  in {
+    expr = hasInfixAll ["--adr-dir" "records/decisions"] hooks.adr-conflict-check.entry;
+    expected = true;
+  };
+
+  testAdrHookDisable = let
+    hooks = getHooks [
+      (mkConfigModule {
+        perSystemConfig.jackpkgs.pre-commit.adr.enable = false;
+      })
+    ];
+  in {
+    expr = hooks.adr-conflict-check.enable;
     expected = false;
   };
 }
