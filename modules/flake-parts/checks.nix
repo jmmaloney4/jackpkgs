@@ -721,10 +721,11 @@ in {
               # and glob patterns in the ledger file resolve correctly.
               cp -R ${lib.escapeShellArg (builtins.dirOf cfg.beancount.ledgerFile)} ledger
               chmod -R +w ledger
+              cd ledger
             '';
             checkCommands = ''
               bean-check ${lib.escapeShellArgs cfg.beancount.extraArgs} \
-                ledger/${lib.escapeShellArg (builtins.baseNameOf cfg.beancount.ledgerFile)}
+                ${lib.escapeShellArg (builtins.baseNameOf cfg.beancount.ledgerFile)}
             '';
           };
         };
