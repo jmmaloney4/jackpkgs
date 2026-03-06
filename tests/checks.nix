@@ -762,6 +762,7 @@ in {
         "bean-check"
         "--verbose"
         "cp -R ${lib.escapeShellArg ledgerDir} ledger"
+        "cd ledger"
       ]
       script;
     expected = true;
@@ -789,9 +790,10 @@ in {
       hasInfixAll [
         "bean-check"
         "--verbose"
-        "ledger/${lib.escapeShellArg ledgerBase}"
+        (lib.escapeShellArg ledgerBase)
       ]
-      script;
+      script
+      && !(lib.strings.hasInfix "ledger/${lib.escapeShellArg ledgerBase}" script);
     expected = true;
   };
 
