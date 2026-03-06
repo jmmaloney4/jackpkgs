@@ -235,6 +235,7 @@ in {
     - `python.numpydoc.enable` (bool, **default `false`** — explicit opt-in), `python.numpydoc.extraArgs` (list, default `[]`)
     - `typescript.tsc.enable` (bool, default `jackpkgs.nodejs.enable`), `typescript.tsc.packages`, `typescript.tsc.nodeModules`, `typescript.tsc.extraArgs`
     - `vitest.enable` (bool, default `jackpkgs.nodejs.enable`), `vitest.packages`, `vitest.nodeModules`, `vitest.extraArgs`
+    - `beancount.enable` (bool, default `false`), `beancount.ledgerFile` (nullable path, default `null`), `beancount.extraArgs` (list, default `[]`)
 
 **Quality-gate controls (single switch across CI + pre-commit):**
 
@@ -247,6 +248,13 @@ jackpkgs.checks.python.numpydoc.enable = true;
 
 # Override ruff args for both surfaces:
 jackpkgs.checks.python.ruff.extraArgs = ["--no-cache" "--select" "ALL"];
+
+# Add opt-in Beancount ledger validation in CI checks:
+jackpkgs.checks.beancount = {
+  enable = true;
+  ledgerFile = ./books/ledger/main.beancount;
+  extraArgs = ["--verbose"];
+};
 
 # Override the mypy package used only by the pre-commit hook:
 jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
