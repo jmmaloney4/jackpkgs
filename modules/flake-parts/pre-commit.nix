@@ -535,7 +535,7 @@ in {
           settings.hooks.adr-conflict-check = {
             enable = sysCfg.adr.enable;
             package = sysCfg.adr.package;
-            entry = "${lib.getExe sysCfg.adr.package} --adr-dir ${sysCfg.adr.directory}";
+            entry = "${lib.getExe sysCfg.adr.package} --adr-dir ${lib.escapeShellArg sysCfg.adr.directory}";
             files = "\\.md$";
             pass_filenames = false;
           };

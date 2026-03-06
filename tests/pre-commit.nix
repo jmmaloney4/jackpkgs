@@ -384,7 +384,19 @@ in {
       })
     ];
   in {
-    expr = hasInfixAll ["--adr-dir" "records/decisions"] hooks.adr-conflict-check.entry;
+    expr = hasInfixAll ["--adr-dir" (lib.escapeShellArg "records/decisions")] hooks.adr-conflict-check.entry;
+    expected = true;
+  };
+
+  testAdrHookEscapesDirectory = let
+    directory = "records/adr dir;$(touch pwned)";
+    hooks = getHooks [
+      (mkConfigModule {
+        perSystemConfig.jackpkgs.pre-commit.adr.directory = directory;
+      })
+    ];
+  in {
+    expr = hasInfixAll ["--adr-dir" (lib.escapeShellArg directory)] hooks.adr-conflict-check.entry;
     expected = true;
   };
 
