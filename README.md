@@ -86,7 +86,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Taplo, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
-- `pre-commit` — pre-commit hooks (treefmt, nbstripout, Python/TS/JS quality gates). Requires `flakeModules.checks`; hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`.
+- `pre-commit` — pre-commit hooks (treefmt, nbstripout, ADR checks, Python/TS/JS quality gates). Requires `flakeModules.checks`; hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`.
 - `shell` — shared dev shell output to include via `inputsFrom`.
 - `checks` — CI checks and quality-gate controls for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
 - `nodejs` — builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
@@ -182,7 +182,7 @@ in {
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
 
-  - Enables pre-commit with `treefmt`, `nbstripout` (`.ipynb`), Python hooks (`mypy`, `ruff`, `pytest`; opt-in: `numpydoc`), and `tsc`/`vitest` (at `pre-push` stage).
+  - Enables pre-commit with `treefmt`, `nbstripout` (`.ipynb`), ADR checks, Python hooks (`mypy`, `ruff`, `pytest`; opt-in: `numpydoc`), and `tsc`/`vitest` (at `pre-push` stage).
 
   - `numpydoc` is **opt-in** via `jackpkgs.checks.python.numpydoc.enable = true;`.
 
@@ -208,6 +208,9 @@ in {
     - `enable` (bool, default `true`)
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
     - `nbstripoutPackage` (default `config.jackpkgs.pkgs.nbstripout`)
+    - `adr.enable` (default `true`)
+    - `adr.directory` (default `docs/internal/decisions`)
+    - `adr.package` (default `config.packages."adr-conflict-check"`)
     - `python.mypy.package` (dev-tools env selection: prefers non-editable env with `includeGroups = true`; falls back to `pythonDefaultEnv`, then `pkgs.mypy`)
     - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package` (each defaults to `python.mypy.package`)
     - `typescript.tsc.package` (defaults to `pkgs.nodePackages.typescript`)

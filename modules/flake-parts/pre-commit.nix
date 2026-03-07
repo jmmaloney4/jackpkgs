@@ -223,6 +223,42 @@ in {
             };
           };
         };
+
+        adr = {
+          enable = mkOption {
+            type = types.bool;
+            default = true;
+            description = ''
+              Whether to enable the ADR conflict-check pre-commit hook.
+
+              When enabled, the hook validates that all `.md` files in
+              `jackpkgs.pre-commit.adr.directory` have:
+                - well-formed filenames (`NNN-*.md`)
+                - unique three-digit prefixes (no duplicates)
+                - a contiguous numeric sequence with no gaps (001…N)
+
+              `000` is reserved for the ADR template and is excluded from
+              gap detection.
+            '';
+          };
+
+          directory = mkOption {
+            type = types.str;
+            default = "docs/internal/decisions";
+            description = ''
+              Path (relative to the repo root, or absolute) to the directory
+              containing ADR files.  Passed as `--adr-dir` to
+              `adr-conflict-check`.
+            '';
+          };
+
+          package = mkOption {
+            type = types.package;
+            default = config.packages."adr-conflict-check";
+            defaultText = "config.packages.\"adr-conflict-check\"";
+            description = "The `adr-conflict-check` package to use.";
+          };
+        };
       };
     });
   };
@@ -493,6 +529,14 @@ in {
             package = sysCfg.biome.lint.package;
             entry = biomeLintEntry;
             files = "\\.(js|ts|jsx|tsx|json|jsonc|json5)$";
+            pass_filenames = false;
+          };
+
+          settings.hooks.adr-conflict-check = {
+            enable = sysCfg.adr.enable;
+            package = sysCfg.adr.package;
+            entry = "${lib.getExe sysCfg.adr.package} --adr-dir ${lib.escapeShellArg sysCfg.adr.directory}";
+            files = "\\.md$";
             pass_filenames = false;
           };
         };

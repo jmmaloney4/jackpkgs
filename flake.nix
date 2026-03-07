@@ -120,6 +120,7 @@
             bun2nix-cli = inputs.bun2nix.packages.${system}.bun2nix;
           };
           tod = pkgs.callPackage ./pkgs/tod {};
+          adr-conflict-check = pkgs.callPackage ./pkgs/adr-conflict-check {};
         };
         platformFilteredPackages = jackLib.filterByPlatforms system allPackages;
         # Import test helpers that validate the flake-exposed API surface
@@ -369,7 +370,14 @@
                 dontCheckForBrokenSymlinks = true;
               };
             };
-          };
+          }
+          # ADR script-behaviour tests
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "adr-${name}" drv) (
+            import ./tests/adr.nix {
+              inherit pkgs;
+              adr-conflict-check = allPackages.adr-conflict-check;
+            }
+          );
       };
 
       flake = {
