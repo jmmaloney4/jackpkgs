@@ -254,8 +254,8 @@ in {
 
           package = mkOption {
             type = types.package;
-            default = pkgs.adr-conflict-check;
-            defaultText = "pkgs.adr-conflict-check";
+            default = config.packages."adr-conflict-check";
+            defaultText = "config.packages.\"adr-conflict-check\"";
             description = "The `adr-conflict-check` package to use.";
           };
         };
