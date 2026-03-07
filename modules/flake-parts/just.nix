@@ -2,6 +2,7 @@
   inputs,
   config,
   lib,
+  options,
   ...
 }: let
   inherit (lib) mkIf;
@@ -10,6 +11,10 @@
   # Import justfile generation helpers from shared lib
   justfileHelpers = import ../../lib/justfile-helpers.nix {inherit lib;};
   inherit (justfileHelpers) mkRecipe mkRecipeWithParams optionalLines;
+
+  # Access checks config if the checks module is loaded
+  checksOptionsDefined = lib.hasAttrByPath ["jackpkgs" "checks"] options;
+  checksCfg = lib.attrByPath ["jackpkgs" "checks"] {} config;
 in {
   imports = [
     jackpkgsInputs.just-flake.flakeModule
@@ -80,6 +85,24 @@ in {
           default = config.jackpkgs.pkgs.pulumi-bin;
           defaultText = "config.jackpkgs.pkgs.pulumi-bin";
           description = "pulumi package to use.";
+        };
+        ruffPackage = mkOption {
+          type = types.package;
+          default = config.jackpkgs.pkgs.ruff;
+          defaultText = "config.jackpkgs.pkgs.ruff";
+          description = "ruff package to use for Python linting.";
+        };
+        mypyPackage = mkOption {
+          type = types.package;
+          default = config.jackpkgs.pkgs.mypy;
+          defaultText = "config.jackpkgs.pkgs.mypy";
+          description = "mypy package to use for Python type checking.";
+        };
+        biomePackage = mkOption {
+          type = types.package;
+          default = config.jackpkgs.pkgs.biome;
+          defaultText = "config.jackpkgs.pkgs.biome";
+          description = "biome package to use for JS/TS linting.";
         };
 
         # Shared release script utilities
@@ -325,6 +348,49 @@ in {
                   "${lib.getExe' sysCfg.flakeIterPackage "flake-iter"} build --verbose"
                 ]
                 false)
+              ""
+              (mkRecipe "checks" "Run each flake check derivation individually (jj-friendly, no pre-commit)" [
+                  "#!/usr/bin/env bash"
+                  "set -euo pipefail"
+                  "system=$(nix eval --impure --raw --expr builtins.currentSystem)"
+                  "checks_json=$(nix eval --json \".#checks.\${system}\")"
+                  "for check in $(printf '%s' \"$checks_json\" | ${lib.getExe sysCfg.jqPackage} -r 'keys[]'); do"
+                  "  echo \"==> running check: $check\""
+                  "  nix build -L \".#checks.\${system}.$check\""
+                  "done"
+                ]
+                false)
+              ""
+              (mkRecipeWithParams "lint" [''dry_run="false"''] "Run lint tools from flake config; fixes in place unless dry_run=true" (
+                [
+                  "#!/usr/bin/env bash"
+                  "set -euo pipefail"
+                  "dry_run='{{dry_run}}'"
+                ]
+                ++ (optionalLines (checksOptionsDefined && checksCfg.python.ruff.enable) [
+                  ""
+                  "# ruff (Python linter)"
+                  "if [ \"$dry_run\" = \"true\" ]; then"
+                  "  ${lib.getExe sysCfg.ruffPackage} check ."
+                  "else"
+                  "  ${lib.getExe sysCfg.ruffPackage} check --fix ."
+                  "fi"
+                ])
+                ++ (optionalLines (checksOptionsDefined && checksCfg.python.mypy.enable) [
+                  ""
+                  "# mypy (Python type checker)"
+                  "${lib.getExe sysCfg.mypyPackage} ."
+                ])
+                ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfg) [
+                  ""
+                  "# biome (JS/TS linter)"
+                  "if [ \"$dry_run\" = \"true\" ]; then"
+                  "  ${lib.getExe sysCfg.biomePackage} lint ."
+                  "else"
+                  "  ${lib.getExe sysCfg.biomePackage} lint --write ."
+                  "fi"
+                ])
+              ) false)
             ];
           };
           quarto = {
