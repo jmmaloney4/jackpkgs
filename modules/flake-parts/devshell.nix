@@ -7,6 +7,15 @@
   inherit (lib) mkIf;
   cfg = config.jackpkgs.shell;
   gcpProfile = lib.attrByPath ["jackpkgs" "gcp" "profile"] null config;
+  pulumiCfg = lib.attrByPath ["jackpkgs" "pulumi"] null config;
+  pulumiEnv =
+    if pulumiCfg != null && pulumiCfg.enable
+    then {
+      PULUMI_BACKEND_URL = pulumiCfg.backendUrl;
+      PULUMI_SECRETS_PROVIDER = pulumiCfg.secretsProvider;
+      PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+    }
+    else {};
 in {
   imports = [
     jackpkgsInputs.flake-root.flakeModule
@@ -108,6 +117,7 @@ in {
             ]
             ++ sysCfg.inputsFrom;
           packages = sysCfg.packages;
+          env = pulumiEnv;
 
           shellHook = lib.concatStringsSep "\n" shellHookParts;
         }

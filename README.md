@@ -276,7 +276,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
 
   - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
   - The shell aggregates dev environments from `just-flake`, `flake-root`, `pre-commit`, and `treefmt`.
-  - Conditionally includes `pulumi` devShell fragment when `jackpkgs.pulumi.enable` is true.
+  - When `jackpkgs.pulumi.enable` is true, the composed dev shell exports `PULUMI_BACKEND_URL`, `PULUMI_SECRETS_PROVIDER`, and `PULUMI_IGNORE_AMBIENT_PLUGINS=1`.
 
 - pulumi (`modules/flake-parts/pulumi.nix`)
 
