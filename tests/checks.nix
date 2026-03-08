@@ -609,7 +609,9 @@ in {
     expr =
       hasInfixAll [
         "Linking node_modules from $nm_store..."
-        ''ln -sfn "$nm_root" node_modules''
+        ''mkdir -p node_modules''
+        ''shopt -s dotglob''
+        ''for entry in "$nm_root"/*/; do''
         ''if [ -d "$nm_store"/''
         ''ln -sfn "$nm_store"/''
         ''elif [ -d "$nm_root"/''
@@ -727,7 +729,9 @@ in {
     expr =
       hasInfixAll [
         "Linking node_modules"
-        ''ln -sfn "$nm_root" node_modules''
+        ''mkdir -p node_modules''
+        ''shopt -s dotglob''
+        ''for entry in "$nm_root"/*/; do''
         ''if [ -d "$nm_store"/''
         ''ln -sfn "$nm_store"/''
         ''elif [ -d "$nm_root"/''
