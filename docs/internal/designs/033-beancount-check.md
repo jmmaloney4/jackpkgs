@@ -1,6 +1,6 @@
 ---
 id: ADR-033
-title: "Beancount Check"
+title: Beancount Check
 status: proposed
 date: 2026-03-05
 ---
@@ -143,6 +143,6 @@ because upstreaming is the explicit goal.
 - `modules/flake-parts/python.nix` (pythonEnvWithDevTools source)
 - `lib/python-env-selection.nix` (selectPythonEnvWithDevTools logic)
 
----
+______________________________________________________________________
 
 *Author: Jack Maloney — 2026-03-05*
