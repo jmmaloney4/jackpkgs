@@ -67,10 +67,14 @@ in {
       ...
     }: let
       sysCfg = config.jackpkgs.fmt;
+      lockfileExcludes = [
+        "pnpm-lock.yaml"
+        "**/pnpm-lock.yaml"
+      ];
     in {
       formatter = lib.mkDefault config.treefmt.build.wrapper;
       treefmt.config = let
-        excludes = lib.unique (defaultExcludes.treefmt ++ sysCfg.excludes);
+        excludes = lib.unique (defaultExcludes.treefmt ++ sysCfg.excludes ++ lockfileExcludes);
       in {
         flakeFormatter = lib.mkForce false; # we set this ourselves above
         inherit (sysCfg) projectRootFile;
