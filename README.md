@@ -85,7 +85,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `default` — imports all modules below (including `pkgs`).
 - `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Taplo, Yamlfmt, etc.).
-- `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix).
+- `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix, nodejs).
 - `pre-commit` — pre-commit hooks (treefmt, nbstripout, Python/TS/JS quality gates). Requires `flakeModules.checks`; hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`.
 - `shell` — shared dev shell output to include via `inputsFrom`.
 - `checks` — CI checks and quality-gate controls for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
@@ -174,6 +174,7 @@ in {
     - python: `just nbstrip [<notebook>]` (strip outputs)
     - git: `just pre`, `just pre-all` (pre-commit)
     - nix: `just build-all`, `just build-all-verbose` (flake-iter)
+    - nodejs: `just update-pnpm-hash` (refresh `pnpm-lock.yaml` and rewrite `pnpmDepsHash` in `flake.nix`), `just update-pnpm-deps` (alias)
   - Options under `jackpkgs.just` to replace tool packages if desired:
     - `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`
     - `pulumiBackendUrl` (nullable string)
@@ -296,6 +297,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
   - Provides a Node.js devShell fragment: `jackpkgs.outputs.nodejsDevShell` with `pnpm` CLI.
   - Discovers workspace packages from `pnpm-workspace.yaml` (supports `dir/*` glob patterns; `**` recursive globs not supported).
   - **Required**: Set `jackpkgs.nodejs.pnpmDepsHash` to the FOD hash of your pnpm dependencies. Run once without it to get the expected hash from the error, then add it.
+  - When `inputs.jackpkgs.flakeModules.just` is also imported, the generated `justfile` includes `just update-pnpm-hash` plus `just update-pnpm-deps` as an alias.
   - Options under `jackpkgs.nodejs`:
     - `enable` (bool, default `false`)
     - `version` (enum: 18/20/22, default `22`) — Node.js major version

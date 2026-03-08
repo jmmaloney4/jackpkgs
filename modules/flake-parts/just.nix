@@ -401,6 +401,55 @@ in {
                 false)
             ];
           };
+          nodejs = {
+            enable = cfg.nodejs.enable;
+            justfile = lib.concatStringsSep "\n" [
+              (mkRecipe "update-pnpm-hash" "Refresh pnpm-lock.yaml and update pnpmDepsHash in flake.nix" [
+                  "#!/usr/bin/env bash"
+                  "set -euo pipefail"
+                  ""
+                  "flake=\"flake.nix\""
+                  "backup=$(mktemp)"
+                  "build_log=$(mktemp)"
+                  "updated=0"
+                  ""
+                  "cp \"$flake\" \"$backup\""
+                  "trap 'rm -f \"$build_log\"; if [ \"$updated\" -eq 0 ]; then mv \"$backup\" \"$flake\"; else rm -f \"$backup\"; fi' EXIT"
+                  ""
+                  "echo \"📦 Running pnpm install to refresh pnpm-lock.yaml...\""
+                  "pnpm install"
+                  ""
+                  "system=$(nix eval --raw --impure --expr 'builtins.currentSystem')"
+                  ""
+                  "echo \"🔍 Detecting system: $system\""
+                  "echo \"📝 Setting temporary fake hash to trigger nix hash mismatch...\""
+                  ''node -e 'const fs = require("node:fs"); const path = process.argv[1]; const contents = fs.readFileSync(path, "utf8"); const pattern = /^[ \t]*#?[ \t]*pnpmDepsHash = .*$/m; if (!pattern.test(contents)) { throw new Error("Could not locate pnpmDepsHash in flake.nix"); } fs.writeFileSync(path, contents.replace(pattern, "        pnpmDepsHash = \"sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\";"));' "$flake"''
+                  ""
+                  "echo \"🔨 Building devshell to fetch new hash...\""
+                  "nix build \".#devShells.\${system}.default\" >\"$build_log\" 2>&1 || true"
+                  ''new_hash=$(node -e 'const fs = require("node:fs"); const log = fs.readFileSync(process.argv[1], "utf8"); const match = log.match(/got:\s*(sha256-[A-Za-z0-9+/=]+)/); if (match) { process.stdout.write(match[1]); }' "$build_log")''
+                  ""
+                  "if [ -z \"$new_hash\" ]; then"
+                  "    echo \"❌ Could not extract new hash from nix output\""
+                  "    echo \"Output was:\""
+                  "    cat \"$build_log\""
+                  "    exit 1"
+                  "fi"
+                  ""
+                  "echo \"✅ New hash: $new_hash\""
+                  "echo \"📝 Updating $flake...\""
+                  ''NEW_HASH="$new_hash" node -e 'const fs = require("node:fs"); const path = process.argv[1]; const contents = fs.readFileSync(path, "utf8"); const pattern = /^[ \t]*#?[ \t]*pnpmDepsHash = .*$/m; if (!pattern.test(contents)) { throw new Error("Could not locate pnpmDepsHash in flake.nix"); } fs.writeFileSync(path, contents.replace(pattern, "        pnpmDepsHash = \"" + process.env.NEW_HASH + "\";"));' "$flake"''
+                  "updated=1"
+                  ""
+                  "echo \"✅ Done! pnpmDepsHash updated to $new_hash\""
+                ]
+                false)
+              (mkRecipe "update-pnpm-deps" "alias for update-pnpm-hash" [
+                  "@just update-pnpm-hash"
+                ]
+                false)
+            ];
+          };
           quarto = {
             enable = cfg.quarto.enable && cfg.quarto.sites != [];
             justfile = lib.concatStringsSep "\n" (
