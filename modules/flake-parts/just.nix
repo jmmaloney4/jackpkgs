@@ -354,7 +354,7 @@ in {
                   "set -euo pipefail"
                   "system=$(nix eval --impure --raw --expr builtins.currentSystem)"
                   "checks_json=$(nix eval --json \".#checks.\${system}\")"
-                  "for check in $(printf '%s' \"$checks_json\" | ${lib.getExe sysCfg.jqPackage} -r 'keys[]'); do"
+                  "printf '%s' \"$checks_json\" | ${lib.getExe sysCfg.jqPackage} -r 'keys[]' | while IFS= read -r check; do"
                   "  echo \"==> running check: $check\""
                   "  nix build -L \".#checks.\${system}.$check\""
                   "done"
@@ -362,35 +362,36 @@ in {
                 false)
               ""
               (mkRecipeWithParams "lint" [''dry_run="false"''] "Run lint tools from flake config; fixes in place unless dry_run=true" (
-                [
-                  "#!/usr/bin/env bash"
-                  "set -euo pipefail"
-                  "dry_run='{{dry_run}}'"
-                ]
-                ++ (optionalLines (checksOptionsDefined && checksCfg.python.ruff.enable) [
-                  ""
-                  "# ruff (Python linter)"
-                  "if [ \"$dry_run\" = \"true\" ]; then"
-                  "  ${lib.getExe sysCfg.ruffPackage} check ."
-                  "else"
-                  "  ${lib.getExe sysCfg.ruffPackage} check --fix ."
-                  "fi"
-                ])
-                ++ (optionalLines (checksOptionsDefined && checksCfg.python.mypy.enable) [
-                  ""
-                  "# mypy (Python type checker)"
-                  "${lib.getExe sysCfg.mypyPackage} ."
-                ])
-                ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfg) [
-                  ""
-                  "# biome (JS/TS linter)"
-                  "if [ \"$dry_run\" = \"true\" ]; then"
-                  "  ${lib.getExe sysCfg.biomePackage} lint ."
-                  "else"
-                  "  ${lib.getExe sysCfg.biomePackage} lint --write ."
-                  "fi"
-                ])
-              ) false)
+                  [
+                    "#!/usr/bin/env bash"
+                    "set -euo pipefail"
+                    "dry_run='{{dry_run}}'"
+                  ]
+                  ++ (optionalLines (checksOptionsDefined && checksCfg.python.ruff.enable) [
+                    ""
+                    "# ruff (Python linter)"
+                    "if [ \"$dry_run\" = \"true\" ]; then"
+                    "  ${lib.getExe sysCfg.ruffPackage} check ."
+                    "else"
+                    "  ${lib.getExe sysCfg.ruffPackage} check --fix ."
+                    "fi"
+                  ])
+                  ++ (optionalLines (checksOptionsDefined && checksCfg.python.mypy.enable) [
+                    ""
+                    "# mypy (Python type checker)"
+                    "${lib.getExe sysCfg.mypyPackage} ."
+                  ])
+                  ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfg) [
+                    ""
+                    "# biome (JS/TS linter)"
+                    "if [ \"$dry_run\" = \"true\" ]; then"
+                    "  ${lib.getExe sysCfg.biomePackage} lint ."
+                    "else"
+                    "  ${lib.getExe sysCfg.biomePackage} lint --write ."
+                    "fi"
+                  ])
+                )
+                false)
             ];
           };
           quarto = {
