@@ -370,26 +370,33 @@ in {
                   ++ (optionalLines (checksOptionsDefined && checksCfg.python.ruff.enable) [
                     ""
                     "# ruff (Python linter)"
+                    "printf '%s\\n' \"==> ruff\""
                     "if [ \"$dry_run\" = \"true\" ]; then"
-                    "  ${lib.getExe sysCfg.ruffPackage} check ."
+                    "  ${lib.getExe sysCfg.ruffPackage} check --quiet ."
                     "else"
-                    "  ${lib.getExe sysCfg.ruffPackage} check --fix ."
+                    "  ${lib.getExe sysCfg.ruffPackage} check --fix --quiet ."
                     "fi"
                   ])
                   ++ (optionalLines (checksOptionsDefined && checksCfg.python.mypy.enable) [
                     ""
                     "# mypy (Python type checker)"
+                    "printf '%s\\n' \"==> mypy\""
                     "${lib.getExe sysCfg.mypyPackage} ."
                   ])
                   ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfg) [
                     ""
                     "# biome (JS/TS linter)"
+                    "printf '%s\\n' \"==> biome lint\""
                     "if [ \"$dry_run\" = \"true\" ]; then"
                     "  ${lib.getExe sysCfg.biomePackage} lint ."
                     "else"
                     "  ${lib.getExe sysCfg.biomePackage} lint --write ."
                     "fi"
                   ])
+                  ++ [
+                    ""
+                    "printf '%s\\n' \"All lint checks passed.\""
+                  ]
                 )
                 false)
             ];
