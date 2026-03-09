@@ -1,7 +1,7 @@
 {
   lib,
   stdenv,
-  python ? null,
+  pythonPackage ? null,
   python312,
   fetchFromGitHub,
   rustPlatform,
@@ -10,7 +10,6 @@
   clang,
   pkg-config,
   capnproto,
-  darwin,
   # Build options
   version,
   rev,
@@ -20,12 +19,15 @@
   highPrecision ? true,
   cargoBuildTarget ? null,
   pyo3Only ? false,
-  src ? null,
+  srcOverride ? null,
 }: let
-  python_ = if python != null then python else python312;
+  python_ =
+    if pythonPackage != null
+    then pythonPackage
+    else python312;
   effectiveSrc =
-    if src != null
-    then src
+    if srcOverride != null
+    then srcOverride
     else
       fetchFromGitHub {
         owner = "nautechsystems";
@@ -41,32 +43,27 @@ in
     src = effectiveSrc;
 
     cargoDeps = rustPlatform.fetchCargoVendor {
-      inherit (effectiveSrc) src;
+      src = effectiveSrc;
       name = "nautilus-trader-${version}-vendor";
       hash = cargoHash;
     };
 
-    nativeBuildInputs =
-      [
-        rustPlatform.cargoSetupHook
-        cargo
-        rustc
-        clang
-        pkg-config
-        capnproto
-        python_
-        python_.pkgs.build
-        python_.pkgs.wheel
-        python_.pkgs.poetry-core
-        python_.pkgs.setuptools
-        python_.pkgs.cython
-        python_.pkgs.numpy
-        python_.pkgs.packaging
-      ]
-      ++ lib.optionals stdenv.isDarwin [
-        darwin.apple_sdk.frameworks.CoreFoundation
-        darwin.apple_sdk.frameworks.SystemConfiguration
-      ];
+    nativeBuildInputs = [
+      rustPlatform.cargoSetupHook
+      cargo
+      rustc
+      clang
+      pkg-config
+      capnproto
+      python_
+      python_.pkgs.build
+      python_.pkgs.wheel
+      python_.pkgs.poetry-core
+      python_.pkgs.setuptools
+      python_.pkgs.cython
+      python_.pkgs.numpy
+      python_.pkgs.packaging
+    ];
 
     buildInputs = lib.optionals stdenv.isLinux [
       python_
@@ -94,16 +91,18 @@ in
         PYO3_ONLY = "true";
       };
 
-    preBuild = ''
-      export HOME="$TMPDIR/home"
-      mkdir -p "$HOME"
+    preBuild =
+      ''
+        export HOME="$TMPDIR/home"
+        mkdir -p "$HOME"
 
-      export CC="${clang}/bin/clang"
-      export CXX="${clang}/bin/clang++"
-      export LDSHARED="${clang}/bin/clang -shared"
-    '' + lib.optionalString stdenv.isLinux ''
-      export LD_LIBRARY_PATH="${python_}/lib:''${LD_LIBRARY_PATH:-}"
-    '';
+        export CC="${clang}/bin/clang"
+        export CXX="${clang}/bin/clang++"
+      ''
+      + lib.optionalString stdenv.isLinux ''
+        export LDSHARED="${clang}/bin/clang -shared"
+        export LD_LIBRARY_PATH="${python_}/lib:''${LD_LIBRARY_PATH:-}"
+      '';
 
     buildPhase = ''
       runHook preBuild
