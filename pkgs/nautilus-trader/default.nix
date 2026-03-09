@@ -108,11 +108,23 @@ in
         export LIBRARY_PATH="${python_}/lib:''${LIBRARY_PATH:-}"
         export LD_LIBRARY_PATH="${python_}/lib:''${LD_LIBRARY_PATH:-}"
         export DYLD_LIBRARY_PATH="${python_}/lib:''${DYLD_LIBRARY_PATH:-}"
+      ''
+      + ''
+        export UV_PYTHON="${python_.interpreter}"
+        export UV_NO_MANAGED_PYTHON=1
+        export UV_PYTHON_DOWNLOADS=never
       '';
 
     buildPhase = ''
       runHook preBuild
-      uv build --wheel --no-build-isolation --out-dir dist --offline
+      uv build \
+        --wheel \
+        --python "${python_.interpreter}" \
+        --no-build-isolation \
+        --no-managed-python \
+        --no-python-downloads \
+        --out-dir dist \
+        --offline
       runHook postBuild
     '';
 
