@@ -8,6 +8,7 @@
   cargo,
   rustc,
   clang,
+  uv,
   pkg-config,
   capnproto,
   # Build options
@@ -53,11 +54,10 @@ in
       cargo
       rustc
       clang
+      uv
       pkg-config
       capnproto
       python_
-      python_.pkgs.build
-      python_.pkgs.wheel
       python_.pkgs.poetry-core
       python_.pkgs.setuptools
       python_.pkgs.cython
@@ -102,23 +102,30 @@ in
       + lib.optionalString stdenv.isLinux ''
         export LDSHARED="${clang}/bin/clang -shared"
         export LD_LIBRARY_PATH="${python_}/lib:''${LD_LIBRARY_PATH:-}"
+      ''
+      + lib.optionalString stdenv.isDarwin ''
+        export RUSTFLAGS="''${RUSTFLAGS:+$RUSTFLAGS }-C link-arg=-undefined -C link-arg=dynamic_lookup"
+        export LIBRARY_PATH="${python_}/lib:''${LIBRARY_PATH:-}"
+        export LD_LIBRARY_PATH="${python_}/lib:''${LD_LIBRARY_PATH:-}"
+        export DYLD_LIBRARY_PATH="${python_}/lib:''${DYLD_LIBRARY_PATH:-}"
       '';
 
     buildPhase = ''
       runHook preBuild
-      ${python_.interpreter} -m build --wheel --no-isolation --outdir dist
+      uv build --wheel --no-build-isolation --out-dir dist --offline
       runHook postBuild
     '';
 
     installPhase = ''
       runHook preInstall
       mkdir -p "$out/dist"
-      if compgen -G 'dist/*.whl' > /dev/null; then
-        cp dist/*.whl "$out/dist/"
-      else
-        mkdir -p "$out/${python_.sitePackages}"
-        cp -R nautilus_trader "$out/${python_.sitePackages}/"
+      wheels=(dist/*.whl)
+      if [ "''${#wheels[@]}" -eq 0 ]; then
+        echo "No wheel produced in dist/" >&2
+        ls -la dist >&2 || true
+        exit 1
       fi
+      cp "''${wheels[@]}" "$out/dist/"
       runHook postInstall
     '';
 
