@@ -113,7 +113,12 @@ in
     installPhase = ''
       runHook preInstall
       mkdir -p "$out/dist"
-      cp dist/*.whl "$out/dist/"
+      if compgen -G 'dist/*.whl' > /dev/null; then
+        cp dist/*.whl "$out/dist/"
+      else
+        mkdir -p "$out/${python_.sitePackages}"
+        cp -R nautilus_trader "$out/${python_.sitePackages}/"
+      fi
       runHook postInstall
     '';
 
