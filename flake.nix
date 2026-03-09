@@ -119,6 +119,12 @@
             opencode = inputs.llm-agents.packages.${system}.opencode;
             bun2nix-cli = inputs.bun2nix.packages.${system}.bun2nix;
           };
+          nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
+            version = "0-unstable";
+            rev = "develop";
+            srcHash = lib.fakeHash;
+            cargoHash = lib.fakeHash;
+          };
           tod = pkgs.callPackage ./pkgs/tod {};
         };
         platformFilteredPackages = jackLib.filterByPlatforms system allPackages;

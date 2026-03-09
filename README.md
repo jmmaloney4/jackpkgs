@@ -654,12 +654,13 @@ ______________________________________________________________________
 
 ## Packages available
 
-- `csharpier` - C# formatter
-- `docfx` - .NET docs generator
-- `epub2tts` - EPUB -> TTS
-- `lean` - Lean theorem prover
-- `openchamber` - Web and desktop interface for OpenCode AI agent
-- `tod` - Todoist CLI
+- `csharpier` — C# formatter
+- `docfx` — .NET docs generator
+- `epub2tts` — EPUB → TTS
+- `lean` — Lean theorem prover
+- `nautilus-trader` — High-performance algorithmic trading platform and event-driven backtester (builds a Python wheel)
+- `openchamber` — Web and desktop interface for OpenCode AI agent
+- `tod` — Todoist CLI
 
 Build from CLI (examples):
 
