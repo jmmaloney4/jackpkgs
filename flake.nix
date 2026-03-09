@@ -106,6 +106,11 @@
         ...
       }: let
         jackLib = import ./lib {inherit pkgs;};
+        nautilusRustToolchain = inputs.fenix.packages.${system}.minimal.toolchain;
+        nautilusRustPlatform = pkgs.makeRustPlatform {
+          cargo = nautilusRustToolchain;
+          rustc = nautilusRustToolchain;
+        };
         # Make flake lib available for tests
         flakeLib = inputs.nixpkgs.lib.extend (
           final: prev: jackLib
@@ -120,10 +125,13 @@
             bun2nix-cli = inputs.bun2nix.packages.${system}.bun2nix;
           };
           nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
+            cargo = nautilusRustToolchain;
+            rustc = nautilusRustToolchain;
+            rustPlatform = nautilusRustPlatform;
             version = "0-unstable";
             rev = "develop";
-            srcHash = lib.fakeHash;
-            cargoHash = lib.fakeHash;
+            srcHash = "sha256-S8AM7ME7grj3fzunCLxkBVULbha0GdoHhgOykRybiGI=";
+            cargoHash = "sha256-Ljnlzfb/ayLvHrazVP3pqMvFCLpzqHc5qH8YCd1KM3I=";
           };
           tod = pkgs.callPackage ./pkgs/tod {};
         };
