@@ -6,7 +6,7 @@ Jack's Nix flake providing packages, an overlay, and reusable flake-parts module
 
 - Add as a flake input: `jackpkgs = "github:jmmaloney4/jackpkgs"`.
 - Use packages via `jackpkgs.packages.${system}` or by enabling the overlay in your `nixpkgs`.
-- Import flake-parts modules from `inputs.jackpkgs.flakeModules` (default or à la carte).
+- Import flake-parts modules from `inputs.jackpkgs.flakeModules` (default or a la carte).
 
 ______________________________________________________________________
 
@@ -82,17 +82,17 @@ ______________________________________________________________________
 
 This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModules` sourced from `modules/flake-parts/`:
 
-- `default` — imports all modules below (including `pkgs`).
-- `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
-- `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Taplo, Yamlfmt, etc.).
-- `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix, nodejs).
-- `pre-commit` — pre-commit hooks (treefmt, nbstripout, Python/TS/JS quality gates). Requires `flakeModules.checks`; hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`.
-- `shell` — shared dev shell output to include via `inputsFrom`.
-- `checks` — CI checks and quality-gate controls for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
-- `nodejs` — builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
-- `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
-- `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
-- `python` — opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
+- `default` - imports all modules below (including `pkgs`).
+- `pkgs` - provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for a la carte imports when using `jackpkgs.pkgs`.
+- `fmt` - treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Taplo, Yamlfmt, etc.).
+- `just` - just-flake integration with curated recipes (direnv, infra, python, git, nix, nodejs).
+- `pre-commit` - pre-commit hooks (treefmt, nbstripout, Python/TS/JS quality gates). Requires `flakeModules.checks`; hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`.
+- `shell` - shared dev shell output to include via `inputsFrom`.
+- `checks` - CI checks and quality-gate controls for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
+- `nodejs` - builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
+- `pulumi` - emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
+- `quarto` - emits a Quarto devShell fragment, with configurable Quarto and Python packages.
+- `python` - opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
 
 ### Import (one-liner: everything)
 
@@ -103,7 +103,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 }
 ```
 
-### Import (à la carte)
+### Import (a la carte)
 
 ```nix
 flake-parts.lib.mkFlake { inherit inputs; } {
@@ -121,7 +121,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 }
 ```
 
-Note: When importing modules à la carte, include `flakeModules.pkgs` if you want to set `jackpkgs.pkgs` to propagate overlayed nixpkgs. The `default` module includes it automatically.
+Note: When importing modules a la carte, include `flakeModules.pkgs` if you want to set `jackpkgs.pkgs` to propagate overlayed nixpkgs. The `default` module includes it automatically.
 
 ### Using overlayed nixpkgs
 
@@ -163,7 +163,7 @@ in {
     - `treefmtPackage` (package, default `config.jackpkgs.pkgs.treefmt`)
     - `projectRootFile` (str, default `config.flake-root.projectRootFile`)
     - `excludes` (list of str, default `["**/node_modules/**" "**/dist/**"]`)
-    - `mdformat.validate` (bool, default `true`) — set to `false` to skip mdformat's validation step (`--no-validate`); useful for markdown files with extended/non-standard syntax (e.g., LaTeX).
+    - `mdformat.validate` (bool, default `true`) - set to `false` to skip mdformat's validation step (`--no-validate`); useful for markdown files with extended/non-standard syntax (e.g., LaTeX).
   - Enables formatters: Alejandra (Nix), Biome (JS/TS), HuJSON, latexindent, mdformat (MD), Ruff (check + format), Rustfmt, Taplo (TOML), Yamlfmt.
 
 - just (`modules/flake-parts/just.nix`)
@@ -179,7 +179,7 @@ in {
     - `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`
     - `pulumiBackendUrl` (nullable string)
   - Options under `jackpkgs.gcp`:
-    - `iamOrg` (nullable string, default `null`) — GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
+    - `iamOrg` (nullable string, default `null`) - GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
 
@@ -212,9 +212,9 @@ in {
     - `python.mypy.package` (dev-tools env selection: prefers non-editable env with `includeGroups = true`; falls back to `pythonDefaultEnv`, then `pkgs.mypy`)
     - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package` (each defaults to `python.mypy.package`)
     - `typescript.tsc.package` (defaults to `pkgs.nodePackages.typescript`)
-    - `typescript.tsc.nodeModules` (nullable package, default `null` → falls back to `jackpkgs.outputs.nodeModules`)
+    - `typescript.tsc.nodeModules` (nullable package, default `null` -> falls back to `jackpkgs.outputs.nodeModules`)
     - `javascript.vitest.package` (defaults to `pkgs.nodejs`)
-    - `javascript.vitest.nodeModules` (nullable package, default `null` → falls back to `jackpkgs.outputs.nodeModules`)
+    - `javascript.vitest.nodeModules` (nullable package, default `null` -> falls back to `jackpkgs.outputs.nodeModules`)
 
 - checks (`modules/flake-parts/checks.nix`)
 
@@ -233,7 +233,7 @@ in {
     - `python.mypy.enable` (bool, default `true`), `python.mypy.extraArgs` (list, default `[]`)
     - `python.ruff.enable` (bool, default `true`), `python.ruff.extraArgs` (list, default `["--no-cache"]`)
     - `python.pytest.enable` (bool, default `true`), `python.pytest.extraArgs` (list, default `[]`)
-    - `python.numpydoc.enable` (bool, **default `false`** — explicit opt-in), `python.numpydoc.extraArgs` (list, default `[]`)
+    - `python.numpydoc.enable` (bool, **default `false`** - explicit opt-in), `python.numpydoc.extraArgs` (list, default `[]`)
     - `typescript.tsc.enable` (bool, default `jackpkgs.nodejs.enable`), `typescript.tsc.packages`, `typescript.tsc.nodeModules`, `typescript.tsc.extraArgs`
     - `vitest.enable` (bool, default `jackpkgs.nodejs.enable`), `vitest.packages`, `vitest.nodeModules`, `vitest.extraArgs`
     - `beancount.enable` (bool, default `false`), `beancount.ledgerFile` (nullable path, default `null`), `beancount.extraArgs` (list, default `[]`)
@@ -300,13 +300,13 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
   - When `inputs.jackpkgs.flakeModules.just` is also imported, the generated `justfile` includes `just update-pnpm-hash` plus `just update-pnpm-deps` as an alias.
   - Options under `jackpkgs.nodejs`:
     - `enable` (bool, default `false`)
-    - `version` (enum: 18/20/22, default `22`) — Node.js major version
-    - `pnpmVersion` (enum: 9/10, default `10`) — pnpm major version
-    - `pnpmDepsHash` (string, required when enabled) — FOD hash for `fetchPnpmDeps`
+    - `version` (enum: 18/20/22, default `22`) - Node.js major version
+    - `pnpmVersion` (enum: 9/10, default `10`) - pnpm major version
+    - `pnpmDepsHash` (string, required when enabled) - FOD hash for `fetchPnpmDeps`
     - `projectRoot` (path, default `config.jackpkgs.projectRoot`)
   - Outputs:
-    - `jackpkgs.outputs.nodeModules` — derivation containing `node_modules/`
-    - `jackpkgs.outputs.pnpmDeps` — derivation containing fetched pnpm deps (for debugging/caching)
+    - `jackpkgs.outputs.nodeModules` - derivation containing `node_modules/`
+    - `jackpkgs.outputs.pnpmDeps` - derivation containing fetched pnpm deps (for debugging/caching)
   - Example:
     ```nix
     jackpkgs.nodejs = {
@@ -330,9 +330,9 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
   - Opinionated Python envs using uv2nix; publishes env packages and exposes workspace helpers.
   - Supports both standard projects (with `[project]`) and workspace-only repos (with `[tool.uv.workspace]` only).
   - **Environment Types:**
-    - **Development (editable)**: `editable = true` — Used in devshells for local development. Source code changes are immediately reflected. Automatically includes dependency groups by default (`includeGroups` defaults to `true`). Only one editable environment is allowed per flake.
-    - **CI (non-editable with groups)**: `editable = false`, `includeGroups = true` — Used for hermetic CI checks (pytest, mypy, ruff). Non-editable ensures reproducible builds. Includes all dependency groups (dev tools, type stubs, etc.). The `checks` module automatically selects or creates a CI environment.
-    - **Production (non-editable without groups)**: `editable = false`, `includeGroups = false` (or `null`) — Minimal environment with only production dependencies. Suitable for deployment. Published as `packages.<env.name>`.
+    - **Development (editable)**: `editable = true` - Used in devshells for local development. Source code changes are immediately reflected. Automatically includes dependency groups by default (`includeGroups` defaults to `true`). Only one editable environment is allowed per flake.
+    - **CI (non-editable with groups)**: `editable = false`, `includeGroups = true` - Used for hermetic CI checks (pytest, mypy, ruff). Non-editable ensures reproducible builds. Includes all dependency groups (dev tools, type stubs, etc.). The `checks` module automatically selects or creates a CI environment.
+    - **Production (non-editable without groups)**: `editable = false`, `includeGroups = false` (or `null`) - Minimal environment with only production dependencies. Suitable for deployment. Published as `packages.<env.name>`.
   - **Dependency Groups (PEP 735):**
     - This module supports **PEP 735 dependency groups only** (not PEP 621 optional-dependencies).
     - Dependency groups are **aggregated across all workspace members**: `workspace.deps.groups` includes all `[dependency-groups]` and `[tool.uv.dev-dependencies]` from the workspace root and all local member projects.
@@ -355,12 +355,12 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
     - `setuptools.packages` (list of str)
     - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru, includeGroups }`)
-      - **`spec`**: optional — explicit dependency specification for customization (overrides all other spec options)
-      - **`includeGroups`**: nullable bool (default `null`) — include all `[dependency-groups]` (PEP 735) and `[tool.uv.dev-dependencies]` from workspace members.
-        - When `null` (default): follows environment intent — `true` for editable envs, `false` for non-editable envs
+      - **`spec`**: optional - explicit dependency specification for customization (overrides all other spec options)
+      - **`includeGroups`**: nullable bool (default `null`) - include all `[dependency-groups]` (PEP 735) and `[tool.uv.dev-dependencies]` from workspace members.
+        - When `null` (default): follows environment intent - `true` for editable envs, `false` for non-editable envs
         - When `true`: explicitly include all dependency groups (dev tools, type stubs, etc.)
         - When `false`: explicitly exclude dependency groups (production-only)
-      - **`editable`**: bool (default `false`) — create editable install with workspace members. At most one environment may have `editable = true`; automatically included in devshell.
+      - **`editable`**: bool (default `false`) - create editable install with workspace members. At most one environment may have `editable = true`; automatically included in devshell.
   - Outputs:
     - Packages: non-editable envs appear under `packages.<env.name>`
     - Module args: `_module.args.pythonWorkspace` (always exposed)
@@ -376,7 +376,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
       environments.default = {
         name = "python-prod";
         # editable = false (default)
-        # includeGroups = null → defaults to false for non-editable
+        # includeGroups = null -> defaults to false for non-editable
       };
     };
 
@@ -389,7 +389,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
         dev = {
           name = "python-dev";
           editable = true;  # Automatically in devshell
-          # includeGroups = null → defaults to true for editable
+          # includeGroups = null -> defaults to true for editable
           # Includes all [dependency-groups] from workspace members
         };
       };
@@ -504,7 +504,7 @@ jackpkgs.checks.python.numpydoc = {
 | Production-only default    | `false`    | `false` (default) | No (no mypy/ruff/pytest tooling) |
 | CI/pre-commit-ready        | `false`    | `true`            | Yes                              |
 | Separate prod + dev envs   | mixed      | dev env: `true`   | Yes (dev env is selected)        |
-| No matching configured env | —          | —                 | Yes (auto-created fallback env)  |
+| No matching configured env | -          | -                 | Yes (auto-created fallback env)  |
 
 #### Path resolution (project root)
 
@@ -530,16 +530,123 @@ perSystem = { pkgs, config, ... }: {
 };
 ```
 
+### Editable Python dev shells
+
+When `jackpkgs.python` defines an editable environment, the intended runtime model has two parts:
+
+1. the interpreter and CLI shims (for example `host-scaffold`) still live in `/nix/store`
+2. workspace package imports resolve from your live checkout under `$REPO_ROOT`
+
+That means this is **expected** in a dev shell:
+
+```bash
+which host-scaffold
+# /nix/store/...-python-myproj-editable/bin/host-scaffold
+```
+
+The important check is where Python imports resolve:
+
+```bash
+python - <<'PY'
+import importlib.util
+spec = importlib.util.find_spec("my_workspace_package")
+print(spec.origin)
+PY
+# /path/to/your/repo/packages/my-workspace-package/src/...
+```
+
+If the executable is in `/nix/store` **and** imports also resolve to `/nix/store/.../site-packages/...`, the shell is not behaving as a live editable shell.
+
+**Recommended consumer pattern**
+
+- Set `jackpkgs.python.workspaceRoot = ./.;`
+- Define non-editable envs for CI/production as needed
+- Define exactly one editable env for the interactive developer shell
+- Compose `config.jackpkgs.outputs.devShell` into your repo shell
+- If your repo defines its own top-level shell, it is fine to include `config.jackpkgs.outputs.pythonEditableHook` explicitly in `inputsFrom` for clarity
+- Watch `pyproject.toml` and `uv.lock` in `.envrc` so direnv reloads when Python env inputs change
+
+Example repo shell:
+
+```nix
+perSystem = { pkgs, config, ... }: {
+  devShells.default = pkgs.mkShell {
+    inputsFrom = [
+      config.jackpkgs.outputs.devShell
+      config.jackpkgs.outputs.pythonEditableHook
+    ];
+    packages = [ ];
+  };
+};
+```
+
+What the editable hook is responsible for:
+
+- exporting `REPO_ROOT`
+- unsetting `PYTHONPATH`
+- setting `UV_NO_SYNC`
+- pointing `UV_PYTHON` at the editable interpreter
+- disabling Python downloads via `UV_PYTHON_DOWNLOADS`
+- prepending the editable env's `bin` directory to `PATH`
+
+**Recommended env declaration for uv workspaces**
+
+For uv workspaces, prefer an explicit package-name `spec` attrset for the editable env instead of relying on broad path-pattern `members` selection.
+
+A reliable pattern is to compute a shared `workspaceSpec` from the uv workspace members and reuse it for both the default and editable envs:
+
+```nix
+let
+  rootPyproject = builtins.fromTOML (builtins.readFile ./pyproject.toml);
+  workspaceMembers = rootPyproject.tool.uv.workspace.members;
+  getPkgName = path:
+    (builtins.fromTOML (builtins.readFile (./. + "/${path}/pyproject.toml"))).project.name;
+  workspaceSpec = builtins.listToAttrs (map (name: {
+    name = name;
+    value = [ ];
+  }) (map getPkgName workspaceMembers));
+in {
+  jackpkgs.python = {
+    enable = true;
+    workspaceRoot = ./.;
+    environments = {
+      default = {
+        name = "python-myproj";
+        spec = workspaceSpec;
+      };
+      editable = {
+        name = "python-myproj-editable";
+        editable = true;
+        spec = workspaceSpec;
+      };
+    };
+  };
+}
+```
+
+This is the pattern used successfully in downstream repos where the editable shell needs to provide store-backed launchers but live-source imports from the working tree.
+
+**Validation checklist**
+
+After `direnv reload` or `nix develop`, the healthy state is:
+
+- `which my-cli` points at `/nix/store/...-python-...-editable/bin/my-cli`
+- `REPO_ROOT` is set in the shell
+- `UV_PYTHON` points at the editable interpreter
+- `python -c 'import ...; print(__file__)'` resolves workspace packages from your checkout, not `/nix/store`
+
+If the shell still imports workspace packages from `/nix/store`, first confirm the editable env declaration shape and then confirm the shell is actually composing the editable hook.
+
 ______________________________________________________________________
 
 ## Packages available
 
-- `csharpier` — C# formatter
-- `docfx` — .NET docs generator
-- `epub2tts` — EPUB → TTS
-- `lean` — Lean theorem prover
-- `openchamber` — Web and desktop interface for OpenCode AI agent
-- `tod` — Todoist CLI
+- `csharpier` - C# formatter
+- `docfx` - .NET docs generator
+- `epub2tts` - EPUB -> TTS
+- `lean` - Lean theorem prover
+- `openchamber` - Web and desktop interface for OpenCode AI agent
+- `tod` - Todoist CLI
 
 Build from CLI (examples):
 
