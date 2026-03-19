@@ -198,6 +198,13 @@ in {
     expected = true;
   };
 
+  testPytestDefaultUsesImportlib = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hasInfixAll ["pytest" "--import-mode=importlib"] hooks.pytest.entry;
+    expected = true;
+  };
+
   testVitestPrePushStage = let
     hooks = getHooks [(mkConfigModule {})];
   in {

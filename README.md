@@ -232,7 +232,7 @@ in {
     - `python.enable` (bool, default `jackpkgs.python.enable`)
     - `python.mypy.enable` (bool, default `true`), `python.mypy.extraArgs` (list, default `[]`)
     - `python.ruff.enable` (bool, default `true`), `python.ruff.extraArgs` (list, default `["--no-cache"]`)
-    - `python.pytest.enable` (bool, default `true`), `python.pytest.extraArgs` (list, default `[]`)
+    - `python.pytest.enable` (bool, default `true`), `python.pytest.extraArgs` (list, default `["--import-mode=importlib"]`)
     - `python.numpydoc.enable` (bool, **default `false`** - explicit opt-in), `python.numpydoc.extraArgs` (list, default `[]`)
     - `typescript.tsc.enable` (bool, default `jackpkgs.nodejs.enable`), `typescript.tsc.packages`, `typescript.tsc.nodeModules`, `typescript.tsc.extraArgs`
     - `vitest.enable` (bool, default `jackpkgs.nodejs.enable`), `vitest.packages`, `vitest.nodeModules`, `vitest.extraArgs`
@@ -267,7 +267,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
 | ---------- | ------------------- | --------------- | ------------ | ---------------------------- |
 | `mypy`     | `mypy`              | `mypy`          | commit       | enabled                      |
 | `ruff`     | `ruff`              | `ruff`          | commit       | enabled                      |
-| `pytest`   | `pytest`            | `pytest`        | **pre-push** | enabled                      |
+| `pytest`   | `pytest`            | `pytest`        | **pre-push** | enabled (`--import-mode=importlib`) |
 | `numpydoc` | `numpydoc`          | `numpydoc`      | commit       | **disabled**                 |
 | `tsc`      | `tsc`               | `tsc`           | commit       | enabled when `nodejs.enable` |
 | `vitest`   | `vitest`            | `vitest`        | **pre-push** | enabled when `nodejs.enable` |

@@ -290,13 +290,23 @@ in {
     checks = mkChecks {
       configModule = mkConfigModule {
         pythonEnable = true;
-        extraConfig.jackpkgs.checks.python.pytest.extraArgs = ["--color=yes" "-v"];
+        extraConfig.jackpkgs.checks.python.pytest.extraArgs = ["--import-mode=importlib" "--color=yes" "-v"];
       };
     };
     script = getBuildCommand checks.pytest;
   in {
     expr =
-      hasInfixAll ["PYTHONPATH=" "COVERAGE_FILE=" "pytest" "--color=yes" "-v"] script;
+      hasInfixAll ["PYTHONPATH=" "COVERAGE_FILE=" "pytest" "--import-mode=importlib" "--color=yes" "-v"] script;
+    expected = true;
+  };
+
+  testPythonPytestDefaultUsesImportlib = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.pytest;
+  in {
+    expr = hasInfixAll ["pytest" "--import-mode=importlib"] script;
     expected = true;
   };
 

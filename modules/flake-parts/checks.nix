@@ -47,9 +47,9 @@ in {
 
           extraArgs = mkOption {
             type = types.listOf types.str;
-            default = [];
-            description = "Extra arguments to pass to pytest";
-            example = ["--color=yes" "-v"];
+            default = ["--import-mode=importlib"];
+            description = "Arguments to pass to pytest";
+            example = ["--import-mode=importlib" "--color=yes" "-v"];
           };
         };
 
