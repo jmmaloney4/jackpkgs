@@ -1,0 +1,56 @@
+{
+  lib,
+  inputs,
+}: let
+  system = "x86_64-linux";
+  flakeParts = inputs.flake-parts.lib;
+  libModule = import ../modules/flake-parts/lib.nix {jackpkgsInputs = inputs;};
+  pkgsModule = import ../modules/flake-parts/pkgs.nix {jackpkgsInputs = inputs;};
+  devshellModule = import ../modules/flake-parts/devshell.nix {jackpkgsInputs = inputs;};
+  pulumiModule = import ../modules/flake-parts/pulumi.nix {jackpkgsInputs = inputs;};
+
+  evalFlake = modules:
+    flakeParts.evalFlakeModule {inherit inputs;} {
+      systems = [system];
+      imports = [libModule pkgsModule devshellModule] ++ modules ++ [pulumiModule];
+    };
+
+  getPerSystemCfg = modules: (evalFlake modules).config.perSystem system;
+
+  mkConfigModule = {
+    backendUrl ? "s3://pulumi-state",
+    secretsProvider ? "awskms://alias/pulumi",
+  }: {
+    _module.check = false;
+    jackpkgs.pulumi = {
+      enable = true;
+      inherit backendUrl secretsProvider;
+    };
+  };
+
+  expectedEnv = {
+    PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+    PULUMI_BACKEND_URL = "s3://pulumi-state";
+    PULUMI_SECRETS_PROVIDER = "awskms://alias/pulumi";
+    PULUMI_OPTION_NON_INTERACTIVE = "true";
+    PULUMI_OPTION_COLOR = "never";
+    PULUMI_OPTION_SUPPRESS_PROGRESS = "true";
+  };
+
+  hasExpectedEnv = drv:
+    lib.all (name: drv.${name} == expectedEnv.${name}) (builtins.attrNames expectedEnv);
+in {
+  testPulumiDevShellSetsPulumiCliDefaults = let
+    perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
+  in {
+    expr = hasExpectedEnv perSystemCfg.jackpkgs.outputs.pulumiDevShell;
+    expected = true;
+  };
+
+  testCiPulumiDevShellSetsPulumiCliDefaults = let
+    perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
+  in {
+    expr = hasExpectedEnv perSystemCfg.devShells.ci-pulumi;
+    expected = true;
+  };
+}

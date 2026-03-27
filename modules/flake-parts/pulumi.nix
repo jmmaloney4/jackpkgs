@@ -138,6 +138,9 @@ in {
           PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
           PULUMI_BACKEND_URL = cfg.backendUrl;
           PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
+          PULUMI_OPTION_NON_INTERACTIVE = "true";
+          PULUMI_OPTION_COLOR = "never";
+          PULUMI_OPTION_SUPPRESS_PROGRESS = "true";
         };
 
         # ADC file path for the active gcp.profile (null-safe: only used when profile != null).

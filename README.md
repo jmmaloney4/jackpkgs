@@ -282,6 +282,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
 
   - Provides Pulumi CLI in a devShell fragment: `config.jackpkgs.outputs.pulumiDevShell`.
   - Provides CI devshell: `devShells.ci-pulumi` with minimal dependencies for CI environments.
+  - When enabled, both Pulumi shells export `PULUMI_OPTION_NON_INTERACTIVE=true`, `PULUMI_OPTION_COLOR=never`, and `PULUMI_OPTION_SUPPRESS_PROGRESS=true` for plain, non-interactive CLI output.
   - Options under `jackpkgs.pulumi`:
     - `enable` (bool, default `true`)
     - `backendUrl` (str, required) - Pulumi backend URL

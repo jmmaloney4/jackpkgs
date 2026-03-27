@@ -259,6 +259,12 @@
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };
+            opencode = import ./tests/opencode.nix {
+              inherit inputs lib;
+            };
+            pulumi = import ./tests/pulumi.nix {
+              inherit inputs lib;
+            };
           };
         };
 
