@@ -3,7 +3,7 @@
 
   inputs = {
     # nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    nixpkgs.url = "github:NixOS/nixpkgs/70801e06d9730c4f1704fbd3bbf5b8e11c03a2a7"; # https://github.com/NixOS/nixpkgs/issues/483584
+    nixpkgs.url = "github:NixOS/nixpkgs/4354a1cb46416add953247cb1b71631026dc62eb"; # https://github.com/NixOS/nixpkgs/issues/483584
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -259,9 +259,6 @@
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };
-            opencode = import ./tests/opencode.nix {
-              inherit inputs lib;
-            };
             pulumi = import ./tests/pulumi.nix {
               inherit inputs lib;
             };
@@ -345,7 +342,7 @@
             pnpm-nonhoisted-runtime = mkPnpmFixtureCheck {
               name = "nonhoisted-runtime";
               src = fixtureNonhoistedDep;
-              depsHash = "sha256-Pyw+kyJeLDLPK9pkYvuT2/V7yg5kawHzMwY8B4thNEk=";
+              depsHash = "sha256-Pg995/qFmh6ehdZOBdR0q94JhiLR6oBHI3CdPJK9ipQ=";
               checkCommand = ''
                 test -d node_modules
                 node packages/app/index.js | grep -qx "pass"
@@ -356,7 +353,7 @@
             pnpm-nonhoisted-output-layout = mkPnpmFixtureCheck {
               name = "nonhoisted-output-layout";
               src = fixtureNonhoistedDep;
-              depsHash = "sha256-Pyw+kyJeLDLPK9pkYvuT2/V7yg5kawHzMwY8B4thNEk=";
+              depsHash = "sha256-Pg995/qFmh6ehdZOBdR0q94JhiLR6oBHI3CdPJK9ipQ=";
               checkCommand = ''
                 mkdir -p "$out"
                 cp -a node_modules "$out/"

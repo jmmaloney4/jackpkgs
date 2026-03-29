@@ -263,14 +263,14 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
 
 **Quality-gate surface matrix:**
 
-| Tool       | CI check derivation | Pre-commit hook | Stage        | Default                      |
-| ---------- | ------------------- | --------------- | ------------ | ---------------------------- |
-| `mypy`     | `mypy`              | `mypy`          | commit       | enabled                      |
-| `ruff`     | `ruff`              | `ruff`          | commit       | enabled                      |
+| Tool       | CI check derivation | Pre-commit hook | Stage        | Default                             |
+| ---------- | ------------------- | --------------- | ------------ | ----------------------------------- |
+| `mypy`     | `mypy`              | `mypy`          | commit       | enabled                             |
+| `ruff`     | `ruff`              | `ruff`          | commit       | enabled                             |
 | `pytest`   | `pytest`            | `pytest`        | **pre-push** | enabled (`--import-mode=importlib`) |
-| `numpydoc` | `numpydoc`          | `numpydoc`      | commit       | **disabled**                 |
-| `tsc`      | `tsc`               | `tsc`           | commit       | enabled when `nodejs.enable` |
-| `vitest`   | `vitest`            | `vitest`        | **pre-push** | enabled when `nodejs.enable` |
+| `numpydoc` | `numpydoc`          | `numpydoc`      | commit       | **disabled**                        |
+| `tsc`      | `tsc`               | `tsc`           | commit       | enabled when `nodejs.enable`        |
+| `vitest`   | `vitest`            | `vitest`        | **pre-push** | enabled when `nodejs.enable`        |
 
 - shell (`modules/flake-parts/devshell.nix`)
 
