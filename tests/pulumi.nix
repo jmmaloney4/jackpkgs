@@ -7,12 +7,13 @@
   libModule = import ../modules/flake-parts/lib.nix {jackpkgsInputs = inputs;};
   pkgsModule = import ../modules/flake-parts/pkgs.nix {jackpkgsInputs = inputs;};
   devshellModule = import ../modules/flake-parts/devshell.nix {jackpkgsInputs = inputs;};
+  gcpModule = import ../modules/flake-parts/gcp.nix {jackpkgsInputs = inputs;};
   pulumiModule = import ../modules/flake-parts/pulumi.nix {jackpkgsInputs = inputs;};
 
   evalFlake = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = [libModule pkgsModule devshellModule] ++ modules ++ [pulumiModule];
+      imports = [libModule pkgsModule devshellModule gcpModule] ++ modules ++ [pulumiModule];
     };
 
   getPerSystemCfg = modules: (evalFlake modules).config.perSystem system;
