@@ -345,7 +345,7 @@
             pnpm-nonhoisted-runtime = mkPnpmFixtureCheck {
               name = "nonhoisted-runtime";
               src = fixtureNonhoistedDep;
-              depsHash = "sha256-Pyw+kyJeLDLPK9pkYvuT2/V7yg5kawHzMwY8B4thNEk=";
+              depsHash = "sha256-Pg995/qFmh6ehdZOBdR0q94JhiLR6oBHI3CdPJK9ipQ=";
               checkCommand = ''
                 test -d node_modules
                 node packages/app/index.js | grep -qx "pass"
@@ -356,7 +356,7 @@
             pnpm-nonhoisted-output-layout = mkPnpmFixtureCheck {
               name = "nonhoisted-output-layout";
               src = fixtureNonhoistedDep;
-              depsHash = "sha256-Pyw+kyJeLDLPK9pkYvuT2/V7yg5kawHzMwY8B4thNEk=";
+              depsHash = "sha256-Pg995/qFmh6ehdZOBdR0q94JhiLR6oBHI3CdPJK9ipQ=";
               checkCommand = ''
                 mkdir -p "$out"
                 cp -a node_modules "$out/"
