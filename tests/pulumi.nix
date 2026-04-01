@@ -79,7 +79,8 @@ in {
       hasInfixAll [
         ''preview env="dev":''
         ''deploy env="dev":''
-      ] justfile
+      ]
+      justfile
       && lib.all (needle: !(lib.hasInfix needle justfile)) [
         "preview env=dev:"
         "deploy env=dev:"
@@ -101,10 +102,12 @@ in {
     ];
     justfile = perSystemCfg.jackpkgs.outputs.pulumiJustfile;
   in {
-    expr = hasInfixAll [
-      ''preview env="stage-us":''
-      ''deploy env="stage-us":''
-    ] justfile;
+    expr =
+      hasInfixAll [
+        ''preview env="stage-us":''
+        ''deploy env="stage-us":''
+      ]
+      justfile;
     expected = true;
   };
 }
