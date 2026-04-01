@@ -242,7 +242,7 @@ in {
             ];
 
           previewRecipe =
-            mkRecipeWithParams "preview" ["env=${defaultStack}"] "Preview changes for all Pulumi projects (run 'just deploy' to apply)"
+            mkRecipeWithParams "preview" [''env="${defaultStack}"''] "Preview changes for all Pulumi projects (run 'just deploy' to apply)"
             ([
                 "#!/usr/bin/env bash"
                 "set -euo pipefail"
@@ -292,7 +292,7 @@ in {
             false;
 
           deployRecipe =
-            mkRecipeWithParams "deploy" ["env=${defaultStack}"] "Deploy all Pulumi projects in dependency order"
+            mkRecipeWithParams "deploy" [''env="${defaultStack}"''] "Deploy all Pulumi projects in dependency order"
             ([
                 "#!/usr/bin/env bash"
                 "set -euo pipefail"

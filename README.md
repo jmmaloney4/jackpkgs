@@ -90,7 +90,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `shell` - shared dev shell output to include via `inputsFrom`.
 - `checks` - CI checks and quality-gate controls for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
 - `nodejs` - builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
-- `pulumi` - emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`.
+- `pulumi` - emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`, plus generated `preview`/`deploy` just recipes.
 - `quarto` - emits a Quarto devShell fragment, with configurable Quarto and Python packages.
 - `python` - opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
 
@@ -281,12 +281,14 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
 - pulumi (`modules/flake-parts/pulumi.nix`)
 
   - Provides Pulumi CLI in a devShell fragment: `config.jackpkgs.outputs.pulumiDevShell`.
+  - Provides generated justfile fragment: `config.jackpkgs.outputs.pulumiJustfile` with `preview`/`deploy` recipes.
   - Provides CI devshell: `devShells.ci-pulumi` with minimal dependencies for CI environments.
   - When enabled, both Pulumi shells export `PULUMI_OPTION_NON_INTERACTIVE=true`, `PULUMI_OPTION_COLOR=never`, and `PULUMI_OPTION_SUPPRESS_PROGRESS=true` for plain, non-interactive CLI output.
   - Options under `jackpkgs.pulumi`:
     - `enable` (bool, default `true`)
     - `backendUrl` (str, required) - Pulumi backend URL
     - `secretsProvider` (str, required) - Pulumi secrets provider
+    - `defaultStack` (str, default `"dev"`) - Default stack used by generated `preview`/`deploy` just recipes
     - `ci.packages` (list of packages) - Packages included in ci-pulumi devshell
     - `ci.authMode` (enum, default `"workload-identity"`) - Authentication strategy for `ci-pulumi`:
       - `"workload-identity"`: relies on `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` / `GOOGLE_SERVICE_ACCOUNT_EMAIL` injected by the CI runner (GitHub Actions WIF). `GOOGLE_APPLICATION_CREDENTIALS` is **not** set.
