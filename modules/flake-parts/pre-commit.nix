@@ -156,8 +156,8 @@ in {
           vitest = {
             package = mkOption {
               type = types.package;
-              default = pkgs.nodejs;
-              defaultText = "pkgs.nodejs";
+              default = config.jackpkgs.nodejs.package;
+              defaultText = "config.jackpkgs.nodejs.package";
               description = "Node.js runtime package used to execute vitest.";
             };
 
@@ -192,8 +192,8 @@ in {
           lint = {
             package = mkOption {
               type = types.package;
-              default = pkgs.nodejs;
-              defaultText = "pkgs.nodejs";
+              default = config.jackpkgs.nodejs.package;
+              defaultText = "config.jackpkgs.nodejs.package";
               description = "Node.js runtime package used to execute biome.";
             };
 
