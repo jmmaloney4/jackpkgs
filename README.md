@@ -303,8 +303,8 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
   - When `inputs.jackpkgs.flakeModules.just` is also imported, the generated `justfile` includes `just update-pnpm-hash` plus `just update-pnpm-deps` as an alias.
   - Options under `jackpkgs.nodejs`:
     - `enable` (bool, default `false`)
-    - `version` (enum: 18/20/22, default `22`) - Node.js major version
-    - `pnpmVersion` (enum: 9/10, default `10`) - pnpm major version
+    - `package` (package, default `pkgs.nodejs_22`) - Node.js derivation
+    - `pnpmPackage` (package, default `pkgs.pnpm_10`) - pnpm derivation
     - `pnpmDepsHash` (string, required when enabled) - FOD hash for `fetchPnpmDeps`
     - `projectRoot` (path, default `config.jackpkgs.projectRoot`)
   - Outputs:
@@ -314,8 +314,8 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     ```nix
     jackpkgs.nodejs = {
       enable = true;
-      version = "22";
-      pnpmVersion = "10";
+      package = pkgs.nodejs_22;
+      pnpmPackage = pkgs.pnpm_10;
       pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     };
     ```

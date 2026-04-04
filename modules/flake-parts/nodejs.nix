@@ -19,18 +19,6 @@ in {
     jackpkgs.nodejs = {
       enable = mkEnableOption "jackpkgs-nodejs (opinionated Node.js envs via pnpm)" // {default = false;};
 
-      version = mkOption {
-        type = types.enum [18 20 22];
-        default = 22;
-        description = "Node.js major version to use.";
-      };
-
-      pnpmVersion = mkOption {
-        type = types.enum ["9" "10"];
-        default = "10";
-        description = "pnpm major version to use.";
-      };
-
       pnpmDepsHash = mkOption {
         type = types.str;
         default = "";
@@ -56,6 +44,22 @@ in {
       system,
       ...
     }: {
+      options.jackpkgs.nodejs = {
+        package = mkOption {
+          type = types.package;
+          default = pkgs.nodejs_22;
+          defaultText = "pkgs.nodejs_22";
+          description = "Node.js package to use.";
+        };
+
+        pnpmPackage = mkOption {
+          type = types.package;
+          default = pkgs.pnpm_10;
+          defaultText = "pkgs.pnpm_10";
+          description = "pnpm package to use.";
+        };
+      };
+
       options.jackpkgs.outputs.nodeModules = mkOption {
         type = types.nullOr types.package;
         default = null;
@@ -84,15 +88,6 @@ in {
       system,
       ...
     }: let
-      nodejsPackage =
-        if cfg.version == 18
-        then pkgs.nodejs_18
-        else if cfg.version == 20
-        then pkgs.nodejs_20
-        else pkgs.nodejs_22;
-
-      pnpmPackage = pkgs.${"pnpm_" + cfg.pnpmVersion};
-
       pnpmDeps = pkgs.fetchPnpmDeps {
         pname = "pnpm";
         version = "1.0.0";
@@ -107,8 +102,8 @@ in {
         src = cfg.projectRoot;
 
         nativeBuildInputs = [
-          nodejsPackage
-          pnpmPackage
+          cfg.package
+          cfg.pnpmPackage
           pkgs.pnpmConfigHook
         ];
 
@@ -135,8 +130,8 @@ in {
 
       jackpkgs.outputs.nodejsDevShell = pkgs.mkShell {
         packages = [
-          nodejsPackage
-          pnpmPackage
+          cfg.package
+          cfg.pnpmPackage
         ];
 
         shellHook = ''
