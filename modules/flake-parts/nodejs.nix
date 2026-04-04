@@ -47,8 +47,8 @@ in {
       options.jackpkgs.nodejs = {
         package = mkOption {
           type = types.package;
-          default = pkgs.nodejs_22;
-          defaultText = "pkgs.nodejs_22";
+        default = pkgs.nodejs_24;
+        defaultText = "pkgs.nodejs_24";
           description = "Node.js package to use.";
         };
 
