@@ -40,6 +40,118 @@ Run `.ts` files directly in the Node 24 runtime. No compilation step. TypeScript
 
 None of our repos use these patterns. Acceptable constraint enforced by `erasableSyntaxOnly` in tsconfig.
 
+## Appendix: Erasable-Only Constraints Explained
+
+Node 24's type stripping literally removes type annotations and nothing else. Any TypeScript feature that requires **code generation** (transforming syntax into different runtime code) will silently break at runtime because Node won't produce the generated code. The `erasableSyntaxOnly` tsconfig flag catches all of these at type-check time.
+
+### Enums (most likely to surprise)
+
+TypeScript enums are not just types -- they generate runtime JavaScript:
+
+```ts
+// This TypeScript:
+enum Direction {
+  Up = "UP",
+  Down = "DOWN",
+}
+
+// Compiles to this JavaScript:
+var Direction;
+(function (Direction) {
+  Direction["Up"] = "UP";
+  Direction["Down"] = "DOWN";
+})(Direction || (Direction = {}));
+```
+
+Node's type stripping only removes annotations. It will not create the `Direction` object. `Direction.Up` would be `undefined` at runtime.
+
+**Replacement: string union types**
+
+```ts
+type Direction = "UP" | "DOWN"
+```
+
+This is purely a type annotation -- completely erased at runtime. Use the string literals directly. Exhaustive `switch` checking still works. Interoperates naturally with string values from APIs, JSON, config files, etc.
+
+**If you need runtime values too, use `as const` objects:**
+
+```ts
+const Direction = {
+  Up: "UP",
+  Down: "DOWN",
+} as const
+type Direction = (typeof Direction)[keyof typeof Direction]
+```
+
+### Namespaces
+
+```ts
+namespace Utils {
+  export function foo() { ... }
+}
+```
+
+Compiles to an IIFE (immediately invoked function expression). Runtime code generation -- type stripping won't do it. Nobody uses these in modern TypeScript. ES modules (`export`/`import`) replaced them years ago. Non-issue.
+
+### Parameter Properties
+
+```ts
+class Foo {
+  constructor(public x: number) {}
+}
+```
+
+Compiles to:
+
+```ts
+class Foo {
+  constructor(x) {
+    this.x = x  // <-- generated assignment, not in source
+  }
+}
+```
+
+The `this.x = x` is generated code. Type stripping won't produce it.
+
+**Replacement: explicit assignment**
+
+```ts
+class Foo {
+  x: number
+  constructor(x: number) {
+    this.x = x
+  }
+}
+```
+
+Slightly more verbose but explicit about what happens at runtime. Many developers prefer this for clarity.
+
+### JSX
+
+```tsx
+<div>Hello</div>
+```
+
+Needs transformation into `React.createElement("div", null, "Hello")` or the `_jsx` runtime. Full syntax transform, not erasure. Already handled by Vite/esbuild for frontend bundles. No impact on our Node runtime migration.
+
+### `import X = require(...)`
+
+```ts
+import fs = require("node:fs")
+```
+
+TypeScript-specific syntax that compiles to `const fs = require("node:fs")`. Only relevant for CJS output. Since all our packages are `"type": "module"`, we just write:
+
+```ts
+import fs from "node:fs"
+```
+
+This pattern would never appear in an ESM-first codebase.
+
+### Enforcement
+
+The `erasableSyntaxOnly` tsconfig option (TypeScript 5.8+) makes tsc reject all of the above at type-check time. You cannot accidentally introduce a pattern that would break at runtime -- the toolchain catches it before code ships.
+
 ### Import Extensions
 
 Node's native TS loader requires `.ts` extensions in relative imports:
