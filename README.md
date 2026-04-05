@@ -302,11 +302,11 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
   - **Required**: Set `jackpkgs.nodejs.pnpmDepsHash` to the FOD hash of your pnpm dependencies. Run once without it to get the expected hash from the error, then add it.
   - When `inputs.jackpkgs.flakeModules.just` is also imported, the generated `justfile` includes `just update-pnpm-hash` plus `just update-pnpm-deps` as an alias.
   - Options under `jackpkgs.nodejs`:
-    - `enable` (bool, default `false`)
-    - `package` (package, default `pkgs.nodejs_24`) - Node.js derivation
-    - `pnpmPackage` (package, default `pkgs.pnpm_10`) - pnpm derivation
-    - `pnpmDepsHash` (string, required when enabled) - FOD hash for `fetchPnpmDeps`
-    - `projectRoot` (path, default `config.jackpkgs.projectRoot`)
+    - `enable` (bool, default `false`) -- top-level option
+    - `pnpmDepsHash` (string, required when enabled) - FOD hash for `fetchPnpmDeps` -- top-level option
+    - `projectRoot` (path, default `config.jackpkgs.projectRoot`) -- top-level option
+    - `package` (package, default `config.jackpkgs.pkgs.nodejs_24`) - Node.js derivation -- per-system option
+    - `pnpmPackage` (package, default `config.jackpkgs.pkgs.pnpm_10`) - pnpm derivation -- per-system option
   - Outputs:
     - `jackpkgs.outputs.nodeModules` - derivation containing `node_modules/`
     - `jackpkgs.outputs.pnpmDeps` - derivation containing fetched pnpm deps (for debugging/caching)

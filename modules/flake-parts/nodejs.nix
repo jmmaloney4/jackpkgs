@@ -47,15 +47,15 @@ in {
       options.jackpkgs.nodejs = {
         package = mkOption {
           type = types.package;
-        default = pkgs.nodejs_24;
-        defaultText = "pkgs.nodejs_24";
+          default = config.jackpkgs.pkgs.nodejs_24;
+          defaultText = "config.jackpkgs.pkgs.nodejs_24";
           description = "Node.js package to use.";
         };
 
         pnpmPackage = mkOption {
           type = types.package;
-          default = pkgs.pnpm_10;
-          defaultText = "pkgs.pnpm_10";
+          default = config.jackpkgs.pkgs.pnpm_10;
+          defaultText = "config.jackpkgs.pkgs.pnpm_10";
           description = "pnpm package to use.";
         };
       };
@@ -88,6 +88,8 @@ in {
       system,
       ...
     }: let
+      sysCfg = config.jackpkgs.nodejs;
+
       pnpmDeps = pkgs.fetchPnpmDeps {
         pname = "pnpm";
         version = "1.0.0";
@@ -102,8 +104,8 @@ in {
         src = cfg.projectRoot;
 
         nativeBuildInputs = [
-          cfg.package
-          cfg.pnpmPackage
+          sysCfg.package
+          sysCfg.pnpmPackage
           pkgs.pnpmConfigHook
         ];
 
@@ -130,8 +132,8 @@ in {
 
       jackpkgs.outputs.nodejsDevShell = pkgs.mkShell {
         packages = [
-          cfg.package
-          cfg.pnpmPackage
+          sysCfg.package
+          sysCfg.pnpmPackage
         ];
 
         shellHook = ''
