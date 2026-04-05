@@ -559,7 +559,7 @@ in {
           # tsc check
           tsc = mkCheck {
             name = "tsc";
-            buildInputs = [config.jackpkgs.nodejs.package pkgs.nodePackages.typescript];
+            buildInputs = [(lib.attrByPath ["jackpkgs" "nodejs" "package"] pkgs.nodejs_24 config) pkgs.nodePackages.typescript];
             setupCommands = ''
               # Copy source to writeable directory
               cp -R ${projectRoot} src
@@ -618,7 +618,7 @@ in {
         lib.optionalAttrs (cfg.enable && cfg.vitest.enable && vitestPackages != []) {
           vitest = mkCheck {
             name = "vitest";
-            buildInputs = [config.jackpkgs.nodejs.package];
+            buildInputs = [(lib.attrByPath ["jackpkgs" "nodejs" "package"] pkgs.nodejs_24 config)];
             setupCommands = ''
               # Copy source to writeable directory
               cp -R ${projectRoot} src
@@ -682,7 +682,7 @@ in {
         lib.optionalAttrs (cfg.enable && cfg.biome.lint.enable && biomePackages != []) {
           biome-lint = mkCheck {
             name = "biome-lint";
-            buildInputs = [config.jackpkgs.nodejs.package];
+            buildInputs = [(lib.attrByPath ["jackpkgs" "nodejs" "package"] pkgs.nodejs_24 config)];
             setupCommands = ''
               # Copy source to writeable directory
               cp -R ${projectRoot} src
