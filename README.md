@@ -314,9 +314,13 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     ```nix
     jackpkgs.nodejs = {
       enable = true;
-      package = pkgs.nodejs_24;
-      pnpmPackage = pkgs.pnpm_10;
       pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    };
+    perSystem = { pkgs, ... }: {
+      jackpkgs.nodejs = {
+        package = pkgs.nodejs_24;
+        pnpmPackage = pkgs.pnpm_10;
+      };
     };
     ```
 
