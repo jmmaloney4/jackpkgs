@@ -156,8 +156,12 @@ in {
           vitest = {
             package = mkOption {
               type = types.package;
-              default = lib.attrByPath ["jackpkgs" "nodejs" "package"] pkgs.nodejs_24 config;
-              defaultText = ''lib.attrByPath ["jackpkgs" "nodejs" "package"] pkgs.nodejs_24 config'';
+              default = lib.attrByPath ["jackpkgs" "nodejs" "package"]
+                (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
+                config;
+              defaultText = ''lib.attrByPath ["jackpkgs" "nodejs" "package"]
+                (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
+                config'';
               description = "Node.js runtime package used to execute vitest.";
             };
 
@@ -192,8 +196,12 @@ in {
           lint = {
             package = mkOption {
               type = types.package;
-              default = lib.attrByPath ["jackpkgs" "nodejs" "package"] pkgs.nodejs_24 config;
-              defaultText = ''lib.attrByPath ["jackpkgs" "nodejs" "package"] pkgs.nodejs_24 config'';
+              default = lib.attrByPath ["jackpkgs" "nodejs" "package"]
+                (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
+                config;
+              defaultText = ''lib.attrByPath ["jackpkgs" "nodejs" "package"]
+                (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
+                config'';
               description = "Node.js runtime package used to execute biome.";
             };
 
