@@ -98,6 +98,7 @@
     extraChecks ? {},
   }: {
     _module.check = false;
+    jackpkgs.pulumi.secretsProvider = "unused";
     jackpkgs.checks = lib.recursiveUpdate
       {
         python = {
@@ -130,7 +131,6 @@
             args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\""];
           };
       };
-      jackpkgs.pulumi.secretsProvider = "unused";
     };
   };
 
