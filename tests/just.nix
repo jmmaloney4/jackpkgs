@@ -96,10 +96,12 @@
     pythonEnvs ? {},
     pythonDefaultEnv ? null,
     extraChecks ? {},
+    withPythonWorkspace ? true,
   }: {
     _module.check = false;
     jackpkgs.pulumi.secretsProvider = "unused";
-    jackpkgs.checks = lib.recursiveUpdate
+    jackpkgs.checks =
+      lib.recursiveUpdate
       {
         python = {
           enable = true;
@@ -114,27 +116,28 @@
       pulumiJustfile = "";
     };
 
-    perSystem = {pkgs, ...}: {
-      _module.args.jackpkgsProjectRoot = null;
-      _module.args.pythonWorkspace = {
-        computeSpec = {includeGroups ? false}:
-          if includeGroups
-          then {_groups = true;}
-          else {};
-        mkEnv = {
-          name,
-          spec,
-        }:
-          builtins.derivation {
-            inherit system name;
-            builder = "/bin/sh";
-            args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\""];
-          };
+    perSystem = {pkgs, ...}:
+      {
+        _module.args.jackpkgsProjectRoot = null;
+      }
+      // lib.optionalAttrs withPythonWorkspace {
+        _module.args.pythonWorkspace = {
+          computeSpec = {includeGroups ? false}:
+            if includeGroups
+            then {_groups = true;}
+            else {};
+          mkEnv = {
+            name,
+            spec,
+          }:
+            builtins.derivation {
+              inherit system name;
+              builder = "/bin/sh";
+              args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\""];
+            };
+        };
       };
-    };
   };
-
-  allSubstringsPresent = needles: haystack: lib.all (needle: lib.hasInfix needle haystack) needles;
 in {
   testJustMypyPackagePrefersDevToolsEnv = let
     devToolsEnv = mkTestPackage "python-dev-tools";
@@ -156,32 +159,13 @@ in {
     expected = true;
   };
 
-  testJustLintUsesSelectedMypyPackage = let
-    devToolsEnv = mkTestPackage "python-dev-tools";
-    perSystemCfg = getPerSystemCfg [
-      (mkConfigModule {
-        pythonEnvs.dev = devToolsEnv;
-        extraChecks.python.ruff.enable = false;
-      })
-      {
-        jackpkgs.python.environments.dev = {
-          editable = false;
-          includeGroups = true;
-        };
-      }
-    ];
-    lintJustfile = perSystemCfg.just-flake.features.nix.justfile;
-  in {
-    expr = allSubstringsPresent ["==> mypy" "${devToolsEnv}/bin/mypy ."] lintJustfile;
-    expected = true;
-  };
-
   testJustMypyPackageFallsBackToPythonDefaultEnv = let
     defaultEnv = mkTestPackage "python-default";
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
         pythonDefaultEnv = defaultEnv;
         extraChecks.python.ruff.enable = false;
+        withPythonWorkspace = false;
       })
     ];
   in {

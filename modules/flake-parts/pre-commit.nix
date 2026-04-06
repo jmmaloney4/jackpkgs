@@ -5,11 +5,12 @@
   lib,
   jackpkgsLib,
   ...
-}: let
+} @ moduleTop: let
   inherit (lib) mkIf;
   inherit (jackpkgsInputs.self.lib) defaultExcludes;
   pythonEnvHelpers = import ../../lib/python-env-selection.nix {inherit lib;};
   cfg = config.jackpkgs.pre-commit;
+  jackpkgsPythonCfg = config.jackpkgs.python or {};
   checksOptionsDefined = lib.hasAttrByPath ["jackpkgs" "checks"] options;
   checksCfg = lib.attrByPath ["jackpkgs" "checks"] {} config;
 in {
@@ -30,17 +31,7 @@ in {
       lib,
       pkgs,
       ...
-    }: let
-      pythonWorkspace = config._module.args.pythonWorkspace or null;
-      pythonCfg = lib.attrByPath ["jackpkgs" "python"] {} config;
-      pythonEnvOutputs = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
-      pythonDefaultEnv = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
-      mypyDefaultPackage = pythonEnvHelpers.selectMypyPackage {
-        inherit pythonCfg;
-        inherit pythonDefaultEnv pythonEnvOutputs pythonWorkspace;
-        fallbackPackage = config.jackpkgs.pkgs.mypy;
-      };
-    in {
+    }: {
       options.jackpkgs.pre-commit = {
         treefmtPackage = mkOption {
           type = types.package;
@@ -60,7 +51,7 @@ in {
           mypy = {
             package = mkOption {
               type = types.package;
-              default = mypyDefaultPackage;
+              default = config.jackpkgs.pkgs.mypy;
               defaultText = ''
                 Dev-tools Python env (same precedence as `checks.nix`):
                 1. `jackpkgs.python.environments.dev` if non-editable and `includeGroups = true`
@@ -151,12 +142,13 @@ in {
           vitest = {
             package = mkOption {
               type = types.package;
-              default = lib.attrByPath ["jackpkgs" "nodejs" "package"]
+              default =
+                lib.attrByPath ["jackpkgs" "nodejs" "package"]
                 (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
                 config;
-              defaultText = ''lib.attrByPath ["jackpkgs" "nodejs" "package"]
-                (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
-                config'';
+              defaultText = ''                lib.attrByPath ["jackpkgs" "nodejs" "package"]
+                                (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
+                                config'';
               description = "Node.js runtime package used to execute vitest.";
             };
 
@@ -191,12 +183,13 @@ in {
           lint = {
             package = mkOption {
               type = types.package;
-              default = lib.attrByPath ["jackpkgs" "nodejs" "package"]
+              default =
+                lib.attrByPath ["jackpkgs" "nodejs" "package"]
                 (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
                 config;
-              defaultText = ''lib.attrByPath ["jackpkgs" "nodejs" "package"]
-                (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
-                config'';
+              defaultText = ''                lib.attrByPath ["jackpkgs" "nodejs" "package"]
+                                (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
+                                config'';
               description = "Node.js runtime package used to execute biome.";
             };
 
@@ -423,7 +416,25 @@ in {
             '')
             vitestPackages}
         ''}";
+        preCommitMypyPackageDefault = pythonEnvHelpers.selectMypyPackage {
+          pythonCfg = jackpkgsPythonCfg;
+          pythonWorkspace = config._module.args.pythonWorkspace or null;
+          pythonEnvOutputs = let
+            fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} moduleTop.config;
+            fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
+          in
+            fromFlake // fromSystem;
+          pythonDefaultEnv = let
+            fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
+            fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null moduleTop.config;
+          in
+            if fromSystem != null
+            then fromSystem
+            else fromFlake;
+          fallbackPackage = config.jackpkgs.pkgs.mypy;
+        };
       in {
+        jackpkgs.pre-commit.python.mypy.package = lib.mkDefault preCommitMypyPackageDefault;
         pre-commit = {
           check.enable = true;
 

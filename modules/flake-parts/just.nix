@@ -4,7 +4,7 @@
   lib,
   options,
   ...
-}: let
+} @ moduleTop: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs;
   pythonEnvHelpers = import ../../lib/python-env-selection.nix {inherit lib;};
@@ -15,7 +15,6 @@
 
   # Access checks config if the checks module is loaded
   checksOptionsDefined = lib.hasAttrByPath ["jackpkgs" "checks"] options;
-  checksCfg = lib.attrByPath ["jackpkgs" "checks"] {} config;
 in {
   imports = [
     jackpkgsInputs.just-flake.flakeModule
@@ -37,16 +36,7 @@ in {
       pkgs,
       system,
       ...
-    }: let
-      pythonCfg = lib.attrByPath ["jackpkgs" "python"] {} config;
-      pythonWorkspace = config._module.args.pythonWorkspace or null;
-      pythonEnvOutputs = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
-      pythonDefaultEnv = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
-      mypyDefaultPackage = pythonEnvHelpers.selectMypyPackage {
-        inherit pythonCfg pythonDefaultEnv pythonEnvOutputs pythonWorkspace;
-        fallbackPackage = config.jackpkgs.pkgs.mypy;
-      };
-    in {
+    }: {
       options.jackpkgs.just = {
         direnvPackage = mkOption {
           type = types.package;
@@ -104,7 +94,7 @@ in {
         };
         mypyPackage = mkOption {
           type = types.package;
-          default = mypyDefaultPackage;
+          default = config.jackpkgs.pkgs.mypy;
           defaultText = ''
             Dev-tools Python env (same precedence as `checks.nix` / `pre-commit.nix`):
             1. `jackpkgs.python.environments.dev` if non-editable and `includeGroups = true`
@@ -146,7 +136,30 @@ in {
     }: let
       sysCfg = config.jackpkgs.just; # per-system config scope
       sysCfgQuarto = config.jackpkgs.quarto;
+      checksCfgForRecipes = lib.attrByPath ["jackpkgs" "checks"] {} moduleTop.config;
+      pythonCfgForMypy = cfg.python or {};
+      pythonWorkspaceForMypy = config._module.args.pythonWorkspace or null;
+      pythonEnvOutputsForMypy = let
+        fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} moduleTop.config;
+        fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
+      in
+        fromFlake // fromSystem;
+      pythonDefaultEnvForMypy = let
+        fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
+        fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null moduleTop.config;
+      in
+        if fromSystem != null
+        then fromSystem
+        else fromFlake;
+      justMypyPackageDefault = pythonEnvHelpers.selectMypyPackage {
+        pythonCfg = pythonCfgForMypy;
+        pythonWorkspace = pythonWorkspaceForMypy;
+        pythonEnvOutputs = pythonEnvOutputsForMypy;
+        pythonDefaultEnv = pythonDefaultEnvForMypy;
+        fallbackPackage = config.jackpkgs.pkgs.mypy;
+      };
     in {
+      jackpkgs.just.mypyPackage = lib.mkDefault justMypyPackageDefault;
       just-flake = {
         features = {
           # NOTE: Nix indented strings ('' ... '') strip common leading whitespace
@@ -387,7 +400,7 @@ in {
                     "set -euo pipefail"
                     "dry_run='{{dry_run}}'"
                   ]
-                  ++ (optionalLines (checksOptionsDefined && checksCfg.python.ruff.enable) [
+                  ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.ruff.enable) [
                     ""
                     "# ruff (Python linter)"
                     "printf '%s\\n' \"==> ruff\""
@@ -397,13 +410,13 @@ in {
                     "  ${lib.getExe sysCfg.ruffPackage} check --fix --quiet ."
                     "fi"
                   ])
-                  ++ (optionalLines (checksOptionsDefined && checksCfg.python.mypy.enable) [
+                  ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.mypy.enable) [
                     ""
                     "# mypy (Python type checker)"
                     "printf '%s\\n' \"==> mypy\""
                     "${lib.getExe' sysCfg.mypyPackage "mypy"} ."
                   ])
-                  ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfg) [
+                  ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfgForRecipes) [
                     ""
                     "# biome (JS/TS linter)"
                     "printf '%s\\n' \"==> biome lint\""
