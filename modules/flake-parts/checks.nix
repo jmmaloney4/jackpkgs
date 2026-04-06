@@ -319,6 +319,13 @@ in {
           inherit workspaceRoot fromYAML;
         };
 
+      # Node.js runtime with safe fallback: prefer jackpkgs.nodejs.package,
+      # then jackpkgs.pkgs.nodejs_24 (respects overlays), then pkgs.nodejs_24.
+      nodejsPackage =
+        lib.attrByPath ["jackpkgs" "nodejs" "package"]
+          (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
+          config;
+
       # Generic check factory
       mkCheck = {
         name,
@@ -559,7 +566,7 @@ in {
           # tsc check
           tsc = mkCheck {
             name = "tsc";
-            buildInputs = [pkgs.nodejs pkgs.nodePackages.typescript];
+            buildInputs = [nodejsPackage pkgs.nodePackages.typescript];
             setupCommands = ''
               # Copy source to writeable directory
               cp -R ${projectRoot} src
@@ -618,7 +625,7 @@ in {
         lib.optionalAttrs (cfg.enable && cfg.vitest.enable && vitestPackages != []) {
           vitest = mkCheck {
             name = "vitest";
-            buildInputs = [pkgs.nodejs];
+            buildInputs = [nodejsPackage];
             setupCommands = ''
               # Copy source to writeable directory
               cp -R ${projectRoot} src
@@ -682,7 +689,7 @@ in {
         lib.optionalAttrs (cfg.enable && cfg.biome.lint.enable && biomePackages != []) {
           biome-lint = mkCheck {
             name = "biome-lint";
-            buildInputs = [pkgs.nodejs];
+            buildInputs = [nodejsPackage];
             setupCommands = ''
               # Copy source to writeable directory
               cp -R ${projectRoot} src

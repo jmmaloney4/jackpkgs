@@ -302,22 +302,31 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
   - **Required**: Set `jackpkgs.nodejs.pnpmDepsHash` to the FOD hash of your pnpm dependencies. Run once without it to get the expected hash from the error, then add it.
   - When `inputs.jackpkgs.flakeModules.just` is also imported, the generated `justfile` includes `just update-pnpm-hash` plus `just update-pnpm-deps` as an alias.
   - Options under `jackpkgs.nodejs`:
-    - `enable` (bool, default `false`)
-    - `version` (enum: 18/20/22, default `22`) - Node.js major version
-    - `pnpmVersion` (enum: 9/10, default `10`) - pnpm major version
-    - `pnpmDepsHash` (string, required when enabled) - FOD hash for `fetchPnpmDeps`
-    - `projectRoot` (path, default `config.jackpkgs.projectRoot`)
+    - `enable` (bool, default `false`) -- top-level option
+    - `pnpmDepsHash` (string, required when enabled) - FOD hash for `fetchPnpmDeps` -- top-level option
+    - `projectRoot` (path, default `config.jackpkgs.projectRoot or inputs.self.outPath`) -- top-level option
+    - `package` (package, default `config.jackpkgs.pkgs.nodejs_24`) - Node.js derivation -- per-system option
+    - `pnpmPackage` (package, default `config.jackpkgs.pkgs.pnpm_10`) - pnpm derivation -- per-system option
   - Outputs:
     - `jackpkgs.outputs.nodeModules` - derivation containing `node_modules/`
     - `jackpkgs.outputs.pnpmDeps` - derivation containing fetched pnpm deps (for debugging/caching)
   - Example:
     ```nix
-    jackpkgs.nodejs = {
-      enable = true;
-      version = "22";
-      pnpmVersion = "10";
-      pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    };
+    {
+      # Top-level options
+      jackpkgs.nodejs = {
+        enable = true;
+        pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+      };
+
+      # Per-system options
+      perSystem = { pkgs, ... }: {
+        jackpkgs.nodejs = {
+          package = pkgs.nodejs_24;
+          pnpmPackage = pkgs.pnpm_10;
+        };
+      };
+    }
     ```
 
 - quarto (`modules/flake-parts/quarto.nix`)
