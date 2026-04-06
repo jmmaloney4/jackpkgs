@@ -177,7 +177,7 @@ in {
     - nodejs: `just update-pnpm-hash` (refresh `pnpm-lock.yaml` and rewrite `pnpmDepsHash` in `flake.nix`), `just update-pnpm-deps` (alias)
   - Options under `jackpkgs.just` to replace tool packages used by generated `just` recipes:
     - `biomePackage`, `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `mypyPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`, `ruffPackage`
-    - `mypyPackage` defaults to the same dev-tools Python env selection used by `checks` / `pre-commit` (prefers non-editable envs with `includeGroups = true`, then `pythonDefaultEnv`, then `pkgs.mypy`)
+    - `mypyPackage` defaults to the same dev-tools Python env selection used by `checks` / `pre-commit`: `dev` env first when it is non-editable with `includeGroups = true`, then any other non-editable env with `includeGroups = true`, then an auto-created grouped env, then `pythonDefaultEnv`, then `pkgs.mypy`
     - `pulumiBackendUrl` (nullable string)
   - Options under `jackpkgs.gcp`:
     - `iamOrg` (nullable string, default `null`) - GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
