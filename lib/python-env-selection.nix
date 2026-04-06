@@ -40,7 +40,7 @@
         };
       }
     else null;
-in rec {
+in {
   inherit selectPythonEnvWithDevTools;
 
   selectMypyPackage = {

@@ -176,7 +176,7 @@ in {
     - nix: `just build-all`, `just build-all-verbose` (flake-iter)
     - nodejs: `just update-pnpm-hash` (refresh `pnpm-lock.yaml` and rewrite `pnpmDepsHash` in `flake.nix`), `just update-pnpm-deps` (alias)
   - Options under `jackpkgs.just` to replace tool packages if desired:
-    - `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`, `ruffPackage`, `mypyPackage`, `biomePackage`
+    - `biomePackage`, `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `mypyPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`, `ruffPackage`
     - `mypyPackage` defaults to the same dev-tools Python env selection used by `checks` / `pre-commit` (prefers non-editable envs with `includeGroups = true`, then `pythonDefaultEnv`, then `pkgs.mypy`)
     - `pulumiBackendUrl` (nullable string)
   - Options under `jackpkgs.gcp`:
