@@ -85,7 +85,7 @@
 
   getPerSystemCfg = modules: (evalFlake modules).config.perSystem system;
 
-  mkNamedPackage = name:
+  mkTestPackage = name:
     builtins.derivation {
       inherit name system;
       builder = "/bin/sh";
@@ -134,14 +134,14 @@
     };
   };
 
-  hasInfixAll = needles: haystack: lib.all (needle: lib.hasInfix needle haystack) needles;
+  allSubstringsPresent = needles: haystack: lib.all (needle: lib.hasInfix needle haystack) needles;
 in {
   testJustMypyPackagePrefersDevToolsEnv = let
-    devToolsEnv = mkNamedPackage "python-dev-tools";
+    devToolsEnv = mkTestPackage "python-dev-tools";
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
         pythonEnvs.dev = devToolsEnv;
-        pythonDefaultEnv = mkNamedPackage "python-default";
+        pythonDefaultEnv = mkTestPackage "python-default";
         extraChecks.python.ruff.enable = false;
       })
       {
@@ -157,7 +157,7 @@ in {
   };
 
   testJustLintUsesSelectedMypyPackage = let
-    devToolsEnv = mkNamedPackage "python-dev-tools";
+    devToolsEnv = mkTestPackage "python-dev-tools";
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
         pythonEnvs.dev = devToolsEnv;
@@ -172,12 +172,12 @@ in {
     ];
     lintJustfile = perSystemCfg.just-flake.features.nix.justfile;
   in {
-    expr = hasInfixAll ["==> mypy" "${devToolsEnv}/bin/python-dev-tools ."] lintJustfile;
+    expr = allSubstringsPresent ["==> mypy" "${devToolsEnv}/bin/python-dev-tools ."] lintJustfile;
     expected = true;
   };
 
   testJustMypyPackageFallsBackToPythonDefaultEnv = let
-    defaultEnv = mkNamedPackage "python-default";
+    defaultEnv = mkTestPackage "python-default";
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
         pythonDefaultEnv = defaultEnv;
