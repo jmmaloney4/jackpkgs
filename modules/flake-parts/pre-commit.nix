@@ -33,18 +33,12 @@ in {
     }: let
       pythonWorkspace = config._module.args.pythonWorkspace or null;
       pythonEnvOutputs = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
-      pythonEnvWithDevTools = pythonEnvHelpers.selectPythonEnvWithDevTools {
-        pythonCfg = config.jackpkgs.python or {};
-        inherit pythonWorkspace pythonEnvOutputs;
-      };
       pythonDefaultEnv = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
-
-      mypyDefaultPackage =
-        if pythonEnvWithDevTools != null
-        then pythonEnvWithDevTools
-        else if pythonDefaultEnv != null
-        then pythonDefaultEnv
-        else config.jackpkgs.pkgs.mypy;
+      mypyDefaultPackage = pythonEnvHelpers.selectMypyPackage {
+        pythonCfg = config.jackpkgs.python or {};
+        inherit pythonDefaultEnv pythonEnvOutputs pythonWorkspace;
+        fallbackPackage = config.jackpkgs.pkgs.mypy;
+      };
     in {
       options.jackpkgs.pre-commit = {
         treefmtPackage = mkOption {

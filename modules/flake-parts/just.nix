@@ -7,6 +7,7 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs;
+  pythonEnvHelpers = import ../../lib/python-env-selection.nix {inherit lib;};
 
   # Import justfile generation helpers from shared lib
   justfileHelpers = import ../../lib/justfile-helpers.nix {inherit lib;};
@@ -36,7 +37,16 @@ in {
       pkgs,
       system,
       ...
-    }: {
+    }: let
+      pythonCfg = lib.attrByPath ["jackpkgs" "python"] {} config;
+      pythonWorkspace = config._module.args.pythonWorkspace or null;
+      pythonEnvOutputs = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
+      pythonDefaultEnv = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
+      mypyDefaultPackage = pythonEnvHelpers.selectMypyPackage {
+        inherit pythonCfg pythonDefaultEnv pythonEnvOutputs pythonWorkspace;
+        fallbackPackage = config.jackpkgs.pkgs.mypy;
+      };
+    in {
       options.jackpkgs.just = {
         direnvPackage = mkOption {
           type = types.package;
@@ -94,9 +104,19 @@ in {
         };
         mypyPackage = mkOption {
           type = types.package;
-          default = config.jackpkgs.pkgs.mypy;
-          defaultText = "config.jackpkgs.pkgs.mypy";
-          description = "mypy package to use for Python type checking.";
+          default = mypyDefaultPackage;
+          defaultText = ''
+            Dev-tools Python env (same precedence as `checks.nix` / `pre-commit.nix`):
+            1. `jackpkgs.python.environments.dev` if non-editable and `includeGroups = true`
+            2. Any non-editable `jackpkgs.python.environments.*` with `includeGroups = true`
+            3. Auto-created env with `includeGroups = true` (via `pythonWorkspace`)
+            4. `jackpkgs.python.environments.default` (when defined)
+            5. `config.jackpkgs.pkgs.mypy`
+          '';
+          description = ''
+            mypy package (or Python environment containing mypy) to use for the
+            `just lint` Python type-check step.
+          '';
         };
         biomePackage = mkOption {
           type = types.package;
