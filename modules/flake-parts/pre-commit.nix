@@ -65,7 +65,7 @@ in {
                 1. `jackpkgs.python.environments.dev` if non-editable and `includeGroups = true`
                 2. Any non-editable `jackpkgs.python.environments.*` with `includeGroups = true`
                 3. Auto-created env with `includeGroups = true` (via `pythonWorkspace`)
-                4. `jackpkgs.python.environments.default` (when defined)
+                4. `config.jackpkgs.outputs.pythonDefaultEnv` (when defined)
                 5. `config.jackpkgs.pkgs.mypy`
               '';
               description = ''
