@@ -401,7 +401,7 @@ in {
                     ""
                     "# mypy (Python type checker)"
                     "printf '%s\\n' \"==> mypy\""
-                    "${lib.getExe sysCfg.mypyPackage} ."
+                    "${lib.getExe' sysCfg.mypyPackage "mypy"} ."
                   ])
                   ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfg) [
                     ""

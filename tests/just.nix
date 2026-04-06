@@ -89,7 +89,7 @@
     builtins.derivation {
       inherit name system;
       builder = "/bin/sh";
-      args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\""];
+      args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\" \"$out/bin/mypy\""];
     };
 
   mkConfigModule = {
@@ -172,7 +172,7 @@ in {
     ];
     lintJustfile = perSystemCfg.just-flake.features.nix.justfile;
   in {
-    expr = allSubstringsPresent ["==> mypy" "${devToolsEnv}/bin/python-dev-tools ."] lintJustfile;
+    expr = allSubstringsPresent ["==> mypy" "${devToolsEnv}/bin/mypy ."] lintJustfile;
     expected = true;
   };
 
