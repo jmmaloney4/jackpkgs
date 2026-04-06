@@ -32,10 +32,11 @@ in {
       ...
     }: let
       pythonWorkspace = config._module.args.pythonWorkspace or null;
+      pythonCfg = lib.attrByPath ["jackpkgs" "python"] {} config;
       pythonEnvOutputs = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
       pythonDefaultEnv = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
       mypyDefaultPackage = pythonEnvHelpers.selectMypyPackage {
-        pythonCfg = config.jackpkgs.python or {};
+        inherit pythonCfg;
         inherit pythonDefaultEnv pythonEnvOutputs pythonWorkspace;
         fallbackPackage = config.jackpkgs.pkgs.mypy;
       };
