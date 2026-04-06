@@ -323,8 +323,8 @@ in {
       # then jackpkgs.pkgs.nodejs_24 (respects overlays), then pkgs.nodejs_24.
       nodejsPackage =
         lib.attrByPath ["jackpkgs" "nodejs" "package"]
-          (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
-          config;
+        (lib.attrByPath ["jackpkgs" "pkgs" "nodejs_24"] pkgs.nodejs_24 config)
+        config;
 
       # Generic check factory
       mkCheck = {

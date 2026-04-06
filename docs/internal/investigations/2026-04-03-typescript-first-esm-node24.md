@@ -220,11 +220,11 @@ Full fix: convert sector7 to `"type": "module"`, point all exports at source, re
 
 ## Consumer Readiness (from analysis)
 
-| Repo | Node 24 | `type: "module"` | NodeNext | verbatimModuleSyntax | .js imports | Status |
-|------|---------|------------------|----------|---------------------|-------------|--------|
-| garden | nodejs_24 via Nix | all workspaces | all workspaces | no | .js in all .ts files | Import rename needed |
-| zeus | >=24.0.0 (explicit) | all 11 packages | all 11 packages | yes | .js in all .ts files | Import rename only |
-| yard | not constrained | all 12 packages | all 12 packages | no | .js in all .ts files | Types bump + import rename |
+| Repo   | Node 24             | `type: "module"` | NodeNext        | verbatimModuleSyntax | .js imports          | Status                     |
+| ------ | ------------------- | ---------------- | --------------- | -------------------- | -------------------- | -------------------------- |
+| garden | nodejs_24 via Nix   | all workspaces   | all workspaces  | no                   | .js in all .ts files | Import rename needed       |
+| zeus   | >=24.0.0 (explicit) | all 11 packages  | all 11 packages | yes                  | .js in all .ts files | Import rename only         |
+| yard   | not constrained     | all 12 packages  | all 12 packages | no                   | .js in all .ts files | Types bump + import rename |
 
 ## Risks
 

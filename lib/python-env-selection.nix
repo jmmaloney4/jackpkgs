@@ -1,4 +1,4 @@
-{lib, ...}: {
+{lib, ...}: let
   selectPythonEnvWithDevTools = {
     pythonCfg ? {},
     pythonWorkspace ? null,
@@ -40,4 +40,23 @@
         };
       }
     else null;
+in {
+  inherit selectPythonEnvWithDevTools;
+
+  selectMypyPackage = {
+    pythonCfg ? {},
+    pythonWorkspace ? null,
+    pythonEnvOutputs ? {},
+    pythonDefaultEnv ? null,
+    fallbackPackage,
+  }: let
+    pythonEnvWithDevTools = selectPythonEnvWithDevTools {
+      inherit pythonCfg pythonWorkspace pythonEnvOutputs;
+    };
+  in
+    if pythonEnvWithDevTools != null
+    then pythonEnvWithDevTools
+    else if pythonDefaultEnv != null
+    then pythonDefaultEnv
+    else fallbackPackage;
 }

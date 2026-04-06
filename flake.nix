@@ -256,6 +256,9 @@
             pre-commit = import ./tests/pre-commit.nix {
               inherit inputs lib;
             };
+            just = import ./tests/just.nix {
+              inherit inputs lib;
+            };
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };
