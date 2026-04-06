@@ -312,16 +312,21 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     - `jackpkgs.outputs.pnpmDeps` - derivation containing fetched pnpm deps (for debugging/caching)
   - Example:
     ```nix
-    jackpkgs.nodejs = {
-      enable = true;
-      pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    };
-    perSystem = { pkgs, ... }: {
+    {
+      # Top-level options
       jackpkgs.nodejs = {
-        package = pkgs.nodejs_24;
-        pnpmPackage = pkgs.pnpm_10;
+        enable = true;
+        pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
       };
-    };
+
+      # Per-system options
+      perSystem = { pkgs, ... }: {
+        jackpkgs.nodejs = {
+          package = pkgs.nodejs_24;
+          pnpmPackage = pkgs.pnpm_10;
+        };
+      };
+    }
     ```
 
 - quarto (`modules/flake-parts/quarto.nix`)
