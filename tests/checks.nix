@@ -258,6 +258,9 @@ in {
     expected = true;
   };
 
+  # Root-level invocation: all Python tools run from workspace root, not per-member.
+  # Verify that the workspace root path appears in the script and the tool runs
+  # from there (no per-member cd into subdirectories).
   testPythonWorkspaceDiscovery = let
     checks = mkChecks {
       configModule = mkConfigModule {pythonEnable = true;};
@@ -266,7 +269,8 @@ in {
     script = getBuildCommand checks.pytest;
   in {
     expr =
-      hasInfixAll ["/packages/pkg-a" "/packages/pkg-b" "/tools/cli"] script
+      hasInfixAll ["Running pytest (workspace root)..." "pytest"] script
+      && !lib.hasInfix "/packages/pkg-a" script
       && !lib.hasInfix "/packages/ignored" script;
     expected = true;
   };
@@ -282,7 +286,7 @@ in {
     };
     script = getBuildCommand checks.pytest;
   in {
-    expr = lib.hasInfix "Checking ." script;
+    expr = lib.hasInfix "Running pytest (workspace root)..." script;
     expected = true;
   };
 
