@@ -339,7 +339,6 @@ in {
           touch $out
         '';
 
-
       # Link node_modules into the sandbox
       # Strategy: link root node_modules, then link per-package node_modules when present.
       # Expected layout from nodejs output derivation:
