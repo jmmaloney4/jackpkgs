@@ -558,13 +558,12 @@ in {
   in {
     expr =
       hasInfixAll [
-        "Type-checking packages/app"
-        "Type-checking packages/lib"
-        "Type-checking tools/cli"
+        "Type-checking (workspace root)"
         "tsc --noEmit"
         "--pretty"
       ]
       script
+      && !lib.hasInfix "Type-checking packages/" script
       && !lib.hasInfix "packages/ignored" script;
     expected = true;
   };
@@ -590,8 +589,8 @@ in {
     script = getBuildCommand checks.tsc;
   in {
     expr =
-      hasInfixAll ["Type-checking infra" "Type-checking tools/hello"] script
-      && !lib.hasInfix "packages/app" script;
+      hasInfixAll ["Type-checking (workspace root)" "tsc --noEmit"] script
+      && !lib.hasInfix "Type-checking packages/" script;
     expected = true;
   };
 
@@ -621,7 +620,7 @@ in {
     };
     script = getBuildCommand checks.tsc;
   in {
-    expr = hasInfixAll ["Type-checking packages/app" "Type-checking packages/lib"] script;
+    expr = hasInfixAll ["Type-checking (workspace root)" "tsc --noEmit"] script;
     expected = true;
   };
 
@@ -729,7 +728,7 @@ in {
     # Note: When nodeModules is null, no PATH export is generated (security: no source-tree binaries)
     expr =
       hasInfixAll [
-        "Testing packages/app"
+        "Testing (workspace root)"
         "vitest"
         "--coverage"
         "cp -R"
@@ -737,7 +736,9 @@ in {
         "cd src"
       ]
       script
-      && !lib.hasInfix "Linking node_modules from" script;
+      && !lib.hasInfix "Linking node_modules from" script
+      && !lib.hasInfix "Testing packages/" script
+      && lib.hasInfix "packages/app" script;
     expected = true;
   };
 
@@ -757,7 +758,7 @@ in {
     # Verify PATH is set to Nix store binaries (trusted only, not source tree)
     expr =
       hasInfixAll [
-        "Testing packages/app"
+        "Testing (workspace root)"
         "/node_modules/.bin"
         "export PATH="
       ]
@@ -793,6 +794,32 @@ in {
         "cp -R"
       ]
       script;
+    expected = true;
+  };
+
+  testBiomeLintScript = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        extraConfig.jackpkgs.checks.enable = true;
+        extraConfig.jackpkgs.checks.biome.lint.enable = true;
+        extraConfig.jackpkgs.checks.biome.lint.packages = ["packages/app" "tools/cli"];
+        extraConfig.jackpkgs.checks.biome.lint.extraArgs = ["--max-severity=warn"];
+      };
+      projectRoot = pnpmWorkspace;
+    };
+    script = getBuildCommand checks.biome-lint;
+  in {
+    expr =
+      hasInfixAll [
+        "Linting (workspace root)"
+        "biome"
+        "lint"
+        "--max-severity=warn"
+        "packages/app"
+        "tools/cli"
+      ]
+      script
+      && !lib.hasInfix "Linting packages/" script;
     expected = true;
   };
 

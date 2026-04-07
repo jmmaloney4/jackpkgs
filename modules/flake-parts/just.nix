@@ -215,10 +215,12 @@ in {
               gcloudExe = lib.getExe sysCfg.googleCloudSdkPackage;
 
               # Computed display values for auth header
-              adcPath = if cfg.gcp.profile != null
+              adcPath =
+                if cfg.gcp.profile != null
                 then "~/.config/gcloud-profiles/${cfg.gcp.profile}/application_default_credentials.json"
                 else "~/.config/gcloud/application_default_credentials.json";
-              gcpAccountLabel = if cfg.gcp.iamOrg != null
+              gcpAccountLabel =
+                if cfg.gcp.iamOrg != null
                 then "\${GCP_ACCOUNT_USER:-\$USER}@${cfg.gcp.iamOrg}"
                 else "(selected in browser)";
 
@@ -464,7 +466,7 @@ in {
                     "# mypy (Python type checker)"
                     "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
                     "  printf '%s\\n' \"==> mypy\""
-                    ''  ${lib.getExe' sysCfg.mypyPackage "mypy"} .''
+                    ''${lib.getExe' sysCfg.mypyPackage "mypy"} .''
                     "fi"
                   ])
                   ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfgForRecipes) [

@@ -166,8 +166,8 @@ in {
 
       # Biome lint check
       # Note: Biome formatting is handled separately by the `fmt` module via treefmt.
-      # This check runs `biome lint` (lint only, no format enforcement) per workspace
-      # package, mirroring the same fan-out pattern as `typescript.tsc`.
+      # This check runs `biome lint` (lint only, no format enforcement) from the
+      # workspace root.
       biome.lint = {
         enable = mkOption {
           type = types.bool;
@@ -176,7 +176,7 @@ in {
             Enable Biome lint checks. Disabled by default; opt in with
             `jackpkgs.checks.biome.lint.enable = true;`.
 
-            Runs `biome lint` per workspace package. Biome formatting is handled
+            Runs `biome lint` from the workspace root. Biome formatting is handled
             separately by the `fmt` module (treefmt); this check is lint-only to
             avoid duplicate reporting.
           '';
@@ -338,19 +338,6 @@ in {
           ${checkCommands}
           touch $out
         '';
-
-      # Generic workspace member iterator
-      forEachWorkspaceMember = {
-        workspaceRoot,
-        members,
-        perMemberCommand,
-        label ? "Checking",
-      }:
-        lib.concatMapStringsSep "\n" (member: ''
-          echo "${label} ${member}..."
-          (cd ${lib.escapeShellArg "${workspaceRoot}/${member}"} && ${perMemberCommand})
-        '')
-        members;
 
       # Link node_modules into the sandbox
       # Strategy: link root node_modules, then link per-package node_modules when present.
@@ -577,7 +564,7 @@ in {
               ${jackpkgsLib.mkWorkspaceSymlinks projectRoot tsPackages}
             '';
             checkCommands = ''
-              # Validate node_modules exists before iterating packages.
+              # Validate node_modules exists before running.
               # Allow per-package node_modules (linked by linkNodeModules) as alternative.
               if [ ! -d "node_modules" ] && [ ! -d ${lib.escapeShellArg "${lib.head tsPackages}/node_modules"} ]; then
                 printf '%s\n' \
@@ -596,12 +583,8 @@ in {
                   >&2
                 exit 1
               fi
-              ${forEachWorkspaceMember {
-                workspaceRoot = ".";
-                members = tsPackages;
-                perMemberCommand = "tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}";
-                label = "Type-checking";
-              }}
+              echo "Type-checking (workspace root)..."
+              tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
             '';
           };
         };
@@ -652,17 +635,10 @@ in {
               fi
               export VITEST_BIN
             '';
-            checkCommands = forEachWorkspaceMember {
-              workspaceRoot = ".";
-              members = vitestPackages;
-              label = "Testing";
-              perMemberCommand = ''
-                if [ -n "$VITEST_BIN" ]; then
-                  $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
-                else
-                  echo "WARNING: Vitest binary not found, skipping."
-                fi'';
-            };
+            checkCommands = ''
+              echo "Testing (workspace root)..."
+              "$VITEST_BIN" ${lib.escapeShellArgs cfg.vitest.extraArgs} ${lib.escapeShellArgs vitestPackages}
+            '';
           };
         };
       # ============================================================
@@ -721,11 +697,10 @@ in {
               fi
               export BIOME_BIN
             '';
-            checkCommands = forEachWorkspaceMember {
-              workspaceRoot = ".";
-              members = biomePackages;
-              perMemberCommand = ''"$BIOME_BIN" lint ${lib.escapeShellArgs cfg.biome.lint.extraArgs} .'';
-            };
+            checkCommands = ''
+              echo "Linting (workspace root)..."
+              "$BIOME_BIN" lint ${lib.escapeShellArgs cfg.biome.lint.extraArgs} ${lib.escapeShellArgs biomePackages}
+            '';
           };
         };
       beancountChecks =

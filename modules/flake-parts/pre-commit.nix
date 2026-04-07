@@ -467,16 +467,14 @@ in {
               # version, not the Python version).
               pythonVersion =
                 if jackpkgsPythonCfg ? pythonPackage && jackpkgsPythonCfg.pythonPackage != null
-                then
-                  jackpkgsPythonCfg.pythonPackage.pythonVersion
+                then jackpkgsPythonCfg.pythonPackage.pythonVersion
                     or (lib.versions.majorMinor jackpkgsPythonCfg.pythonPackage.version or "3.12")
                 else "3.12";
-            in
-              "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-                export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
-                export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
-                ${lib.getExe' mypyPkg "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
-              ''}";
+            in "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
+              export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
+              export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
+              ${lib.getExe' mypyPkg "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
+            ''}";
             files = "\\.py$";
             excludes = defaultExcludes.preCommit;
           };
