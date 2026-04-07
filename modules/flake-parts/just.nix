@@ -250,7 +250,7 @@ in {
               authRecipe =
                 mkRecipe "auth"
                 "Authenticate with GCP/Pulumi and refresh ADC (set GCP_ACCOUNT_USER to override username)"
-                (["#!/usr/bin/env bash"] ++ authCommands)
+                (["#!/usr/bin/env bash" "set -euo pipefail"] ++ authCommands)
                 false;
 
               # auth-status recipe - shows current GCP authentication status
