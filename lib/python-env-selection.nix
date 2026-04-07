@@ -43,7 +43,7 @@
 in {
   inherit selectPythonEnvWithDevTools;
 
-  selectMypyPackage = {
+  selectDevToolsPackage = {
     pythonCfg ? {},
     pythonWorkspace ? null,
     pythonEnvOutputs ? {},

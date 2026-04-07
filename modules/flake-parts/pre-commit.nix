@@ -416,7 +416,7 @@ in {
             '')
             vitestPackages}
         ''}";
-        preCommitMypyPackageDefault = pythonEnvHelpers.selectMypyPackage {
+        preCommitMypyPackageDefault = pythonEnvHelpers.selectDevToolsPackage {
           pythonCfg = jackpkgsPythonCfg;
           pythonWorkspace = config._module.args.pythonWorkspace or null;
           pythonEnvOutputs = let

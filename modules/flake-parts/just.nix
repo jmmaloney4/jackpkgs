@@ -163,14 +163,14 @@ in {
         if fromSystem != null
         then fromSystem
         else fromFlake;
-      justMypyPackageDefault = pythonEnvHelpers.selectMypyPackage {
+      justMypyPackageDefault = pythonEnvHelpers.selectDevToolsPackage {
         pythonCfg = pythonCfgForDevTools;
         pythonWorkspace = pythonWorkspaceForDevTools;
         pythonEnvOutputs = pythonEnvOutputsForDevTools;
         pythonDefaultEnv = pythonDefaultEnvForDevTools;
         fallbackPackage = config.jackpkgs.pkgs.mypy;
       };
-      justRuffPackageDefault = pythonEnvHelpers.selectMypyPackage {
+      justRuffPackageDefault = pythonEnvHelpers.selectDevToolsPackage {
         pythonCfg = pythonCfgForDevTools;
         pythonWorkspace = pythonWorkspaceForDevTools;
         pythonEnvOutputs = pythonEnvOutputsForDevTools;
