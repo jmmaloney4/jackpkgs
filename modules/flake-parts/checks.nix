@@ -339,8 +339,7 @@ in {
           touch $out
         '';
 
-      # Generic workspace member iterator
- 
+
       # Link node_modules into the sandbox
       # Strategy: link root node_modules, then link per-package node_modules when present.
       # Expected layout from nodejs output derivation:

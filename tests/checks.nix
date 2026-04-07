@@ -737,7 +737,8 @@ in {
       ]
       script
       && !lib.hasInfix "Linking node_modules from" script
-      && !lib.hasInfix "Testing packages/" script;
+      && !lib.hasInfix "Testing packages/" script
+      && lib.hasInfix "packages/app" script;
     expected = true;
   };
 
