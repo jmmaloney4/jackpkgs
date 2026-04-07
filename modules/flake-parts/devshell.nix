@@ -104,7 +104,12 @@ in {
         ++ lib.optionals cfg.welcome.enable (
           lib.optional (cfg.welcome.message != null) ''echo ${lib.escapeShellArg cfg.welcome.message}''
           ++ lib.optional cfg.welcome.showJustHint ''echo ${lib.escapeShellArg cfg.welcome.justHintMessage}''
-        );
+        )
+        ++ lib.optional (pulumiCfg != null && pulumiCfg.enable) ''
+          export PULUMI_BACKEND_URL=${lib.escapeShellArg pulumiCfg.backendUrl}
+          export PULUMI_SECRETS_PROVIDER=${lib.escapeShellArg pulumiCfg.secretsProvider}
+          export PULUMI_IGNORE_AMBIENT_PLUGINS=1
+        '';
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell (
         {
