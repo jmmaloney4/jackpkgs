@@ -403,7 +403,7 @@ in {
                   ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.ruff.enable) [
                     ""
                     "# ruff (Python linter)"
-                    "if find . '\\(' -name '*.py' -o -name '*.pyi' '\\)' -not -path '*/.*' -print -quit | grep -q .; then"
+                    "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
                     "  printf '%s\\n' \"==> ruff\""
                     "  if [ \"$dry_run\" = \"true\" ]; then"
                     "    ${lib.getExe sysCfg.ruffPackage} check --quiet ."
@@ -415,7 +415,7 @@ in {
                   ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.mypy.enable) [
                     ""
                     "# mypy (Python type checker)"
-                    "if find . '\\(' -name '*.py' -o -name '*.pyi' '\\)' -not -path '*/.*' -print -quit | grep -q .; then"
+                    "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
                     "  printf '%s\\n' \"==> mypy\""
                     ''  ${lib.getExe' sysCfg.mypyPackage "mypy"} .''
                     "fi"
