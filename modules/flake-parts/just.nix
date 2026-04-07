@@ -88,13 +88,25 @@ in {
         };
         ruffPackage = mkOption {
           type = types.package;
-          default = config.jackpkgs.pkgs.ruff;
-          defaultText = "config.jackpkgs.pkgs.ruff";
-          description = "ruff package to use for Python linting.";
+          defaultText = ''
+            Dev-tools Python env (same precedence as `checks.nix` / `pre-commit.nix`):
+            1. `jackpkgs.python.environments.dev` if non-editable and `includeGroups = true`
+            2. Any non-editable `jackpkgs.python.environments.*` with `includeGroups = true`
+            3. Auto-created env with `includeGroups = true` (via `pythonWorkspace`)
+            4. `config.jackpkgs.outputs.pythonDefaultEnv` (when defined)
+            5. `config.jackpkgs.pkgs.ruff`
+          '';
+          description = ''
+            ruff package (or Python environment containing ruff) to use for the
+            `just lint` Python lint step.
+
+            Defaults to the same dev-tools environment selection used by
+            `checks.nix` CI checks and pre-commit hooks, preferring a
+            non-editable environment with dependency groups enabled.
+          '';
         };
         mypyPackage = mkOption {
           type = types.package;
-          default = config.jackpkgs.pkgs.mypy;
           defaultText = ''
             Dev-tools Python env (same precedence as `checks.nix` / `pre-commit.nix`):
             1. `jackpkgs.python.environments.dev` if non-editable and `includeGroups = true`
@@ -137,29 +149,37 @@ in {
       sysCfg = config.jackpkgs.just; # per-system config scope
       sysCfgQuarto = config.jackpkgs.quarto;
       checksCfgForRecipes = lib.attrByPath ["jackpkgs" "checks"] {} moduleTop.config;
-      pythonCfgForMypy = cfg.python or {};
-      pythonWorkspaceForMypy = config._module.args.pythonWorkspace or null;
-      pythonEnvOutputsForMypy = let
+      pythonCfgForDevTools = cfg.python or {};
+      pythonWorkspaceForDevTools = config._module.args.pythonWorkspace or null;
+      pythonEnvOutputsForDevTools = let
         fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} moduleTop.config;
         fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
       in
         fromFlake // fromSystem;
-      pythonDefaultEnvForMypy = let
+      pythonDefaultEnvForDevTools = let
         fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
         fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null moduleTop.config;
       in
         if fromSystem != null
         then fromSystem
         else fromFlake;
-      justMypyPackageDefault = pythonEnvHelpers.selectMypyPackage {
-        pythonCfg = pythonCfgForMypy;
-        pythonWorkspace = pythonWorkspaceForMypy;
-        pythonEnvOutputs = pythonEnvOutputsForMypy;
-        pythonDefaultEnv = pythonDefaultEnvForMypy;
+      justMypyPackageDefault = pythonEnvHelpers.selectDevToolsPackage {
+        pythonCfg = pythonCfgForDevTools;
+        pythonWorkspace = pythonWorkspaceForDevTools;
+        pythonEnvOutputs = pythonEnvOutputsForDevTools;
+        pythonDefaultEnv = pythonDefaultEnvForDevTools;
         fallbackPackage = config.jackpkgs.pkgs.mypy;
+      };
+      justRuffPackageDefault = pythonEnvHelpers.selectDevToolsPackage {
+        pythonCfg = pythonCfgForDevTools;
+        pythonWorkspace = pythonWorkspaceForDevTools;
+        pythonEnvOutputs = pythonEnvOutputsForDevTools;
+        pythonDefaultEnv = pythonDefaultEnvForDevTools;
+        fallbackPackage = config.jackpkgs.pkgs.ruff;
       };
     in {
       jackpkgs.just.mypyPackage = lib.mkDefault justMypyPackageDefault;
+      jackpkgs.just.ruffPackage = lib.mkDefault justRuffPackageDefault;
       just-flake = {
         features = {
           # NOTE: Nix indented strings ('' ... '') strip common leading whitespace
