@@ -269,9 +269,9 @@ in {
     script = getBuildCommand checks.pytest;
   in {
     expr =
-      hasInfixAll ["Running pytest (workspace root)..." "pytest"] script
-      && !lib.hasInfix "/packages/pkg-a" script
-      && !lib.hasInfix "/packages/ignored" script;
+      hasInfixAll ["Running pytest (workspace root)..." "(cd "] script
+      && !lib.hasInfix "/packages/" script
+      && !lib.hasInfix "/tools/" script;
     expected = true;
   };
 
@@ -335,8 +335,8 @@ in {
     script = getBuildCommand checks.mypy;
   in {
     expr =
-      hasInfixAll ["Running mypy (workspace root)..." "mypy"] script
-      && !lib.hasInfix "/packages/pkg-a" script;
+      hasInfixAll ["Running mypy (workspace root)..." "&& mypy"] script
+      && !lib.hasInfix "/packages/" script;
     expected = true;
   };
 
@@ -360,8 +360,8 @@ in {
     script = getBuildCommand checks.ruff;
   in {
     expr =
-      hasInfixAll ["Running ruff check (workspace root)..." "ruff check"] script
-      && !lib.hasInfix "/packages/pkg-a" script;
+      hasInfixAll ["Running ruff check (workspace root)..." "&& ruff check"] script
+      && !lib.hasInfix "/packages/" script;
     expected = true;
   };
 
@@ -401,8 +401,8 @@ in {
     script = getBuildCommand checks.numpydoc;
   in {
     expr =
-      hasInfixAll ["Running numpydoc (workspace root)..." "numpydoc"] script
-      && !lib.hasInfix "/packages/pkg-a" script;
+      hasInfixAll ["Running numpydoc (workspace root)..." "python -m numpydoc.hooks.validate_docstrings"] script
+      && !lib.hasInfix "/packages/" script;
     expected = true;
   };
 
