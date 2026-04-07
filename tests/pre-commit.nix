@@ -134,6 +134,20 @@ in {
     expected = true;
   };
 
+  testMypyPassFilenamesFalse = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hooks.mypy.pass_filenames or true;
+    expected = false;
+  };
+
+  testMypyEntrySetsPythonPath = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hasInfixAll ["PYTHONPATH=" "MYPY_CACHE_DIR=" "mypy" " ."] hooks.mypy.entry;
+    expected = true;
+  };
+
   testRuffEnabledByDefault = let
     hooks = getHooks [(mkConfigModule {})];
   in {
