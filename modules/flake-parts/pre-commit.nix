@@ -453,7 +453,26 @@ in {
           settings.hooks.mypy = {
             enable = checksCfg.python.mypy.enable;
             package = sysCfg.python.mypy.package;
-            entry = "${lib.getExe' sysCfg.python.mypy.package "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs}";
+            # Run mypy on the whole workspace (same scope as `just lint` /
+            # CI checks) instead of per-staged-file.  When pass_filenames is
+            # true (the default) pre-commit passes only the staged file
+            # paths, mypy can't resolve the full type graph, and valid
+            # `# type: ignore` directives get flagged as "unused".
+            pass_filenames = false;
+            entry = let
+              mypyPkg = sysCfg.python.mypy.package;
+              # Derive the Python version from the mypy package so we can
+              # set PYTHONPATH to its site-packages.  This matches what
+              # checks.nix does for the CI mypy check derivation.
+              mypyPythonVersion =
+                mypyPkg.pythonVersion
+                  or (lib.versions.majorMinor mypyPkg.version or "3.12");
+            in
+              "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
+                export PYTHONPATH="${mypyPkg}/lib/python${mypyPythonVersion}/site-packages"
+                export MYPY_CACHE_DIR="$TMPDIR/.mypy_cache"
+                ${lib.getExe' mypyPkg "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs}
+              ''}";
             files = "\\.py$";
             excludes = defaultExcludes.preCommit;
           };
