@@ -461,17 +461,21 @@ in {
             pass_filenames = false;
             entry = let
               mypyPkg = sysCfg.python.mypy.package;
-              # Derive the Python version from the mypy package so we can
-              # set PYTHONPATH to its site-packages.  This matches what
-              # checks.nix does for the CI mypy check derivation.
-              mypyPythonVersion =
-                mypyPkg.pythonVersion
-                  or (lib.versions.majorMinor mypyPkg.version or "3.12");
+              # Resolve the Python interpreter version the same way
+              # checks.nix does (from jackpkgs.python.pythonPackage, not
+              # from the mypy tool package whose .version is the mypy
+              # version, not the Python version).
+              pythonVersion =
+                if jackpkgsPythonCfg ? pythonPackage && jackpkgsPythonCfg.pythonPackage != null
+                then
+                  jackpkgsPythonCfg.pythonPackage.pythonVersion
+                    or (lib.versions.majorMinor jackpkgsPythonCfg.pythonPackage.version or "3.12")
+                else "3.12";
             in
               "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-                export PYTHONPATH="${mypyPkg}/lib/python${mypyPythonVersion}/site-packages"
-                export MYPY_CACHE_DIR="$TMPDIR/.mypy_cache"
-                ${lib.getExe' mypyPkg "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs}
+                export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
+                export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
+                ${lib.getExe' mypyPkg "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
               ''}";
             files = "\\.py$";
             excludes = defaultExcludes.preCommit;
