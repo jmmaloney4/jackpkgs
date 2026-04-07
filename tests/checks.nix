@@ -258,6 +258,9 @@ in {
     expected = true;
   };
 
+  # Root-level invocation: all Python tools run from workspace root, not per-member.
+  # Verify that the "Running <tool> (workspace root)..." label appears in the script
+  # and no per-member cd into subdirectories is generated.
   testPythonWorkspaceDiscovery = let
     checks = mkChecks {
       configModule = mkConfigModule {pythonEnable = true;};
@@ -266,8 +269,9 @@ in {
     script = getBuildCommand checks.pytest;
   in {
     expr =
-      hasInfixAll ["/packages/pkg-a" "/packages/pkg-b" "/tools/cli"] script
-      && !lib.hasInfix "/packages/ignored" script;
+      hasInfixAll ["Running pytest (workspace root)..." "(cd "] script
+      && !lib.hasInfix "/packages/" script
+      && !lib.hasInfix "/tools/" script;
     expected = true;
   };
 
@@ -282,7 +286,7 @@ in {
     };
     script = getBuildCommand checks.pytest;
   in {
-    expr = lib.hasInfix "Checking ." script;
+    expr = lib.hasInfix "Running pytest (workspace root)..." script;
     expected = true;
   };
 
@@ -324,6 +328,18 @@ in {
     expected = true;
   };
 
+  testPythonMypyRootInvocation = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.mypy;
+  in {
+    expr =
+      hasInfixAll ["Running mypy (workspace root)..." "&& mypy"] script
+      && !lib.hasInfix "/packages/" script;
+    expected = true;
+  };
+
   testPythonRuffScript = let
     checks = mkChecks {
       configModule = mkConfigModule {
@@ -334,6 +350,18 @@ in {
     script = getBuildCommand checks.ruff;
   in {
     expr = hasInfixAll ["ruff check" "--no-cache"] script;
+    expected = true;
+  };
+
+  testPythonRuffRootInvocation = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.ruff;
+  in {
+    expr =
+      hasInfixAll ["Running ruff check (workspace root)..." "&& ruff check"] script
+      && !lib.hasInfix "/packages/" script;
     expected = true;
   };
 
@@ -360,6 +388,21 @@ in {
         " ."
       ]
       script;
+    expected = true;
+  };
+
+  testPythonNumpydocRootInvocation = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.numpydoc.enable = true;
+      };
+    };
+    script = getBuildCommand checks.numpydoc;
+  in {
+    expr =
+      hasInfixAll ["Running numpydoc (workspace root)..." "python -m numpydoc.hooks.validate_docstrings"] script
+      && !lib.hasInfix "/packages/" script;
     expected = true;
   };
 

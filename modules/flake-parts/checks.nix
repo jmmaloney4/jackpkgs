@@ -492,7 +492,7 @@ in {
         lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvWithDevTools != null && pythonWorkspaceMembers != [])
         (
           lib.optionalAttrs cfg.python.pytest.enable {
-            # pytest check
+            # pytest check (workspace root)
             pytest = mkCheck {
               name = "pytest";
               buildInputs = [pythonEnvWithDevTools];
@@ -500,15 +500,14 @@ in {
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
                 export COVERAGE_FILE=$TMPDIR/.coverage
               '';
-              checkCommands = forEachWorkspaceMember {
-                workspaceRoot = pythonCfg.workspaceRoot;
-                members = pythonWorkspaceMembers;
-                perMemberCommand = "pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs}";
-              };
+              checkCommands = ''
+                echo "Running pytest (workspace root)..."
+                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs})
+              '';
             };
           }
           // lib.optionalAttrs cfg.python.mypy.enable {
-            # mypy check
+            # mypy check (workspace root)
             mypy = mkCheck {
               name = "mypy";
               buildInputs = [pythonEnvWithDevTools];
@@ -516,41 +515,38 @@ in {
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
                 export MYPY_CACHE_DIR=$TMPDIR/.mypy_cache
               '';
-              checkCommands = forEachWorkspaceMember {
-                workspaceRoot = pythonCfg.workspaceRoot;
-                members = pythonWorkspaceMembers;
-                perMemberCommand = "mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .";
-              };
+              checkCommands = ''
+                echo "Running mypy (workspace root)..."
+                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .)
+              '';
             };
           }
           // lib.optionalAttrs cfg.python.ruff.enable {
-            # ruff check
+            # ruff check (workspace root)
             ruff = mkCheck {
               name = "ruff";
               buildInputs = [pythonEnvWithDevTools];
               setupCommands = ''
                 export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
               '';
-              checkCommands = forEachWorkspaceMember {
-                workspaceRoot = pythonCfg.workspaceRoot;
-                members = pythonWorkspaceMembers;
-                perMemberCommand = "ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .";
-              };
+              checkCommands = ''
+                echo "Running ruff check (workspace root)..."
+                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .)
+              '';
             };
           }
           // lib.optionalAttrs cfg.python.numpydoc.enable {
-            # numpydoc check
+            # numpydoc check (workspace root)
             numpydoc = mkCheck {
               name = "numpydoc";
               buildInputs = [pythonEnvWithDevTools];
               setupCommands = ''
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
               '';
-              checkCommands = forEachWorkspaceMember {
-                workspaceRoot = pythonCfg.workspaceRoot;
-                members = pythonWorkspaceMembers;
-                perMemberCommand = "python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs} .";
-              };
+              checkCommands = ''
+                echo "Running numpydoc (workspace root)..."
+                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs} .)
+              '';
             };
           }
         );
