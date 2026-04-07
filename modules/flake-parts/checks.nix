@@ -340,18 +340,7 @@ in {
         '';
 
       # Generic workspace member iterator
-      forEachWorkspaceMember = {
-        workspaceRoot,
-        members,
-        perMemberCommand,
-        label ? "Checking",
-      }:
-        lib.concatMapStringsSep "\n" (member: ''
-          echo "${label} ${member}..."
-          (cd ${lib.escapeShellArg "${workspaceRoot}/${member}"} && ${perMemberCommand})
-        '')
-        members;
-
+ 
       # Link node_modules into the sandbox
       # Strategy: link root node_modules, then link per-package node_modules when present.
       # Expected layout from nodejs output derivation:
@@ -597,7 +586,7 @@ in {
                 exit 1
               fi
               echo "Type-checking (workspace root)..."
-              (cd . && tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs})
+              tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
             '';
           };
         };
@@ -650,11 +639,7 @@ in {
             '';
             checkCommands = ''
               echo "Testing (workspace root)..."
-              (cd . && if [ -n "$VITEST_BIN" ]; then
-                $VITEST_BIN ${lib.escapeShellArgs cfg.vitest.extraArgs}
-              else
-                echo "WARNING: Vitest binary not found, skipping."
-              fi)
+              "$VITEST_BIN" ${lib.escapeShellArgs cfg.vitest.extraArgs} ${lib.escapeShellArgs vitestPackages}
             '';
           };
         };
@@ -716,7 +701,7 @@ in {
             '';
             checkCommands = ''
               echo "Linting (workspace root)..."
-              (cd . && "$BIOME_BIN" lint ${lib.escapeShellArgs cfg.biome.lint.extraArgs} .)
+              "$BIOME_BIN" lint ${lib.escapeShellArgs cfg.biome.lint.extraArgs} ${lib.escapeShellArgs biomePackages}
             '';
           };
         };

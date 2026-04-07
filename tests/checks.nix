@@ -563,7 +563,8 @@ in {
         "--pretty"
       ]
       script
-      && !lib.hasInfix "Type-checking packages/" script;
+      && !lib.hasInfix "Type-checking packages/" script
+      && !lib.hasInfix "packages/ignored" script;
     expected = true;
   };
 
