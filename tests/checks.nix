@@ -558,14 +558,12 @@ in {
   in {
     expr =
       hasInfixAll [
-        "Type-checking packages/app"
-        "Type-checking packages/lib"
-        "Type-checking tools/cli"
+        "Type-checking (workspace root)"
         "tsc --noEmit"
         "--pretty"
       ]
       script
-      && !lib.hasInfix "packages/ignored" script;
+      && !lib.hasInfix "Type-checking packages/" script;
     expected = true;
   };
 
@@ -590,8 +588,8 @@ in {
     script = getBuildCommand checks.tsc;
   in {
     expr =
-      hasInfixAll ["Type-checking infra" "Type-checking tools/hello"] script
-      && !lib.hasInfix "packages/app" script;
+      hasInfixAll ["Type-checking (workspace root)" "tsc --noEmit"] script
+      && !lib.hasInfix "Type-checking packages/" script;
     expected = true;
   };
 
@@ -621,7 +619,7 @@ in {
     };
     script = getBuildCommand checks.tsc;
   in {
-    expr = hasInfixAll ["Type-checking packages/app" "Type-checking packages/lib"] script;
+    expr = hasInfixAll ["Type-checking (workspace root)" "tsc --noEmit"] script;
     expected = true;
   };
 
@@ -729,7 +727,7 @@ in {
     # Note: When nodeModules is null, no PATH export is generated (security: no source-tree binaries)
     expr =
       hasInfixAll [
-        "Testing packages/app"
+        "Testing (workspace root)"
         "vitest"
         "--coverage"
         "cp -R"
@@ -737,7 +735,8 @@ in {
         "cd src"
       ]
       script
-      && !lib.hasInfix "Linking node_modules from" script;
+      && !lib.hasInfix "Linking node_modules from" script
+      && !lib.hasInfix "Testing packages/" script;
     expected = true;
   };
 
@@ -757,7 +756,7 @@ in {
     # Verify PATH is set to Nix store binaries (trusted only, not source tree)
     expr =
       hasInfixAll [
-        "Testing packages/app"
+        "Testing (workspace root)"
         "/node_modules/.bin"
         "export PATH="
       ]
