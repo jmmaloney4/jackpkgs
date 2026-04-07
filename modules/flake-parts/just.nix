@@ -194,37 +194,64 @@ in {
             justfile = let
               gcloudExe = lib.getExe sysCfg.googleCloudSdkPackage;
 
+              # Computed display values for auth header
+              adcPath = if cfg.gcp.profile != null
+                then "~/.config/gcloud-profiles/${cfg.gcp.profile}/application_default_credentials.json"
+                else "~/.config/gcloud/application_default_credentials.json";
+              gcpAccountLabel = if cfg.gcp.iamOrg != null
+                then "\${GCP_ACCOUNT_USER:-\$USER}@${cfg.gcp.iamOrg}"
+                else "(selected in browser)";
+
               # Construct auth recipe commands based on configuration
               authCommands =
-                (optionalLines (cfg.gcp.iamOrg != null) [
+                # Header: show what we're targeting
+                [
+                  "echo ''"
+                  "echo -e \"\\033[1mAuthentication Targets\\033[0m\""
+                  "echo \"  GCP Account:  ${gcpAccountLabel}\""
+                ]
+                ++ optionalLines (cfg.gcp.quotaProject != null) [
+                  "echo \"  Billing:       ${cfg.gcp.quotaProject}\""
+                ]
+                ++ optionalLines (cfg.pulumi.enable && cfg.pulumi.backendUrl != null) [
+                  "echo \"  Pulumi:        ${cfg.pulumi.backendUrl}\""
+                ]
+                ++ [
+                  "echo \"  ADC:           ${adcPath}\""
+                  "echo ''"
+                ]
+                # Step 1: GCP login + ADC refresh
+                ++ [
+                  "echo -e \"\\033[1m→ Refreshing GCP credentials & ADC\\033[0m\""
+                ]
+                ++ (optionalLines (cfg.gcp.iamOrg != null) [
                   "GCP_ACCOUNT_USER=\"\${GCP_ACCOUNT_USER:-$USER}\""
                 ])
                 ++ [
                   # Unset GOOGLE_APPLICATION_CREDENTIALS for this call only: when it is set,
                   # gcloud prompts Y/n before overwriting the ADC file even though it would
                   # write to the same location. env -u avoids the interactive prompt.
-                  "env -u GOOGLE_APPLICATION_CREDENTIALS ${lib.getExe sysCfg.googleCloudSdkPackage} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}"
+                  "env -u GOOGLE_APPLICATION_CREDENTIALS ${gcloudExe} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}"
                 ]
+                # Step 2: Set ADC billing project
                 ++ optionalLines (cfg.gcp.quotaProject != null) [
-                  "${lib.getExe sysCfg.googleCloudSdkPackage} auth application-default set-quota-project ${cfg.gcp.quotaProject}"
+                  "echo ''"
+                  "echo -e \"\\033[1m→ Setting ADC billing project to ${cfg.gcp.quotaProject}\\033[0m\""
+                  "${gcloudExe} auth application-default set-quota-project ${cfg.gcp.quotaProject}"
                 ]
+                # Step 3: Pulumi backend login
                 ++ optionalLines (cfg.pulumi.enable && cfg.pulumi.backendUrl != null) [
+                  "echo ''"
+                  "echo -e \"\\033[1m→ Logging into Pulumi backend\\033[0m\""
                   "${lib.getExe' sysCfg.pulumiPackage "pulumi"} login \"${cfg.pulumi.backendUrl}\""
                 ];
-
-              # Determine if we need a shebang (when iamOrg is set, we need multi-line bash)
-              needsShebang = cfg.gcp.iamOrg != null;
 
               # Build the complete auth recipe using mkRecipe helper
               authRecipe =
                 mkRecipe "auth"
                 "Authenticate with GCP/Pulumi and refresh ADC (set GCP_ACCOUNT_USER to override username)"
-                (
-                  if needsShebang
-                  then ["#!/usr/bin/env bash"] ++ authCommands
-                  else authCommands
-                )
-                true; # echoCommands = true to inject "set -x" for bash recipes
+                (["#!/usr/bin/env bash"] ++ authCommands)
+                false;
 
               # auth-status recipe - shows current GCP authentication status
               # Available when profile isolation is enabled
