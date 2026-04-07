@@ -403,18 +403,22 @@ in {
                   ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.ruff.enable) [
                     ""
                     "# ruff (Python linter)"
-                    "printf '%s\\n' \"==> ruff\""
-                    "if [ \"$dry_run\" = \"true\" ]; then"
-                    "  ${lib.getExe sysCfg.ruffPackage} check --quiet ."
-                    "else"
-                    "  ${lib.getExe sysCfg.ruffPackage} check --fix --quiet ."
+                    "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
+                    "  printf '%s\\n' \"==> ruff\""
+                    "  if [ \"$dry_run\" = \"true\" ]; then"
+                    "    ${lib.getExe sysCfg.ruffPackage} check --quiet ."
+                    "  else"
+                    "    ${lib.getExe sysCfg.ruffPackage} check --fix --quiet ."
+                    "  fi"
                     "fi"
                   ])
                   ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.mypy.enable) [
                     ""
                     "# mypy (Python type checker)"
-                    "printf '%s\\n' \"==> mypy\""
-                    "${lib.getExe' sysCfg.mypyPackage "mypy"} ."
+                    "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
+                    "  printf '%s\\n' \"==> mypy\""
+                    ''  ${lib.getExe' sysCfg.mypyPackage "mypy"} .''
+                    "fi"
                   ])
                   ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfgForRecipes) [
                     ""
