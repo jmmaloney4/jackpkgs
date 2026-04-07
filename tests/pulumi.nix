@@ -110,4 +110,15 @@ in {
       justfile;
     expected = true;
   };
+
+  testPulumiShellHookEscapesValuesWithSpecialChars = let
+    scaryUrl = "s3://bucket/path?query=1&flag=true";
+    scarySecret = "passphrase's complex value";
+  in {
+    expr =
+      # lib.escapeShellArg wraps in single quotes and escapes internal single quotes
+      lib.hasInfix "'" (lib.escapeShellArg scaryUrl)
+      && lib.hasInfix "'" (lib.escapeShellArg scarySecret);
+    expected = true;
+  };
 }
