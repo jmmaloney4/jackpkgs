@@ -797,6 +797,32 @@ in {
     expected = true;
   };
 
+  testBiomeLintScript = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        extraConfig.jackpkgs.checks.enable = true;
+        extraConfig.jackpkgs.checks.biome.lint.enable = true;
+        extraConfig.jackpkgs.checks.biome.lint.packages = ["packages/app" "tools/cli"];
+        extraConfig.jackpkgs.checks.biome.lint.extraArgs = ["--max-severity=warn"];
+      };
+      projectRoot = pnpmWorkspace;
+    };
+    script = getBuildCommand checks.biome-lint;
+  in {
+    expr =
+      hasInfixAll [
+        "Linting (workspace root)"
+        "biome"
+        "lint"
+        "--max-severity=warn"
+        "packages/app"
+        "tools/cli"
+      ]
+      script
+      && !lib.hasInfix "Linting packages/" script;
+    expected = true;
+  };
+
   testBeancountSetupEscapesLedgerDirectory = let
     checks = mkChecks {
       configModule = mkConfigModule {
