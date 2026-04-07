@@ -259,8 +259,8 @@ in {
   };
 
   # Root-level invocation: all Python tools run from workspace root, not per-member.
-  # Verify that the workspace root path appears in the script and the tool runs
-  # from there (no per-member cd into subdirectories).
+  # Verify that the "Running <tool> (workspace root)..." label appears in the script
+  # and no per-member cd into subdirectories is generated.
   testPythonWorkspaceDiscovery = let
     checks = mkChecks {
       configModule = mkConfigModule {pythonEnable = true;};
@@ -328,6 +328,18 @@ in {
     expected = true;
   };
 
+  testPythonMypyRootInvocation = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.mypy;
+  in {
+    expr =
+      hasInfixAll ["Running mypy (workspace root)..." "mypy"] script
+      && !lib.hasInfix "/packages/pkg-a" script;
+    expected = true;
+  };
+
   testPythonRuffScript = let
     checks = mkChecks {
       configModule = mkConfigModule {
@@ -338,6 +350,18 @@ in {
     script = getBuildCommand checks.ruff;
   in {
     expr = hasInfixAll ["ruff check" "--no-cache"] script;
+    expected = true;
+  };
+
+  testPythonRuffRootInvocation = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.ruff;
+  in {
+    expr =
+      hasInfixAll ["Running ruff check (workspace root)..." "ruff check"] script
+      && !lib.hasInfix "/packages/pkg-a" script;
     expected = true;
   };
 
@@ -364,6 +388,21 @@ in {
         " ."
       ]
       script;
+    expected = true;
+  };
+
+  testPythonNumpydocRootInvocation = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.numpydoc.enable = true;
+      };
+    };
+    script = getBuildCommand checks.numpydoc;
+  in {
+    expr =
+      hasInfixAll ["Running numpydoc (workspace root)..." "numpydoc"] script
+      && !lib.hasInfix "/packages/pkg-a" script;
     expected = true;
   };
 

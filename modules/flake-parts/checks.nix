@@ -502,7 +502,7 @@ in {
               '';
               checkCommands = ''
                 echo "Running pytest (workspace root)..."
-                (cd ${pythonCfg.workspaceRoot} && pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs} .)
+                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs} .)
               '';
             };
           }
@@ -517,7 +517,7 @@ in {
               '';
               checkCommands = ''
                 echo "Running mypy (workspace root)..."
-                (cd ${pythonCfg.workspaceRoot} && mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .)
+                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .)
               '';
             };
           }
@@ -531,7 +531,7 @@ in {
               '';
               checkCommands = ''
                 echo "Running ruff check (workspace root)..."
-                (cd ${pythonCfg.workspaceRoot} && ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .)
+                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .)
               '';
             };
           }
@@ -545,7 +545,7 @@ in {
               '';
               checkCommands = ''
                 echo "Running numpydoc (workspace root)..."
-                (cd ${pythonCfg.workspaceRoot} && python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs} .)
+                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs} .)
               '';
             };
           }
