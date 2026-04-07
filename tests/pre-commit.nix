@@ -144,7 +144,7 @@ in {
   testMypyEntrySetsPythonPath = let
     hooks = getHooks [(mkConfigModule {})];
   in {
-    expr = hasInfixAll ["PYTHONPATH=" "MYPY_CACHE_DIR=" "mypy"] hooks.mypy.entry;
+    expr = hasInfixAll ["PYTHONPATH=" "MYPY_CACHE_DIR=" "mypy" " ."] hooks.mypy.entry;
     expected = true;
   };
 
