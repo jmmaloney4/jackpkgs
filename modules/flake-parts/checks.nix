@@ -502,7 +502,7 @@ in {
               '';
               checkCommands = ''
                 echo "Running pytest (workspace root)..."
-                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs} .)
+                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs})
               '';
             };
           }
