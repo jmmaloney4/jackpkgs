@@ -208,7 +208,7 @@ in {
                 [
                   "echo ''"
                   "echo -e \"\\033[1mAuthentication Targets\\033[0m\""
-                  "echo \"  GCP Account:  ${gcpAccountLabel}\""
+                  "echo \"  GCP Account:   ${gcpAccountLabel}\""
                 ]
                 ++ optionalLines (cfg.gcp.quotaProject != null) [
                   "echo \"  Billing:       ${cfg.gcp.quotaProject}\""
