@@ -281,6 +281,23 @@
         "type": "github"
       }
     },
+    "nautilus-trader": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1776226191,
+        "narHash": "sha256-l5WHpxeIjuHZXHnb450+z+RFmAbjf9s81TDIv+z1Hd8=",
+        "owner": "nautechsystems",
+        "repo": "nautilus_trader",
+        "rev": "d21f478bad697e1100a4f119b4d73eceac09ac42",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nautechsystems",
+        "ref": "develop",
+        "repo": "nautilus_trader",
+        "type": "github"
+      }
+    },
     "nix-github-actions": {
       "inputs": {
         "nixpkgs": [
@@ -444,6 +461,7 @@
         "home-manager": "home-manager",
         "just-flake": "just-flake",
         "llm-agents": "llm-agents",
+        "nautilus-trader": "nautilus-trader",
         "nix-unit": "nix-unit",
         "nixpkgs": "nixpkgs",
         "pre-commit-hooks": "pre-commit-hooks",

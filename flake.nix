@@ -74,6 +74,10 @@
       url = "github:nix-community/bun2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nautilus-trader = {
+      url = "github:nautechsystems/nautilus_trader/develop";
+      flake = false;
+    };
   };
 
   outputs = inputs @ {
@@ -128,9 +132,8 @@
             cargo = nautilusRustToolchain;
             rustc = nautilusRustToolchain;
             rustPlatform = nautilusRustPlatform;
-            version = "0-unstable";
-            rev = "develop";
-            srcHash = "sha256-S8AM7ME7grj3fzunCLxkBVULbha0GdoHhgOykRybiGI=";
+            version = "0-unstable-${inputs.nautilus-trader.lastModifiedDate}";
+            srcOverride = inputs.nautilus-trader;
             cargoHash = "sha256-Ljnlzfb/ayLvHrazVP3pqMvFCLpzqHc5qH8YCd1KM3I=";
           };
           tod = pkgs.callPackage ./pkgs/tod {};

@@ -13,8 +13,6 @@
   capnproto,
   # Build options
   version,
-  rev,
-  srcHash,
   cargoHash,
   buildMode ? "release",
   highPrecision ? true,
@@ -33,8 +31,8 @@
       fetchFromGitHub {
         owner = "nautechsystems";
         repo = "nautilus_trader";
-        inherit rev;
-        hash = srcHash;
+        rev = version;
+        hash = "";
       };
 in
   stdenv.mkDerivation {
