@@ -7,6 +7,7 @@
   cargo,
   rustc,
   clang,
+  dasel,
   uv,
   pkg-config,
   capnproto,
@@ -41,6 +42,7 @@ in
       cargo
       rustc
       clang
+      dasel
       uv
       pkg-config
       capnproto
@@ -55,6 +57,11 @@ in
     buildInputs = lib.optionals stdenv.isLinux [
       python_
     ];
+
+    # Strip uv required-version pin (upstream dev guard; Nix controls the uv version)
+    postPatch = ''
+      dasel delete -f pyproject.toml '.tool.uv.required-version'
+    '';
 
     env =
       {
