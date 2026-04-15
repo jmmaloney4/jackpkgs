@@ -4,20 +4,22 @@
   fetchurl,
   fetchFromGitHub,
   dockerTools,
-}: {
+}:
+{
   nautilus-trader = {
     pname = "nautilus-trader";
-    version = "d21f478bad697e1100a4f119b4d73eceac09ac42";
+    version = "9af16766e6ccd9cea6efb912689a7bf71260a141";
     src = fetchFromGitHub {
       owner = "nautechsystems";
       repo = "nautilus_trader";
-      rev = "d21f478bad697e1100a4f119b4d73eceac09ac42";
+      rev = "9af16766e6ccd9cea6efb912689a7bf71260a141";
       fetchSubmodules = false;
-      sha256 = "sha256-l5WHpxeIjuHZXHnb450+z+RFmAbjf9s81TDIv+z1Hd8=";
+      sha256 = "sha256-2me7AL05hR11vfr4Km7qGbJfQwPCDWxMscMtTRN+UuY=";
     };
     cargoLock."Cargo.lock" = {
-      lockFile = ./. + "/sha256-l5WHpxeIjuHZXHnb450+z+RFmAbjf9s81TDIv+z1Hd8=/Cargo.lock";
+      lockFile = ./. + "/sha256-2me7AL05hR11vfr4Km7qGbJfQwPCDWxMscMtTRN+UuY=/Cargo.lock";
       outputHashes = {
+        
       };
     };
     date = "2026-04-15";
@@ -46,6 +48,7 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-layx+AgcL1TPTh71Ef+Ej5JvzKjEV6Gl6S5Uoi82buA=/Cargo.lock";
       outputHashes = {
+        
       };
     };
   };
