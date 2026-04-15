@@ -1,0 +1,13 @@
+[nautilus-trader]
+src.git = "https://github.com/nautechsystems/nautilus_trader"
+fetch.github = "nautechsystems/nautilus_trader"
+cargo_lock = ["Cargo.lock"]
+
+[tod]
+src.github = "alanvardy/tod"
+fetch.github = "alanvardy/tod"
+cargo_lock = ["Cargo.lock"]
+
+[openchamber]
+src.github = "btriapitsyn/openchamber"
+fetch.github = "btriapitsyn/openchamber"

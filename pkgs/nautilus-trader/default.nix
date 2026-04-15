@@ -3,7 +3,6 @@
   stdenv,
   pythonPackage ? null,
   python312,
-  fetchFromGitHub,
   rustPlatform,
   cargo,
   rustc,
@@ -11,40 +10,30 @@
   uv,
   pkg-config,
   capnproto,
-  # Build options
+  # Source and lock from nvfetcher
+  src,
   version,
-  cargoHash,
+  cargoLock,
+  # Build options
   buildMode ? "release",
   highPrecision ? true,
   cargoBuildTarget ? null,
   pyo3Only ? false,
-  srcOverride ? null,
 }: let
   python_ =
     if pythonPackage != null
     then pythonPackage
     else python312;
-  effectiveSrc =
-    if srcOverride != null
-    then srcOverride
-    else
-      fetchFromGitHub {
-        owner = "nautechsystems";
-        repo = "nautilus_trader";
-        rev = version;
-        hash = "";
-      };
 in
   stdenv.mkDerivation {
     pname = "nautilus-trader";
     inherit version;
 
-    src = effectiveSrc;
+    src = src;
 
-    cargoDeps = rustPlatform.fetchCargoVendor {
-      src = effectiveSrc;
-      name = "nautilus-trader-${version}-vendor";
-      hash = cargoHash;
+    cargoDeps = rustPlatform.importCargoLock {
+      lockFile = cargoLock."Cargo.lock".lockFile;
+      outputHashes = cargoLock."Cargo.lock".outputHashes;
     };
 
     nativeBuildInputs = [

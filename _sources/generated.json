@@ -1,0 +1,75 @@
+{
+	"nautilus-trader": {
+		"cargoLock": {
+			"Cargo.lock": [
+				"sha256-l5WHpxeIjuHZXHnb450+z+RFmAbjf9s81TDIv+z1Hd8=/Cargo.lock",
+				{}
+			]
+		},
+		"date": "2026-04-15",
+		"extract": null,
+		"name": "nautilus-trader",
+		"passthru": null,
+		"pinned": false,
+		"src": {
+			"deepClone": false,
+			"fetchSubmodules": false,
+			"leaveDotGit": false,
+			"name": null,
+			"owner": "nautechsystems",
+			"repo": "nautilus_trader",
+			"rev": "d21f478bad697e1100a4f119b4d73eceac09ac42",
+			"sha256": "sha256-l5WHpxeIjuHZXHnb450+z+RFmAbjf9s81TDIv+z1Hd8=",
+			"sparseCheckout": [],
+			"type": "github"
+		},
+		"version": "d21f478bad697e1100a4f119b4d73eceac09ac42"
+	},
+	"openchamber": {
+		"cargoLock": null,
+		"date": null,
+		"extract": null,
+		"name": "openchamber",
+		"passthru": null,
+		"pinned": false,
+		"src": {
+			"deepClone": false,
+			"fetchSubmodules": false,
+			"leaveDotGit": false,
+			"name": null,
+			"owner": "btriapitsyn",
+			"repo": "openchamber",
+			"rev": "v1.9.5",
+			"sha256": "sha256-rVVqQAVAmVKCLZOUCbp9OEtIY3RvHWYh3kG0fnmHktQ=",
+			"sparseCheckout": [],
+			"type": "github"
+		},
+		"version": "v1.9.5"
+	},
+	"tod": {
+		"cargoLock": {
+			"Cargo.lock": [
+				"sha256-layx+AgcL1TPTh71Ef+Ej5JvzKjEV6Gl6S5Uoi82buA=/Cargo.lock",
+				{}
+			]
+		},
+		"date": null,
+		"extract": null,
+		"name": "tod",
+		"passthru": null,
+		"pinned": false,
+		"src": {
+			"deepClone": false,
+			"fetchSubmodules": false,
+			"leaveDotGit": false,
+			"name": null,
+			"owner": "alanvardy",
+			"repo": "tod",
+			"rev": "v0.11.2",
+			"sha256": "sha256-layx+AgcL1TPTh71Ef+Ej5JvzKjEV6Gl6S5Uoi82buA=",
+			"sparseCheckout": [],
+			"type": "github"
+		},
+		"version": "v0.11.2"
+	}
+}

@@ -1,7 +1,6 @@
 {
   lib,
   stdenv,
-  fetchFromGitHub,
   bun,
   nodejs,
   opencode,
@@ -10,16 +9,11 @@
   makeWrapper,
   vips,
   bun2nix-cli,
+  # From nvfetcher
+  src,
+  version,
 }: let
   pname = "openchamber";
-  version = "1.7.1";
-
-  src = fetchFromGitHub {
-    owner = "btriapitsyn";
-    repo = "openchamber";
-    rev = "v${version}";
-    hash = "sha256-3hzZVvapbbQ5aU8bpOqdmT7UU5CFHajD71Z9buPJzjw=";
-  };
 
   bunDeps = bun2nix-cli.fetchBunDeps {
     bunNix = ./bun.nix;
