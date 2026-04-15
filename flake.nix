@@ -134,7 +134,7 @@
             rustPlatform = nautilusRustPlatform;
             version = "0-unstable-${inputs.nautilus-trader.lastModifiedDate}";
             srcOverride = inputs.nautilus-trader;
-            cargoHash = "sha256-Ljnlzfb/ayLvHrazVP3pqMvFCLpzqHc5qH8YCd1KM3I=";
+            cargoHash = "sha256-HJNVlFnun+3e5SmfR4NLKxVndw75kaWxt6fzApFUrtg=";
           };
           tod = pkgs.callPackage ./pkgs/tod {};
         };
