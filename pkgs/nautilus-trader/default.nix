@@ -59,8 +59,10 @@ in
     ];
 
     # Strip uv required-version pin (upstream dev guard; Nix controls the uv version)
+    # Also strip invalid 'license' key from authors[0] rejected by poetry-core >= 2.3
     postPatch = ''
       yq -i 'del(.tool.uv.required-version)' pyproject.toml
+      yq -i 'del(.project.authors[0].license)' pyproject.toml
     '';
 
     env =
