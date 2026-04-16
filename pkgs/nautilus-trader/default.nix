@@ -60,7 +60,7 @@ in
 
     # Strip uv required-version pin (upstream dev guard; Nix controls the uv version)
     postPatch = ''
-      yq-go -i 'del(.tool.uv.required-version)' pyproject.toml
+      yq -i 'del(.tool.uv.required-version)' pyproject.toml
     '';
 
     env =
