@@ -7,7 +7,7 @@
   cargo,
   rustc,
   clang,
-  dasel,
+  yq-go,
   uv,
   pkg-config,
   capnproto,
@@ -42,7 +42,7 @@ in
       cargo
       rustc
       clang
-      dasel
+      yq-go
       uv
       pkg-config
       capnproto
@@ -60,7 +60,7 @@ in
 
     # Strip uv required-version pin (upstream dev guard; Nix controls the uv version)
     postPatch = ''
-      dasel delete -f pyproject.toml '.tool.uv.required-version'
+      yq-go -i 'del(.tool.uv.required-version)' pyproject.toml
     '';
 
     env =
