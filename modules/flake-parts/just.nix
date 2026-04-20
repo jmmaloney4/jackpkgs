@@ -455,9 +455,9 @@ in {
                     "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
                     "  printf '%s\\n' \"==> ruff\""
                     "  if [ \"$dry_run\" = \"true\" ]; then"
-                    "    ${lib.getExe sysCfg.ruffPackage} check --quiet ."
+                    "    ${lib.getExe' sysCfg.ruffPackage "ruff"} check --quiet ."
                     "  else"
-                    "    ${lib.getExe sysCfg.ruffPackage} check --fix --quiet ."
+                    "    ${lib.getExe' sysCfg.ruffPackage "ruff"} check --fix --quiet ."
                     "  fi"
                     "fi"
                   ])
