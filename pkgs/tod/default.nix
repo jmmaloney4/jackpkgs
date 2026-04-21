@@ -1,26 +1,22 @@
 {
   lib,
   rustPlatform,
-  fetchFromGitHub,
   stdenv,
   pkg-config,
   openssl,
+  # From nvfetcher
+  src,
+  version,
+  cargoLock,
 }:
 rustPlatform.buildRustPackage rec {
   pname = "tod";
-  version = "0.8.0"; # update with latest release
+  inherit version src;
 
-  src = fetchFromGitHub {
-    owner = "alanvardy";
-    repo = "tod";
-    rev = "v${version}";
-    # Update sha256 with: nix-prefetch-url --unpack https://github.com/alanvardy/tod/archive/refs/tags/v${version}.tar.gz
-    # sha256 = "0fni15hqhmxcdp5nz03bi5kis8sh2pg4h8wxa73mcizj6waimyvg";
-    sha256 = "sha256-b/saFTfyR1bHUZ0jSN4VUCMdZ4lrgG/LbaxXiGEJ0To=";
+  cargoLock = {
+    lockFile = cargoLock."Cargo.lock".lockFile;
+    outputHashes = cargoLock."Cargo.lock".outputHashes;
   };
-
-  # cargoHash = "sha256-0l3s986lc6vdzz77hgsgicdcz0rr032ivl4z2rsxsldibwf0bsmv";
-  cargoHash = "sha256-5lBVjYpViSpU2ByC7zD/+TY6zdm7cpB7igwnL4oFPDY=";
 
   nativeBuildInputs = [pkg-config];
   buildInputs = [openssl];
@@ -28,19 +24,19 @@ rustPlatform.buildRustPackage rec {
   # Skip tests that try to create config files in directories that don't exist in Nix sandbox
   checkFlags = [
     "--skip"
-    "lists::tests::test_label"
+    "args::tests::test_config"
     "--skip"
-    "filters::tests::test_get_next_task"
+    "config::tests::test_config_initialize"
     "--skip"
-    "projects::tests::test_get_next_task"
+    "config::tests::test_get_config"
   ];
 
   meta = with lib; {
-    description = "Command line interface for Todoist";
+    description = "A Todoist CLI client";
     homepage = "https://github.com/alanvardy/tod";
-    license = licenses.mit;
-    maintainers = with maintainers; [];
-    platforms = platforms.all;
+    license = licenses.unlicense;
+    platforms = platforms.linux ++ platforms.darwin;
+    maintainers = [];
     mainProgram = "tod";
   };
 }

@@ -106,6 +106,12 @@
         ...
       }: let
         jackLib = import ./lib {inherit pkgs;};
+        nvfetcherSources = pkgs.callPackage ./_sources/generated.nix {};
+        nautilusRustToolchain = inputs.fenix.packages.${system}.minimal.toolchain;
+        nautilusRustPlatform = pkgs.makeRustPlatform {
+          cargo = nautilusRustToolchain;
+          rustc = nautilusRustToolchain;
+        };
         # Make flake lib available for tests
         flakeLib = inputs.nixpkgs.lib.extend (
           final: prev: jackLib
@@ -116,10 +122,19 @@
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           lean = pkgs.callPackage ./pkgs/lean {};
           openchamber = pkgs.callPackage ./pkgs/openchamber {
+            inherit (nvfetcherSources.openchamber) src version;
             opencode = inputs.llm-agents.packages.${system}.opencode;
             bun2nix-cli = inputs.bun2nix.packages.${system}.bun2nix;
           };
-          tod = pkgs.callPackage ./pkgs/tod {};
+          nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
+            inherit (nvfetcherSources.nautilus-trader) src version cargoLock;
+            cargo = nautilusRustToolchain;
+            rustc = nautilusRustToolchain;
+            rustPlatform = nautilusRustPlatform;
+          };
+          tod = pkgs.callPackage ./pkgs/tod {
+            inherit (nvfetcherSources.tod) src version cargoLock;
+          };
         };
         platformFilteredPackages = jackLib.filterByPlatforms system allPackages;
         # Import test helpers that validate the flake-exposed API surface
