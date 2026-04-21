@@ -32,7 +32,7 @@ jobs:
         (contains(github.event.issue.title, '@claude') || contains(github.event.issue.title, '@Claude') || contains(github.event.issue.title, '@CLAUDE'))) &&
        !((contains(github.event.issue.body, 'claude review') || contains(github.event.issue.body, 'Claude review') || contains(github.event.issue.body, 'CLAUDE REVIEW')) ||
          (contains(github.event.issue.title, 'claude review') || contains(github.event.issue.title, 'Claude review') || contains(github.event.issue.title, 'CLAUDE REVIEW'))))
-    uses: jmmaloney4/toolbox/.github/workflows/claude.yml@bc7846003f39ec61654d70f5cfd1413046b3b763 # main
+    uses: jmmaloney4/toolbox/.github/workflows/claude.yml@e6f08de5f5b16fd7c44101c3c0f1df72fb6e450d # main
     with:
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
