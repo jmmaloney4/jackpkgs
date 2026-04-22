@@ -401,7 +401,7 @@ in {
     script = getBuildCommand checks.numpydoc;
   in {
     expr =
-      hasInfixAll ["Running numpydoc (workspace root)..." "python -m numpydoc.hooks.validate_docstrings"] script
+      hasInfixAll ["Running numpydoc (workspace root)..." ''cd "$src"'' "python -m numpydoc.hooks.validate_docstrings"] script
       && !lib.hasInfix "/packages/" script;
     expected = true;
   };
@@ -898,6 +898,54 @@ in {
   in {
     # Verify the check is a valid derivation
     expr = lib.isDerivation minimalPythonCheck.pytest;
+    expected = true;
+  };
+
+  # ============================================================
+  # Tests for src-as-derivation-attribute fix (sandbox access)
+  # ============================================================
+
+  # Verify that Python checks pass the workspace root as a derivation
+  # attribute (src) so Nix properly tracks it as a sandbox input.
+  testPythonPytestSrcIsDerivationAttr = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+  in {
+    expr = checks.pytest.drvAttrs ? src;
+    expected = true;
+  };
+
+  # Verify that `cd "$src"` appears before setupCommands (PYTHONPATH etc.)
+  # so environment variables are set inside the source directory.
+  testPythonPytestCdsBeforeSetup = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.pytest;
+    # Split on cd "$src" — the part before must not contain PYTHONPATH
+    parts = lib.splitString ''cd "$src"'' script;
+    beforeCd = lib.head parts;
+  in {
+    expr = !lib.hasInfix "PYTHONPATH=" beforeCd;
+    expected = true;
+  };
+
+  # Verify that checks without `src` (e.g. tsc) do NOT contain `cd "$src"`.
+  # tsc uses `cp -R ${projectRoot} src && cd src` instead.
+  testTscCheckHasNoSrcAttr = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        nodejsEnable = true;
+        extraConfig.jackpkgs.checks.typescript.tsc.packages = ["infra"];
+      };
+      projectRoot = noWorkspaceFixture;
+    };
+    script = getBuildCommand checks.tsc;
+  in {
+    expr =
+      !lib.hasInfix ''cd "$src"'' script
+      && !(checks.tsc.drvAttrs ? src);
     expected = true;
   };
 }
