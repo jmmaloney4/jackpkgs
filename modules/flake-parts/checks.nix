@@ -327,13 +327,25 @@ in {
         config;
 
       # Generic check factory
+      #
+      # When `src` is set, it is passed as a derivation attribute so Nix tracks
+      # the source as a proper input (available in the sandbox).  The builder
+      # then `cd`s into `$src` — using the env-var expansion avoids
+      # interpolating the bare store path into the command string, which would
+      # produce "without a proper context" warnings and fail under
+      # sandboxed builds (Nix ≥ 2.33).
       mkCheck = {
         name,
         buildInputs ? [],
+        src ? null,
         setupCommands ? "",
         checkCommands,
       }:
-        pkgs.runCommand name {inherit buildInputs;} ''
+        pkgs.runCommand name ({
+            inherit buildInputs;
+          }
+          // lib.optionalAttrs (src != null) {inherit src;}) ''
+          ${lib.optionalString (src != null) ''cd "$src"''}
           ${setupCommands}
           ${checkCommands}
           touch $out
@@ -482,14 +494,16 @@ in {
             # pytest check (workspace root)
             pytest = mkCheck {
               name = "pytest";
+              src = pythonCfg.workspaceRoot;
               buildInputs = [pythonEnvWithDevTools];
               setupCommands = ''
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
                 export COVERAGE_FILE=$TMPDIR/.coverage
+                export PYTEST_CACHE_DIR=$TMPDIR/.pytest_cache
               '';
               checkCommands = ''
                 echo "Running pytest (workspace root)..."
-                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs})
+                pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs}
               '';
             };
           }
@@ -497,6 +511,7 @@ in {
             # mypy check (workspace root)
             mypy = mkCheck {
               name = "mypy";
+              src = pythonCfg.workspaceRoot;
               buildInputs = [pythonEnvWithDevTools];
               setupCommands = ''
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
@@ -504,7 +519,7 @@ in {
               '';
               checkCommands = ''
                 echo "Running mypy (workspace root)..."
-                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .)
+                mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
               '';
             };
           }
@@ -512,13 +527,14 @@ in {
             # ruff check (workspace root)
             ruff = mkCheck {
               name = "ruff";
+              src = pythonCfg.workspaceRoot;
               buildInputs = [pythonEnvWithDevTools];
               setupCommands = ''
                 export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
               '';
               checkCommands = ''
                 echo "Running ruff check (workspace root)..."
-                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .)
+                ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .
               '';
             };
           }
@@ -526,13 +542,14 @@ in {
             # numpydoc check (workspace root)
             numpydoc = mkCheck {
               name = "numpydoc";
+              src = pythonCfg.workspaceRoot;
               buildInputs = [pythonEnvWithDevTools];
               setupCommands = ''
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
               '';
               checkCommands = ''
                 echo "Running numpydoc (workspace root)..."
-                (cd ${lib.escapeShellArg pythonCfg.workspaceRoot} && python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs} .)
+                python -m numpydoc.hooks.validate_docstrings ${lib.escapeShellArgs cfg.python.numpydoc.extraArgs} .
               '';
             };
           }
