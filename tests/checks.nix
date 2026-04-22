@@ -269,7 +269,7 @@ in {
     script = getBuildCommand checks.pytest;
   in {
     expr =
-      hasInfixAll ["Running pytest (workspace root)..." "(cd "] script
+      hasInfixAll ["Running pytest (workspace root)..." ''cd "$src"''] script
       && !lib.hasInfix "/packages/" script
       && !lib.hasInfix "/tools/" script;
     expected = true;
@@ -335,7 +335,7 @@ in {
     script = getBuildCommand checks.mypy;
   in {
     expr =
-      hasInfixAll ["Running mypy (workspace root)..." "&& mypy"] script
+      hasInfixAll ["Running mypy (workspace root)..." ''cd "$src"''] script
       && !lib.hasInfix "/packages/" script;
     expected = true;
   };
@@ -360,7 +360,7 @@ in {
     script = getBuildCommand checks.ruff;
   in {
     expr =
-      hasInfixAll ["Running ruff check (workspace root)..." "&& ruff check"] script
+      hasInfixAll ["Running ruff check (workspace root)..." ''cd "$src"''] script
       && !lib.hasInfix "/packages/" script;
     expected = true;
   };
