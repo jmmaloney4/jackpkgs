@@ -342,8 +342,9 @@ in {
         checkCommands,
       }:
         pkgs.runCommand name ({
-          inherit buildInputs;
-        } // lib.optionalAttrs (src != null) {inherit src;}) ''
+            inherit buildInputs;
+          }
+          // lib.optionalAttrs (src != null) {inherit src;}) ''
           ${lib.optionalString (src != null) ''cd "$src"''}
           ${setupCommands}
           ${checkCommands}
@@ -498,6 +499,7 @@ in {
               setupCommands = ''
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
                 export COVERAGE_FILE=$TMPDIR/.coverage
+                export PYTEST_CACHE_DIR=$TMPDIR/.pytest_cache
               '';
               checkCommands = ''
                 echo "Running pytest (workspace root)..."
