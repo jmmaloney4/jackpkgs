@@ -36,6 +36,10 @@
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.systems.follows = "systems";
+      inputs.flake-parts.follows = "flake-parts";
+      inputs.bun2nix.follows = "bun2nix";
+      inputs.treefmt-nix.follows = "treefmt";
     };
     nix-unit = {
       url = "github:nix-community/nix-unit";
