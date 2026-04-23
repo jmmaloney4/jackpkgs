@@ -106,8 +106,8 @@ in {
           tsc = {
             package = mkOption {
               type = types.package;
-              default = pkgs.typescript;
-              defaultText = "pkgs.typescript";
+              default = config.jackpkgs.pkgs.typescript;
+              defaultText = "config.jackpkgs.pkgs.typescript";
               description = "TypeScript package providing the `tsc` executable.";
             };
 
