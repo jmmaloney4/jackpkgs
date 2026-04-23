@@ -164,7 +164,7 @@ in {
             jq
             just
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
-            nodePackages.typescript
+            typescript
           ];
           # Dev shell always sets GOOGLE_APPLICATION_CREDENTIALS when a profile is
           # active: Go-based GCP clients (including Pulumi providers) do not honour
