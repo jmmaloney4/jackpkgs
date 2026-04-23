@@ -566,7 +566,7 @@ in {
           # tsc check
           tsc = mkCheck {
             name = "tsc";
-            buildInputs = [nodejsPackage pkgs.nodePackages.typescript];
+            buildInputs = [nodejsPackage pkgs.typescript];
             setupCommands = ''
               # Copy source to writeable directory
               cp -R ${projectRoot} src
