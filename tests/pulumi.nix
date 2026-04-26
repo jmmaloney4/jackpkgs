@@ -28,8 +28,14 @@
     secretsProvider ? "awskms://alias/pulumi",
     defaultStack ? "dev",
     stacks ? [],
+    nodejsEnable ? false,
   }: {
     _module.check = false;
+    jackpkgs.nodejs = lib.mkIf nodejsEnable {
+      enable = true;
+      pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+      projectRoot = ../.;
+    };
     jackpkgs.pulumi = {
       enable = true;
       inherit backendUrl defaultStack secretsProvider stacks;
@@ -67,6 +73,13 @@ in {
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
   in {
     expr = hasPulumiEnvSetupHook "jackpkgs-pulumi-env-hook" perSystemCfg.jackpkgs.outputs.devShell;
+    expected = true;
+  };
+
+  testCiPulumiPackagesIncludePnpmWhenNodejsEnabled = let
+    perSystemCfg = getPerSystemCfg [(mkConfigModule {nodejsEnable = true;})];
+  in {
+    expr = builtins.elem perSystemCfg.jackpkgs.nodejs.pnpmPackage perSystemCfg.jackpkgs.pulumi.ci.packages;
     expected = true;
   };
 

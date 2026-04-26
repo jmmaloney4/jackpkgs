@@ -100,27 +100,26 @@ in {
           ++ lib.optional cfg.welcome.showJustHint ''echo ${lib.escapeShellArg cfg.welcome.justHintMessage}''
         );
     in {
-      jackpkgs.outputs.devShell = pkgs.mkShell (
-        {
-          inputsFrom =
-            [
-              config.just-flake.outputs.devShell
-              config.flake-root.devShell
-              config.pre-commit.devShell
-              config.treefmt.build.devShell
-            ]
-            ++ sysCfg.inputsFrom;
-          packages = sysCfg.packages
-            ++ lib.optional (!cfg.direnv.showEnvDiff) (
-              mkShellEnvHook {
-                name = "jackpkgs-direnv-log-format-hook";
-                env = {DIRENV_LOG_FORMAT = "";};
-              }
-            );
+      jackpkgs.outputs.devShell = pkgs.mkShell {
+        inputsFrom =
+          [
+            config.just-flake.outputs.devShell
+            config.flake-root.devShell
+            config.pre-commit.devShell
+            config.treefmt.build.devShell
+          ]
+          ++ sysCfg.inputsFrom;
+        packages =
+          sysCfg.packages
+          ++ lib.optional (!cfg.direnv.showEnvDiff) (
+            mkShellEnvHook {
+              name = "jackpkgs-direnv-log-format-hook";
+              env = {DIRENV_LOG_FORMAT = "";};
+            }
+          );
 
-          shellHook = lib.concatStringsSep "\n" shellHookParts;
-        }
-      );
+        shellHook = lib.concatStringsSep "\n" shellHookParts;
+      };
     };
   };
 }
