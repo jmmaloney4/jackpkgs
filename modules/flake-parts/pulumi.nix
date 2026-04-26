@@ -141,6 +141,10 @@ in {
           PULUMI_OPTION_NON_INTERACTIVE = "true";
           PULUMI_OPTION_COLOR = "never";
           PULUMI_OPTION_SUPPRESS_PROGRESS = "true";
+          # Enable async stack traces in Node.js for better debugging of unhandled
+          # promise rejections (e.g. from @pulumi/pulumi). Without this, async stack
+          # frames are absent from Error.stack, making unhandled rejections hard to trace.
+          NODE_OPTIONS = "--async-context-frame";
         };
 
         # ADC file path for the active gcp.profile (null-safe: only used when profile != null).
