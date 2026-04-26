@@ -84,6 +84,7 @@ in {
     perSystem = mkDeferredModuleOption ({
       config,
       lib,
+      options,
       pkgs,
       ...
     }: {
@@ -95,21 +96,37 @@ in {
 
       options.jackpkgs.pulumi.ci.packages = mkOption {
         type = with types; listOf package;
-        default = with config.jackpkgs.pkgs; [
-          pulumi-bin
-          nodejs
-          jq
-          (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
-        ];
+        default = let
+          nodejsPackage =
+            if lib.hasAttrByPath ["jackpkgs" "nodejs" "package"] options
+            then config.jackpkgs.nodejs.package
+            else config.jackpkgs.pkgs.nodejs;
+          pnpmPackages =
+            lib.optional
+            (lib.hasAttrByPath ["jackpkgs" "outputs" "nodejsDevShell"] options && config.jackpkgs.outputs.nodejsDevShell != null)
+            config.jackpkgs.nodejs.pnpmPackage;
+        in
+          with config.jackpkgs.pkgs;
+            [
+              pulumi-bin
+              nodejsPackage
+              jq
+              (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
+            ]
+            ++ pnpmPackages;
         defaultText = lib.literalExpression ''
           with config.jackpkgs.pkgs; [
             pulumi-bin
             nodejs
             jq
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
-          ]
+          ] ++ lib.optional jackpkgs.nodejs.enable jackpkgs.nodejs.pnpmPackage
         '';
-        description = "Packages included in the ci-pulumi devshell";
+        description = ''
+          Packages included in the ci-pulumi devshell. When the Node.js module
+          is enabled, this includes its configured pnpm package so reusable
+          Pulumi CI workflows can run `pnpm install` inside `.#ci-pulumi`.
+        '';
       };
 
       options.jackpkgs.outputs.pulumiJustfile = mkOption {
