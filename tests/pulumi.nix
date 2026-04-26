@@ -8,12 +8,13 @@
   pkgsModule = import ../modules/flake-parts/pkgs.nix {jackpkgsInputs = inputs;};
   devshellModule = import ../modules/flake-parts/devshell.nix {jackpkgsInputs = inputs;};
   gcpModule = import ../modules/flake-parts/gcp.nix {jackpkgsInputs = inputs;};
+  nodejsModule = import ../modules/flake-parts/nodejs.nix {jackpkgsInputs = inputs;};
   pulumiModule = import ../modules/flake-parts/pulumi.nix {jackpkgsInputs = inputs;};
 
   evalFlake = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = [libModule pkgsModule devshellModule gcpModule] ++ modules ++ [pulumiModule];
+      imports = [libModule pkgsModule devshellModule gcpModule nodejsModule] ++ modules ++ [pulumiModule];
     };
 
   getPerSystemCfg = modules: (evalFlake modules).config.perSystem system;
@@ -23,8 +24,14 @@
     secretsProvider ? "awskms://alias/pulumi",
     defaultStack ? "dev",
     stacks ? [],
+    nodejsEnable ? false,
   }: {
     _module.check = false;
+    jackpkgs.nodejs = lib.mkIf nodejsEnable {
+      enable = true;
+      pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+      projectRoot = ../.;
+    };
     jackpkgs.pulumi = {
       enable = true;
       inherit backendUrl defaultStack secretsProvider stacks;
@@ -64,6 +71,13 @@ in {
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
   in {
     expr = hasExpectedEnv perSystemCfg.devShells.ci-pulumi;
+    expected = true;
+  };
+
+  testCiPulumiPackagesIncludePnpmWhenNodejsEnabled = let
+    perSystemCfg = getPerSystemCfg [(mkConfigModule {nodejsEnable = true;})];
+  in {
+    expr = builtins.elem perSystemCfg.jackpkgs.nodejs.pnpmPackage perSystemCfg.jackpkgs.pulumi.ci.packages;
     expected = true;
   };
 
