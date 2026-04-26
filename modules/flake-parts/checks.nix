@@ -283,6 +283,65 @@ in {
         };
       };
 
+      # Shell script checks
+      shell = {
+        enable =
+          mkEnableOption "Shell script CI checks (shellcheck, actionlint, bashate)"
+          // {
+            default = false;
+            description = ''
+              Enable shell script CI checks. Disabled by default; opt in with
+              `jackpkgs.checks.shell.enable = true;`.
+            '';
+          };
+
+        shellcheck = {
+          enable = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Enable ShellCheck linting of shell scripts";
+          };
+
+          extraArgs = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = "Extra arguments to pass to shellcheck";
+          };
+        };
+
+        actionlint = {
+          enable = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Enable actionlint for GitHub Actions workflows";
+          };
+
+          extraArgs = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = "Extra arguments to pass to actionlint";
+          };
+        };
+
+        bashate = {
+          enable = mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Enable bashate style checks for shell scripts.
+              Disabled by default; opt in with
+              `jackpkgs.checks.shell.bashate.enable = true;`.
+            '';
+          };
+
+          extraArgs = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = "Extra arguments to pass to bashate (e.g. [\"-E\", \"E006\"] to ignore rule E006)";
+          };
+        };
+      };
+
       # Future: golang, rust, etc. can be added here
     };
   };
@@ -742,6 +801,44 @@ in {
             '';
           };
         };
+
+      # ============================================================
+      # Shell Script Checks
+      # ============================================================
+
+      shellChecks = lib.optionalAttrs cfg.shell.enable (
+        lib.optionalAttrs cfg.shell.shellcheck.enable {
+          shellcheck = mkCheck {
+            name = "shellcheck";
+            buildInputs = [pkgs.shellcheck pkgs.fd];
+            checkCommands = ''
+              fd -t f --hidden -e sh -e bash -e .envrc -e .envrc. \
+                -X shellcheck ${lib.escapeShellArgs cfg.shell.shellcheck.extraArgs}
+            '';
+          };
+        }
+        // lib.optionalAttrs cfg.shell.actionlint.enable {
+          actionlint = mkCheck {
+            name = "actionlint";
+            buildInputs = [pkgs.actionlint pkgs.fd];
+            checkCommands = ''
+              test -d .github/workflows \
+                && fd -t f --hidden -g '*.{yml,yaml}' .github/workflows/ \
+                -X actionlint ${lib.escapeShellArgs cfg.shell.actionlint.extraArgs}
+            '';
+          };
+        }
+        // lib.optionalAttrs cfg.shell.bashate.enable {
+          bashate = mkCheck {
+            name = "bashate";
+            buildInputs = [pkgs.bashate pkgs.fd];
+            checkCommands = ''
+              fd -t f -e sh -e bash \
+                -X bashate ${lib.escapeShellArgs cfg.shell.bashate.extraArgs}
+            '';
+          };
+        }
+      );
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [
@@ -750,6 +847,7 @@ in {
         {checks = vitestChecks;}
         {checks = biomeChecks;}
         {checks = beancountChecks;}
+        {checks = shellChecks;}
       ];
   };
 }
