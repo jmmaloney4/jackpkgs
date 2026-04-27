@@ -90,7 +90,6 @@ in {
           then throw "jackpkgs.gcp.profile contains invalid characters. Only [a-zA-Z0-9._-] are allowed."
           else ''
             export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/${gcpProfile}"
-            export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud-profiles/${gcpProfile}/application_default_credentials.json"
             mkdir -p "$CLOUDSDK_CONFIG"
           ''
         )
