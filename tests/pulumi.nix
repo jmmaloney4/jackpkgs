@@ -36,27 +36,8 @@
     };
   };
 
-  expectedEnv = {
-    PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-    PULUMI_BACKEND_URL = "s3://pulumi-state";
-    PULUMI_SECRETS_PROVIDER = "awskms://alias/pulumi";
-    PULUMI_OPTION_NON_INTERACTIVE = "true";
-    PULUMI_OPTION_COLOR = "never";
-    PULUMI_OPTION_SUPPRESS_PROGRESS = "true";
-    NODE_OPTIONS = "--async-context-frame";
-  };
-
-  hasExpectedEnv = drv:
-    lib.all (name: drv.${name} == expectedEnv.${name}) (builtins.attrNames expectedEnv);
-
-  expectedShellHookExports =
-    map (name: "export ${name}=${lib.escapeShellArg expectedEnv.${name}}") (builtins.attrNames expectedEnv);
-
-  hasExpectedShellHookExports = drv:
-    lib.all (needle: lib.hasInfix needle drv.shellHook) expectedShellHookExports;
-
-  hasPulumiEnvSetupHook = drv:
-    lib.any (input: lib.hasInfix "jackpkgs-pulumi-env-hook" (toString input)) (drv.nativeBuildInputs or []);
+  hasPulumiEnvSetupHook = hookName: drv:
+    lib.any (input: lib.hasInfix hookName (toString input)) (drv.nativeBuildInputs or []);
 
   defaultStacks = [
     {
@@ -71,23 +52,21 @@ in {
   testPulumiDevShellSetsPulumiCliDefaults = let
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
   in {
-    expr = hasExpectedEnv perSystemCfg.jackpkgs.outputs.pulumiDevShell;
+    expr = hasPulumiEnvSetupHook "jackpkgs-pulumi-env-hook" perSystemCfg.jackpkgs.outputs.pulumiDevShell;
     expected = true;
   };
 
   testCiPulumiDevShellSetsPulumiCliDefaults = let
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
   in {
-    expr = hasExpectedEnv perSystemCfg.devShells.ci-pulumi;
+    expr = hasPulumiEnvSetupHook "jackpkgs-ci-pulumi-env-hook" perSystemCfg.devShells.ci-pulumi;
     expected = true;
   };
 
   testComposedDevShellExportsPulumiEnv = let
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
   in {
-    expr =
-      hasExpectedShellHookExports perSystemCfg.jackpkgs.outputs.devShell
-      && hasPulumiEnvSetupHook perSystemCfg.jackpkgs.outputs.devShell;
+    expr = hasPulumiEnvSetupHook "jackpkgs-pulumi-env-hook" perSystemCfg.jackpkgs.outputs.devShell;
     expected = true;
   };
 

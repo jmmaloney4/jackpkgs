@@ -62,14 +62,14 @@ for development-shell fragments, but narrow its contract:
    hooks.
 2. `inputsFrom` MUST NOT be relied on to propagate `env` attributes or upstream
    `shellHook` behavior into a downstream shell.
-3. Any environment variable that must survive shell composition MUST be carried by
-   a setup hook package included in the upstream shell's inputs.
-4. Directly-entered shells SHOULD still set their own `env` attrs and/or
-   `shellHook` exports when useful for direct evaluation, introspection, or human
-   readability.
+3. Any environment variable that must be provided by a jackpkgs shell MUST be
+   carried by a setup hook package included in that shell's inputs.
+4. Modules SHOULD NOT duplicate durable environment exports through `env` attrs or
+   `shellHook`. Those paths are easy to mistake for the composition contract and
+   can drift from the setup hook.
 5. `jackpkgs` SHOULD document reusable shell outputs as "shell fragments" whose
-   stable cross-composition interface is build inputs plus setup hooks, not the
-   whole `mkShell` attribute set.
+   stable interface is build inputs plus setup hooks, not the whole `mkShell`
+   attribute set.
 
 We will not introduce a public custom shell-composition function at this time.
 Instead, each module that needs environment propagation should expose it through a
@@ -92,12 +92,12 @@ normal setup hook package, and include that package in the relevant dev shell.
 **Trade-offs:**
 
 - Setup hooks are less obvious than plain `env = { ...; }` attributes.
-- Variables now exist in more than one representation (`env` attrs for direct
-  shell metadata and setup hooks for composed-shell behavior), so module authors
-  must avoid drift by deriving both from the same attrset.
-- The final composed shell may not expose the variable as an evaluable derivation
-  attribute even though it is present in the interactive environment; validation
-  must include actual `nix develop` checks for important paths.
+- The final shell does not expose these variables as evaluable derivation
+  attributes even though they are present in the interactive environment;
+  validation must include setup-hook presence checks and/or actual `nix develop`
+  checks for important paths.
+- Nix-level tests should avoid asserting `drv.VAR`; the source of truth is the
+  setup hook included in the shell inputs.
 
 **Risks and Mitigations:**
 
@@ -118,7 +118,7 @@ normal setup hook package, and include that package in the relevant dev shell.
 
 ## Alternatives Considered
 
-### A: Continue with `env = { ...; }` only
+### A: Use `env = { ...; }`
 
 Pros: simple Nix syntax; easy to inspect with `nix eval`; works for direct
 `mkShell` entry in many cases.
@@ -126,7 +126,8 @@ Pros: simple Nix syntax; easy to inspect with `nix eval`; works for direct
 Cons: does not reliably propagate through downstream `inputsFrom` composition;
 this is the root cause of the Pulumi and `NODE_OPTIONS` regressions.
 
-Rejected because it does not satisfy the consumer composition requirement.
+Rejected because it does not satisfy the consumer composition requirement and
+creates a misleading second path for environment propagation.
 
 ### B: Put all critical variables only in `shellHook`
 
@@ -137,7 +138,8 @@ Cons: upstream `shellHook` behavior is not a reliable contract for downstream
 shells that compose with `inputsFrom`. It also mixes durable environment state
 with human-facing shell-entry behavior.
 
-Rejected as insufficient for wrapped consumer shells.
+Rejected because it is insufficient for wrapped consumer shells and creates a
+misleading second path for environment propagation.
 
 ### C: Setup-hook packages carried through `inputsFrom`
 

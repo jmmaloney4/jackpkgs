@@ -93,19 +93,19 @@ in {
       ...
     }: let
       sysCfg = config.jackpkgs.shell;
+      mkShellEnvHook = import ../../lib/shell-env-hook.nix {inherit lib pkgs;};
 
       # Build shellHook segments as a list and join with newlines for safe concatenation.
-      # mkShell does not reliably propagate env attributes through inputsFrom, so
-      # critical environment variables are also exported here for composed shells.
-      pulumiEnvExports =
-        lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") pulumiEnv;
+      # Durable environment variables are carried by setup hooks, not shellHook, so
+      # they propagate through downstream inputsFrom composition.
       pulumiEnvHook =
         if pulumiEnv == {}
         then null
         else
-          pkgs.makeSetupHook {name = "jackpkgs-pulumi-env-hook";} (
-            pkgs.writeText "jackpkgs-pulumi-env-hook.sh" (lib.concatStringsSep "\n" pulumiEnvExports)
-          );
+          mkShellEnvHook {
+            name = "jackpkgs-pulumi-env-hook";
+            env = pulumiEnv;
+          };
       shellHookParts =
         lib.optional (gcpProfile != null) (
           if builtins.match "[a-zA-Z0-9._-]+" gcpProfile == null
@@ -119,8 +119,7 @@ in {
         ++ lib.optionals cfg.welcome.enable (
           lib.optional (cfg.welcome.message != null) ''echo ${lib.escapeShellArg cfg.welcome.message}''
           ++ lib.optional cfg.welcome.showJustHint ''echo ${lib.escapeShellArg cfg.welcome.justHintMessage}''
-        )
-        ++ lib.optional (pulumiEnv != {}) (lib.concatStringsSep "\n" pulumiEnvExports);
+        );
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell (
         {
@@ -133,7 +132,6 @@ in {
             ]
             ++ sysCfg.inputsFrom;
           packages = sysCfg.packages ++ lib.optional (pulumiEnvHook != null) pulumiEnvHook;
-          env = pulumiEnv;
 
           shellHook = lib.concatStringsSep "\n" shellHookParts;
         }

@@ -130,6 +130,7 @@ in {
         ...
       }: let
         pulumiExe = lib.getExe' pkgs.pulumi-bin "pulumi";
+        mkShellEnvHook = import ../../lib/shell-env-hook.nix {inherit lib pkgs;};
         stacks = cfg.stacks;
         defaultStack = cfg.defaultStack;
 
@@ -160,32 +161,41 @@ in {
         ciPulumiEnv =
           pulumiBaseEnv
           // lib.optionalAttrs (cfg.ci.authMode == "application-default-credentials") profileAdcPath;
-      in {
-        jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
-          packages = with pkgs; [
-            pulumi-bin
-            nodejs
-            jq
-            just
-            (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
-            typescript
-          ];
-          # Dev shell always sets GOOGLE_APPLICATION_CREDENTIALS when a profile is
-          # active: Go-based GCP clients (including Pulumi providers) do not honour
-          # CLOUDSDK_CONFIG and require this explicit env var (see issue #182 and
-          # ADR 027).
+
+        pulumiEnvHook = mkShellEnvHook {
+          name = "jackpkgs-pulumi-env-hook";
           env = pulumiBaseEnv // profileAdcPath;
         };
 
+        ciPulumiEnvHook = mkShellEnvHook {
+          name = "jackpkgs-ci-pulumi-env-hook";
+          env = ciPulumiEnv;
+        };
+      in {
+        jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
+          packages =
+            (with pkgs; [
+              pulumi-bin
+              nodejs
+              jq
+              just
+              (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
+              typescript
+            ])
+            ++ [pulumiEnvHook];
+          # Dev shell environment is carried by pulumiEnvHook so it is applied
+          # consistently by the same mechanism used for composed shells.
+        };
+
         devShells.ci-pulumi = pkgs.mkShell {
-          packages = config.jackpkgs.pulumi.ci.packages;
+          packages = config.jackpkgs.pulumi.ci.packages ++ [ciPulumiEnvHook];
 
           # CI shell auth strategy is controlled by jackpkgs.pulumi.ci.authMode:
           #   "workload-identity" (default) — do not bake GOOGLE_APPLICATION_CREDENTIALS;
           #     WIF credentials are injected by the CI runner (google-github-actions/auth).
           #   "application-default-credentials" — set GOOGLE_APPLICATION_CREDENTIALS to
           #     the profile ADC file; requires jackpkgs.gcp.profile to be non-null.
-          env = ciPulumiEnv;
+          # Environment is carried by ciPulumiEnvHook, not mkShell env attrs.
         };
 
         jackpkgs.shell.inputsFrom = [
