@@ -14,6 +14,7 @@
       PULUMI_BACKEND_URL = pulumiCfg.backendUrl;
       PULUMI_SECRETS_PROVIDER = pulumiCfg.secretsProvider;
       PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+      NODE_OPTIONS = "--async-context-frame";
     }
     else {};
 in {
