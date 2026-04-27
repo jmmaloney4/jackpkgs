@@ -7,19 +7,6 @@
   inherit (lib) mkIf;
   cfg = config.jackpkgs.shell;
   gcpProfile = lib.attrByPath ["jackpkgs" "gcp" "profile"] null config;
-  pulumiCfg = lib.attrByPath ["jackpkgs" "pulumi"] null config;
-  pulumiEnv =
-    if pulumiCfg != null && pulumiCfg.enable
-    then {
-      PULUMI_BACKEND_URL = pulumiCfg.backendUrl;
-      PULUMI_SECRETS_PROVIDER = pulumiCfg.secretsProvider;
-      PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-      PULUMI_OPTION_NON_INTERACTIVE = "true";
-      PULUMI_OPTION_COLOR = "never";
-      PULUMI_OPTION_SUPPRESS_PROGRESS = "true";
-      NODE_OPTIONS = "--async-context-frame";
-    }
-    else {};
 in {
   imports = [
     jackpkgsInputs.flake-root.flakeModule
@@ -93,19 +80,10 @@ in {
       ...
     }: let
       sysCfg = config.jackpkgs.shell;
-      mkShellEnvHook = import ../../lib/shell-env-hook.nix {inherit lib pkgs;};
 
       # Build shellHook segments as a list and join with newlines for safe concatenation.
-      # Durable environment variables are carried by setup hooks, not shellHook, so
-      # they propagate through downstream inputsFrom composition.
-      pulumiEnvHook =
-        if pulumiEnv == {}
-        then null
-        else
-          mkShellEnvHook {
-            name = "jackpkgs-pulumi-env-hook";
-            env = pulumiEnv;
-          };
+      # Durable environment variables are carried by setup hooks from pulumiDevShell,
+      # which is already included via sysCfg.inputsFrom (set by the pulumi module).
       shellHookParts =
         lib.optional (gcpProfile != null) (
           if builtins.match "[a-zA-Z0-9._-]+" gcpProfile == null
@@ -131,7 +109,7 @@ in {
               config.treefmt.build.devShell
             ]
             ++ sysCfg.inputsFrom;
-          packages = sysCfg.packages ++ lib.optional (pulumiEnvHook != null) pulumiEnvHook;
+          packages = sysCfg.packages;
 
           shellHook = lib.concatStringsSep "\n" shellHookParts;
         }

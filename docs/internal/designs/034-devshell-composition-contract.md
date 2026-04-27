@@ -192,16 +192,21 @@ jackpkgs needs a first-class shell-fragment API.
 
 ## Implementation Plan
 
-1. Derive shared Pulumi environment exports from a single `pulumiEnv` attrset in
-   `modules/flake-parts/devshell.nix`.
-2. Keep `env = pulumiEnv` on `config.jackpkgs.outputs.devShell` for direct-shell
-   metadata and Nix-level tests.
-3. Export the same variables in `shellHook` for direct shell entry.
-4. Create a `pkgs.makeSetupHook` package that exports the same variables and add
-   it to `config.jackpkgs.outputs.devShell` packages when Pulumi is enabled.
-5. Add tests that verify the composed dev shell includes the setup hook and that
-   the expected exports are present in the direct shell hook.
-6. Validate with a real downstream composition using `nix develop --override-input jackpkgs <local-jackpkgs-checkout>` from a consumer repository.
+1. Create a `pkgs.makeSetupHook` package (via `lib/shell-env-hook.nix`) that
+   exports Pulumi environment variables and include it in
+   `config.jackpkgs.outputs.pulumiDevShell` packages.
+2. The pulumi module adds `pulumiDevShell` to `jackpkgs.shell.inputsFrom`, so
+   the composed `jackpkgs.outputs.devShell` receives the setup hook through
+   normal `inputsFrom` propagation — no duplicate env or hook in devshell.nix.
+3. `shellHook` in `devshell.nix` is reserved for non-env side effects (welcome
+   messages, gcloud profile setup). Durable env vars travel only through setup
+   hooks.
+4. Add tests that verify the setup hook package is present in both
+   `pulumiDevShell` and the composed devShell, and that downstream composition
+   via `nix develop --override-input` exposes the expected variables.
+5. Validate with a real downstream composition using
+   `nix develop --override-input jackpkgs <local-jackpkgs-checkout>` from a
+   consumer repository.
 
 ## Appendix: Code Changes in PR #243
 
@@ -209,11 +214,12 @@ PR #243 implements this decision by updating:
 
 - `modules/flake-parts/devshell.nix`
 
-  - Adds the PR #205 Pulumi option variables to the shared `pulumiEnv` attrset.
-  - Keeps `NODE_OPTIONS=--async-context-frame` in that same attrset.
-  - Builds export statements from the attrset with `lib.mapAttrsToList`.
-  - Adds `jackpkgs-pulumi-env-hook` via `pkgs.makeSetupHook`.
-  - Includes that hook in the dev shell packages when Pulumi is enabled.
+  - Removes the duplicate `pulumiEnv` attrset — environment is defined once in
+    `modules/flake-parts/pulumi.nix` as `pulumiBaseEnv`.
+  - Pulumi setup hook propagates through `inputsFrom` from `pulumiDevShell`;
+    devshell.nix no longer builds its own hook.
+  - `shellHook` reserved for non-env side effects only (welcome messages, gcloud
+    profile setup).
 
 - `tests/pulumi.nix`
 
