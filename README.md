@@ -277,14 +277,14 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
 
   - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
   - The shell aggregates dev environments from `just-flake`, `flake-root`, `pre-commit`, and `treefmt`.
-  - When `jackpkgs.pulumi.enable` is true, the composed dev shell exports `PULUMI_BACKEND_URL`, `PULUMI_SECRETS_PROVIDER`, and `PULUMI_IGNORE_AMBIENT_PLUGINS=1`.
+  - When `jackpkgs.pulumi.enable` is true, the composed dev shell exports the shared Pulumi environment: `PULUMI_BACKEND_URL`, `PULUMI_SECRETS_PROVIDER`, `PULUMI_IGNORE_AMBIENT_PLUGINS=1`, Pulumi non-interactive output defaults, and `NODE_OPTIONS=--async-context-frame`.
 
 - pulumi (`modules/flake-parts/pulumi.nix`)
 
   - Provides Pulumi CLI in a devShell fragment: `config.jackpkgs.outputs.pulumiDevShell`.
   - Provides generated justfile fragment: `config.jackpkgs.outputs.pulumiJustfile` with `preview`/`deploy` recipes.
   - Provides CI devshell: `devShells.ci-pulumi` with minimal dependencies for CI environments.
-  - When enabled, both Pulumi shells export `PULUMI_OPTION_NON_INTERACTIVE=true`, `PULUMI_OPTION_COLOR=never`, and `PULUMI_OPTION_SUPPRESS_PROGRESS=true` for plain, non-interactive CLI output.
+  - When enabled, both Pulumi shells export `PULUMI_OPTION_NON_INTERACTIVE=true`, `PULUMI_OPTION_COLOR=never`, and `PULUMI_OPTION_SUPPRESS_PROGRESS=true` for plain, non-interactive CLI output, plus `NODE_OPTIONS=--async-context-frame` for better Node/Pulumi async stack traces.
   - Options under `jackpkgs.pulumi`:
     - `enable` (bool, default `true`)
     - `backendUrl` (str, required) - Pulumi backend URL

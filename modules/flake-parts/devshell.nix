@@ -14,6 +14,9 @@
       PULUMI_BACKEND_URL = pulumiCfg.backendUrl;
       PULUMI_SECRETS_PROVIDER = pulumiCfg.secretsProvider;
       PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
+      PULUMI_OPTION_NON_INTERACTIVE = "true";
+      PULUMI_OPTION_COLOR = "never";
+      PULUMI_OPTION_SUPPRESS_PROGRESS = "true";
       NODE_OPTIONS = "--async-context-frame";
     }
     else {};
@@ -91,7 +94,18 @@ in {
     }: let
       sysCfg = config.jackpkgs.shell;
 
-      # Build shellHook segments as a list and join with newlines for safe concatenation
+      # Build shellHook segments as a list and join with newlines for safe concatenation.
+      # mkShell does not reliably propagate env attributes through inputsFrom, so
+      # critical environment variables are also exported here for composed shells.
+      pulumiEnvExports =
+        lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") pulumiEnv;
+      pulumiEnvHook =
+        if pulumiEnv == {}
+        then null
+        else
+          pkgs.makeSetupHook {name = "jackpkgs-pulumi-env-hook";} (
+            pkgs.writeText "jackpkgs-pulumi-env-hook.sh" (lib.concatStringsSep "\n" pulumiEnvExports)
+          );
       shellHookParts =
         lib.optional (gcpProfile != null) (
           if builtins.match "[a-zA-Z0-9._-]+" gcpProfile == null
@@ -106,11 +120,7 @@ in {
           lib.optional (cfg.welcome.message != null) ''echo ${lib.escapeShellArg cfg.welcome.message}''
           ++ lib.optional cfg.welcome.showJustHint ''echo ${lib.escapeShellArg cfg.welcome.justHintMessage}''
         )
-        ++ lib.optional (pulumiCfg != null && pulumiCfg.enable) ''
-          export PULUMI_BACKEND_URL=${lib.escapeShellArg pulumiCfg.backendUrl}
-          export PULUMI_SECRETS_PROVIDER=${lib.escapeShellArg pulumiCfg.secretsProvider}
-          export PULUMI_IGNORE_AMBIENT_PLUGINS=1
-        '';
+        ++ lib.optional (pulumiEnv != {}) (lib.concatStringsSep "\n" pulumiEnvExports);
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell (
         {
@@ -122,7 +132,7 @@ in {
               config.treefmt.build.devShell
             ]
             ++ sysCfg.inputsFrom;
-          packages = sysCfg.packages;
+          packages = sysCfg.packages ++ lib.optional (pulumiEnvHook != null) pulumiEnvHook;
           env = pulumiEnv;
 
           shellHook = lib.concatStringsSep "\n" shellHookParts;

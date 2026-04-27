@@ -6,14 +6,19 @@
   flakeParts = inputs.flake-parts.lib;
   libModule = import ../modules/flake-parts/lib.nix {jackpkgsInputs = inputs;};
   pkgsModule = import ../modules/flake-parts/pkgs.nix {jackpkgsInputs = inputs;};
+  checksModule = import ../modules/flake-parts/checks.nix {jackpkgsInputs = inputs;};
   devshellModule = import ../modules/flake-parts/devshell.nix {jackpkgsInputs = inputs;};
-  gcpModule = import ../modules/flake-parts/gcp.nix {jackpkgsInputs = inputs;};
+  fmtModule = import ../modules/flake-parts/fmt.nix {jackpkgsInputs = inputs;};
+  justModule = import ../modules/flake-parts/just.nix {jackpkgsInputs = inputs;};
+  nodejsModule = import ../modules/flake-parts/nodejs.nix {jackpkgsInputs = inputs;};
+  preCommitModule = import ../modules/flake-parts/pre-commit.nix {jackpkgsInputs = inputs;};
   pulumiModule = import ../modules/flake-parts/pulumi.nix {jackpkgsInputs = inputs;};
+  quartoModule = import ../modules/flake-parts/quarto.nix {jackpkgsInputs = inputs;};
 
   evalFlake = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = [libModule pkgsModule devshellModule gcpModule] ++ modules ++ [pulumiModule];
+      imports = [libModule pkgsModule checksModule devshellModule fmtModule justModule nodejsModule preCommitModule quartoModule] ++ modules ++ [pulumiModule];
     };
 
   getPerSystemCfg = modules: (evalFlake modules).config.perSystem system;
@@ -38,10 +43,20 @@
     PULUMI_OPTION_NON_INTERACTIVE = "true";
     PULUMI_OPTION_COLOR = "never";
     PULUMI_OPTION_SUPPRESS_PROGRESS = "true";
+    NODE_OPTIONS = "--async-context-frame";
   };
 
   hasExpectedEnv = drv:
     lib.all (name: drv.${name} == expectedEnv.${name}) (builtins.attrNames expectedEnv);
+
+  expectedShellHookExports =
+    map (name: "export ${name}=${lib.escapeShellArg expectedEnv.${name}}") (builtins.attrNames expectedEnv);
+
+  hasExpectedShellHookExports = drv:
+    lib.all (needle: lib.hasInfix needle drv.shellHook) expectedShellHookExports;
+
+  hasPulumiEnvSetupHook = drv:
+    lib.any (input: lib.hasInfix "jackpkgs-pulumi-env-hook" (toString input)) (drv.nativeBuildInputs or []);
 
   defaultStacks = [
     {
@@ -64,6 +79,15 @@ in {
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
   in {
     expr = hasExpectedEnv perSystemCfg.devShells.ci-pulumi;
+    expected = true;
+  };
+
+  testComposedDevShellExportsPulumiEnv = let
+    perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
+  in {
+    expr =
+      hasExpectedShellHookExports perSystemCfg.jackpkgs.outputs.devShell
+      && hasPulumiEnvSetupHook perSystemCfg.jackpkgs.outputs.devShell;
     expected = true;
   };
 
