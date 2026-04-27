@@ -174,7 +174,9 @@ in {
         # cannot be carried by the setup hook (which single-quotes values).
         # Instead, export it via shellHook where shell expansion is available.
         adcShellHook = lib.optionalString (gcpCfg.profile != null) ''
-          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/${lib.escapeShellArg ".config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json"}
+          _jackpkgs_pulumi_adc_rel_path=${lib.escapeShellArg ".config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json"}
+          export GOOGLE_APPLICATION_CREDENTIALS="$HOME/$_jackpkgs_pulumi_adc_rel_path"
+          unset _jackpkgs_pulumi_adc_rel_path
         '';
       in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
