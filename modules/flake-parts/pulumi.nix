@@ -170,19 +170,11 @@ in {
           env = pulumiBaseEnv;
         };
 
-        ciPulumiEnvHook = mkShellEnvHook {
-          name = "jackpkgs-ci-pulumi-env-hook";
-          # Only literal (non-$HOME) env vars go in the setup hook.
-          # GOOGLE_APPLICATION_CREDENTIALS (if present) uses $HOME expansion
-          # and is exported via adcShellHook in the CI shell's shellHook.
-          env = pulumiBaseEnv;
-        };
-
         # ADC path for the active gcp.profile. This uses $HOME expansion so it
         # cannot be carried by the setup hook (which single-quotes values).
         # Instead, export it via shellHook where shell expansion is available.
         adcShellHook = lib.optionalString (gcpCfg.profile != null) ''
-          export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json"
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/${lib.escapeShellArg ".config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json"}
         '';
       in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
@@ -202,14 +194,14 @@ in {
         };
 
         devShells.ci-pulumi = pkgs.mkShell {
-          packages = config.jackpkgs.pulumi.ci.packages ++ [ciPulumiEnvHook];
+          packages = config.jackpkgs.pulumi.ci.packages ++ [pulumiEnvHook];
 
           # CI shell auth strategy is controlled by jackpkgs.pulumi.ci.authMode:
           #   "workload-identity" (default) — do not bake GOOGLE_APPLICATION_CREDENTIALS;
           #     WIF credentials are injected by the CI runner (google-github-actions/auth).
           #   "application-default-credentials" — set GOOGLE_APPLICATION_CREDENTIALS to
           #     the profile ADC file; requires jackpkgs.gcp.profile to be non-null.
-          # Literal env vars are carried by ciPulumiEnvHook (setup hook).
+          # Literal env vars are carried by pulumiEnvHook (setup hook).
           # ADC path (when enabled) uses $HOME and is set via shellHook.
           shellHook = lib.optionalString (cfg.ci.authMode == "application-default-credentials") adcShellHook;
         };

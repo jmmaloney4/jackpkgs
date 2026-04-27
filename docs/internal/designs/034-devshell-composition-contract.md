@@ -193,18 +193,29 @@ jackpkgs needs a first-class shell-fragment API.
 ## Implementation Plan
 
 1. Create a `pkgs.makeSetupHook` package (via `lib/shell-env-hook.nix`) that
-   exports Pulumi environment variables and include it in
+   exports **literal (compile-time) environment variables** and include it in
    `config.jackpkgs.outputs.pulumiDevShell` packages.
+   - The helper uses `lib.escapeShellArg` (single-quoting) for safe, injection-
+     resistant exports. It also filters out `null` values to match `mkShell`
+     behavior.
 2. The pulumi module adds `pulumiDevShell` to `jackpkgs.shell.inputsFrom`, so
    the composed `jackpkgs.outputs.devShell` receives the setup hook through
    normal `inputsFrom` propagation — no duplicate env or hook in devshell.nix.
-3. `shellHook` in `devshell.nix` is reserved for non-env side effects (welcome
-   messages, gcloud profile setup). Durable env vars travel only through setup
-   hooks.
-4. Add tests that verify the setup hook package is present in both
+3. **Design split for runtime-expanded values:** variables that reference
+   `$HOME` or require shell expansion (e.g. `GOOGLE_APPLICATION_CREDENTIALS`
+   with a profile-dependent path) are exported via `shellHook`, not setup hooks.
+   This avoids the injection risk of double-quoting in the generic helper while
+   preserving runtime expansion semantics.
+   - `devshell.nix` `shellHookParts`: `CLOUDSDK_CONFIG`, `GOOGLE_APPLICATION_CREDENTIALS`
+     (shared non-Pulumi path), `mkdir -p`.
+   - `pulumi.nix` `adcShellHook`: `GOOGLE_APPLICATION_CREDENTIALS` with profile-
+     specific `$HOME` path (Pulumi-specific override).
+4. `shellHook` in `devshell.nix` also handles non-env side effects (welcome
+   messages, gcloud profile setup).
+5. Add tests that verify the setup hook package is present in both
    `pulumiDevShell` and the composed devShell, and that downstream composition
    via `nix develop --override-input` exposes the expected variables.
-5. Validate with a real downstream composition using
+6. Validate with a real downstream composition using
    `nix develop --override-input jackpkgs <local-jackpkgs-checkout>` from a
    consumer repository.
 
@@ -212,18 +223,37 @@ jackpkgs needs a first-class shell-fragment API.
 
 PR #243 implements this decision by updating:
 
+- `lib/shell-env-hook.nix`
+
+  - New shared helper: converts an env attrset to a `makeSetupHook` package.
+  - Uses `lib.escapeShellArg` (single-quoting) for injection-resistant exports.
+  - Filters `null` values to match `mkShell` behavior.
+
 - `modules/flake-parts/devshell.nix`
 
   - Removes the duplicate `pulumiEnv` attrset — environment is defined once in
     `modules/flake-parts/pulumi.nix` as `pulumiBaseEnv`.
   - Pulumi setup hook propagates through `inputsFrom` from `pulumiDevShell`;
     devshell.nix no longer builds its own hook.
-  - `shellHook` reserved for non-env side effects only (welcome messages, gcloud
-    profile setup).
+  - `shellHook` handles runtime-expanded env vars (`CLOUDSDK_CONFIG`,
+    `GOOGLE_APPLICATION_CREDENTIALS`) and non-env side effects (welcome messages,
+    gcloud profile setup).
+
+- `modules/flake-parts/pulumi.nix`
+
+  - Single `pulumiEnvHook` setup hook carries literal Pulumi env vars
+    (`PULUMI_BACKEND_URL`, `PULUMI_SECRETS_PROVIDER`, `PULUMI_OPTION_*`,
+    `NODE_OPTIONS`). Used by both `pulumiDevShell` and `ci-pulumi`.
+  - `adcShellHook` exports `GOOGLE_APPLICATION_CREDENTIALS` via `shellHook` for
+    runtime `$HOME` expansion (profile-specific path, escaped with
+    `lib.escapeShellArg`).
+  - Removed separate `ciPulumiEnvHook` (was identical to `pulumiEnvHook`).
 
 - `tests/pulumi.nix`
 
   - Adds `NODE_OPTIONS` to expected Pulumi shell env.
+  - Tests assert `jackpkgs-pulumi-env-hook` in both `pulumiDevShell` and
+    `ci-pulumi` (consolidated single hook).
   - Adds a composed-shell test that requires both shellHook exports and the setup
     hook package.
 
