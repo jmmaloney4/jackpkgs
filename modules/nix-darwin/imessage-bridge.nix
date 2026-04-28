@@ -34,6 +34,13 @@ in {
       default = false;
       description = "Disable Bonjour/mDNS service registration.";
     };
+
+    logDir = mkOption {
+      type = types.path;
+      default = "/tmp";
+      defaultText = literalExpression "/tmp";
+      description = "Directory for StandardOutPath and StandardErrorPath logs.";
+    };
   };
 
   config = mkIf cfg.enable {
@@ -48,8 +55,8 @@ in {
       serviceConfig = {
         RunAtLoad = true;
         KeepAlive = true;
-        StandardOutPath = "/tmp/imessage-bridge.log";
-        StandardErrorPath = "/tmp/imessage-bridge.err.log";
+        StandardOutPath = "${cfg.logDir}/imessage-bridge.log";
+        StandardErrorPath = "${cfg.logDir}/imessage-bridge.err.log";
       };
     };
   };
