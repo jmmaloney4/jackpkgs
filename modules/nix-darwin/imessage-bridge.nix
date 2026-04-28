@@ -1,0 +1,58 @@
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+with lib; let
+  cfg = config.services.imessage-bridge;
+in {
+  options.services.imessage-bridge = {
+    enable = mkEnableOption "iMessage Bridge HTTP server";
+
+    package = mkOption {
+      type = types.package;
+      default = pkgs.imessage-bridge;
+      defaultText = literalExpression "pkgs.imessage-bridge";
+      description = "imessage-bridge package to use.";
+    };
+
+    port = mkOption {
+      type = types.port;
+      default = 8432;
+      description = "Port to listen on.";
+    };
+
+    bonjourName = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "Bonjour service name. Defaults to hostname.";
+    };
+
+    noBonjour = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Disable Bonjour/mDNS service registration.";
+    };
+  };
+
+  config = mkIf cfg.enable {
+    launchd.user.agents.imessage-bridge = {
+      serviceConfig = {
+        ProgramArguments =
+          [
+            (lib.getExe cfg.package)
+            "--port"
+            (toString cfg.port)
+          ]
+          ++ lib.optionals (cfg.bonjourName != null) [
+            "--name"
+            cfg.bonjourName
+          ]
+          ++ lib.optional cfg.noBonjour "--no-bonjour";
+        RunAtLoad = true;
+        KeepAlive = true;
+      };
+    };
+  };
+}
