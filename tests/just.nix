@@ -89,7 +89,7 @@
     builtins.derivation {
       inherit name system;
       builder = "/bin/sh";
-      args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\" \"$out/bin/mypy\""];
+      args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\" \"$out/bin/mypy\" \"$out/bin/ruff\""];
     };
 
   mkConfigModule = {
@@ -170,6 +170,40 @@ in {
     ];
   in {
     expr = perSystemCfg.jackpkgs.just.mypyPackage == defaultEnv;
+    expected = true;
+  };
+
+  testJustRuffPackagePrefersDevToolsEnv = let
+    devToolsEnv = mkTestPackage "python-dev-tools";
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        pythonEnvs.dev = devToolsEnv;
+        pythonDefaultEnv = mkTestPackage "python-default";
+        extraChecks.python.mypy.enable = false;
+      })
+      {
+        jackpkgs.python.environments.dev = {
+          editable = false;
+          includeGroups = true;
+        };
+      }
+    ];
+  in {
+    expr = perSystemCfg.jackpkgs.just.ruffPackage == devToolsEnv;
+    expected = true;
+  };
+
+  testJustRuffPackageFallsBackToPythonDefaultEnv = let
+    defaultEnv = mkTestPackage "python-default";
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        pythonDefaultEnv = defaultEnv;
+        extraChecks.python.mypy.enable = false;
+        withPythonWorkspace = false;
+      })
+    ];
+  in {
+    expr = perSystemCfg.jackpkgs.just.ruffPackage == defaultEnv;
     expected = true;
   };
 }

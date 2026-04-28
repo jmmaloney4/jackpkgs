@@ -178,6 +178,7 @@ in {
   - Options under `jackpkgs.just` to replace tool packages used by generated `just` recipes:
     - `biomePackage`, `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `mypyPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`, `ruffPackage`
     - `mypyPackage` defaults to the dev-tools Python environment used by `checks` / `pre-commit`
+    - `ruffPackage` defaults to the same dev-tools Python environment as `mypyPackage`
     - `pulumiBackendUrl` (nullable string)
   - Options under `jackpkgs.gcp`:
     - `iamOrg` (nullable string, default `null`) - GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
