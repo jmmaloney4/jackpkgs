@@ -121,6 +121,7 @@
           csharpier = pkgs.callPackage ./pkgs/csharpier {};
           docfx = pkgs.callPackage ./pkgs/docfx {};
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
+          imessage-bridge = pkgs.callPackage ./pkgs/imessage-bridge {};
           lean = pkgs.callPackage ./pkgs/lean {};
           openchamber = pkgs.callPackage ./pkgs/openchamber {
             opencode = inputs.llm-agents.packages.${system}.opencode;
@@ -206,6 +207,7 @@
             lib = jackLib;
             modules = import ./modules;
             homeManagerModules = import ./modules/home-manager;
+            darwinModules = import ./modules/nix-darwin;
             overlays = import ./overlays;
           }
           // platformFilteredPackages;
@@ -388,6 +390,9 @@
       flake = {
         # Expose overlays for backward compatibility
         overlays.default = import ./overlay.nix;
+
+        # Expose nix-darwin modules
+        darwinModules.imessage-bridge = import ./modules/nix-darwin/imessage-bridge.nix;
 
         # Expose lib for backward compatibility
         lib = inputs.nixpkgs.lib.extend (

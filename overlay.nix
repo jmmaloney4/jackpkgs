@@ -15,6 +15,7 @@ else let
     csharpier = super.callPackage ./pkgs/csharpier {};
     docfx = super.callPackage ./pkgs/docfx {};
     epub2tts = super.callPackage ./pkgs/epub2tts {};
+    imessage-bridge = super.callPackage ./pkgs/imessage-bridge {};
     lean = super.callPackage ./pkgs/lean {};
     tod = super.callPackage ./pkgs/tod {};
   };
@@ -24,6 +25,7 @@ else let
       lib = jackLib;
       modules = import ./modules;
       homeManagerModules = import ./modules/home-manager;
+      darwinModules = import ./modules/nix-darwin;
       overlays = import ./overlays;
     }
     // jackLib.filterByPlatforms super.system allPackages;
