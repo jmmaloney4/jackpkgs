@@ -1,0 +1,11 @@
+name: 📌 add to project
+on:
+  issues:
+    types: [opened, reopened, transferred, labeled]
+  pull_request:
+    types: [opened, reopened, labeled]
+permissions:
+  contents: read
+jobs:
+  add-to-project:
+    uses: jmmaloney4/toolbox/.github/workflows/add-to-project.yml@bc7846003f39ec61654d70f5cfd1413046b3b763 # main
