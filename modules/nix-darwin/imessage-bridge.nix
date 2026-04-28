@@ -36,10 +36,9 @@ in {
     };
 
     logDir = mkOption {
-      type = types.path;
-      default = "/tmp";
-      defaultText = literalExpression "/tmp";
-      description = "Directory for StandardOutPath and StandardErrorPath logs.";
+      type = types.nullOr types.path;
+      default = null;
+      description = "Directory for StandardOutPath and StandardErrorPath logs. When null, launchd defaults apply.";
     };
   };
 
@@ -52,12 +51,15 @@ in {
         ++ lib.optional cfg.noBonjour "--no-bonjour"
       );
 
-      serviceConfig = {
-        RunAtLoad = true;
-        KeepAlive = true;
-        StandardOutPath = "${cfg.logDir}/imessage-bridge.log";
-        StandardErrorPath = "${cfg.logDir}/imessage-bridge.err.log";
-      };
+      serviceConfig =
+        {
+          RunAtLoad = true;
+          KeepAlive = true;
+        }
+        // lib.optionalAttrs (cfg.logDir != null) {
+          StandardOutPath = "${cfg.logDir}/imessage-bridge.log";
+          StandardErrorPath = "${cfg.logDir}/imessage-bridge.err.log";
+        };
     };
   };
 }
