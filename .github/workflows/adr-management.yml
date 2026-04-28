@@ -10,7 +10,7 @@ permissions:
 jobs:
   adr-management:
     if: github.actor != 'github-actions[bot]'
-    uses: jmmaloney4/toolbox/.github/workflows/adr-management.yml@e6f08de5f5b16fd7c44101c3c0f1df72fb6e450d # main
+    uses: jmmaloney4/toolbox/.github/workflows/adr-management.yml@164b0bf115f15c511ebb883d7e8149eef47eca84 # main
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}
