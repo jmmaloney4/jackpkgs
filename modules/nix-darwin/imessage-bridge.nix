@@ -38,20 +38,18 @@ in {
 
   config = mkIf cfg.enable {
     launchd.user.agents.imessage-bridge = {
+      command = lib.escapeShellArgs (
+        [(lib.getExe cfg.package)]
+        ++ ["--port" (toString cfg.port)]
+        ++ lib.optionals (cfg.bonjourName != null) ["--name" cfg.bonjourName]
+        ++ lib.optional cfg.noBonjour "--no-bonjour"
+      );
+
       serviceConfig = {
-        ProgramArguments =
-          [
-            (lib.getExe cfg.package)
-            "--port"
-            (toString cfg.port)
-          ]
-          ++ lib.optionals (cfg.bonjourName != null) [
-            "--name"
-            cfg.bonjourName
-          ]
-          ++ lib.optional cfg.noBonjour "--no-bonjour";
         RunAtLoad = true;
         KeepAlive = true;
+        StandardOutPath = "/tmp/imessage-bridge.log";
+        StandardErrorPath = "/tmp/imessage-bridge.err.log";
       };
     };
   };

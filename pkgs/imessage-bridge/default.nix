@@ -15,7 +15,7 @@ stdenv.mkDerivation rec {
     hash = "sha256-4RwXAoIqz7Xahwu30g9UW1+eNC6iyrd+F5vOs0Yu41E=";
   };
 
-  buildInputs = [python3];
+  nativeBuildInputs = [python3];
 
   dontBuild = true;
 
