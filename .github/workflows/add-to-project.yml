@@ -8,4 +8,4 @@ permissions:
   contents: read
 jobs:
   add-to-project:
-    uses: jmmaloney4/toolbox/.github/workflows/add-to-project.yml@bc7846003f39ec61654d70f5cfd1413046b3b763 # main
+    uses: jmmaloney4/toolbox/.github/workflows/add-to-project.yml@164b0bf115f15c511ebb883d7e8149eef47eca84 # main
