@@ -7,16 +7,6 @@
   inherit (lib) mkIf;
   cfg = config.jackpkgs.shell;
   gcpProfile = lib.attrByPath ["jackpkgs" "gcp" "profile"] null config;
-  pulumiCfg = lib.attrByPath ["jackpkgs" "pulumi"] null config;
-  pulumiEnv =
-    if pulumiCfg != null && pulumiCfg.enable
-    then {
-      PULUMI_BACKEND_URL = pulumiCfg.backendUrl;
-      PULUMI_SECRETS_PROVIDER = pulumiCfg.secretsProvider;
-      PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-      NODE_OPTIONS = "--async-context-frame";
-    }
-    else {};
 in {
   imports = [
     jackpkgsInputs.flake-root.flakeModule
@@ -91,7 +81,9 @@ in {
     }: let
       sysCfg = config.jackpkgs.shell;
 
-      # Build shellHook segments as a list and join with newlines for safe concatenation
+      # Build shellHook segments as a list and join with newlines for safe concatenation.
+      # Durable environment variables are carried by setup hooks from pulumiDevShell,
+      # which is already included via sysCfg.inputsFrom (set by the pulumi module).
       shellHookParts =
         lib.optional (gcpProfile != null) (
           if builtins.match "[a-zA-Z0-9._-]+" gcpProfile == null
@@ -105,12 +97,7 @@ in {
         ++ lib.optionals cfg.welcome.enable (
           lib.optional (cfg.welcome.message != null) ''echo ${lib.escapeShellArg cfg.welcome.message}''
           ++ lib.optional cfg.welcome.showJustHint ''echo ${lib.escapeShellArg cfg.welcome.justHintMessage}''
-        )
-        ++ lib.optional (pulumiCfg != null && pulumiCfg.enable) ''
-          export PULUMI_BACKEND_URL=${lib.escapeShellArg pulumiCfg.backendUrl}
-          export PULUMI_SECRETS_PROVIDER=${lib.escapeShellArg pulumiCfg.secretsProvider}
-          export PULUMI_IGNORE_AMBIENT_PLUGINS=1
-        '';
+        );
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell (
         {
@@ -123,7 +110,6 @@ in {
             ]
             ++ sysCfg.inputsFrom;
           packages = sysCfg.packages;
-          env = pulumiEnv;
 
           shellHook = lib.concatStringsSep "\n" shellHookParts;
         }

@@ -6,14 +6,19 @@
   flakeParts = inputs.flake-parts.lib;
   libModule = import ../modules/flake-parts/lib.nix {jackpkgsInputs = inputs;};
   pkgsModule = import ../modules/flake-parts/pkgs.nix {jackpkgsInputs = inputs;};
+  checksModule = import ../modules/flake-parts/checks.nix {jackpkgsInputs = inputs;};
   devshellModule = import ../modules/flake-parts/devshell.nix {jackpkgsInputs = inputs;};
-  gcpModule = import ../modules/flake-parts/gcp.nix {jackpkgsInputs = inputs;};
+  fmtModule = import ../modules/flake-parts/fmt.nix {jackpkgsInputs = inputs;};
+  justModule = import ../modules/flake-parts/just.nix {jackpkgsInputs = inputs;};
+  nodejsModule = import ../modules/flake-parts/nodejs.nix {jackpkgsInputs = inputs;};
+  preCommitModule = import ../modules/flake-parts/pre-commit.nix {jackpkgsInputs = inputs;};
   pulumiModule = import ../modules/flake-parts/pulumi.nix {jackpkgsInputs = inputs;};
+  quartoModule = import ../modules/flake-parts/quarto.nix {jackpkgsInputs = inputs;};
 
   evalFlake = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = [libModule pkgsModule devshellModule gcpModule] ++ modules ++ [pulumiModule];
+      imports = [libModule pkgsModule checksModule devshellModule fmtModule justModule nodejsModule preCommitModule quartoModule] ++ modules ++ [pulumiModule];
     };
 
   getPerSystemCfg = modules: (evalFlake modules).config.perSystem system;
@@ -31,17 +36,8 @@
     };
   };
 
-  expectedEnv = {
-    PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
-    PULUMI_BACKEND_URL = "s3://pulumi-state";
-    PULUMI_SECRETS_PROVIDER = "awskms://alias/pulumi";
-    PULUMI_OPTION_NON_INTERACTIVE = "true";
-    PULUMI_OPTION_COLOR = "never";
-    PULUMI_OPTION_SUPPRESS_PROGRESS = "true";
-  };
-
-  hasExpectedEnv = drv:
-    lib.all (name: drv.${name} == expectedEnv.${name}) (builtins.attrNames expectedEnv);
+  hasPulumiEnvSetupHook = hookName: drv:
+    lib.any (input: lib.hasInfix hookName (toString input)) (drv.nativeBuildInputs or []);
 
   defaultStacks = [
     {
@@ -56,14 +52,21 @@ in {
   testPulumiDevShellSetsPulumiCliDefaults = let
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
   in {
-    expr = hasExpectedEnv perSystemCfg.jackpkgs.outputs.pulumiDevShell;
+    expr = hasPulumiEnvSetupHook "jackpkgs-pulumi-env-hook" perSystemCfg.jackpkgs.outputs.pulumiDevShell;
     expected = true;
   };
 
   testCiPulumiDevShellSetsPulumiCliDefaults = let
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
   in {
-    expr = hasExpectedEnv perSystemCfg.devShells.ci-pulumi;
+    expr = hasPulumiEnvSetupHook "jackpkgs-pulumi-env-hook" perSystemCfg.devShells.ci-pulumi;
+    expected = true;
+  };
+
+  testComposedDevShellExportsPulumiEnv = let
+    perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
+  in {
+    expr = hasPulumiEnvSetupHook "jackpkgs-pulumi-env-hook" perSystemCfg.jackpkgs.outputs.devShell;
     expected = true;
   };
 
