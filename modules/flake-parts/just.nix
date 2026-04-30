@@ -479,6 +479,14 @@ in {
                     "  ${lib.getExe sysCfg.biomePackage} lint --write ."
                     "fi"
                   ])
+                  ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["typescript" "tsc" "enable"] false checksCfgForRecipes) [
+                    ""
+                    "# tsc (TypeScript type checker)"
+                    "if [ -f tsconfig.json ]; then"
+                    "  printf '%s\\n' \"==> tsc\""
+                    "  pnpm exec tsc --noEmit ${lib.escapeShellArgs (lib.attrByPath ["typescript" "tsc" "extraArgs"] [] checksCfgForRecipes)}"
+                    "fi"
+                  ])
                   ++ [
                     ""
                     "printf '%s\\n' \"All lint checks passed.\""
