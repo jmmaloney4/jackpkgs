@@ -483,7 +483,7 @@ in {
                     ""
                     "# tsc (TypeScript type checker)"
                     "if [ -f tsconfig.json ]; then"
-                    "  printf '%s\\\\n' \"==> tsc\""
+                    "  printf '%s\\n' \"==> tsc\""
                     "  pnpm exec tsc --noEmit ${lib.escapeShellArgs checksCfgForRecipes.typescript.tsc.extraArgs}"
                     "fi"
                   ])
