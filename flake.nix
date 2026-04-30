@@ -269,6 +269,9 @@
             just = import ./tests/just.nix {
               inherit inputs lib;
             };
+            lint-recipe = import ./tests/lint-recipe.nix {
+              inherit inputs lib;
+            };
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };
