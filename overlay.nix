@@ -17,6 +17,7 @@ else let
     epub2tts = super.callPackage ./pkgs/epub2tts {};
     imessage-bridge = super.callPackage ./pkgs/imessage-bridge {};
     lean = super.callPackage ./pkgs/lean {};
+    seedtool-cli = super.callPackage ./pkgs/seedtool-cli {};
     tod = super.callPackage ./pkgs/tod {};
   };
   jackLib = import ./lib {pkgs = super;};

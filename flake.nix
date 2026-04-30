@@ -127,6 +127,7 @@
             opencode = inputs.llm-agents.packages.${system}.opencode;
             bun2nix-cli = inputs.bun2nix.packages.${system}.bun2nix;
           };
+          seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           tod = pkgs.callPackage ./pkgs/tod {};
         };
         platformFilteredPackages = jackLib.filterByPlatforms system allPackages;
