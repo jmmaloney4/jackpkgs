@@ -3,7 +3,7 @@
 
   inputs = {
     # nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    nixpkgs.url = "github:NixOS/nixpkgs/4354a1cb46416add953247cb1b71631026dc62eb"; # https://github.com/NixOS/nixpkgs/issues/483584
+    nixpkgs.url = "github:NixOS/nixpkgs/675fe1f858daf0f4073b33044bd9a21c04f81fa4"; # https://github.com/NixOS/nixpkgs/issues/483584
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
