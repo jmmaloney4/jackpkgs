@@ -479,12 +479,12 @@ in {
                     "  ${lib.getExe sysCfg.biomePackage} lint --write ."
                     "fi"
                   ])
-                  ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["typescript" "tsc" "enable"] false checksCfgForRecipes) [
+                  ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.typescript.tsc.enable) [
                     ""
                     "# tsc (TypeScript type checker)"
                     "if [ -f tsconfig.json ]; then"
-                    "  printf '%s\\n' \"==> tsc\""
-                    "  pnpm exec tsc --noEmit ${lib.escapeShellArgs (lib.attrByPath ["typescript" "tsc" "extraArgs"] [] checksCfgForRecipes)}"
+                    "  printf '%s\\\\n' \"==> tsc\""
+                    "  pnpm exec tsc --noEmit ${lib.escapeShellArgs checksCfgForRecipes.typescript.tsc.extraArgs}"
                     "fi"
                   ])
                   ++ [
