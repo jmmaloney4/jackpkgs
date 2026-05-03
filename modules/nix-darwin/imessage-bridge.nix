@@ -13,7 +13,7 @@ with lib; let
     ++ lib.optionals (cfg.bonjourName != null) ["--name" cfg.bonjourName]
     ++ lib.optional cfg.noBonjour "--no-bonjour";
 
-  bridgeCmd = "exec " + lib.escapeShellArgs bridgeArgs;
+  bridgeCmd = lib.escapeShellArgs bridgeArgs;
 
   # Effective log directory: explicit cfg.logDir, or /var/log/imessage-bridge
   # for daemon mode. Null means no log capture (user agent default).
@@ -38,6 +38,16 @@ with lib; let
       StandardOutPath = "${effectiveLogDir}/imessage-bridge.log";
       StandardErrorPath = "${effectiveLogDir}/imessage-bridge.err.log";
     };
+
+  # Wrapper script for system daemon mode: sets HOME to the target user's
+  # home directory so the bridge can find ~/Library/Messages/chat.db.
+  # su -m preserves the calling environment (including Nix store PATH)
+  # rather than starting a login shell which would reset PATH and source
+  # profile scripts.
+  daemonScript = pkgs.writeShellScript "imessage-bridge-as-${cfg.user}" ''
+    export HOME=${escapeShellArg "/Users/${cfg.user}"}
+    exec ${bridgeCmd}
+  '';
 in {
   options.services.imessage-bridge = {
     enable = mkEnableOption "iMessage Bridge HTTP server";
@@ -101,7 +111,7 @@ in {
       launchd.daemons.imessage-bridge = {
         script = ''
           ${stateSetup}
-          exec su -l ${escapeShellArg cfg.user} -c ${escapeShellArg bridgeCmd}
+          exec /usr/bin/su -m ${escapeShellArg cfg.user} -c ${escapeShellArg daemonScript}
         '';
         serviceConfig =
           {
