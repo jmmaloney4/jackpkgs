@@ -479,14 +479,31 @@ in {
                     "  ${lib.getExe sysCfg.biomePackage} lint --write ."
                     "fi"
                   ])
-                  ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.typescript.tsc.enable) [
-                    ""
-                    "# tsc (TypeScript type checker)"
-                    "if [ -f tsconfig.json ]; then"
-                    "  printf '%s\\n' \"==> tsc\""
-                    "  pnpm exec tsc --noEmit ${lib.escapeShellArgs checksCfgForRecipes.typescript.tsc.extraArgs}"
-                    "fi"
-                  ])
+                  ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.typescript.tsc.enable) (
+                    let
+                      tscPackages = checksCfgForRecipes.typescript.tsc.packages;
+                      extraArgs = lib.escapeShellArgs checksCfgForRecipes.typescript.tsc.extraArgs;
+                    in
+                      if tscPackages != null && tscPackages != []
+                      then [
+                        ""
+                        "# tsc (TypeScript type checker)"
+                        "for _tsc_project in ${lib.escapeShellArgs tscPackages}; do"
+                        "  if [ -f \"$${_tsc_project}/tsconfig.json\" ]; then"
+                        "    printf '%s\\n' \"==> tsc ($${_tsc_project})\""
+                        "    tsc --noEmit --project \"$${_tsc_project}/tsconfig.json\" ${extraArgs}"
+                        "  fi"
+                        "done"
+                      ]
+                      else [
+                        ""
+                        "# tsc (TypeScript type checker)"
+                        "if [ -f tsconfig.json ]; then"
+                        "  printf '%s\\n' \"==> tsc\""
+                        "  pnpm exec tsc --noEmit ${extraArgs}"
+                        "fi"
+                      ]
+                  ))
                   ++ [
                     ""
                     "printf '%s\\n' \"All lint checks passed.\""
