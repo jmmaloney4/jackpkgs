@@ -21,16 +21,8 @@ with lib; let
   # generated system activation profile for some configurations.
   # install -d is fully idempotent.
   stateSetup = ''
-    install -d -o root -g wheel '${cfg.logDir}'
+    install -d -o root -g wheel ${escapeShellArg cfg.logDir}
   '';
-
-  # Default log directory depends on the mode:
-  #   system daemon -> /var/log/imessage-bridge (root-owned, stateSetup creates it)
-  #   user agent   -> ~/Library/Logs (user-writable, no setup needed)
-  defaultLogDir =
-    if cfg.user != null
-    then "/var/log/imessage-bridge"
-    else "/Users/${cfg.user or "jack"}/Library/Logs";
 in {
   options.services.imessage-bridge = {
     enable = mkEnableOption "iMessage Bridge HTTP server";
@@ -75,10 +67,13 @@ in {
 
     logDir = mkOption {
       type = types.path;
-      default = defaultLogDir;
+      default =
+        if cfg.user != null
+        then "/var/log/imessage-bridge"
+        else throw "services.imessage-bridge.logDir must be set when user is null (user agent mode)";
       defaultText = literalExpression ''
-        if cfg.user != null then "/var/log/imessage-bridge"
-        else "/Users/''${cfg.user or "jack"}/Library/Logs"
+        "/var/log/imessage-bridge" when user is set;
+        must be explicitly set in user agent mode
       '';
       description = "Directory for StandardOutPath and StandardErrorPath logs.";
     };
