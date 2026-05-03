@@ -15,14 +15,29 @@ with lib; let
 
   bridgeCmd = lib.escapeShellArgs bridgeArgs;
 
+  # Effective log directory: explicit cfg.logDir, or /var/log/imessage-bridge
+  # for daemon mode. Null means no log capture (user agent default).
+  effectiveLogDir =
+    if cfg.logDir != null
+    then cfg.logDir
+    else if cfg.user != null
+    then "/var/log/imessage-bridge"
+    else null;
+
   # State setup for system daemon mode: create log directory.
   # Runs inside daemon script rather than system.activationScripts because
   # nix-darwin did not reliably include custom activation scripts in the
   # generated system activation profile for some configurations.
   # install -d is fully idempotent.
-  stateSetup = ''
-    install -d -o root -g wheel ${escapeShellArg cfg.logDir}
+  stateSetup = lib.optionalString (effectiveLogDir != null) ''
+    install -d -o root -g wheel ${escapeShellArg effectiveLogDir}
   '';
+
+  logPaths =
+    lib.optionalAttrs (effectiveLogDir != null) {
+      StandardOutPath = "${effectiveLogDir}/imessage-bridge.log";
+      StandardErrorPath = "${effectiveLogDir}/imessage-bridge.err.log";
+    };
 in {
   options.services.imessage-bridge = {
     enable = mkEnableOption "iMessage Bridge HTTP server";
@@ -66,16 +81,14 @@ in {
     };
 
     logDir = mkOption {
-      type = types.path;
-      default =
-        if cfg.user != null
-        then "/var/log/imessage-bridge"
-        else throw "services.imessage-bridge.logDir must be set when user is null (user agent mode)";
-      defaultText = literalExpression ''
-        "/var/log/imessage-bridge" when user is set;
-        must be explicitly set in user agent mode
+      type = types.nullOr types.path;
+      default = null;
+      defaultText = literalExpression "null (no log capture in user agent mode; /var/log/imessage-bridge in daemon mode)";
+      description = ''
+        Directory for StandardOutPath and StandardErrorPath logs.
+        When null in user agent mode, launchd captures no log output.
+        When user is set (daemon mode), defaults to /var/log/imessage-bridge.
       '';
-      description = "Directory for StandardOutPath and StandardErrorPath logs.";
     };
   };
 
@@ -90,12 +103,12 @@ in {
           ${stateSetup}
           exec su -m ${escapeShellArg cfg.user} -c ${escapeShellArg bridgeCmd}
         '';
-        serviceConfig = {
-          RunAtLoad = true;
-          KeepAlive = true;
-          StandardOutPath = "${cfg.logDir}/imessage-bridge.log";
-          StandardErrorPath = "${cfg.logDir}/imessage-bridge.err.log";
-        };
+        serviceConfig =
+          {
+            RunAtLoad = true;
+            KeepAlive = true;
+          }
+          // logPaths;
       };
     })
 
@@ -106,12 +119,12 @@ in {
     (mkIf (cfg.user == null) {
       launchd.user.agents.imessage-bridge = {
         script = bridgeCmd;
-        serviceConfig = {
-          RunAtLoad = true;
-          KeepAlive = true;
-          StandardOutPath = "${cfg.logDir}/imessage-bridge.log";
-          StandardErrorPath = "${cfg.logDir}/imessage-bridge.err.log";
-        };
+        serviceConfig =
+          {
+            RunAtLoad = true;
+            KeepAlive = true;
+          }
+          // logPaths;
       };
     })
   ]);
