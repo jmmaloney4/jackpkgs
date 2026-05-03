@@ -13,7 +13,7 @@ with lib; let
     ++ lib.optionals (cfg.bonjourName != null) ["--name" cfg.bonjourName]
     ++ lib.optional cfg.noBonjour "--no-bonjour";
 
-  bridgeCmd = lib.escapeShellArgs bridgeArgs;
+  bridgeCmd = "exec " + lib.escapeShellArgs bridgeArgs;
 
   # Effective log directory: explicit cfg.logDir, or /var/log/imessage-bridge
   # for daemon mode. Null means no log capture (user agent default).
@@ -33,10 +33,9 @@ with lib; let
     install -d -o root -g wheel ${escapeShellArg (toString effectiveLogDir)}
   '';
 
-  logPaths =
-    lib.optionalAttrs (effectiveLogDir != null) {
-      StandardOutPath = "${effectiveLogDir}/imessage-bridge.log";
-      StandardErrorPath = "${effectiveLogDir}/imessage-bridge.err.log";
+  logPaths = lib.optionalAttrs (effectiveLogDir != null) {
+    StandardOutPath = "${toString effectiveLogDir}/imessage-bridge.log";
+    StandardErrorPath = "${toString effectiveLogDir}/imessage-bridge.err.log";
     };
 
   # Wrapper script for system daemon mode: sets HOME to the target user's
