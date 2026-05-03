@@ -130,8 +130,19 @@ in {
         ...
       }: let
         pulumiExe = lib.getExe' pkgs.pulumi-bin "pulumi";
+        mkShellEnvHook = import ../../lib/shell-env-hook.nix {inherit lib pkgs;};
         stacks = cfg.stacks;
         defaultStack = cfg.defaultStack;
+
+        # Fail at evaluation time (not just in CI checks) when ADC authMode
+        # is selected without a gcp.profile. Without this, the devShell would
+        # silently skip GOOGLE_APPLICATION_CREDENTIALS.
+        adcProfileRequired =
+          cfg.ci.authMode == "application-default-credentials"
+          && gcpCfg.profile == null;
+        assertAdcProfile =
+          lib.asserts.assertMsg (!adcProfileRequired)
+            "jackpkgs.pulumi.ci.authMode 'application-default-credentials' requires jackpkgs.gcp.profile to be set";
 
         # Shared base env vars present in every Pulumi shell.
         pulumiBaseEnv = {
@@ -149,43 +160,60 @@ in {
 
         # ADC file path for the active gcp.profile (null-safe: only used when profile != null).
         # Validate that profile is set when authMode requires it.
+        # NOTE: This attrset is used only for the CI JSON env check (checks.pulumi-ci-env).
+        # The actual GOOGLE_APPLICATION_CREDENTIALS export is done via shellHook
+        # (adcShellHook) because the path contains $HOME which requires runtime expansion.
         profileAdcPath =
-          if cfg.ci.authMode == "application-default-credentials" && gcpCfg.profile == null
-          then throw "jackpkgs.pulumi.ci.authMode 'application-default-credentials' requires jackpkgs.gcp.profile to be set"
-          else
-            lib.optionalAttrs (gcpCfg.profile != null) {
-              GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
-            };
+          lib.optionalAttrs (gcpCfg.profile != null) {
+            GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
+          };
 
         ciPulumiEnv =
           pulumiBaseEnv
           // lib.optionalAttrs (cfg.ci.authMode == "application-default-credentials") profileAdcPath;
+
+        pulumiEnvHook = mkShellEnvHook {
+          name = "jackpkgs-pulumi-env-hook";
+          env = pulumiBaseEnv;
+        };
+
+        # ADC path for the active gcp.profile. This uses $HOME expansion so it
+        # cannot be carried by the setup hook (which single-quotes values).
+        # Instead, export it via shellHook where shell expansion is available.
+        adcShellHook = lib.optionalString (gcpCfg.profile != null) ''
+          _jackpkgs_pulumi_adc_rel_path=${lib.escapeShellArg ".config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json"}
+          export GOOGLE_APPLICATION_CREDENTIALS="$HOME/$_jackpkgs_pulumi_adc_rel_path"
+          unset _jackpkgs_pulumi_adc_rel_path
+        '';
       in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
-          packages = with pkgs; [
-            pulumi-bin
-            nodejs
-            jq
-            just
-            (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
-            typescript
-          ];
-          # Dev shell always sets GOOGLE_APPLICATION_CREDENTIALS when a profile is
-          # active: Go-based GCP clients (including Pulumi providers) do not honour
-          # CLOUDSDK_CONFIG and require this explicit env var (see issue #182 and
-          # ADR 027).
-          env = pulumiBaseEnv // profileAdcPath;
+          packages =
+            (with pkgs; [
+              pulumi-bin
+              nodejs
+              jq
+              just
+              (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
+              typescript
+            ])
+            ++ [pulumiEnvHook];
+          # Literal env vars are carried by pulumiEnvHook (setup hook).
+          # ADC path uses $HOME and must be set via shellHook for expansion.
+          # Force ADC profile assertion to evaluate at shell build time.
+          shellHook = builtins.seq assertAdcProfile adcShellHook;
         };
 
         devShells.ci-pulumi = pkgs.mkShell {
-          packages = config.jackpkgs.pulumi.ci.packages;
+          packages = config.jackpkgs.pulumi.ci.packages ++ [pulumiEnvHook];
 
           # CI shell auth strategy is controlled by jackpkgs.pulumi.ci.authMode:
           #   "workload-identity" (default) — do not bake GOOGLE_APPLICATION_CREDENTIALS;
           #     WIF credentials are injected by the CI runner (google-github-actions/auth).
           #   "application-default-credentials" — set GOOGLE_APPLICATION_CREDENTIALS to
           #     the profile ADC file; requires jackpkgs.gcp.profile to be non-null.
-          env = ciPulumiEnv;
+          # Literal env vars are carried by pulumiEnvHook (setup hook).
+          # ADC path (when enabled) uses $HOME and is set via shellHook.
+          shellHook = lib.optionalString (cfg.ci.authMode == "application-default-credentials") adcShellHook;
         };
 
         jackpkgs.shell.inputsFrom = [
