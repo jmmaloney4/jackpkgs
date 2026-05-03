@@ -80,6 +80,7 @@ in {
       ...
     }: let
       sysCfg = config.jackpkgs.shell;
+      mkShellEnvHook = import ../../lib/shell-env-hook.nix {inherit lib pkgs;};
 
       # Build shellHook segments as a list and join with newlines for safe concatenation.
       # Durable environment variables are carried by setup hooks from pulumiDevShell,
@@ -109,13 +110,16 @@ in {
               config.treefmt.build.devShell
             ]
             ++ sysCfg.inputsFrom;
-          packages = sysCfg.packages;
+          packages = sysCfg.packages
+            ++ lib.optional (!cfg.direnv.showEnvDiff) (
+              mkShellEnvHook {
+                name = "jackpkgs-direnv-log-format-hook";
+                env = {DIRENV_LOG_FORMAT = "";};
+              }
+            );
 
           shellHook = lib.concatStringsSep "\n" shellHookParts;
         }
-        # Hide direnv environment variable diff output unless showEnvDiff is enabled.
-        # Passes DIRENV_LOG_FORMAT="" directly into mkShell's argument set.
-        // lib.optionalAttrs (!cfg.direnv.showEnvDiff) {DIRENV_LOG_FORMAT = "";}
       );
     };
   };
