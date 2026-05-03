@@ -93,7 +93,7 @@ in {
       launchd.daemons.imessage-bridge = {
         script = ''
           ${stateSetup}
-          exec su -m ${escapeShellArg cfg.user} -c ${escapeShellArg bridgeCmd}
+          exec su -m ${escapeShellArg cfg.user} -c ${bridgeCmd}
         '';
         serviceConfig = {
           RunAtLoad = true;
