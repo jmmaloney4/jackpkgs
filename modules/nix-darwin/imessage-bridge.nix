@@ -72,13 +72,12 @@ in {
     };
   };
 
-  config = mkIf cfg.enable (
-    if cfg.user != null
-    then {
-      # System LaunchDaemon mode (PR 513 pattern).
-      # Runs as root for state setup, drops to cfg.user for bridge execution.
-      # Uses `script` (not `command`) so nix-darwin generates a wait4path
-      # guard for the Nix store volume.
+  config = mkIf cfg.enable (mkMerge [
+    # System LaunchDaemon mode (PR 513 pattern).
+    # Runs as root for state setup, drops to cfg.user for bridge execution.
+    # Uses `script` (not `command`) so nix-darwin generates a wait4path
+    # guard for the Nix store volume.
+    (mkIf (cfg.user != null) {
       launchd.daemons.imessage-bridge = {
         script = ''
           ${stateSetup}
@@ -91,12 +90,13 @@ in {
           StandardErrorPath = "${cfg.logDir}/imessage-bridge.err.log";
         };
       };
-    }
-    else {
-      # User LaunchAgent mode (original behavior).
-      # Uses `script` (not `command`) for wait4path /nix/store guard,
-      # which prevents silent failures if the Nix volume is not yet
-      # mounted when launchd loads the agent at boot.
+    })
+
+    # User LaunchAgent mode (original behavior).
+    # Uses `script` (not `command`) for wait4path /nix/store guard,
+    # which prevents silent failures if the Nix volume is not yet
+    # mounted when launchd loads the agent at boot.
+    (mkIf (cfg.user == null) {
       launchd.user.agents.imessage-bridge = {
         script = bridgeCmd;
         serviceConfig =
@@ -109,6 +109,6 @@ in {
             StandardErrorPath = "${cfg.logDir}/imessage-bridge.err.log";
           };
       };
-    }
-  );
+    })
+  ]);
 }
