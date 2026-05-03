@@ -13,7 +13,7 @@ with lib; let
     ++ lib.optionals (cfg.bonjourName != null) ["--name" cfg.bonjourName]
     ++ lib.optional cfg.noBonjour "--no-bonjour";
 
-  bridgeCmd = lib.escapeShellArgs bridgeArgs;
+  bridgeCmd = "exec " + lib.escapeShellArgs bridgeArgs;
 
   # Effective log directory: explicit cfg.logDir, or /var/log/imessage-bridge
   # for daemon mode. Null means no log capture (user agent default).
@@ -30,7 +30,7 @@ with lib; let
   # generated system activation profile for some configurations.
   # install -d is fully idempotent.
   stateSetup = lib.optionalString (effectiveLogDir != null) ''
-    install -d -o root -g wheel ${escapeShellArg effectiveLogDir}
+    install -d -o root -g wheel ${escapeShellArg (toString effectiveLogDir)}
   '';
 
   logPaths =
@@ -101,7 +101,7 @@ in {
       launchd.daemons.imessage-bridge = {
         script = ''
           ${stateSetup}
-          exec su -m ${escapeShellArg cfg.user} -c ${escapeShellArg bridgeCmd}
+          exec su -l ${escapeShellArg cfg.user} -c ${escapeShellArg bridgeCmd}
         '';
         serviceConfig =
           {
