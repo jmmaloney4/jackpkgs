@@ -134,6 +134,16 @@ in {
         stacks = cfg.stacks;
         defaultStack = cfg.defaultStack;
 
+        # Fail at evaluation time (not just in CI checks) when ADC authMode
+        # is selected without a gcp.profile. Without this, the devShell would
+        # silently skip GOOGLE_APPLICATION_CREDENTIALS.
+        adcProfileRequired =
+          cfg.ci.authMode == "application-default-credentials"
+          && gcpCfg.profile == null;
+        assertAdcProfile =
+          lib.asserts.assertMsg (!adcProfileRequired)
+            "jackpkgs.pulumi.ci.authMode 'application-default-credentials' requires jackpkgs.gcp.profile to be set";
+
         # Shared base env vars present in every Pulumi shell.
         pulumiBaseEnv = {
           PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
@@ -154,12 +164,9 @@ in {
         # The actual GOOGLE_APPLICATION_CREDENTIALS export is done via shellHook
         # (adcShellHook) because the path contains $HOME which requires runtime expansion.
         profileAdcPath =
-          if cfg.ci.authMode == "application-default-credentials" && gcpCfg.profile == null
-          then throw "jackpkgs.pulumi.ci.authMode 'application-default-credentials' requires jackpkgs.gcp.profile to be set"
-          else
-            lib.optionalAttrs (gcpCfg.profile != null) {
-              GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
-            };
+          lib.optionalAttrs (gcpCfg.profile != null) {
+            GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
+          };
 
         ciPulumiEnv =
           pulumiBaseEnv
@@ -192,7 +199,8 @@ in {
             ++ [pulumiEnvHook];
           # Literal env vars are carried by pulumiEnvHook (setup hook).
           # ADC path uses $HOME and must be set via shellHook for expansion.
-          shellHook = adcShellHook;
+          # Force ADC profile assertion to evaluate at shell build time.
+          shellHook = builtins.seq assertAdcProfile adcShellHook;
         };
 
         devShells.ci-pulumi = pkgs.mkShell {
