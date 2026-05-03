@@ -61,21 +61,6 @@ ______________________________________________________________________
 }
 ```
 
-Notes:
-
-- `openchamber` defaults to `opencode` from `numtide/llm-agents.nix`.
-- Override `openchamber`'s `opencode` dependency with:
-
-```nix
-let
-  openchamber = jackpkgs.packages.${system}.openchamber.override {
-    opencode = myOpencode;
-  };
-in {
-  packages.${system}.openchamber = openchamber;
-}
-```
-
 ______________________________________________________________________
 
 ## Flake-parts modules
@@ -659,7 +644,7 @@ ______________________________________________________________________
 - `docfx` - .NET docs generator
 - `epub2tts` - EPUB -> TTS
 - `lean` - Lean theorem prover
-- `openchamber` - Web and desktop interface for OpenCode AI agent
+- `seedtool-cli` - SSKR seed tool CLI
 - `tod` - Todoist CLI
 
 Build from CLI (examples):
