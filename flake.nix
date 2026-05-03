@@ -33,14 +33,7 @@
     just-flake = {
       url = "github:juspay/just-flake";
     };
-    llm-agents = {
-      url = "github:numtide/llm-agents.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.systems.follows = "systems";
-      inputs.flake-parts.follows = "flake-parts";
-      inputs.bun2nix.follows = "bun2nix";
-      inputs.treefmt-nix.follows = "treefmt";
-    };
+
     nix-unit = {
       url = "github:nix-community/nix-unit";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -74,13 +67,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.pyproject-nix.follows = "pyproject-nix";
     };
-    bun2nix = {
-      url = "github:nix-community/bun2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-parts.follows = "flake-parts";
-      inputs.systems.follows = "systems";
-      inputs.treefmt-nix.follows = "treefmt";
-    };
+
   };
 
   outputs = inputs @ {
@@ -123,10 +110,6 @@
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           imessage-bridge = pkgs.callPackage ./pkgs/imessage-bridge {};
           lean = pkgs.callPackage ./pkgs/lean {};
-          openchamber = pkgs.callPackage ./pkgs/openchamber {
-            opencode = inputs.llm-agents.packages.${system}.opencode;
-            bun2nix-cli = inputs.bun2nix.packages.${system}.bun2nix;
-          };
           seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           tod = pkgs.callPackage ./pkgs/tod {};
         };
