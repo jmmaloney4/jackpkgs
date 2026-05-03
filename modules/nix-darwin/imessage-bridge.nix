@@ -23,6 +23,14 @@ with lib; let
   stateSetup = ''
     install -d -o root -g wheel '${cfg.logDir}'
   '';
+
+  # Default log directory depends on the mode:
+  #   system daemon -> /var/log/imessage-bridge (root-owned, stateSetup creates it)
+  #   user agent   -> ~/Library/Logs (user-writable, no setup needed)
+  defaultLogDir =
+    if cfg.user != null
+    then "/var/log/imessage-bridge"
+    else "/Users/${cfg.user or "jack"}/Library/Logs";
 in {
   options.services.imessage-bridge = {
     enable = mkEnableOption "iMessage Bridge HTTP server";
@@ -67,7 +75,11 @@ in {
 
     logDir = mkOption {
       type = types.path;
-      default = "/var/log/imessage-bridge";
+      default = defaultLogDir;
+      defaultText = literalExpression ''
+        if cfg.user != null then "/var/log/imessage-bridge"
+        else "/Users/''${cfg.user or "jack"}/Library/Logs"
+      '';
       description = "Directory for StandardOutPath and StandardErrorPath logs.";
     };
   };
@@ -81,7 +93,7 @@ in {
       launchd.daemons.imessage-bridge = {
         script = ''
           ${stateSetup}
-          exec su -m ${cfg.user} -c ${escapeShellArg bridgeCmd}
+          exec su -m ${escapeShellArg cfg.user} -c ${escapeShellArg bridgeCmd}
         '';
         serviceConfig = {
           RunAtLoad = true;
@@ -99,15 +111,12 @@ in {
     (mkIf (cfg.user == null) {
       launchd.user.agents.imessage-bridge = {
         script = bridgeCmd;
-        serviceConfig =
-          {
-            RunAtLoad = true;
-            KeepAlive = true;
-          }
-          // lib.optionalAttrs (cfg.logDir != "/var/log/imessage-bridge") {
-            StandardOutPath = "${cfg.logDir}/imessage-bridge.log";
-            StandardErrorPath = "${cfg.logDir}/imessage-bridge.err.log";
-          };
+        serviceConfig = {
+          RunAtLoad = true;
+          KeepAlive = true;
+          StandardOutPath = "${cfg.logDir}/imessage-bridge.log";
+          StandardErrorPath = "${cfg.logDir}/imessage-bridge.err.log";
+        };
       };
     })
   ]);
