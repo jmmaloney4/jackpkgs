@@ -489,9 +489,9 @@ in {
                         ""
                         "# tsc (TypeScript type checker)"
                         "for _tsc_project in ${lib.escapeShellArgs tscPackages}; do"
-                        "  if [ -f \"$${_tsc_project}/tsconfig.json\" ]; then"
-                        "    printf '%s\\n' \"==> tsc ($${_tsc_project})\""
-                        "    tsc --noEmit --project \"$${_tsc_project}/tsconfig.json\" ${extraArgs}"
+                        "  if [ -f \"\${_tsc_project}/tsconfig.json\" ]; then"
+                        "    printf '%s\\n' \"==> tsc (\${_tsc_project})\""
+                        "    tsc --noEmit --project \"\${_tsc_project}/tsconfig.json\" ${extraArgs}"
                         "  fi"
                         "done"
                       ]
