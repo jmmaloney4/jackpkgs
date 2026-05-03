@@ -67,7 +67,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.pyproject-nix.follows = "pyproject-nix";
     };
-
   };
 
   outputs = inputs @ {
