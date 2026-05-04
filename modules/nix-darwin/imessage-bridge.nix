@@ -45,7 +45,7 @@ with lib; let
   # profile scripts.
   daemonScript = pkgs.writeShellScript "imessage-bridge-as-${cfg.user}" ''
     export HOME=${escapeShellArg "/Users/${cfg.user}"}
-    exec ${bridgeCmd}
+    ${bridgeCmd}
   '';
 in {
   options.services.imessage-bridge = {
