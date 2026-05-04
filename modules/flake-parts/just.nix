@@ -120,6 +120,16 @@ in {
             `just lint` Python type-check step.
           '';
         };
+        tyPackage = mkOption {
+          type = types.package;
+          default = config.jackpkgs.pkgs.ty;
+          defaultText = "config.jackpkgs.pkgs.ty";
+          description = ''
+            `ty` binary package to use when
+            `jackpkgs.checks.python.mypy.typeChecker = "ty"`.
+            Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs).
+          '';
+        };
         biomePackage = mkOption {
           type = types.package;
           default = config.jackpkgs.pkgs.biome;
@@ -461,14 +471,28 @@ in {
                     "  fi"
                     "fi"
                   ])
-                  ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.mypy.enable) [
-                    ""
-                    "# mypy (Python type checker)"
-                    "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
-                    "  printf '%s\\n' \"==> mypy\""
-                    ''${lib.getExe' sysCfg.mypyPackage "mypy"} .''
-                    "fi"
-                  ])
+                  ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.mypy.enable) (
+                    let
+                      typeChecker = checksCfgForRecipes.python.mypy.typeChecker or "mypy";
+                    in
+                      if typeChecker == "ty"
+                      then [
+                        ""
+                        "# ty (Python type checker)"
+                        "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
+                        "  printf '%s\\n' \"==> ty check\""
+                        "  ${lib.getExe sysCfg.tyPackage} check --python ${sysCfg.mypyPackage} ."
+                        "fi"
+                      ]
+                      else [
+                        ""
+                        "# mypy (Python type checker) [deprecated: migrate to ty]"
+                        "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
+                        "  printf '%s\\n' \"==> mypy\""
+                        ''  ${lib.getExe' sysCfg.mypyPackage "mypy"} .''
+                        "fi"
+                      ]
+                  ))
                   ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfgForRecipes) [
                     ""
                     "# biome (JS/TS linter)"

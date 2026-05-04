@@ -69,6 +69,16 @@ in {
                 with dependency groups enabled.
               '';
             };
+
+            tyPackage = mkOption {
+              type = types.package;
+              default = config.jackpkgs.pkgs.ty;
+              defaultText = "config.jackpkgs.pkgs.ty";
+              description = ''
+                `ty` binary package to use when `jackpkgs.checks.python.mypy.typeChecker = "ty"`.
+                Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs).
+              '';
+            };
           };
 
           ruff = {
@@ -452,29 +462,41 @@ in {
 
           settings.hooks.mypy = {
             enable = checksCfg.python.mypy.enable;
-            package = sysCfg.python.mypy.package;
-            # Run mypy on the whole workspace (same scope as `just lint` /
-            # CI checks) instead of per-staged-file.  When pass_filenames is
-            # true (the default) pre-commit passes only the staged file
-            # paths, mypy can't resolve the full type graph, and valid
-            # `# type: ignore` directives get flagged as "unused".
+            package =
+              if checksCfg.python.mypy.typeChecker == "ty"
+              then sysCfg.python.mypy.tyPackage
+              else sysCfg.python.mypy.package;
+            # Run the type checker on the whole workspace (same scope as
+            # `just lint` / CI checks) instead of per-staged-file.  When
+            # pass_filenames is true (the default) pre-commit passes only
+            # the staged file paths, and per-file analysis can't resolve the
+            # full type graph.
             pass_filenames = false;
-            entry = let
-              mypyPkg = sysCfg.python.mypy.package;
-              # Resolve the Python interpreter version the same way
-              # checks.nix does (from jackpkgs.python.pythonPackage, not
-              # from the mypy tool package whose .version is the mypy
-              # version, not the Python version).
-              pythonVersion =
-                if jackpkgsPythonCfg ? pythonPackage && jackpkgsPythonCfg.pythonPackage != null
-                then jackpkgsPythonCfg.pythonPackage.pythonVersion
-                    or (lib.versions.majorMinor jackpkgsPythonCfg.pythonPackage.version or "3.12")
-                else "3.12";
-            in "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-              export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
-              export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
-              ${lib.getExe' mypyPkg "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
-            ''}";
+            entry =
+              if checksCfg.python.mypy.typeChecker == "ty"
+              then let
+                mypyPkg = sysCfg.python.mypy.package;
+                tyBin = lib.getExe sysCfg.python.mypy.tyPackage;
+              in "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
+                ${tyBin} check --python ${mypyPkg}${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
+              ''}"
+              else let
+                mypyPkg = sysCfg.python.mypy.package;
+                # Resolve the Python interpreter version the same way
+                # checks.nix does (from jackpkgs.python.pythonPackage, not
+                # from the mypy tool package whose .version is the mypy
+                # version, not the Python version).
+                pythonVersion =
+                  if jackpkgsPythonCfg ? pythonPackage && jackpkgsPythonCfg.pythonPackage != null
+                  then jackpkgsPythonCfg.pythonPackage.pythonVersion
+                      or (lib.versions.majorMinor jackpkgsPythonCfg.pythonPackage.version or "3.12")
+                  else "3.12";
+              in "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
+                echo "WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = \"ty\"" >&2
+                export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
+                export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
+                ${lib.getExe' mypyPkg "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
+              ''}";
             files = "\\.py$";
             excludes = defaultExcludes.preCommit;
           };
