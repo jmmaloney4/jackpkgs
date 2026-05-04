@@ -1,6 +1,6 @@
 {
   lib,
-  stdenvNoCC,
+  stdenv,
   git,
   cacert,
   fetchgit,
@@ -29,7 +29,7 @@ let
   swiftpmDeps = import ./swiftpm-deps.nix { inherit fetchgit; };
 in
 
-stdenvNoCC.mkDerivation {
+stdenv.mkDerivation {
   pname = "spooktacular";
   version = "0-unstable-${date}";
 
@@ -37,7 +37,7 @@ stdenvNoCC.mkDerivation {
 
   outputHashAlgo = "sha256";
   outputHashMode = "recursive";
-  outputHash = "sha256-jYUlqfLk2Jaj21tfuPQ7AEtLQO0D8uG+JUSEDIAEEYk=";
+  outputHash = "sha256-sy/zq0paozoBhV9N3W5dUZKfQfZOa+Oj3wAwNZ2FuME=";
 
   nativeBuildInputs = [ git ];
 
@@ -52,8 +52,8 @@ stdenvNoCC.mkDerivation {
 
     # Symlink pre-fetched deps so swift package resolve is a no-op
     mkdir -p .build/checkouts
-    ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: drv: ''
-      ln -s "${drv}" ".build/checkouts/${name}"
+    ${lib.concatLines (lib.mapAttrsToList (name: drv: ''
+      ln -s "${drv}" ".build/checkouts/${lib.escapeShellArg name}"
     '') swiftpmDeps)}
 
     unset SDKROOT DEVELOPER_DIR
@@ -62,7 +62,7 @@ stdenvNoCC.mkDerivation {
     /usr/bin/swift package resolve --disable-sandbox
     /usr/bin/swift build \
       -c release \
-      --arch arm64 \
+      --arch ${stdenv.hostPlatform.darwinArch} \
       --product spook \
       --disable-sandbox
   '';
@@ -76,7 +76,7 @@ stdenvNoCC.mkDerivation {
     description = "macOS virtual machine manager using Virtualization.framework";
     homepage = "https://github.com/Spooky-Labs/spooktacular";
     license = lib.licenses.mit;
-    platforms = [ "aarch64-darwin" ];
+    platforms = lib.platforms.darwin;
     mainProgram = "spook";
   };
 }
