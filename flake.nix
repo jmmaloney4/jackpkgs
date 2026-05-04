@@ -99,6 +99,12 @@
         ...
       }: let
         jackLib = import ./lib {inherit pkgs;};
+        nvfetcherSources = pkgs.callPackage ./_sources/generated.nix {};
+        nautilusRustToolchain = inputs.fenix.packages.${system}.minimal.toolchain;
+        nautilusRustPlatform = pkgs.makeRustPlatform {
+          cargo = nautilusRustToolchain;
+          rustc = nautilusRustToolchain;
+        };
         # Make flake lib available for tests
         flakeLib = inputs.nixpkgs.lib.extend (
           final: prev: jackLib
@@ -110,7 +116,16 @@
           imessage-bridge = pkgs.callPackage ./pkgs/imessage-bridge {};
           lean = pkgs.callPackage ./pkgs/lean {};
           seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
-          tod = pkgs.callPackage ./pkgs/tod {};
+          nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
+            inherit (nvfetcherSources.nautilus-trader) src version cargoLock;
+            cargo = nautilusRustToolchain;
+            rustc = nautilusRustToolchain;
+            rustPlatform = nautilusRustPlatform;
+          };
+          tod = pkgs.callPackage ./pkgs/tod {
+            inherit (nvfetcherSources.tod) src version;
+            nvCargoLock = nvfetcherSources.tod.cargoLock;
+          };
         };
         platformFilteredPackages = jackLib.filterByPlatforms system allPackages;
         # Import test helpers that validate the flake-exposed API surface
