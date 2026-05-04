@@ -8,6 +8,7 @@
       # epub2tts = super.callPackage ../pkgs/epub2tts {};
       # lean = super.callPackage ../pkgs/lean {};
       seedtool-cli = super.callPackage ../pkgs/seedtool-cli {};
+      spooktacular = super.callPackage ../pkgs/spooktacular {};
       tod = super.callPackage ../pkgs/tod {};
     };
   in

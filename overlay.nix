@@ -18,6 +18,7 @@ else let
     imessage-bridge = super.callPackage ./pkgs/imessage-bridge {};
     lean = super.callPackage ./pkgs/lean {};
     seedtool-cli = super.callPackage ./pkgs/seedtool-cli {};
+    spooktacular = super.callPackage ./pkgs/spooktacular {};
     tod = super.callPackage ./pkgs/tod {};
   };
   jackLib = import ./lib {pkgs = super;};
