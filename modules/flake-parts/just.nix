@@ -474,6 +474,7 @@ in {
                   ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.mypy.enable) (
                     let
                       typeChecker = checksCfgForRecipes.python.mypy.typeChecker or "mypy";
+                      extraArgs = lib.escapeShellArgs checksCfgForRecipes.python.mypy.extraArgs;
                     in
                       if typeChecker == "ty"
                       then [
@@ -481,7 +482,7 @@ in {
                         "# ty (Python type checker)"
                         "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
                         "  printf '%s\\n' \"==> ty check\""
-                        "  ${lib.getExe sysCfg.tyPackage} check --python ${sysCfg.mypyPackage} ."
+                        "  ${lib.getExe sysCfg.tyPackage} check --python ${sysCfg.mypyPackage} ${extraArgs} ."
                         "fi"
                       ]
                       else [
@@ -489,7 +490,7 @@ in {
                         "# mypy (Python type checker) [deprecated: migrate to ty]"
                         "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
                         "  printf '%s\\n' \"==> mypy\""
-                        ''  ${lib.getExe' sysCfg.mypyPackage "mypy"} .''
+                        ''  ${lib.getExe' sysCfg.mypyPackage "mypy"} ${extraArgs} .''
                         "fi"
                       ]
                   ))
