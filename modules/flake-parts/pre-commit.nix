@@ -13,6 +13,7 @@
   jackpkgsPythonCfg = config.jackpkgs.python or {};
   checksOptionsDefined = lib.hasAttrByPath ["jackpkgs" "checks"] options;
   checksCfg = lib.attrByPath ["jackpkgs" "checks"] {} config;
+  mypyDeprecationWarning = ''echo 'WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = "ty"' >&2'';
 in {
   imports = [
     jackpkgsInputs.pre-commit-hooks.flakeModule
@@ -492,7 +493,7 @@ in {
                       or (lib.versions.majorMinor jackpkgsPythonCfg.pythonPackage.version or "3.12")
                   else "3.12";
               in "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-                echo "WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = \"ty\"" >&2
+                ${mypyDeprecationWarning}
                 export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
                 export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
                 ${lib.getExe' mypyPkg "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
