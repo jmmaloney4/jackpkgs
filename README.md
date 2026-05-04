@@ -161,8 +161,9 @@ in {
     - nix: `just build-all`, `just build-all-verbose` (flake-iter)
     - nodejs: `just update-pnpm-hash` (refresh `pnpm-lock.yaml` and rewrite `pnpmDepsHash` in `flake.nix`), `just update-pnpm-deps` (alias)
   - Options under `jackpkgs.just` to replace tool packages used by generated `just` recipes:
-    - `biomePackage`, `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `mypyPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`, `ruffPackage`
+    - `biomePackage`, `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `mypyPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`, `ruffPackage`, `tyPackage`
     - `mypyPackage` defaults to the dev-tools Python environment used by `checks` / `pre-commit`
+    - `tyPackage` defaults to `pkgs.ty` (nixpkgs); used when `typeChecker = "ty"`
     - `ruffPackage` defaults to the same dev-tools Python environment as `mypyPackage`
     - `pulumiBackendUrl` (nullable string)
   - Options under `jackpkgs.gcp`:
@@ -197,6 +198,7 @@ in {
     - `treefmtPackage` (defaults to `config.treefmt.build.wrapper`)
     - `nbstripoutPackage` (default `config.jackpkgs.pkgs.nbstripout`)
     - `python.mypy.package` (dev-tools env selection: prefers non-editable env with `includeGroups = true`; falls back to `pythonDefaultEnv`, then `pkgs.mypy`)
+    - `python.mypy.tyPackage` (defaults to `pkgs.ty`; used when `typeChecker = "ty"`)
     - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package` (each defaults to `python.mypy.package`)
     - `typescript.tsc.package` (defaults to `pkgs.nodePackages.typescript`)
     - `typescript.tsc.nodeModules` (nullable package, default `null` -> falls back to `jackpkgs.outputs.nodeModules`)
@@ -217,7 +219,7 @@ in {
   - Options under `jackpkgs.checks`:
     - `enable` (bool, default auto-enabled when `jackpkgs.python.enable` or `jackpkgs.nodejs.enable`)
     - `python.enable` (bool, default `jackpkgs.python.enable`)
-    - `python.mypy.enable` (bool, default `true`), `python.mypy.extraArgs` (list, default `[]`)
+    - `python.mypy.enable` (bool, default `true`), `python.mypy.typeChecker` (enum `"mypy"` (default, deprecated) | `"ty"`), `python.mypy.extraArgs` (list, default `[]`)
     - `python.ruff.enable` (bool, default `true`), `python.ruff.extraArgs` (list, default `["--no-cache"]`)
     - `python.pytest.enable` (bool, default `true`), `python.pytest.extraArgs` (list, default `["--import-mode=importlib"]`)
     - `python.numpydoc.enable` (bool, **default `false`** - explicit opt-in), `python.numpydoc.extraArgs` (list, default `[]`)
@@ -230,6 +232,9 @@ in {
 ```nix
 # Disable mypy in both CI checks and pre-commit hook:
 jackpkgs.checks.python.mypy.enable = false;
+
+# Migrate from mypy to ty (Astral's fast Rust-based type checker):
+jackpkgs.checks.python.mypy.typeChecker = "ty";
 
 # Enable numpydoc in both surfaces (opt-in):
 jackpkgs.checks.python.numpydoc.enable = true;

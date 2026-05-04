@@ -57,13 +57,39 @@ in {
           enable = mkOption {
             type = types.bool;
             default = true;
-            description = "Enable mypy type checking";
+            description = "Enable Python type checking";
+          };
+
+          typeChecker = mkOption {
+            type = types.enum ["mypy" "ty"];
+            default = "mypy";
+            description = ''
+              Python type checker to use.
+
+              - `"mypy"` (default, **deprecated**): Uses mypy. Will be removed in a
+                future release. Migrate to `"ty"` when ready.
+              - `"ty"`: Uses [ty](https://github.com/astral-sh/ty), Astral's fast
+                Rust-based type checker. Drop-in replacement that respects
+                `# type: ignore` comments.
+
+              Migration: set `jackpkgs.checks.python.mypy.typeChecker = "ty"`.
+            '';
+          };
+
+          tyPackage = mkOption {
+            type = types.package;
+            default = config.jackpkgs.pkgs.ty;
+            defaultText = "config.jackpkgs.pkgs.ty";
+            description = ''
+              `ty` binary package to use when `typeChecker = "ty"`.
+              Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs).
+            '';
           };
 
           extraArgs = mkOption {
             type = types.listOf types.str;
             default = [];
-            description = "Extra arguments to pass to mypy";
+            description = "Extra arguments to pass to the type checker";
             example = ["--strict"];
           };
         };
@@ -488,6 +514,9 @@ in {
       # ============================================================
 
       pythonChecks =
+        let
+          mypyDeprecationWarning = ''echo 'WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = "ty"' >&2'';
+        in
         lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvWithDevTools != null && pythonWorkspaceMembers != [])
         (
           lib.optionalAttrs cfg.python.pytest.enable {
@@ -508,20 +537,32 @@ in {
             };
           }
           // lib.optionalAttrs cfg.python.mypy.enable {
-            # mypy check (workspace root)
-            mypy = mkCheck {
-              name = "mypy";
-              src = pythonCfg.workspaceRoot;
-              buildInputs = [pythonEnvWithDevTools];
-              setupCommands = ''
-                export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
-                export MYPY_CACHE_DIR=$TMPDIR/.mypy_cache
-              '';
-              checkCommands = ''
-                echo "Running mypy (workspace root)..."
-                mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
-              '';
-            };
+            # Python type-check (workspace root)
+            mypy =
+              if cfg.python.mypy.typeChecker == "ty"
+              then mkCheck {
+                name = "mypy";
+                src = pythonCfg.workspaceRoot;
+                buildInputs = [pythonEnvWithDevTools cfg.python.mypy.tyPackage];
+                checkCommands = ''
+                  echo "Running ty check (workspace root)..."
+                  ty check --python ${pythonEnvWithDevTools} ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
+                '';
+              }
+              else mkCheck {
+                name = "mypy";
+                src = pythonCfg.workspaceRoot;
+                buildInputs = [pythonEnvWithDevTools];
+                setupCommands = ''
+                  export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+                  export MYPY_CACHE_DIR=$TMPDIR/.mypy_cache
+                '';
+                checkCommands = ''
+                  ${mypyDeprecationWarning}
+                  echo "Running mypy (workspace root)..."
+                  mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
+                '';
+              };
           }
           // lib.optionalAttrs cfg.python.ruff.enable {
             # ruff check (workspace root)

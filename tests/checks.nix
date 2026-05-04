@@ -340,6 +340,46 @@ in {
     expected = true;
   };
 
+  testPythonTyCheckScript = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.mypy.typeChecker = "ty";
+      };
+    };
+    script = getBuildCommand checks.mypy;
+  in {
+    expr =
+      hasInfixAll ["Running ty check (workspace root)..." ''cd "$src"'' "ty check" "--python"] script
+      && !lib.hasInfix "mypy " script;
+    expected = true;
+  };
+
+  testPythonTyCheckNoPythonpath = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.mypy.typeChecker = "ty";
+      };
+    };
+    script = getBuildCommand checks.mypy;
+  in {
+    # ty is a standalone Rust binary - it should NOT set PYTHONPATH
+    expr = !lib.hasInfix "PYTHONPATH=" script;
+    expected = true;
+  };
+
+  testPythonMypyDefaultDeprecationWarning = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.mypy;
+  in {
+    # Default mypy path should emit a deprecation warning
+    expr = lib.hasInfix "mypy is deprecated" script;
+    expected = true;
+  };
+
   testPythonRuffScript = let
     checks = mkChecks {
       configModule = mkConfigModule {
