@@ -812,7 +812,7 @@ in {
             name = "shellcheck";
             buildInputs = [pkgs.shellcheck pkgs.fd];
             checkCommands = ''
-              fd -t f --hidden -e sh -e bash -e .envrc -e .envrc. \
+              fd -t f --hidden -e sh -e bash -g .envrc \
                 -X shellcheck ${lib.escapeShellArgs cfg.shell.shellcheck.extraArgs}
             '';
           };
@@ -833,7 +833,7 @@ in {
             name = "bashate";
             buildInputs = [pkgs.bashate pkgs.fd];
             checkCommands = ''
-              fd -t f -e sh -e bash \
+              fd -t f --hidden -e sh -e bash -g .envrc \
                 -X bashate ${lib.escapeShellArgs cfg.shell.bashate.extraArgs}
             '';
           };
