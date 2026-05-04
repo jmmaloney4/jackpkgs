@@ -1,54 +1,75 @@
 {
-  "nautilus-trader": {
-    "cargoLock": {
-      "Cargo.lock": [
-        "sha256-2me7AL05hR11vfr4Km7qGbJfQwPCDWxMscMtTRN+UuY=/Cargo.lock",
-        {}
-      ]
+    "nautilus-trader": {
+        "cargoLock": {
+            "Cargo.lock": [
+                "sha256-W2T4MwWHQzTOdstLrWZiqCnGYXPMXWr8vObBK69wcEc=/Cargo.lock",
+                {}
+            ]
+        },
+        "date": "2026-05-05",
+        "extract": null,
+        "name": "nautilus-trader",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "nautechsystems",
+            "repo": "nautilus_trader",
+            "rev": "4322f188466507e147b7cfdf121377a25d432f25",
+            "sha256": "sha256-W2T4MwWHQzTOdstLrWZiqCnGYXPMXWr8vObBK69wcEc=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "4322f188466507e147b7cfdf121377a25d432f25"
     },
-    "date": "2026-04-15",
-    "extract": null,
-    "name": "nautilus-trader",
-    "passthru": null,
-    "pinned": false,
-    "src": {
-      "deepClone": false,
-      "fetchSubmodules": false,
-      "leaveDotGit": false,
-      "name": null,
-      "owner": "nautechsystems",
-      "repo": "nautilus_trader",
-      "rev": "9af16766e6ccd9cea6efb912689a7bf71260a141",
-      "sha256": "sha256-2me7AL05hR11vfr4Km7qGbJfQwPCDWxMscMtTRN+UuY=",
-      "sparseCheckout": [],
-      "type": "github"
+    "spooktacular": {
+        "cargoLock": null,
+        "date": "2026-04-19",
+        "extract": null,
+        "name": "spooktacular",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "Spooky-Labs",
+            "repo": "spooktacular",
+            "rev": "f36634b84e1d38d81bd282b0f88a497557e4a520",
+            "sha256": "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "f36634b84e1d38d81bd282b0f88a497557e4a520"
     },
-    "version": "9af16766e6ccd9cea6efb912689a7bf71260a141"
-  },
-  "tod": {
-    "cargoLock": {
-      "Cargo.lock": [
-        "sha256-layx+AgcL1TPTh71Ef+Ej5JvzKjEV6Gl6S5Uoi82buA=/Cargo.lock",
-        {}
-      ]
-    },
-    "date": null,
-    "extract": null,
-    "name": "tod",
-    "passthru": null,
-    "pinned": false,
-    "src": {
-      "deepClone": false,
-      "fetchSubmodules": false,
-      "leaveDotGit": false,
-      "name": null,
-      "owner": "alanvardy",
-      "repo": "tod",
-      "rev": "v0.11.2",
-      "sha256": "sha256-layx+AgcL1TPTh71Ef+Ej5JvzKjEV6Gl6S5Uoi82buA=",
-      "sparseCheckout": [],
-      "type": "github"
-    },
-    "version": "v0.11.2"
-  }
+    "tod": {
+        "cargoLock": {
+            "Cargo.lock": [
+                "sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock",
+                {}
+            ]
+        },
+        "date": null,
+        "extract": null,
+        "name": "tod",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "alanvardy",
+            "repo": "tod",
+            "rev": "v0.12.1",
+            "sha256": "sha256-091/1go/dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "v0.12.1"
+    }
 }

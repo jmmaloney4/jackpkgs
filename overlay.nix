@@ -10,6 +10,7 @@ else let
     name = n;
     value = v;
   };
+  nvfetcherSources = super.callPackage ./_sources/generated.nix {};
   # Define packages inline instead of importing default.nix
   allPackages = {
     csharpier = super.callPackage ./pkgs/csharpier {};
@@ -18,7 +19,13 @@ else let
     imessage-bridge = super.callPackage ./pkgs/imessage-bridge {};
     lean = super.callPackage ./pkgs/lean {};
     seedtool-cli = super.callPackage ./pkgs/seedtool-cli {};
-    tod = super.callPackage ./pkgs/tod {};
+    spooktacular = super.callPackage ./pkgs/spooktacular {
+      inherit (nvfetcherSources.spooktacular) src date;
+    };
+    tod = super.callPackage ./pkgs/tod {
+      inherit (nvfetcherSources.tod) src version;
+      nvCargoLock = nvfetcherSources.tod.cargoLock;
+    };
   };
   jackLib = import ./lib {pkgs = super;};
   nurAttrs =

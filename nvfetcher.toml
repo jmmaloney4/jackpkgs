@@ -7,3 +7,7 @@ cargo_lock = ["Cargo.lock"]
 src.github = "alanvardy/tod"
 fetch.github = "alanvardy/tod"
 cargo_lock = ["Cargo.lock"]
+
+[spooktacular]
+src.git = "https://github.com/Spooky-Labs/spooktacular"
+fetch.github = "Spooky-Labs/spooktacular"
