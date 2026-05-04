@@ -490,6 +490,7 @@ in {
                         "# mypy (Python type checker) [deprecated: migrate to ty]"
                         "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
                         "  printf '%s\\n' \"==> mypy\""
+                        "  echo 'WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = \"ty\"' >&2"
                         ''  ${lib.getExe' sysCfg.mypyPackage "mypy"} ${extraArgs} .''
                         "fi"
                       ]
