@@ -84,6 +84,7 @@ in {
     perSystem = mkDeferredModuleOption ({
       config,
       lib,
+      options,
       pkgs,
       ...
     }: {
@@ -95,21 +96,37 @@ in {
 
       options.jackpkgs.pulumi.ci.packages = mkOption {
         type = with types; listOf package;
-        default = with config.jackpkgs.pkgs; [
-          pulumi-bin
-          nodejs
-          jq
-          (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
-        ];
+        default = let
+          isNodeEnabled =
+            lib.hasAttrByPath ["jackpkgs" "outputs" "nodejsDevShell"] options
+            && config.jackpkgs.outputs.nodejsDevShell != null;
+          nodejsPackage =
+            if isNodeEnabled
+            then config.jackpkgs.nodejs.package
+            else config.jackpkgs.pkgs.nodejs;
+          pnpmPackages = lib.optional isNodeEnabled config.jackpkgs.nodejs.pnpmPackage;
+        in
+          with config.jackpkgs.pkgs;
+            [
+              pulumi-bin
+              nodejsPackage
+              jq
+              (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
+            ]
+            ++ pnpmPackages;
         defaultText = lib.literalExpression ''
           with config.jackpkgs.pkgs; [
             pulumi-bin
             nodejs
             jq
             (google-cloud-sdk.withExtraComponents [google-cloud-sdk.components.gke-gcloud-auth-plugin])
-          ]
+          ] ++ lib.optional config.jackpkgs.nodejs.enable config.jackpkgs.nodejs.pnpmPackage
         '';
-        description = "Packages included in the ci-pulumi devshell";
+        description = ''
+          Packages included in the ci-pulumi devshell. When the Node.js module
+          is enabled, this includes its configured pnpm package so reusable
+          Pulumi CI workflows can run `pnpm install` inside `.#ci-pulumi`.
+        '';
       };
 
       options.jackpkgs.outputs.pulumiJustfile = mkOption {
@@ -138,11 +155,12 @@ in {
         # is selected without a gcp.profile. Without this, the devShell would
         # silently skip GOOGLE_APPLICATION_CREDENTIALS.
         adcProfileRequired =
-          cfg.ci.authMode == "application-default-credentials"
+          cfg.ci.authMode
+          == "application-default-credentials"
           && gcpCfg.profile == null;
         assertAdcProfile =
           lib.asserts.assertMsg (!adcProfileRequired)
-            "jackpkgs.pulumi.ci.authMode 'application-default-credentials' requires jackpkgs.gcp.profile to be set";
+          "jackpkgs.pulumi.ci.authMode 'application-default-credentials' requires jackpkgs.gcp.profile to be set";
 
         # Shared base env vars present in every Pulumi shell.
         pulumiBaseEnv = {
@@ -163,10 +181,9 @@ in {
         # NOTE: This attrset is used only for the CI JSON env check (checks.pulumi-ci-env).
         # The actual GOOGLE_APPLICATION_CREDENTIALS export is done via shellHook
         # (adcShellHook) because the path contains $HOME which requires runtime expansion.
-        profileAdcPath =
-          lib.optionalAttrs (gcpCfg.profile != null) {
-            GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
-          };
+        profileAdcPath = lib.optionalAttrs (gcpCfg.profile != null) {
+          GOOGLE_APPLICATION_CREDENTIALS = "$HOME/.config/gcloud-profiles/${gcpCfg.profile}/application_default_credentials.json";
+        };
 
         ciPulumiEnv =
           pulumiBaseEnv
