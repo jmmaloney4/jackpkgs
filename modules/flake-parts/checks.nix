@@ -309,6 +309,65 @@ in {
         };
       };
 
+      # Shell script checks
+      shell = {
+        enable =
+          mkEnableOption "Shell script CI checks (shellcheck, actionlint, bashate)"
+          // {
+            default = false;
+            description = ''
+              Enable shell script CI checks. Disabled by default; opt in with
+              `jackpkgs.checks.shell.enable = true;`.
+            '';
+          };
+
+        shellcheck = {
+          enable = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Enable ShellCheck linting of shell scripts";
+          };
+
+          extraArgs = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = "Extra arguments to pass to shellcheck";
+          };
+        };
+
+        actionlint = {
+          enable = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Enable actionlint for GitHub Actions workflows";
+          };
+
+          extraArgs = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = "Extra arguments to pass to actionlint";
+          };
+        };
+
+        bashate = {
+          enable = mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Enable bashate style checks for shell scripts.
+              Disabled by default; opt in with
+              `jackpkgs.checks.shell.bashate.enable = true;`.
+            '';
+          };
+
+          extraArgs = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = "Extra arguments to pass to bashate (e.g. [\"-E\", \"E006\"] to ignore rule E006)";
+          };
+        };
+      };
+
       # Future: golang, rust, etc. can be added here
     };
   };
@@ -783,6 +842,47 @@ in {
             '';
           };
         };
+
+      # ============================================================
+      # Shell Script Checks
+      # ============================================================
+
+      shellChecks = lib.optionalAttrs (cfg.enable && cfg.shell.enable) (
+        lib.optionalAttrs cfg.shell.shellcheck.enable {
+          shellcheck = mkCheck {
+            name = "shellcheck";
+            src = projectRoot;
+            buildInputs = [pkgs.shellcheck pkgs.fd];
+            checkCommands = ''
+              fd -t f --hidden '.*\.sh$|.*\.bash$|^\.envrc$' \
+                -X shellcheck ${lib.escapeShellArgs cfg.shell.shellcheck.extraArgs}
+            '';
+          };
+        }
+        // lib.optionalAttrs cfg.shell.actionlint.enable {
+          actionlint = mkCheck {
+            name = "actionlint";
+            src = projectRoot;
+            buildInputs = [pkgs.actionlint pkgs.fd];
+            checkCommands = ''
+              test -d .github/workflows \
+                && fd -t f --hidden -e yml -e yaml . .github/workflows/ \
+                -X actionlint ${lib.escapeShellArgs cfg.shell.actionlint.extraArgs}
+            '';
+          };
+        }
+        // lib.optionalAttrs cfg.shell.bashate.enable {
+          bashate = mkCheck {
+            name = "bashate";
+            src = projectRoot;
+            buildInputs = [pkgs.bashate pkgs.fd];
+            checkCommands = ''
+              fd -t f --hidden '.*\.sh$|.*\.bash$|^\.envrc$' \
+                -X bashate ${lib.escapeShellArgs cfg.shell.bashate.extraArgs}
+            '';
+          };
+        }
+      );
     in
       # Merge all checks into the checks attribute
       lib.mkMerge [
@@ -791,6 +891,7 @@ in {
         {checks = vitestChecks;}
         {checks = biomeChecks;}
         {checks = beancountChecks;}
+        {checks = shellChecks;}
       ];
   };
 }

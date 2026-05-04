@@ -149,6 +149,13 @@ in {
           enable = true;
           inherit excludes;
         };
+        # shell formatting via shfmt
+        programs.shfmt = {
+          enable = true;
+          inherit excludes;
+          indent_size = 2;
+          simplify = true;
+        };
         # toml
         programs.taplo = {
           enable = true;
