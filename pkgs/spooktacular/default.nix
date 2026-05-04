@@ -6,7 +6,6 @@
   fetchgit,
   # From nvfetcher
   src,
-  version,
   date,
 }:
 

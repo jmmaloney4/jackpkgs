@@ -20,7 +20,7 @@ else let
     lean = super.callPackage ./pkgs/lean {};
     seedtool-cli = super.callPackage ./pkgs/seedtool-cli {};
     spooktacular = super.callPackage ./pkgs/spooktacular {
-      inherit (nvfetcherSources.spooktacular) src version date;
+      inherit (nvfetcherSources.spooktacular) src date;
     };
     tod = super.callPackage ./pkgs/tod {
       inherit (nvfetcherSources.tod) src version;

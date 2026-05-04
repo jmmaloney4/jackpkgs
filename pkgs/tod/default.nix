@@ -2,8 +2,6 @@
   lib,
   rustPlatform,
   stdenv,
-  pkg-config,
-  openssl,
   # From nvfetcher
   src,
   version,
@@ -18,8 +16,8 @@ rustPlatform.buildRustPackage rec {
     outputHashes = nvCargoLock."Cargo.lock".outputHashes;
   };
 
-  nativeBuildInputs = [pkg-config];
-  buildInputs = [openssl];
+  nativeBuildInputs = [];
+  buildInputs = [];
 
   # Skip tests that try to create config files in directories that don't exist in Nix sandbox
   checkFlags = [
