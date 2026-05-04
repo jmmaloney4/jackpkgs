@@ -640,6 +640,8 @@ ______________________________________________________________________
 
 ## Packages available
 
+> **Removed packages:** `openchamber` (removed in e09c5ba, PR #247). The `llm-agents` and `bun2nix` flake inputs were also removed.
+
 - `csharpier` - C# formatter
 - `docfx` - .NET docs generator
 - `epub2tts` - EPUB -> TTS
