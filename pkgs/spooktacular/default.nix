@@ -51,8 +51,9 @@ stdenv.mkDerivation {
 
     # Symlink pre-fetched deps so swift package resolve is a no-op
     mkdir -p .build/checkouts
+    # Dep names are Swift PM package identities (alphanumeric + hyphens only)
     ${lib.concatLines (lib.mapAttrsToList (name: drv: ''
-      ln -s "${drv}" ".build/checkouts/${lib.escapeShellArg name}"
+      ln -s "${drv}" ".build/checkouts/${name}"
     '') swiftpmDeps)}
 
     unset SDKROOT DEVELOPER_DIR
