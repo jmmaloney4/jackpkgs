@@ -36,7 +36,7 @@ with lib; let
   logPaths = lib.optionalAttrs (effectiveLogDir != null) {
     StandardOutPath = "${toString effectiveLogDir}/imessage-bridge.log";
     StandardErrorPath = "${toString effectiveLogDir}/imessage-bridge.err.log";
-    };
+  };
 
   # Wrapper script for system daemon mode: sets HOME to the target user's
   # home directory so the bridge can find ~/Library/Messages/chat.db.
