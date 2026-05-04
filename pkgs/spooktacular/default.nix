@@ -37,7 +37,7 @@ stdenvNoCC.mkDerivation {
 
   outputHashAlgo = "sha256";
   outputHashMode = "recursive";
-  outputHash = "sha256-qCzSelvlOFdVbIzlIZRPnck1XE2SInP0peeqy1SZcxk=";
+  outputHash = "sha256-jYUlqfLk2Jaj21tfuPQ7AEtLQO0D8uG+JUSEDIAEEYk=";
 
   nativeBuildInputs = [ git ];
 
@@ -59,7 +59,7 @@ stdenvNoCC.mkDerivation {
     unset SDKROOT DEVELOPER_DIR
 
     # Resolve from pre-fetched checkouts, then build
-    /usr/bin/swift package resolve --disable-sandbox 2>&1 || true
+    /usr/bin/swift package resolve --disable-sandbox
     /usr/bin/swift build \
       -c release \
       --arch arm64 \
@@ -70,7 +70,6 @@ stdenvNoCC.mkDerivation {
   installPhase = ''
     mkdir -p "$out/bin"
     cp .build/release/spook "$out/bin/spook"
-    chmod +x "$out/bin/spook"
   '';
 
   meta = {
