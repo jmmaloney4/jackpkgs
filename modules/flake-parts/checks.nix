@@ -76,6 +76,16 @@ in {
             '';
           };
 
+          tyPackage = mkOption {
+            type = types.package;
+            default = config.jackpkgs.pkgs.ty;
+            defaultText = "config.jackpkgs.pkgs.ty";
+            description = ''
+              `ty` binary package to use when `typeChecker = "ty"`.
+              Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs).
+            '';
+          };
+
           extraArgs = mkOption {
             type = types.listOf types.str;
             default = [];
@@ -533,7 +543,7 @@ in {
               then mkCheck {
                 name = "mypy";
                 src = pythonCfg.workspaceRoot;
-                buildInputs = [pythonEnvWithDevTools config.jackpkgs.pkgs.ty];
+                buildInputs = [pythonEnvWithDevTools cfg.python.mypy.tyPackage];
                 checkCommands = ''
                   echo "Running ty check (workspace root)..."
                   ty check --python ${pythonEnvWithDevTools} ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
