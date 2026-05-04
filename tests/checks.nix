@@ -351,7 +351,7 @@ in {
   in {
     expr =
       hasInfixAll ["Running ty check (workspace root)..." ''cd "$src"'' "ty check" "--python"] script
-      && !lib.hasInfix "mypy" (lib.removePrefix "Running ty check" script);
+      && !lib.hasInfix "mypy " script;
     expected = true;
   };
 
