@@ -806,7 +806,7 @@ in {
       # Shell Script Checks
       # ============================================================
 
-      shellChecks = lib.optionalAttrs cfg.shell.enable (
+      shellChecks = lib.optionalAttrs (cfg.enable && cfg.shell.enable) (
         lib.optionalAttrs cfg.shell.shellcheck.enable {
           shellcheck = mkCheck {
             name = "shellcheck";
