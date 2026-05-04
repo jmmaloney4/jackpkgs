@@ -6,6 +6,47 @@
 }:
 with lib; let
   cfg = config.services.imessage-bridge;
+
+  bridgeArgs =
+    [(lib.getExe cfg.package)]
+    ++ ["--port" (toString cfg.port)]
+    ++ lib.optionals (cfg.bonjourName != null) ["--name" cfg.bonjourName]
+    ++ lib.optional cfg.noBonjour "--no-bonjour";
+
+  bridgeCmd = "exec " + lib.escapeShellArgs bridgeArgs;
+
+  # Effective log directory: explicit cfg.logDir, or /var/log/imessage-bridge
+  # for daemon mode. Null means no log capture (user agent default).
+  effectiveLogDir =
+    if cfg.logDir != null
+    then cfg.logDir
+    else if cfg.user != null
+    then "/var/log/imessage-bridge"
+    else null;
+
+  # State setup for system daemon mode: create log directory.
+  # Runs inside daemon script rather than system.activationScripts because
+  # nix-darwin did not reliably include custom activation scripts in the
+  # generated system activation profile for some configurations.
+  # install -d is fully idempotent.
+  stateSetup = lib.optionalString (effectiveLogDir != null) ''
+    install -d -o root -g wheel ${escapeShellArg (toString effectiveLogDir)}
+  '';
+
+  logPaths = lib.optionalAttrs (effectiveLogDir != null) {
+    StandardOutPath = "${toString effectiveLogDir}/imessage-bridge.log";
+    StandardErrorPath = "${toString effectiveLogDir}/imessage-bridge.err.log";
+  };
+
+  # Wrapper script for system daemon mode: sets HOME to the target user's
+  # home directory so the bridge can find ~/Library/Messages/chat.db.
+  # su -m preserves the calling environment (including Nix store PATH)
+  # rather than starting a login shell which would reset PATH and source
+  # profile scripts.
+  daemonScript = pkgs.writeShellScript "imessage-bridge-as-${cfg.user}" ''
+    export HOME=${escapeShellArg "/Users/${cfg.user}"}
+    ${bridgeCmd}
+  '';
 in {
   options.services.imessage-bridge = {
     enable = mkEnableOption "iMessage Bridge HTTP server";
@@ -35,31 +76,65 @@ in {
       description = "Disable Bonjour/mDNS service registration.";
     };
 
+    user = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = ''
+        System user to run the bridge as. When set, the module creates a
+        system LaunchDaemon instead of a user LaunchAgent. The daemon runs
+        as root for directory setup, then drops to this user via su.
+        The user must have an active macOS GUI session with Messages.app
+        signed in, and Full Disk Access granted to the nix-wrapped python
+        binary.
+      '';
+    };
+
     logDir = mkOption {
       type = types.nullOr types.path;
       default = null;
-      description = "Directory for StandardOutPath and StandardErrorPath logs. When null, launchd defaults apply.";
+      defaultText = literalExpression "null (no log capture in user agent mode; /var/log/imessage-bridge in daemon mode)";
+      description = ''
+        Directory for StandardOutPath and StandardErrorPath logs.
+        When null in user agent mode, launchd captures no log output.
+        When user is set (daemon mode), defaults to /var/log/imessage-bridge.
+      '';
     };
   };
 
-  config = mkIf cfg.enable {
-    launchd.user.agents.imessage-bridge = {
-      command = lib.escapeShellArgs (
-        [(lib.getExe cfg.package)]
-        ++ ["--port" (toString cfg.port)]
-        ++ lib.optionals (cfg.bonjourName != null) ["--name" cfg.bonjourName]
-        ++ lib.optional cfg.noBonjour "--no-bonjour"
-      );
+  config = mkIf cfg.enable (mkMerge [
+    # System LaunchDaemon mode (PR 513 pattern).
+    # Runs as root for state setup, drops to cfg.user for bridge execution.
+    # Uses `script` (not `command`) so nix-darwin generates a wait4path
+    # guard for the Nix store volume.
+    (mkIf (cfg.user != null) {
+      launchd.daemons.imessage-bridge = {
+        script = ''
+          ${stateSetup}
+          exec /usr/bin/su -m ${escapeShellArg cfg.user} -c ${escapeShellArg daemonScript}
+        '';
+        serviceConfig =
+          {
+            RunAtLoad = true;
+            KeepAlive = true;
+          }
+          // logPaths;
+      };
+    })
 
-      serviceConfig =
-        {
-          RunAtLoad = true;
-          KeepAlive = true;
-        }
-        // lib.optionalAttrs (cfg.logDir != null) {
-          StandardOutPath = "${cfg.logDir}/imessage-bridge.log";
-          StandardErrorPath = "${cfg.logDir}/imessage-bridge.err.log";
-        };
-    };
-  };
+    # User LaunchAgent mode (original behavior).
+    # Uses `script` (not `command`) for wait4path /nix/store guard,
+    # which prevents silent failures if the Nix volume is not yet
+    # mounted when launchd loads the agent at boot.
+    (mkIf (cfg.user == null) {
+      launchd.user.agents.imessage-bridge = {
+        script = bridgeCmd;
+        serviceConfig =
+          {
+            RunAtLoad = true;
+            KeepAlive = true;
+          }
+          // logPaths;
+      };
+    })
+  ]);
 }
