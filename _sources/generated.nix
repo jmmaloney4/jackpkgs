@@ -8,34 +8,46 @@
 {
   nautilus-trader = {
     pname = "nautilus-trader";
-    version = "9af16766e6ccd9cea6efb912689a7bf71260a141";
+    version = "4322f188466507e147b7cfdf121377a25d432f25";
     src = fetchFromGitHub {
       owner = "nautechsystems";
       repo = "nautilus_trader";
-      rev = "9af16766e6ccd9cea6efb912689a7bf71260a141";
+      rev = "4322f188466507e147b7cfdf121377a25d432f25";
       fetchSubmodules = false;
-      sha256 = "sha256-2me7AL05hR11vfr4Km7qGbJfQwPCDWxMscMtTRN+UuY=";
+      sha256 = "sha256-W2T4MwWHQzTOdstLrWZiqCnGYXPMXWr8vObBK69wcEc=";
     };
     cargoLock."Cargo.lock" = {
-      lockFile = ./. + "/sha256-2me7AL05hR11vfr4Km7qGbJfQwPCDWxMscMtTRN+UuY=/Cargo.lock";
+      lockFile = ./. + "/sha256-W2T4MwWHQzTOdstLrWZiqCnGYXPMXWr8vObBK69wcEc=/Cargo.lock";
       outputHashes = {
         
       };
     };
-    date = "2026-04-15";
+    date = "2026-05-05";
+  };
+  spooktacular = {
+    pname = "spooktacular";
+    version = "f36634b84e1d38d81bd282b0f88a497557e4a520";
+    src = fetchFromGitHub {
+      owner = "Spooky-Labs";
+      repo = "spooktacular";
+      rev = "f36634b84e1d38d81bd282b0f88a497557e4a520";
+      fetchSubmodules = false;
+      sha256 = "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=";
+    };
+    date = "2026-04-19";
   };
   tod = {
     pname = "tod";
-    version = "v0.11.2";
+    version = "v0.12.1";
     src = fetchFromGitHub {
       owner = "alanvardy";
       repo = "tod";
-      rev = "v0.11.2";
+      rev = "v0.12.1";
       fetchSubmodules = false;
-      sha256 = "sha256-layx+AgcL1TPTh71Ef+Ej5JvzKjEV6Gl6S5Uoi82buA=";
+      sha256 = "sha256-091/1go/dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=";
     };
     cargoLock."Cargo.lock" = {
-      lockFile = ./. + "/sha256-layx+AgcL1TPTh71Ef+Ej5JvzKjEV6Gl6S5Uoi82buA=/Cargo.lock";
+      lockFile = ./. + "/sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock";
       outputHashes = {
         
       };

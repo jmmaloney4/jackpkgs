@@ -122,7 +122,9 @@
             rustc = nautilusRustToolchain;
             rustPlatform = nautilusRustPlatform;
           };
-          spooktacular = pkgs.callPackage ./pkgs/spooktacular {};
+          spooktacular = pkgs.callPackage ./pkgs/spooktacular {
+            inherit (nvfetcherSources.spooktacular) src version date;
+          };
           tod = pkgs.callPackage ./pkgs/tod {
             inherit (nvfetcherSources.tod) src version;
             nvCargoLock = nvfetcherSources.tod.cargoLock;

@@ -1,9 +1,12 @@
 {
   lib,
   stdenvNoCC,
-  fetchFromGitHub,
   git,
   cacert,
+  # From nvfetcher
+  src,
+  version,
+  date,
 }:
 # Spooktacular CLI ("spook") manages macOS virtual machines via
 # Apple's Virtualization.framework.  It must be built with the system
@@ -13,29 +16,23 @@
 #
 # Strategy: fixed-output derivation to get network access (Swift PM
 # clones dependencies at build time).  Uses the system Swift toolchain.
-let
-  version = "0.1.0-unstable-2026-04-19";
-  srcHash = "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=";
-in
+# nvfetcher tracks the source; outputHash must be updated manually when
+# the source changes.  To update:
+#   1. nix run nixpkgs#nvfetcher  (updates _sources/)
+#   2. nix build .#spooktacular 2>&1 | grep "got:"
+#   3. Replace outputHash below with the "got:" value
+
 stdenvNoCC.mkDerivation {
   pname = "spooktacular";
-  inherit version;
+  version = "0-unstable-${date}";
 
-  src = fetchFromGitHub {
-    owner = "Spooky-Labs";
-    repo = "spooktacular";
-    rev = "main";
-    hash = srcHash;
-  };
+  inherit src;
 
   # Fixed-output derivation: Nix grants network access. The output hash
-  # pins the binary content.  To update after a new commit:
-  #   1. Update version date above
-  #   2. nix build .#spooktacular 2>&1 | grep "got:"
-  #   3. Replace the hash below with the "got:" value
+  # pins the binary content.
   outputHashAlgo = "sha256";
   outputHashMode = "recursive";
-  outputHash = "sha256-t4J6Fw3TjsBJ4LYtNrXwMvslkxvVTRBJ4Dpz8tV/HNM=";
+  outputHash = "sha256-v1IkcBBi7W/t8y3SqxeqmvyldH6gaDsskYFD++iJzqE=";
 
   nativeBuildInputs = [ git ];
 
