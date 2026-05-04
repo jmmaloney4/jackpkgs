@@ -810,9 +810,10 @@ in {
         lib.optionalAttrs cfg.shell.shellcheck.enable {
           shellcheck = mkCheck {
             name = "shellcheck";
+            src = projectRoot;
             buildInputs = [pkgs.shellcheck pkgs.fd];
             checkCommands = ''
-              fd -t f --hidden -e sh -e bash -g .envrc \
+              fd -t f --hidden '.*\.sh$|.*\.bash$|^\.envrc$' \
                 -X shellcheck ${lib.escapeShellArgs cfg.shell.shellcheck.extraArgs}
             '';
           };
@@ -820,10 +821,11 @@ in {
         // lib.optionalAttrs cfg.shell.actionlint.enable {
           actionlint = mkCheck {
             name = "actionlint";
+            src = projectRoot;
             buildInputs = [pkgs.actionlint pkgs.fd];
             checkCommands = ''
               test -d .github/workflows \
-                && fd -t f --hidden -g '*.{yml,yaml}' .github/workflows/ \
+                && fd -t f --hidden -e yml -e yaml . .github/workflows/ \
                 -X actionlint ${lib.escapeShellArgs cfg.shell.actionlint.extraArgs}
             '';
           };
@@ -831,9 +833,10 @@ in {
         // lib.optionalAttrs cfg.shell.bashate.enable {
           bashate = mkCheck {
             name = "bashate";
+            src = projectRoot;
             buildInputs = [pkgs.bashate pkgs.fd];
             checkCommands = ''
-              fd -t f --hidden -e sh -e bash -g .envrc \
+              fd -t f --hidden '.*\.sh$|.*\.bash$|^\.envrc$' \
                 -X bashate ${lib.escapeShellArgs cfg.shell.bashate.extraArgs}
             '';
           };
