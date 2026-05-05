@@ -14,18 +14,24 @@
   # Layer deduplication helper.
   # Builds new nix2container layers for each package, threading all previously-built
   # layers through so nix2container excludes store paths already present in earlier layers.
+  # Uses prepend+reverse to maintain O(N) instead of O(N^2) with ++.
   foldImageLayers = nix2container: baseLayers: pkgList:
     let
+      # acc holds layers in reverse order; we reverse at the end.
+      # We reverse baseLayers so they also sit in the reversed accumulator.
+      init = lib.reverseList baseLayers;
       fold = acc: drv:
         let
           layer = nix2container.buildLayer {
             copyToRoot = drv;
-            layers = acc;
+            # nix2container expects layers in forward (earliest-first) order,
+            # so reverse back before passing.
+            layers = lib.reverseList acc;
           };
         in
-          acc ++ [layer];
+          [layer] ++ acc;
     in
-      lib.foldl fold baseLayers pkgList;
+      lib.reverseList (lib.foldl fold init pkgList);
 in {
   options = let
     inherit (lib) types mkOption mkEnableOption;
@@ -51,12 +57,15 @@ in {
       };
 
       authMode = mkOption {
-        type = types.enum ["gcp" "ghcr"];
+        type = types.str;
         default = "gcp";
         description = ''
           Authentication mode for `image-push` just recipe.
+          Currently supported values:
           - "gcp": uses `gcloud auth print-access-token` + oauth2accesstoken
           - "ghcr": uses `GITHUB_ACTOR` + `GITHUB_TOKEN` env vars
+          The type is `types.str` (not a fixed enum) so future auth modes
+          ("op", "raw", etc.) can be added without a module schema change.
         '';
       };
     };
@@ -84,7 +93,7 @@ in {
             options = {
               name = mkOption {
                 type = types.str;
-                default = lib.mkOptionDefault name;
+                default = name;
                 description = "Image name. Defaults to the attribute key name.";
               };
 
@@ -148,7 +157,8 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # Per-system config: just recipes and skopeo package
+    # Per-system config: just recipes and skopeo package — Linux-only, since
+    # nix2container and skopeo-nix2container are Linux binaries.
     perSystem = {
       pkgs,
       lib,
@@ -194,16 +204,23 @@ in {
           "#!/usr/bin/env bash"
           "set -euo pipefail"
           "nix build .#images.{{name}}"
+          "case \"{{name}}\" in"
         ]
-        ++ lib.concatMap (imgName: let
-          reg = resolveRegistry imgName;
+        ++ lib.concatMap (imgKey: let
+          imgCfg = sysCfg.images.${imgKey};
+          reg = resolveRegistry imgKey;
         in [
-          "if [ \"{{name}}\" = \"${imgName}\" ]; then"
-          "  DEST=\"${reg}/${imgName}:{{tag}}\""
-          "fi"
+          "  ${imgKey})"
+          "    DEST=\"${reg}/${imgCfg.name}:{{tag}}\""
+          "    ;;"
         ])
         imageNames
         ++ [
+          "  *)"
+          "    echo \"error: unknown image '{{name}}'\" >&2"
+          "    exit 1"
+          "    ;;"
+          "esac"
           "CREDS=${credsExpr}"
           "${lib.getExe skopeoNix2container} copy --dest-creds \"$CREDS\" nix:./result \"docker://$DEST\""
         ]
@@ -216,7 +233,7 @@ in {
         ]
         ++ map (imgName: "just image-push ${imgName} {{tag}}") imageNames
       ) false;
-    in {
+    in mkIf (system == cfg.linuxSystem) {
       # Expose skopeo-nix2container for direct use
       packages.skopeo-nix2container = skopeoNix2container;
 
