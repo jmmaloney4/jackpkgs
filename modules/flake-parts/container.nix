@@ -186,7 +186,9 @@ in {
       credsExpr =
         if cfg.authMode == "gcp"
         then "\"oauth2accesstoken:$(gcloud auth print-access-token)\""
-        else "\"\${GITHUB_ACTOR}:\${GITHUB_TOKEN}\"";
+        else if cfg.authMode == "ghcr"
+        then "\"\${GITHUB_ACTOR}:\${GITHUB_TOKEN}\""
+        else abort "jackpkgs.images: unsupported authMode '${cfg.authMode}'";
 
       imageBuildRecipe = mkRecipeWithParams "image-build" [''name''] "Build a container image locally (produces ./result JSON manifest)" [
         "nix build .#images.{{name}}"
@@ -199,7 +201,7 @@ in {
         "${lib.getExe skopeoNix2container} inspect nix:./result | ${lib.getExe pkgs.jq} -r '.Digest'"
       ] false;
 
-      imagePushRecipe = mkRecipeWithParams "image-push" [''name'' ''tag=\"latest\"''] "Push a single image to its configured registry" (
+      imagePushRecipe = mkRecipeWithParams "image-push" [''name'' ''tag="latest"''] "Push a single image to its configured registry" (
         [
           "#!/usr/bin/env bash"
           "set -euo pipefail"
@@ -226,7 +228,7 @@ in {
         ]
       ) false;
 
-      imagePushAllRecipe = mkRecipeWithParams "image-push-all" [''tag=\"latest\"''] "Push all images defined in jackpkgs.images.images" (
+      imagePushAllRecipe = mkRecipeWithParams "image-push-all" [''tag="latest"''] "Push all images defined in jackpkgs.images.images" (
         [
           "#!/usr/bin/env bash"
           "set -euo pipefail"
@@ -277,9 +279,13 @@ in {
         # Fold per-image packages into layers, deduplicating against common layer
         imageLayers = foldImageLayers nix2container baseLayers imageCfg.packages;
 
-        # Inject SSL_CERT_FILE automatically
-        sslEnv = "SSL_CERT_FILE=${linuxPkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
-        imageEnv = imageCfg.env ++ [sslEnv];
+        # Inject SSL_CERT_FILE automatically using the consumer's cacert
+        # (from commonPackages / per-image packages), not jackpkgs' pinned nixpkgs.
+        cacertPkg = lib.findFirst (p: p.pname or "" == "cacert") null
+          (imageCfg.packages ++ linuxSysCfg.commonPackages);
+        sslEnv = lib.optional (cacertPkg != null)
+          "SSL_CERT_FILE=${cacertPkg}/etc/ssl/certs/ca-bundle.crt";
+        imageEnv = imageCfg.env ++ sslEnv;
       in
         nix2container.buildImage {
           name = imageCfg.name;
