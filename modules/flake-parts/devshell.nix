@@ -115,7 +115,6 @@ in {
         ++ lib.optionals cfg.welcome.enable (
           lib.optional (cfg.welcome.message != null) ''[ -t 1 ] && echo ${lib.escapeShellArg cfg.welcome.message}''
           ++ lib.optional cfg.welcome.showJustHint ''[ -t 1 ] && echo ${lib.escapeShellArg cfg.welcome.justHintMessage}''
-          ++ [''[ -t 1 ] && just --list'']
         );
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell {
