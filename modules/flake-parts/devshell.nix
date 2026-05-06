@@ -82,35 +82,59 @@ in {
       sysCfg = config.jackpkgs.shell;
       mkShellEnvHook = import ../../lib/shell-env-hook.nix {inherit lib pkgs;};
 
+      # Reconstruct the just-flake common justfile so we can manage the symlink
+      # ourselves instead of relying on just-flake's hardcoded shellHook (which
+      # unconditionally echoes emoji text and runs `just --list` to stdout,
+      # breaking non-interactive `nix develop -c` invocations).
+      justFlakeCfg = config.just-flake;
+      commonJustfile = pkgs.writeTextFile {
+        name = "justfile";
+        text = lib.concatStringsSep "\n"
+          (lib.mapAttrsToList (_name: feature: feature.outputs.justfile) justFlakeCfg.features);
+      };
+
       # Build shellHook segments as a list and join with newlines for safe concatenation.
       # Durable environment variables are carried by setup hooks from pulumiDevShell,
       # which is already included via sysCfg.inputsFrom (set by the pulumi module).
       shellHookParts =
-        lib.optional (gcpProfile != null) (
+        [
+          # Symlink the generated justfile (essential for just recipe discovery).
+          # Replaces just-flake's own shellHook which also does this but adds
+          # unconditional stdout noise (emoji echo + `just --list`).
+          ''ln -sf ${builtins.toString commonJustfile} ./${justFlakeCfg.commonFileName}''
+        ]
+        ++ lib.optional (gcpProfile != null) (
           if builtins.match "[a-zA-Z0-9._-]+" gcpProfile == null
           then throw "jackpkgs.gcp.profile contains invalid characters. Only [a-zA-Z0-9._-] are allowed."
           else ''
             export CLOUDSDK_CONFIG="$HOME/.config/gcloud-profiles/${gcpProfile}"
-            export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud-profiles/${gcpProfile}/application_default_credentials.json"
+            export GOOGLE_APPLICATION_CREDENTIALS="$HOME/...json"
             mkdir -p "$CLOUDSDK_CONFIG"
           ''
         )
         ++ lib.optionals cfg.welcome.enable (
           lib.optional (cfg.welcome.message != null) ''[ -t 1 ] && echo ${lib.escapeShellArg cfg.welcome.message}''
           ++ lib.optional cfg.welcome.showJustHint ''[ -t 1 ] && echo ${lib.escapeShellArg cfg.welcome.justHintMessage}''
+          ++ [''[ -t 1 ] && just --list'']
         );
     in {
       jackpkgs.outputs.devShell = pkgs.mkShell {
         inputsFrom =
           [
-            config.just-flake.outputs.devShell
+            # NOTE: config.just-flake.outputs.devShell is intentionally excluded.
+            # It hardcodes `echo + just --list` in its shellHook, which pollutes
+            # stdout for non-interactive `nix develop -c` invocations. We replicate
+            # its essential behavior (symlink + just binary) with TTY-gated output.
             config.flake-root.devShell
             config.pre-commit.devShell
             config.treefmt.build.devShell
           ]
           ++ sysCfg.inputsFrom;
         packages =
-          sysCfg.packages
+          # just was previously provided by just-flake's devShell via inputsFrom;
+          # now we include it directly since we dropped that inputsFrom entry.
+          [pkgs.just]
+          ++ sysCfg.packages
           ++ lib.optional (!cfg.direnv.showEnvDiff) (
             mkShellEnvHook {
               name = "jackpkgs-direnv-log-format-hook";
