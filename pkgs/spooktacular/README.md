@@ -22,6 +22,14 @@ spook start my-vm --headless
 spook ip my-vm
 ```
 
+## Nix packaging notes
+
+The binary is codesigned at build time with `SpookCLI.entitlements` from the
+source tree. This includes the `com.apple.security.virtualization` entitlement
+required for Virtualization.framework XPC services. Without it, the framework
+rejects the binary at runtime with "Unable to connect to installation service"
+(VZErrorDomain error 10004).
+
 ## Troubleshooting
 
 ### IPSW catalog fetch fails (`--from-ipsw latest`)
@@ -49,4 +57,3 @@ spook create my-vm --cpu 4 --memory 8 --disk 64 --from-ipsw /tmp/macos-restore.i
 ```
 
 This bypasses the catalog lookup entirely — same IPSW file, direct from Apple's CDN.
-
