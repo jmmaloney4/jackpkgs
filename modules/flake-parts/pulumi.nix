@@ -167,7 +167,6 @@ in {
           PULUMI_IGNORE_AMBIENT_PLUGINS = "1";
           PULUMI_BACKEND_URL = cfg.backendUrl;
           PULUMI_SECRETS_PROVIDER = cfg.secretsProvider;
-          PULUMI_OPTION_NON_INTERACTIVE = "true";
           PULUMI_OPTION_COLOR = "never";
           PULUMI_OPTION_SUPPRESS_PROGRESS = "true";
           # Enable async stack traces in Node.js for better debugging of unhandled
@@ -187,11 +186,19 @@ in {
 
         ciPulumiEnv =
           pulumiBaseEnv
+          // { PULUMI_OPTION_NON_INTERACTIVE = "true"; }
           // lib.optionalAttrs (cfg.ci.authMode == "application-default-credentials") profileAdcPath;
 
         pulumiEnvHook = mkShellEnvHook {
           name = "jackpkgs-pulumi-env-hook";
           env = pulumiBaseEnv;
+        };
+
+        # CI needs NON_INTERACTIVE to prevent pulumi from prompting on stdin.
+        # Local devshells intentionally omit it so interactive commands work.
+        ciPulumiEnvHook = mkShellEnvHook {
+          name = "jackpkgs-ci-pulumi-env-hook";
+          env = pulumiBaseEnv // { PULUMI_OPTION_NON_INTERACTIVE = "true"; };
         };
 
         # ADC path for the active gcp.profile. This uses $HOME expansion so it
@@ -221,14 +228,14 @@ in {
         };
 
         devShells.ci-pulumi = pkgs.mkShell {
-          packages = config.jackpkgs.pulumi.ci.packages ++ [pulumiEnvHook];
+          packages = config.jackpkgs.pulumi.ci.packages ++ [ciPulumiEnvHook];
 
           # CI shell auth strategy is controlled by jackpkgs.pulumi.ci.authMode:
           #   "workload-identity" (default) — do not bake GOOGLE_APPLICATION_CREDENTIALS;
           #     WIF credentials are injected by the CI runner (google-github-actions/auth).
           #   "application-default-credentials" — set GOOGLE_APPLICATION_CREDENTIALS to
           #     the profile ADC file; requires jackpkgs.gcp.profile to be non-null.
-          # Literal env vars are carried by pulumiEnvHook (setup hook).
+          # Literal env vars are carried by ciPulumiEnvHook (setup hook).
           # ADC path (when enabled) uses $HOME and is set via shellHook.
           shellHook = lib.optionalString (cfg.ci.authMode == "application-default-credentials") adcShellHook;
         };

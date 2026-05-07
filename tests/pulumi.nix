@@ -65,7 +65,7 @@ in {
   testCiPulumiDevShellSetsPulumiCliDefaults = let
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
   in {
-    expr = hasPulumiEnvSetupHook "jackpkgs-pulumi-env-hook" perSystemCfg.devShells.ci-pulumi;
+    expr = hasPulumiEnvSetupHook "jackpkgs-ci-pulumi-env-hook" perSystemCfg.devShells.ci-pulumi;
     expected = true;
   };
 

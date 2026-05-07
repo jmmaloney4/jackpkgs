@@ -247,13 +247,14 @@ PR #243 implements this decision by updating:
   - `adcShellHook` exports `GOOGLE_APPLICATION_CREDENTIALS` via `shellHook` for
     runtime `$HOME` expansion (profile-specific path, escaped with
     `lib.escapeShellArg`).
-  - Removed separate `ciPulumiEnvHook` (was identical to `pulumiEnvHook`).
+  - `ciPulumiEnvHook` adds `PULUMI_OPTION_NON_INTERACTIVE=true` on top of `pulumiBaseEnv` for the CI shell only. Local devshells use `pulumiEnvHook` (without `NON_INTERACTIVE`) so interactive pulumi commands work.
 
 - `tests/pulumi.nix`
 
   - Adds `NODE_OPTIONS` to expected Pulumi shell env.
-  - Tests assert `jackpkgs-pulumi-env-hook` in both `pulumiDevShell` and
-    `ci-pulumi` (consolidated single hook).
+  - Tests assert `jackpkgs-pulumi-env-hook` in `pulumiDevShell` and
+    `jackpkgs-ci-pulumi-env-hook` in `ci-pulumi` (separate hooks; CI includes
+    `NON_INTERACTIVE`, local does not).
   - Adds a composed-shell test that requires both shellHook exports and the setup
     hook package.
 
