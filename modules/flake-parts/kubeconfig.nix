@@ -6,7 +6,6 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.kubeconfig;
-  pulumiCfg = config.jackpkgs.pulumi;
 
   justfileHelpers = import ../../lib/justfile-helpers.nix {inherit lib;};
   inherit (justfileHelpers) mkRecipe;
