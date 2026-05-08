@@ -15,23 +15,21 @@
   # Builds new nix2container layers for each package, threading all previously-built
   # layers through so nix2container excludes store paths already present in earlier layers.
   # Uses prepend+reverse to maintain O(N) instead of O(N^2) with ++.
-  foldImageLayers = nix2container: baseLayers: pkgList:
-    let
-      # acc holds layers in reverse order; we reverse at the end.
-      # We reverse baseLayers so they also sit in the reversed accumulator.
-      init = lib.reverseList baseLayers;
-      fold = acc: drv:
-        let
-          layer = nix2container.buildLayer {
-            copyToRoot = drv;
-            # nix2container expects layers in forward (earliest-first) order,
-            # so reverse back before passing.
-            layers = lib.reverseList acc;
-          };
-        in
-          [layer] ++ acc;
+  foldImageLayers = nix2container: baseLayers: pkgList: let
+    # acc holds layers in reverse order; we reverse at the end.
+    # We reverse baseLayers so they also sit in the reversed accumulator.
+    init = lib.reverseList baseLayers;
+    fold = acc: drv: let
+      layer = nix2container.buildLayer {
+        copyToRoot = drv;
+        # nix2container expects layers in forward (earliest-first) order,
+        # so reverse back before passing.
+        layers = lib.reverseList acc;
+      };
     in
-      lib.reverseList (lib.foldl fold init pkgList);
+      [layer] ++ acc;
+  in
+    lib.reverseList (lib.foldl fold init pkgList);
 in {
   options = let
     inherit (lib) types mkOption mkEnableOption;
@@ -190,66 +188,75 @@ in {
         then "\"\${GITHUB_ACTOR}:\${GITHUB_TOKEN}\""
         else abort "jackpkgs.images: unsupported authMode '${cfg.authMode}'";
 
-      imageBuildRecipe = mkRecipeWithParams "image-build" [''name''] "Build a container image locally (produces ./result JSON manifest)" [
-        "nix build .#images.{{name}}"
-      ] false;
+      imageBuildRecipe =
+        mkRecipeWithParams "image-build" [''name''] "Build a container image locally (produces ./result JSON manifest)" [
+          "nix build .#images.{{name}}"
+        ]
+        false;
 
-      imageDigestRecipe = mkRecipeWithParams "image-digest" [''name''] "Show the SHA256 digest of a locally-built image" [
-        "#!/usr/bin/env bash"
-        "set -euo pipefail"
-        "nix build .#images.{{name}}"
-        "${lib.getExe skopeoNix2container} inspect nix:./result | ${lib.getExe pkgs.jq} -r '.Digest'"
-      ] false;
-
-      imagePushRecipe = mkRecipeWithParams "image-push" [''name'' ''tag="latest"''] "Push a single image to its configured registry" (
-        [
+      imageDigestRecipe =
+        mkRecipeWithParams "image-digest" [''name''] "Show the SHA256 digest of a locally-built image" [
           "#!/usr/bin/env bash"
           "set -euo pipefail"
           "nix build .#images.{{name}}"
-          "case \"{{name}}\" in"
+          "${lib.getExe skopeoNix2container} inspect nix:./result | ${lib.getExe pkgs.jq} -r '.Digest'"
         ]
-        ++ lib.concatMap (imgKey: let
-          imgCfg = sysCfg.images.${imgKey};
-          reg = resolveRegistry imgKey;
-        in [
-          "  ${imgKey})"
-          "    DEST=\"${reg}/${imgCfg.name}:{{tag}}\""
-          "    ;;"
-        ])
-        imageNames
-        ++ [
-          "  *)"
-          "    echo \"error: unknown image '{{name}}'\" >&2"
-          "    exit 1"
-          "    ;;"
-          "esac"
-          "CREDS=${credsExpr}"
-          "${lib.getExe skopeoNix2container} copy --dest-creds \"$CREDS\" nix:./result \"docker://$DEST\""
-        ]
-      ) false;
+        false;
 
-      imagePushAllRecipe = mkRecipeWithParams "image-push-all" [''tag="latest"''] "Push all images defined in jackpkgs.images.images" (
-        [
-          "#!/usr/bin/env bash"
-          "set -euo pipefail"
-        ]
-        ++ map (imgName: "just image-push ${imgName} {{tag}}") imageNames
-      ) false;
-    in mkIf (system == cfg.linuxSystem) {
-      # Expose skopeo-nix2container for direct use
-      packages.skopeo-nix2container = skopeoNix2container;
+      imagePushRecipe =
+        mkRecipeWithParams "image-push" [''name'' ''tag="latest"''] "Push a single image to its configured registry" (
+          [
+            "#!/usr/bin/env bash"
+            "set -euo pipefail"
+            "nix build .#images.{{name}}"
+            "case \"{{name}}\" in"
+          ]
+          ++ lib.concatMap (imgKey: let
+            imgCfg = sysCfg.images.${imgKey};
+            reg = resolveRegistry imgKey;
+          in [
+            "  ${imgKey})"
+            "    DEST=\"${reg}/${imgCfg.name}:{{tag}}\""
+            "    ;;"
+          ])
+          imageNames
+          ++ [
+            "  *)"
+            "    echo \"error: unknown image '{{name}}'\" >&2"
+            "    exit 1"
+            "    ;;"
+            "esac"
+            "CREDS=${credsExpr}"
+            "${lib.getExe skopeoNix2container} copy --dest-creds \"$CREDS\" nix:./result \"docker://$DEST\""
+          ]
+        )
+        false;
 
-      just-flake = {
-        features.images = {
-          enable = true;
-          justfile = lib.concatStringsSep "\n\n" (
-            [imageBuildRecipe imageDigestRecipe]
-            ++ lib.optional (imageNames != []) imagePushRecipe
-            ++ lib.optional (imageNames != []) imagePushAllRecipe
-          );
+      imagePushAllRecipe =
+        mkRecipeWithParams "image-push-all" [''tag="latest"''] "Push all images defined in jackpkgs.images.images" (
+          [
+            "#!/usr/bin/env bash"
+            "set -euo pipefail"
+          ]
+          ++ map (imgName: "just image-push ${imgName} {{tag}}") imageNames
+        )
+        false;
+    in
+      mkIf (system == cfg.linuxSystem) {
+        # Expose skopeo-nix2container for direct use
+        packages.skopeo-nix2container = skopeoNix2container;
+
+        just-flake = {
+          features.images = {
+            enable = true;
+            justfile = lib.concatStringsSep "\n\n" (
+              [imageBuildRecipe imageDigestRecipe]
+              ++ lib.optional (imageNames != []) imagePushRecipe
+              ++ lib.optional (imageNames != []) imagePushAllRecipe
+            );
+          };
         };
       };
-    };
 
     # Top-level flake.images output — images are Linux-only, NOT perSystem packages.
     # Use getSystem to access the perSystem config for linuxSystem.
@@ -281,9 +288,11 @@ in {
 
         # Inject SSL_CERT_FILE automatically using the consumer's cacert
         # (from commonPackages / per-image packages), not jackpkgs' pinned nixpkgs.
-        cacertPkg = lib.findFirst (p: p.pname or "" == "cacert") null
+        cacertPkg =
+          lib.findFirst (p: p.pname or "" == "cacert") null
           (imageCfg.packages ++ linuxSysCfg.commonPackages);
-        sslEnv = lib.optional (cacertPkg != null)
+        sslEnv =
+          lib.optional (cacertPkg != null)
           "SSL_CERT_FILE=${cacertPkg}/etc/ssl/certs/ca-bundle.crt";
         imageEnv = imageCfg.env ++ sslEnv;
       in

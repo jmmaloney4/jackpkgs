@@ -186,7 +186,7 @@ in {
 
         ciPulumiEnv =
           pulumiBaseEnv
-          // { PULUMI_OPTION_NON_INTERACTIVE = "true"; }
+          // {PULUMI_OPTION_NON_INTERACTIVE = "true";}
           // lib.optionalAttrs (cfg.ci.authMode == "application-default-credentials") profileAdcPath;
 
         pulumiEnvHook = mkShellEnvHook {
@@ -198,7 +198,7 @@ in {
         # Local devshells intentionally omit it so interactive commands work.
         ciPulumiEnvHook = mkShellEnvHook {
           name = "jackpkgs-ci-pulumi-env-hook";
-          env = pulumiBaseEnv // { PULUMI_OPTION_NON_INTERACTIVE = "true"; };
+          env = pulumiBaseEnv // {PULUMI_OPTION_NON_INTERACTIVE = "true";};
         };
 
         # ADC path for the active gcp.profile. This uses $HOME expansion so it

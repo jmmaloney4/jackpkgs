@@ -1,8 +1,6 @@
 # Auto-generated Swift PM dependency pinning for spooktacular.
 # Regenerate: swift package resolve && scripts/update-swiftpm-deps.py
-{ fetchgit }:
-
-{
+{fetchgit}: {
   swift-argument-parser = fetchgit {
     url = "https://github.com/apple/swift-argument-parser";
     rev = "626b5b7b2f45e1b0b1c6f4a309296d1d21d7311b";

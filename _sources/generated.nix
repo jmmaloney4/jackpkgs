@@ -4,8 +4,7 @@
   fetchurl,
   fetchFromGitHub,
   dockerTools,
-}:
-{
+}: {
   nautilus-trader = {
     pname = "nautilus-trader";
     version = "4322f188466507e147b7cfdf121377a25d432f25";
@@ -19,7 +18,6 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-W2T4MwWHQzTOdstLrWZiqCnGYXPMXWr8vObBK69wcEc=/Cargo.lock";
       outputHashes = {
-        
       };
     };
     date = "2026-05-05";
@@ -49,7 +47,6 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock";
       outputHashes = {
-        
       };
     };
   };

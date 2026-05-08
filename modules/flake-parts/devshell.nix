@@ -89,7 +89,8 @@ in {
       justFlakeCfg = config.just-flake;
       commonJustfile = pkgs.writeTextFile {
         name = "justfile";
-        text = lib.concatStringsSep "\n"
+        text =
+          lib.concatStringsSep "\n"
           (lib.mapAttrsToList (_name: feature: feature.outputs.justfile) justFlakeCfg.features);
       };
 

@@ -572,10 +572,9 @@ in {
       # Python Checks
       # ============================================================
 
-      pythonChecks =
-        let
-          mypyDeprecationWarning = ''echo 'WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = "ty"' >&2'';
-        in
+      pythonChecks = let
+        mypyDeprecationWarning = ''echo 'WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = "ty"' >&2'';
+      in
         lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvWithDevTools != null && pythonWorkspaceMembers != [])
         (
           lib.optionalAttrs cfg.python.pytest.enable {
@@ -599,29 +598,31 @@ in {
             # Python type-check (workspace root)
             mypy =
               if cfg.python.mypy.typeChecker == "ty"
-              then mkCheck {
-                name = "mypy";
-                src = pythonCfg.workspaceRoot;
-                buildInputs = [pythonEnvWithDevTools cfg.python.mypy.tyPackage];
-                checkCommands = ''
-                  echo "Running ty check (workspace root)..."
-                  ty check --python ${pythonEnvWithDevTools} ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
-                '';
-              }
-              else mkCheck {
-                name = "mypy";
-                src = pythonCfg.workspaceRoot;
-                buildInputs = [pythonEnvWithDevTools];
-                setupCommands = ''
-                  export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
-                  export MYPY_CACHE_DIR=$TMPDIR/.mypy_cache
-                '';
-                checkCommands = ''
-                  ${mypyDeprecationWarning}
-                  echo "Running mypy (workspace root)..."
-                  mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
-                '';
-              };
+              then
+                mkCheck {
+                  name = "mypy";
+                  src = pythonCfg.workspaceRoot;
+                  buildInputs = [pythonEnvWithDevTools cfg.python.mypy.tyPackage];
+                  checkCommands = ''
+                    echo "Running ty check (workspace root)..."
+                    ty check --python ${pythonEnvWithDevTools} ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
+                  '';
+                }
+              else
+                mkCheck {
+                  name = "mypy";
+                  src = pythonCfg.workspaceRoot;
+                  buildInputs = [pythonEnvWithDevTools];
+                  setupCommands = ''
+                    export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+                    export MYPY_CACHE_DIR=$TMPDIR/.mypy_cache
+                  '';
+                  checkCommands = ''
+                    ${mypyDeprecationWarning}
+                    echo "Running mypy (workspace root)..."
+                    mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
+                  '';
+                };
           }
           // lib.optionalAttrs cfg.python.ruff.enable {
             # ruff check (workspace root)
