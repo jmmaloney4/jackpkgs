@@ -4,8 +4,7 @@
   fetchurl,
   fetchFromGitHub,
   dockerTools,
-}:
-{
+}: {
   spooktacular = {
     pname = "spooktacular";
     version = "f36634b84e1d38d81bd282b0f88a497557e4a520";
