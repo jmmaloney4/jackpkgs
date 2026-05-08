@@ -1,23 +1,23 @@
 {
-    "spooktacular": {
-        "cargoLock": null,
-        "date": "2026-04-19",
-        "extract": null,
-        "name": "spooktacular",
-        "passthru": null,
-        "pinned": false,
-        "src": {
-            "deepClone": false,
-            "fetchSubmodules": false,
-            "leaveDotGit": false,
-            "name": null,
-            "owner": "Spooky-Labs",
-            "repo": "spooktacular",
-            "rev": "f36634b84e1d38d81bd282b0f88a497557e4a520",
-            "sha256": "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=",
-            "sparseCheckout": [],
-            "type": "github"
-        },
-        "version": "f36634b84e1d38d81bd282b0f88a497557e4a520"
-    }
+	"spooktacular": {
+		"cargoLock": null,
+		"date": "2026-04-19",
+		"extract": null,
+		"name": "spooktacular",
+		"passthru": null,
+		"pinned": false,
+		"src": {
+			"deepClone": false,
+			"fetchSubmodules": false,
+			"leaveDotGit": false,
+			"name": null,
+			"owner": "Spooky-Labs",
+			"repo": "spooktacular",
+			"rev": "f36634b84e1d38d81bd282b0f88a497557e4a520",
+			"sha256": "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=",
+			"sparseCheckout": [],
+			"type": "github"
+		},
+		"version": "f36634b84e1d38d81bd282b0f88a497557e4a520"
+	}
 }

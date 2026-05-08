@@ -38,7 +38,7 @@ in
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-NCFfeBIZ52Z8DyNr6wR0ZBMCswPrMC92WfbWkqVbdCw=";
+    outputHash = "sha256-FLOdOAVLXgByoZj6yM9g6zGvce7qP3TupWNqC0ZExtg=";
 
     nativeBuildInputs = [git];
 
@@ -74,11 +74,13 @@ in
       mkdir -p "$out/bin"
       cp .build/release/spook "$out/bin/spook"
 
-      # Codesign with Virtualization.framework entitlements from source tree.
-      # Without this, Virtualization.framework XPC services reject the binary
-      # at runtime ("Unable to connect to installation service").
+      # Codesign with Virtualization.framework entitlements.
+      # Uses a custom entitlements file that drops com.apple.security.app-sandbox.
+      # The upstream SpookCLI.entitlements includes sandbox for App Store distribution,
+      # but adhoc-signed binaries with that entitlement hit SIGTRAP because macOS
+      # enforces the sandbox too aggressively for CLI usage.
       /usr/bin/codesign \
-        --entitlements SpookCLI.entitlements \
+        --entitlements ${./spook-entitlements.plist} \
         --force \
         -s - \
         "$out/bin/spook"
