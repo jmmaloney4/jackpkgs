@@ -1,5 +1,4 @@
 {jackpkgsInputs}: {
-  inputs,
   config,
   lib,
   ...
@@ -15,7 +14,7 @@ in {
     inherit (jackpkgsInputs.flake-parts.lib) mkDeferredModuleOption;
   in {
     jackpkgs.kubeconfig = {
-      enable = mkEnableOption "jackpkgs-kubeconfig" // {default = false;};
+      enable = mkEnableOption "jackpkgs-kubeconfig";
 
       pulumiStackOutput = mkOption {
         type = types.submodule {
@@ -72,7 +71,7 @@ in {
 
         kubeconfigRecipe =
           mkRecipe "kubeconfig"
-          "Write kubeconfig from Pulumi stack output to \\$KUBECONFIG"
+          "Write kubeconfig from Pulumi stack output to $KUBECONFIG"
           [
             "#!/usr/bin/env bash"
             "set -euo pipefail"
@@ -80,8 +79,8 @@ in {
             "  echo \"KUBECONFIG not set — run from the nix devshell\" >&2"
             "  exit 1"
             "fi"
-            "${pulumiExe} -C ${lib.escapeShellArg cfg.pulumiStackOutput.path} stack output kubeconfig --stack ${lib.escapeShellArg cfg.pulumiStackOutput.stack} --show-secrets > \"\\$KUBECONFIG\""
-            "echo \"kubeconfig written to \\$KUBECONFIG\""
+            "${pulumiExe} -C ${lib.escapeShellArg cfg.pulumiStackOutput.path} stack output kubeconfig --stack ${lib.escapeShellArg cfg.pulumiStackOutput.stack} --show-secrets > \"$KUBECONFIG\""
+            "echo \"kubeconfig written to $KUBECONFIG\""
           ]
           false;
       in {
