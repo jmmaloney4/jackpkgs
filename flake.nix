@@ -37,7 +37,6 @@
     nix-unit = {
       url = "github:nix-community/nix-unit";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-parts.follows = "flake-parts";
       inputs.treefmt-nix.follows = "treefmt";
     };
     nix2container = {
@@ -246,8 +245,6 @@
             // {
               # nix-unit expects an input named 'treefmt-nix', but we call it 'treefmt'
               treefmt-nix = sanitizeInput inputs.treefmt;
-              # Override nix-unit's own flake-parts dependency to use ours
-              "nix-unit/flake-parts" = sanitizeInput inputs.flake-parts;
               "nix-unit/nixpkgs" = sanitizeInput inputs.nixpkgs;
               "nix-unit/treefmt-nix" = sanitizeInput inputs.treefmt;
             };
