@@ -38,7 +38,7 @@ in
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-W9pbXoj0H+QV/5169O30/77dOkydyKcpYnw/YyGa6gE=";
+    outputHash = "sha256-NCFfeBIZ52Z8DyNr6wR0ZBMCswPrMC92WfbWkqVbdCw=";
 
     nativeBuildInputs = [git];
 
