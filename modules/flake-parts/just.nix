@@ -306,6 +306,7 @@ in {
                 [authRecipe]
                 ++ lib.optional (cfg.gcp.profile != null) authStatusRecipe
                 ++ lib.optional (cfg.pulumi.enable && cfg.pulumi.stacks != []) config.jackpkgs.outputs.pulumiJustfile
+                ++ lib.optional cfg.kubeconfig.enable config.jackpkgs.outputs.kubeconfigJustfile
                 ++ [
                   # new-stack recipe
                   "# Create a new Pulumi stack (usage: just new-stack <project-path> <stack-name>)"

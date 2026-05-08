@@ -18,6 +18,7 @@
       quarto = import ./quarto.nix {jackpkgsInputs = inputs;};
       python = import ./python.nix {jackpkgsInputs = inputs;};
       container = import ./container.nix {jackpkgsInputs = inputs;};
+      kubeconfig = import ./kubeconfig.nix {jackpkgsInputs = inputs;};
     };
   };
 }
