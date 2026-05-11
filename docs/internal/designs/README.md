@@ -49,6 +49,12 @@ If an ADR is superseded, add cross-links in both directions.
 - Link to related PRs, issues, and prior ADRs
 - Use MUST/SHOULD language for normative statements (RFC 2119)
 
+## Index
+
+| # | Title | Status |
+|---|-------|--------|
+| 036 | [Unified `just cut` Release Recipe](036-cut-release-recipe.md) | Proposed |
+
 ## Template
 
 Start from `000-adr-template.md` for all new ADRs.
