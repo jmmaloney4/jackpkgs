@@ -388,7 +388,7 @@ in {
 
             # Generate npm version bump commands at Nix eval time
             npmBumpCommands = map (f:
-              "node -e \"const fs = require('fs'); const p = '${f.path}'; const j = JSON.parse(fs.readFileSync(p)); j.version = '\${new_version}'; fs.writeFileSync(p, JSON.stringify(j, null, '\\t') + '\\n');\""
+              "node -e \"const fs = require('fs'); const p = process.argv[1]; const j = JSON.parse(fs.readFileSync(p)); j.version = '\${new_version}'; fs.writeFileSync(p, JSON.stringify(j, null, '\\t') + '\\n');\" \"${f.path}\""
             ) npmFiles;
 
             # Commands for the cut recipe when files are configured
@@ -466,8 +466,9 @@ in {
               "esac"
               ""
               "new_tag=\"v\$new_version\""
-              "git tag -a \"\$new_tag\" -m \"Release \$new_tag\""
-              "git push origin \"\$new_tag\""
+              "target_commit=$(git rev-parse \"\$main_remote/\$main_branch\")"
+              "git tag -a \"\$new_tag\" -m \"Release \$new_tag\" \"\$target_commit\""
+              "git push \"\$main_remote\" \"\$new_tag\""
               ];
 
             cutCommands = if hasFiles then cutWithFilesCommands else cutTagOnlyCommands;
