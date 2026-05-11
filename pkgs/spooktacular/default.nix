@@ -10,12 +10,14 @@
 }:
 # Spooktacular CLI ("spook") manages macOS virtual machines via
 # Apple's Virtualization.framework.  Built with system Swift because
-# the Nix apple-sdk lacks Virtualization.framework.
+# upstream requires swift-tools-version: 6.0 and nixpkgs ships 5.10.1.
+# See garden ADR 059 for the full packaging context.
 #
 # Strategy: fixed-output derivation because macOS Nix build isolation
 # prevents Swift PM from writing .build/ artifacts in a normal derivation.
 # Dependencies are pre-fetched via swiftpm-deps.nix so no git clone happens
-# at build time.  The FOD hash is impure against the system Swift version only.
+# at build time.  The FOD hash is impure against the system Swift version
+# -- it will drift whenever hermione's Xcode CLI tools update.
 #
 # IMPORTANT: The binary is codesigned with SpookCLI.entitlements from the
 # source tree.  Without the com.apple.security.virtualization entitlement,
@@ -38,7 +40,7 @@ in
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-lgT8JjyN96HL0ayog6Xp7dG6kzQHjglnGGOkk6AwTHo=";
+    outputHash = "sha256-S5Q7Ds7FG865ZMJNDIpGZ9G8lakyUuKd9OdMCdBERUw=";
 
     nativeBuildInputs = [git];
 
