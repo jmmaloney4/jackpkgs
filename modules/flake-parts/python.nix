@@ -122,6 +122,18 @@ in {
               '';
             };
 
+            ignoreCollisions = mkOption {
+              type = types.listOf types.str;
+              default = [];
+              description = ''
+                fnmatch glob patterns for files to ignore during venv creation when
+                multiple packages provide the same path with different content.
+                Passed to pyproject.nix venvIgnoreCollisions.
+
+                Example: [ "*/site-packages/dbt/*" ]
+              '';
+            };
+
             passthru = mkOption {
               type = types.attrs;
               default = {};
@@ -358,12 +370,19 @@ in {
         mkEnvForSpec = {
           name,
           spec,
+          ignoreCollisions ? [],
         }:
-          addMainProgram (pythonSet.mkVirtualEnv name spec);
+          let
+            env = addMainProgram (pythonSet.mkVirtualEnv name spec);
+          in
+            if ignoreCollisions != []
+            then env.overrideAttrs (_: { venvIgnoreCollisions = ignoreCollisions; })
+            else env;
 
         mkEnv = {
           name,
           spec ? null,
+          ignoreCollisions ? [],
         }: let
           finalSpec =
             if spec == null
@@ -373,6 +392,7 @@ in {
           mkEnvForSpec {
             inherit name;
             spec = finalSpec;
+            inherit ignoreCollisions;
           };
 
         mkEditableEnv = {
@@ -380,6 +400,7 @@ in {
           spec ? null,
           members ? null,
           root ? null,
+          ignoreCollisions ? [],
         }: let
           finalSpec =
             if spec == null
@@ -395,7 +416,12 @@ in {
           overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
           editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
         in
-          addMainProgram (editableSet.mkVirtualEnv name finalSpec);
+          let
+            env = addMainProgram (editableSet.mkVirtualEnv name finalSpec);
+          in
+            if ignoreCollisions != []
+            then env.overrideAttrs (_: { venvIgnoreCollisions = ignoreCollisions; })
+            else env;
 
         pythonWorkspace = {
           inherit workspace pythonSet defaultSpec computeSpec;
@@ -431,11 +457,13 @@ in {
                   spec = finalSpec;
                   members = envCfg.members;
                   root = envCfg.editableRoot;
+                  inherit (envCfg) ignoreCollisions;
                 }
               else
                 pythonWorkspace.mkEnv {
                   name = envCfg.name;
                   spec = finalSpec;
+                  inherit (envCfg) ignoreCollisions;
                 }
           )
           cfg.environments;
