@@ -53,7 +53,7 @@ If an ADR is superseded, add cross-links in both directions.
 
 | # | Title | Status |
 |---|-------|--------|
-| 036 | [Unified `just cut` Release Recipe](036-cut-release-recipe.md) | Proposed |
+| 036 | [Unified `just cut` Release Recipe](036-cut-release-recipe.md) | Accepted |
 
 ## Template
 

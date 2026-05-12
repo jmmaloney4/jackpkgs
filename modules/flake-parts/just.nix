@@ -144,6 +144,37 @@ in {
           defaultText = "config.jackpkgs.pkgs.writeShellScriptBin \"release-utils\" (builtins.readFile ./release-utils.sh)";
           description = "Shared utilities for release scripts.";
         };
+
+        # Unified cut release recipe
+        cut = {
+          enable = mkEnableOption "unified cut release recipe" // {default = false;};
+          files = mkOption {
+            type = types.listOf (types.submodule {
+              options = {
+                type = mkOption {
+                  type = types.enum ["npm"];
+                  description = "File type for version bumping.";
+                };
+                path = mkOption {
+                  type = types.str;
+                  description = "Repository-relative path to the version file.";
+                };
+              };
+            });
+            default = [];
+            description = "Version files to bump on release.";
+          };
+          commitMessage = mkOption {
+            type = types.str;
+            default = "release: bump to {version}";
+            description = "Commit message template. {version} is replaced with the new version.";
+          };
+          branch = mkOption {
+            type = types.str;
+            default = "main";
+            description = "Branch that releases must be cut from.";
+          };
+        };
       };
     });
   };
@@ -348,30 +379,78 @@ in {
                 false)
             ];
           };
-          release = {
-            enable = true;
-            justfile = lib.concatStringsSep "\n" [
-              "# New minor release"
-              "release:"
-              "    #!/usr/bin/env bash"
-              "    set -euo pipefail"
-              "    set -x"
+          release = let
+            cutCfg = sysCfg.cut;
+            hasFiles = cutCfg.files != [];
+            npmFiles = lib.filter (f: f.type == "npm") cutCfg.files;
+            allFilePaths = map (f: f.path) cutCfg.files;
+            commitMsg = lib.replaceStrings ["{version}"] ["\${new_version}"] cutCfg.commitMessage;
+
+            # Generate npm version bump commands at Nix eval time
+            npmBumpCommands = map (f:
+              "node -e \"const fs = require('fs'); const p = process.argv[1]; const j = JSON.parse(fs.readFileSync(p)); j.version = '\${new_version}'; fs.writeFileSync(p, JSON.stringify(j, null, '\\t') + '\\n');\" \"${f.path}\""
+            ) npmFiles;
+
+            # Commands for the cut recipe when files are configured
+            cutWithFilesCommands =
+              [
+                "#!/usr/bin/env bash"
+                "set -euo pipefail"
+                ""
+                "branch=$(git branch --show-current)"
+                "if [[ \\\"\\$branch\\\" != ${lib.escapeShellArg cutCfg.branch} ]]; then"
+                "  echo \"Must be on ${lib.escapeShellArg cutCfg.branch} (currently on \${branch})\" >&2"
+                "  exit 1"
+                "fi"
+                ""
+                "if ! git diff --quiet || ! git diff --cached --quiet; then"
+                "  echo \"Working tree dirty. Commit or stash first.\" >&2"
+                "  exit 1"
+                "fi"
+                ""
+                "git pull --ff-only origin ${lib.escapeShellArg cutCfg.branch}"
+                ""
+                "source ${lib.getExe sysCfg.releaseUtils}"
+                "latest_tag=$(get_latest_tag)"
+                ""
+                "    version=\${latest_tag#v}"
+                "IFS='.' read -r major minor patch <<< \"\$version\""
+                ""
+                "case \"\$level\" in"
+                "  patch) new_version=\"\$major.\$minor.\$((patch + 1))\" ;;"
+                "  minor) new_version=\"\$major.\$((minor + 1)).0\" ;;"
+                "  major) new_version=\"\$((major + 1)).0.0\" ;;"
+                "  *)     echo \"Unknown level: \$level (use patch, minor, or major)\" >&2; exit 1 ;;"
+                "esac"
+                ""
+                "new_tag=\"v\$new_version\""
+                "echo \"\${latest_tag} -> \${new_tag} (\$level)\""
+              ]
+              ++ npmBumpCommands
+              ++ [
+                ""
+                "git add ${lib.escapeShellArgs allFilePaths}"
+                "git commit -m ${lib.escapeShellArg commitMsg}"
+                ""
+                "git tag -a \"\$new_tag\" -m \"Release \$new_tag\""
+                "git push --atomic origin ${lib.escapeShellArg cutCfg.branch} \"\$new_tag\""
+                ""
+                "echo \"Cut \${new_tag} and pushed to origin.\""
+              ];
+
+            # Commands for the cut recipe when no files configured (tag-only)
+            cutTagOnlyCommands = [
+              "#!/usr/bin/env bash"
+              "set -euo pipefail"
+              "set -x"
               ""
-              "    # Source shared utilities"
-              "    source ${lib.getExe sysCfg.releaseUtils}"
+              "source ${lib.getExe sysCfg.releaseUtils}"
               ""
-              "    echo \"🏷️  Creating new semver minor release...\" >&2"
+              "main_remote=\"origin\""
+              "main_branch=${lib.escapeShellArg cutCfg.branch}"
               ""
-              "    # Always operate on origin/main, regardless of current checkout"
-              "    main_remote=\"origin\""
-              "    main_branch=\"main\""
-              ""
-              "    # Use shared functions"
-              "    fetch_latest \"$main_remote\" \"$main_branch\""
-              "    latest_tag=$(get_latest_tag)"
-              ""
-              "    echo \"📋 Latest tag: $latest_tag\" >&2"
-              ""
+              "fetch_latest \"\$main_remote\" \"\$main_branch\""
+              "latest_tag=$(get_latest_tag)"
               "    # Extract version numbers (remove 'v' prefix)"
               "    version=\${latest_tag#v}"
               "    major=\${version%%.*}"
@@ -379,55 +458,116 @@ in {
               "    minor=\${minor%%.*}"
               "    patch=\${version##*.}"
               ""
-              "    # Increment minor version and reset patch to 0"
-              "    new_minor=$((minor + 1))"
-              "    new_version=\"$major.$new_minor.0\""
-              "    new_tag=\"v$new_version\""
+              "case \"\$level\" in"
+              "  patch) new_patch=\$((patch + 1)); new_version=\"\$major.\$minor.\$new_patch\" ;;"
+              "  minor) new_minor=\$((minor + 1)); new_version=\"\$major.\$new_minor.0\" ;;"
+              "  major) new_major=\$((major + 1)); new_version=\"\$new_major.0.0\" ;;"
+              "  *)     echo \"Unknown level: \$level\" >&2; exit 1 ;;"
+              "esac"
               ""
-              "    echo \"🆕 New tag: $new_tag\" >&2"
-              ""
-              "    # Use shared function to create and push tag"
-              "    create_and_push_tag \"$new_tag\" \"$main_remote\" \"$main_branch\""
+              "new_tag=\"v\$new_version\""
+              "target_commit=$(git rev-parse \"\$main_remote/\$main_branch\")"
+              "git tag -a \"\$new_tag\" -m \"Release \$new_tag\" \"\$target_commit\""
+              "git push \"\$main_remote\" \"\$new_tag\""
+              ];
+
+            cutCommands = if hasFiles then cutWithFilesCommands else cutTagOnlyCommands;
+
+            cutJustfile = lib.concatStringsSep "\n" [
+              (mkRecipeWithParams "cut" [''level="patch"''] "Cut a release: bump version files, commit, tag, push (patch|minor|major)" cutCommands false)
               ""
               "# Bump patch version"
               "bump:"
-              "    #!/usr/bin/env bash"
-              "    set -euo pipefail"
-              "    set -x"
+              "    @just cut level=\"patch\""
               ""
-              "    # Source shared utilities"
-              "    source ${lib.getExe sysCfg.releaseUtils}"
-              ""
-              "    echo \"🏷️  Creating new semver patch release...\" >&2"
-              ""
-              "    # Always operate on origin/main, regardless of current checkout"
-              "    main_remote=\"origin\""
-              "    main_branch=\"main\""
-              ""
-              "    # Use shared functions"
-              "    fetch_latest \"$main_remote\" \"$main_branch\""
-              "    latest_tag=$(get_latest_tag)"
-              ""
-              "    echo \"📋 Latest tag: $latest_tag\" >&2"
-              ""
-              "    # Extract version numbers (remove 'v' prefix)"
-              "    version=\${latest_tag#v}"
-              "    major=\${version%%.*}"
-              "    minor=\${version#*.}"
-              "    minor=\${minor%%.*}"
-              "    patch=\${version##*.}"
-              ""
-              "    # Increment patch version"
-              "    new_patch=$((patch + 1))"
-              "    new_version=\"$major.$minor.$new_patch\""
-              "    new_tag=\"v$new_version\""
-              ""
-              "    echo \"🆕 New tag: $new_tag\" >&2"
-              ""
-              "    # Use shared function to create and push tag"
-              "    create_and_push_tag \"$new_tag\" \"$main_remote\" \"$main_branch\""
+              "# New minor release"
+              "release:"
+              "    @just cut level=\"minor\""
               ""
             ];
+          in {
+            enable = true;
+            justfile =
+              if cutCfg.enable
+              then cutJustfile
+              else lib.concatStringsSep "\n" [
+                "# New minor release"
+                "release:"
+                "    #!/usr/bin/env bash"
+                "    set -euo pipefail"
+                "    set -x"
+                ""
+                "    # Source shared utilities"
+                "    source ${lib.getExe sysCfg.releaseUtils}"
+                ""
+                "    echo \"🏷️  Creating new semver minor release...\" >&2"
+                ""
+                "    # Always operate on origin/main, regardless of current checkout"
+                "    main_remote=\"origin\""
+                "    main_branch=\"main\""
+                ""
+                "    # Use shared functions"
+                "    fetch_latest \"$main_remote\" \"$main_branch\""
+                "    latest_tag=$(get_latest_tag)"
+                ""
+                "    echo \"📋 Latest tag: $latest_tag\" >&2"
+                ""
+            "    # Extract version numbers (remove 'v' prefix)"
+            "    version=\${latest_tag#v}"
+            "    major=\${version%%.*}"
+            "    minor=\${version#*.}"
+            "    minor=\${minor%%.*}"
+            "    patch=\${version##*.}"
+                ""
+                "    # Increment minor version and reset patch to 0"
+                "    new_minor=$((minor + 1))"
+                "    new_version=\"$major.$new_minor.0\""
+                "    new_tag=\"v$new_version\""
+                ""
+                "    echo \"🆕 New tag: $new_tag\" >&2"
+                ""
+                "    # Use shared function to create and push tag"
+                "    create_and_push_tag \"$new_tag\" \"$main_remote\" \"$main_branch\""
+                ""
+                "# Bump patch version"
+                "bump:"
+                "    #!/usr/bin/env bash"
+                "    set -euo pipefail"
+                "    set -x"
+                ""
+                "    # Source shared utilities"
+                "    source ${lib.getExe sysCfg.releaseUtils}"
+                ""
+                "    echo \"🏷️  Creating new semver patch release...\" >&2"
+                ""
+                "    # Always operate on origin/main, regardless of current checkout"
+                "    main_remote=\"origin\""
+                "    main_branch=\"main\""
+                ""
+                "    # Use shared functions"
+                "    fetch_latest \"$main_remote\" \"$main_branch\""
+                "    latest_tag=$(get_latest_tag)"
+                ""
+                "    echo \"📋 Latest tag: $latest_tag\" >&2"
+                ""
+            "    # Extract version numbers (remove 'v' prefix)"
+            "    version=\${latest_tag#v}"
+            "    major=\${version%%.*}"
+            "    minor=\${version#*.}"
+            "    minor=\${minor%%.*}"
+            "    patch=\${version##*.}"
+                ""
+                "    # Increment patch version"
+                "    new_patch=$((patch + 1))"
+                "    new_version=\"$major.$minor.$new_patch\""
+                "    new_tag=\"v$new_version\""
+                ""
+                "    echo \"🆕 New tag: $new_tag\" >&2"
+                ""
+                "    # Use shared function to create and push tag"
+                "    create_and_push_tag \"$new_tag\" \"$main_remote\" \"$main_branch\""
+                ""
+              ];
           };
           nix = {
             enable = true;

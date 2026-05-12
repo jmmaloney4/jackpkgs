@@ -183,4 +183,63 @@ in {
             echo "Token:    EXPIRED — run 'just auth'"
         fi
   '';
+
+  # Test cut release recipe pattern (tag-only mode, no files)
+  testCutTagOnly = mkJustParseTest "cut-tag-only" (
+    mkRecipeWithParams "cut" [''level="patch"''] "Cut a release: tag and push (patch|minor|major)" [
+      "#!/usr/bin/env bash"
+      "set -euo pipefail"
+      ""
+      "latest_tag=$(git describe --tags --abbrev=0)"
+      "version=\${latest_tag#v}"
+      "IFS='.' read -r major minor patch <<< \"\$version\""
+      ""
+      "case \"\$level\" in"
+      "  patch) new_version=\"\$major.\$minor.\$((patch + 1))\" ;;"
+      "  minor) new_version=\"\$major.\$((minor + 1)).0\" ;;"
+      "  major) new_version=\"\$((major + 1)).0.0\" ;;"
+      "  *)     echo \"Unknown level: \$level\" >&2; exit 1 ;;"
+      "esac"
+      ""
+      "new_tag=\"v\$new_version\""
+      "git tag -a \"\$new_tag\" -m \"Release \$new_tag\""
+      "git push --atomic origin main \"\$new_tag\""
+    ] false
+  );
+
+  # Test cut release recipe pattern (with npm file bump)
+  testCutWithNpm = mkJustParseTest "cut-with-npm" (
+    lib.concatStringsSep "\n" [
+      (mkRecipeWithParams "cut" [''level="patch"''] "Cut a release: bump version files, commit, tag, push" [
+        "#!/usr/bin/env bash"
+        "set -euo pipefail"
+        ""
+        "latest_tag=$(git describe --tags --abbrev=0)"
+        "version=\${latest_tag#v}"
+        "IFS='.' read -r major minor patch <<< \"\$version\""
+        ""
+        "case \"\$level\" in"
+        "  patch) new_version=\"\$major.\$minor.\$((patch + 1))\" ;;"
+        "  minor) new_version=\"\$major.\$((minor + 1)).0\" ;;"
+        "  *)     echo \"Unknown level: \$level\" >&2; exit 1 ;;"
+        "esac"
+        ""
+        "new_tag=\"v\$new_version\""
+        "node -e \"const fs = require('fs'); const j = JSON.parse(fs.readFileSync('package.json')); j.version = '\${new_version}'; fs.writeFileSync('package.json', JSON.stringify(j, null, '\\t') + '\\n');\""
+        ""
+        "git add package.json"
+        "git commit -m \"release: bump to \${new_version}\""
+        "git tag -a \"\$new_tag\" -m \"Release \$new_tag\""
+        "git push --atomic origin main \"\$new_tag\""
+      ] false)
+      ""
+      "# Bump patch version"
+      "bump:"
+      "    @just cut level=\"patch\""
+      ""
+      "# New minor release"
+      "release:"
+      "    @just cut level=\"minor\""
+    ]
+  );
 }
