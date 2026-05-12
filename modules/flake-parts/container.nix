@@ -274,6 +274,10 @@ in {
               copyToRoot = linuxPkgs.buildEnv {
                 name = "common-env";
                 paths = linuxSysCfg.commonPackages;
+                # Python packages (e.g. dbt-bigquery and dbt-core) may ship identical
+                # files under different store paths. Container images are isolated
+                # environments, so duplicate content is harmless.
+                ignoreCollisions = true;
               };
             }
           else null;
