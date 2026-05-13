@@ -77,12 +77,13 @@ in {
           };
 
           tyPackage = mkOption {
-            type = types.package;
-            default = config.jackpkgs.pkgs.ty;
-            defaultText = "config.jackpkgs.pkgs.ty";
+            type = types.nullOr types.package;
+            default = null;
+            defaultText = "null (resolved to config.jackpkgs.pkgs.ty in perSystem)";
             description = ''
               `ty` binary package to use when `typeChecker = "ty"`.
-              Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs).
+              Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs) when null,
+              resolved lazily in perSystem context.
             '';
           };
 
@@ -574,6 +575,10 @@ in {
 
       pythonChecks = let
         mypyDeprecationWarning = ''echo 'WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = "ty"' >&2'';
+        tyPackage =
+          if cfg.python.mypy.tyPackage != null
+          then cfg.python.mypy.tyPackage
+          else config.jackpkgs.pkgs.ty;
       in
         lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvWithDevTools != null && pythonWorkspaceMembers != [])
         (
@@ -602,7 +607,7 @@ in {
                 mkCheck {
                   name = "mypy";
                   src = pythonCfg.workspaceRoot;
-                  buildInputs = [pythonEnvWithDevTools cfg.python.mypy.tyPackage];
+                  buildInputs = [pythonEnvWithDevTools tyPackage];
                   checkCommands = ''
                     echo "Running ty check (workspace root)..."
                     ty check --python ${pythonEnvWithDevTools} ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
