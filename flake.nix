@@ -192,7 +192,7 @@
                   // pnpmDepsArgs));
               nativeBuildInputs = [
                 pkgs.nodejs_24
-                pkgs.pnpm_10
+                pkgs.pnpm_11
                 pkgs.pnpmConfigHook
               ];
               dontBuild = true;

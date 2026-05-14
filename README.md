@@ -298,7 +298,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     - `pnpmDepsHash` (string, required when enabled) - FOD hash for `fetchPnpmDeps` -- top-level option
     - `projectRoot` (path, default `config.jackpkgs.projectRoot or inputs.self.outPath`) -- top-level option
     - `package` (package, default `config.jackpkgs.pkgs.nodejs_24`) - Node.js derivation -- per-system option
-    - `pnpmPackage` (package, default `config.jackpkgs.pkgs.pnpm_10`) - pnpm derivation -- per-system option
+    - `pnpmPackage` (package, default `config.jackpkgs.pkgs.pnpm_11`) - pnpm derivation -- per-system option
   - Outputs:
     - `jackpkgs.outputs.nodeModules` - derivation containing `node_modules/`
     - `jackpkgs.outputs.pnpmDeps` - derivation containing fetched pnpm deps (for debugging/caching)
@@ -315,7 +315,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
       perSystem = { pkgs, ... }: {
         jackpkgs.nodejs = {
           package = pkgs.nodejs_24;
-          pnpmPackage = pkgs.pnpm_10;
+          pnpmPackage = pkgs.pnpm_11;
         };
       };
     }
