@@ -5,6 +5,17 @@
   fetchFromGitHub,
   dockerTools,
 }: {
+  codex-proxy = {
+    pname = "codex-proxy";
+    version = "1.0.0";
+    src = fetchFromGitHub {
+      owner = "dvcrn";
+      repo = "codex-proxy";
+      rev = "1.0.0";
+      fetchSubmodules = false;
+      sha256 = "sha256-o3GQ6R9vqioqIhqJ7GXVfM9vzEVhwiFLf5zp4xjcuIo=";
+    };
+  };
   spooktacular = {
     pname = "spooktacular";
     version = "f36634b84e1d38d81bd282b0f88a497557e4a520";
