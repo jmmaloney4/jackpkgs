@@ -10,11 +10,13 @@ buildGoModule {
   pname = "codex-proxy";
   inherit version src;
 
-  # Vendor dir is out of sync with go.mod; remove it and fetch from module proxy
+  # Vendor dir in upstream is out of sync with go.mod; delete it and use module proxy
   vendorHash = null;
-  preBuild = ''
-    rm -rf vendor
-  '';
+  proxyVendor = false;
+  deleteVendor = true;
+
+  # Tell Go to fetch from module proxy instead of using vendor directory
+  GOFLAGS = "-mod=mod";
 
   doCheck = false;
 
