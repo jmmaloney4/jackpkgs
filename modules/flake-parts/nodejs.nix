@@ -95,6 +95,7 @@ in {
         version = "1.0.0";
         src = cfg.projectRoot;
         fetcherVersion = 3;
+        pnpm = sysCfg.pnpmPackage;
         hash = cfg.pnpmDepsHash;
       };
 
