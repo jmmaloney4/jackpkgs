@@ -16,7 +16,7 @@ buildGoModule {
   deleteVendor = true;
 
   # Tell Go to fetch from module proxy instead of using vendor directory
-  GOFLAGS = "-mod=mod";
+  GOFLAGS = [ "-mod=mod" ];
 
   doCheck = false;
 
