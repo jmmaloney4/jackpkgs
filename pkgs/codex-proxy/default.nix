@@ -10,9 +10,11 @@ buildGoModule {
   pname = "codex-proxy";
   inherit version src;
 
-  # Vendor dir is out of sync with go.mod; fetch from module proxy instead
-  modFlags = "-mod=mod";
+  # Vendor dir is out of sync with go.mod; remove it and fetch from module proxy
   vendorHash = null;
+  preBuild = ''
+    rm -rf vendor
+  '';
 
   doCheck = false;
 
@@ -24,7 +26,7 @@ buildGoModule {
   meta = {
     description = "Expose ChatGPT Codex through standard OpenAI APIs";
     homepage = "https://github.com/dvcrn/codex-proxy";
-    license = lib.licenses.unfree;
+    license = lib.licenses.mit;
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
     mainProgram = "codex-proxy";
   };
