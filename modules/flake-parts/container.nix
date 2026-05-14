@@ -289,7 +289,9 @@ in {
         # Inject SSL_CERT_FILE automatically using the consumer's cacert
         # (from commonPackages / per-image packages), not jackpkgs' pinned nixpkgs.
         cacertPkg =
-          lib.findFirst (p: p.pname or "" == "cacert") null
+          lib.findFirst
+          (p: lib.isAttrs p && lib.elem (p.pname or "") ["nss-cacert" "cacert"])
+          null
           (imageCfg.packages ++ linuxSysCfg.commonPackages);
         sslEnv =
           lib.optional (cacertPkg != null)
