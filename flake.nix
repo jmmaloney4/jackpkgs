@@ -114,17 +114,20 @@
         );
         allPackages = {
           csharpier = pkgs.callPackage ./pkgs/csharpier {};
+          codex-proxy = pkgs.callPackage ./pkgs/codex-proxy {
+            inherit (nvfetcherSources.codex-proxy) src version;
+          };
           docfx = pkgs.callPackage ./pkgs/docfx {};
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           imessage-bridge = pkgs.callPackage ./pkgs/imessage-bridge {};
           lean = pkgs.callPackage ./pkgs/lean {};
-          seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
             inherit (nvfetcherSources.nautilus-trader) src version cargoLock;
             cargo = nautilusRustToolchain;
             rustc = nautilusRustToolchain;
             rustPlatform = nautilusRustPlatform;
           };
+          seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           spooktacular = pkgs.callPackage ./pkgs/spooktacular {
             inherit (nvfetcherSources.spooktacular) src date;
           };

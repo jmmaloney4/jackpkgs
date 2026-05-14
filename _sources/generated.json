@@ -19,5 +19,78 @@
             "type": "github"
         },
         "version": "1.0.0"
+    },
+    "nautilus-trader": {
+        "cargoLock": {
+            "Cargo.lock": [
+                "sha256-zUBKHpxptOK0d7qIC0rtgG3u2IrcJHCI7eKyo4SSVYU=/Cargo.lock",
+                {}
+            ]
+        },
+        "date": "2026-05-14",
+        "extract": null,
+        "name": "nautilus-trader",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "nautechsystems",
+            "repo": "nautilus_trader",
+            "rev": "2a8953d4a87f75df8cecad07a50c4452f534528b",
+            "sha256": "sha256-zUBKHpxptOK0d7qIC0rtgG3u2IrcJHCI7eKyo4SSVYU=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "2a8953d4a87f75df8cecad07a50c4452f534528b"
+    },
+    "spooktacular": {
+        "cargoLock": null,
+        "date": "2026-04-19",
+        "extract": null,
+        "name": "spooktacular",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "Spooky-Labs",
+            "repo": "spooktacular",
+            "rev": "f36634b84e1d38d81bd282b0f88a497557e4a520",
+            "sha256": "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "f36634b84e1d38d81bd282b0f88a497557e4a520"
+    },
+    "tod": {
+        "cargoLock": {
+            "Cargo.lock": [
+                "sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock",
+                {}
+            ]
+        },
+        "date": null,
+        "extract": null,
+        "name": "tod",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "alanvardy",
+            "repo": "tod",
+            "rev": "v0.12.1",
+            "sha256": "sha256-091/1go/dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "v0.12.1"
     }
 }

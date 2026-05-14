@@ -1,7 +1,3 @@
-[codex-proxy]
-src.github = "dvcrn/codex-proxy"
-fetch.github = "dvcrn/codex-proxy"
-
 [nautilus-trader]
 src.git = "https://github.com/nautechsystems/nautilus_trader"
 fetch.github = "nautechsystems/nautilus_trader"
@@ -15,3 +11,7 @@ cargo_lock = ["Cargo.lock"]
 [spooktacular]
 src.git = "https://github.com/Spooky-Labs/spooktacular"
 fetch.github = "Spooky-Labs/spooktacular"
+
+[codex-proxy]
+src.github = "dvcrn/codex-proxy"
+fetch.github = "dvcrn/codex-proxy"
