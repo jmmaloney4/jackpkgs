@@ -10,12 +10,14 @@ buildGoModule {
   pname = "codex-proxy";
   inherit version src;
 
-  # Upstream vendor dir is out of sync with go.mod.
-  # With proxyVendor = false and vendorHash = null, nixpkgs should
-  # skip vendor mode entirely and fetch dependencies from module proxy.
+  # Upstream vendor dir is broken (out of sync with go.mod).
+  # Delete it in preConfigurePhase so nixpkgs doesn't try to use it.
+  # With vendorHash = null and no vendor dir, nixpkgs should fall back
+  # to fetching from module proxy.
   vendorHash = null;
-  proxyVendor = false;
-  deleteVendor = true;
+  preConfigurePhase = ''
+    rm -rf vendor
+  '';
 
   doCheck = false;
 
