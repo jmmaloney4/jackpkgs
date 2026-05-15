@@ -6,33 +6,40 @@
   src,
   version,
 }:
+let
+  # Custom configurePhase that skips 'go mod vendor' entirely
+  customConfigurePhase = ''
+    runHook preConfigure
+
+    # Delete the broken vendor directory
+    rm -rf vendor
+    
+    # Skip the nixpkgs go mod vendor step
+    # Instead, we'll let Go fetch dependencies via module proxy
+    echo "Skipping go mod vendor — using module proxy"
+
+    runHook postConfigure
+  '';
+in
 buildGoModule {
   pname = "codex-proxy";
   inherit version src;
 
-  # Upstream vendor dir is broken. Delete it, don't proxy it, and
-  # let nixpkgs fetch dependencies via module proxy.
+  # Upstream vendor dir is broken. We'll skip vendor entirely.
   vendorHash = null;
-  proxyVendor = false;
-  deleteVendor = true;
   
-  # allowGoReference might affect GOFLAGS (specifically -trimpath)
-  allowGoReference = true;
-
-  # Delete vendor again to be sure (in case deleteVendor runs too late)
-  preConfigurePhase = ''
-    rm -rf vendor
-  '';
+  # Override the configurePhase to skip go mod vendor
+  configurePhase = customConfigurePhase;
+  
+  # Tell Go to use module proxy instead of vendor
+  GOFLAGS = [ "-mod=mod" "-trimpath" ];
 
   doCheck = false;
 
-  # The build says "Building subPackage ./cmd/claude-code-proxy-worker"
-  # So the binary is likely named "claude-code-proxy-worker"
   installPhase = ''
     mkdir -p $out/bin
-    # Try both possible binary names
-    cp -f claude-code-proxy-worker $out/bin/claude-code-proxy-worker 2>/dev/null || cp -f codex-proxy $out/bin/codex-proxy
-    # If both fail, the build will fail
+    # The binary is likely named "claude-code-proxy-worker" based on build output
+    cp claude-code-proxy-worker $out/bin/codex-proxy
   '';
 
   meta = {
