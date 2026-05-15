@@ -10,20 +10,29 @@ buildGoModule {
   pname = "codex-proxy";
   inherit version src;
 
-  # Upstream vendor dir is broken (out of sync with go.mod).
-  # Delete it in preConfigurePhase so nixpkgs doesn't try to use it.
-  # With vendorHash = null and no vendor dir, nixpkgs should fall back
-  # to fetching from module proxy.
+  # Upstream vendor dir is broken. Delete it, don't proxy it, and
+  # let nixpkgs fetch dependencies via module proxy.
   vendorHash = null;
+  proxyVendor = false;
+  deleteVendor = true;
+  
+  # allowGoReference might affect GOFLAGS (specifically -trimpath)
+  allowGoReference = true;
+
+  # Delete vendor again to be sure (in case deleteVendor runs too late)
   preConfigurePhase = ''
     rm -rf vendor
   '';
 
   doCheck = false;
 
+  # The build says "Building subPackage ./cmd/claude-code-proxy-worker"
+  # So the binary is likely named "claude-code-proxy-worker"
   installPhase = ''
     mkdir -p $out/bin
-    cp codex-proxy $out/bin/codex-proxy
+    # Try both possible binary names
+    cp -f claude-code-proxy-worker $out/bin/claude-code-proxy-worker 2>/dev/null || cp -f codex-proxy $out/bin/codex-proxy
+    # If both fail, the build will fail
   '';
 
   meta = {
