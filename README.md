@@ -32,12 +32,12 @@ ______________________________________________________________________
     system = "x86_64-darwin"; # or x86_64-linux, aarch64-linux, etc.
   in {
     packages.${system} = {
-      inherit (jackpkgs.packages.${system}) csharpier docfx tod; # example
+      inherit (jackpkgs.packages.${system}) csharpier codex-proxy docfx tod; # example
     };
 
     # Or build one-off from CLI:
-    # nix build .#csharpier
-    # nix build github:jmmaloney4/jackpkgs#docfx
+    # nix build .#codex-proxy
+    # nix build github:jmmaloney4/jackpkgs#codex-proxy
   };
 }
 ```
@@ -55,7 +55,7 @@ ______________________________________________________________________
     };
   in {
     devShells.${system}.default = pkgs.mkShell {
-      packages = [ pkgs.csharpier pkgs.docfx pkgs.tod ];
+      packages = [ pkgs.csharpier pkgs.codex-proxy pkgs.docfx pkgs.tod ];
     };
   };
 }
