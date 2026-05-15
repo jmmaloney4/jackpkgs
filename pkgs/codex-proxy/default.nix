@@ -1,6 +1,5 @@
 {
   lib,
-  stdenv,
   buildGoModule,
   # From nvfetcher
   src,
@@ -10,24 +9,14 @@ buildGoModule {
   pname = "codex-proxy";
   inherit version src;
 
-  # The upstream vendor directory is out of sync with go.mod.
-  # Run 'go mod vendor' in postUnpack to regenerate it before
-  # buildGoModule's configurePhase sees it.
-  vendorHash = null;
-  
-  postUnpack = ''
-    cd "$sourceRoot"
-    echo "Regenerating vendor directory to sync with go.mod..."
-    go mod vendor
-  '';
+  # Upstream does not ship a vendor directory at tag 1.0.0, so let nixpkgs
+  # build a vendor derivation from go.mod/go.sum.
+  vendorHash = "sha256-arq8l6fdS9tezKoO3FJPe5Y0zn1r03Hm1bBfesGv3dU=";
+
+  # Build the actual CLI entrypoint, not the Cloudflare worker stub.
+  subPackages = [ "cmd/codex-proxy" ];
 
   doCheck = false;
-
-  installPhase = ''
-    mkdir -p $out/bin
-    # Build output says "Building subPackage ./cmd/claude-code-proxy-worker"
-    cp claude-code-proxy-worker $out/bin/codex-proxy
-  '';
 
   meta = {
     description = "Expose ChatGPT Codex through standard OpenAI APIs";
