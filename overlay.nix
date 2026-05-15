@@ -14,6 +14,9 @@ else let
   # Define packages inline instead of importing default.nix
   allPackages = {
     csharpier = super.callPackage ./pkgs/csharpier {};
+    codex-proxy = super.callPackage ./pkgs/codex-proxy {
+      inherit (nvfetcherSources.codex-proxy) src version;
+    };
     docfx = super.callPackage ./pkgs/docfx {};
     epub2tts = super.callPackage ./pkgs/epub2tts {};
     imessage-bridge = super.callPackage ./pkgs/imessage-bridge {};
