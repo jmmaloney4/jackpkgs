@@ -21,7 +21,6 @@ buildGoModule {
   meta = {
     description = "Expose ChatGPT Codex through standard OpenAI APIs";
     homepage = "https://github.com/dvcrn/codex-proxy";
-    license = lib.licenses.unfree;
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
     mainProgram = "codex-proxy";
   };
