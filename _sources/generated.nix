@@ -4,7 +4,37 @@
   fetchurl,
   fetchFromGitHub,
   dockerTools,
-}: {
+}:
+{
+  codex-proxy = {
+    pname = "codex-proxy";
+    version = "1.0.0";
+    src = fetchFromGitHub {
+      owner = "dvcrn";
+      repo = "codex-proxy";
+      rev = "1.0.0";
+      fetchSubmodules = false;
+      sha256 = "sha256-o3GQ6R9vqioqIhqJ7GXVfM9vzEVhwiFLf5zp4xjcuIo=";
+    };
+  };
+  nautilus-trader = {
+    pname = "nautilus-trader";
+    version = "2a8953d4a87f75df8cecad07a50c4452f534528b";
+    src = fetchFromGitHub {
+      owner = "nautechsystems";
+      repo = "nautilus_trader";
+      rev = "2a8953d4a87f75df8cecad07a50c4452f534528b";
+      fetchSubmodules = false;
+      sha256 = "sha256-zUBKHpxptOK0d7qIC0rtgG3u2IrcJHCI7eKyo4SSVYU=";
+    };
+    cargoLock."Cargo.lock" = {
+      lockFile = ./. + "/sha256-zUBKHpxptOK0d7qIC0rtgG3u2IrcJHCI7eKyo4SSVYU=/Cargo.lock";
+      outputHashes = {
+        
+      };
+    };
+    date = "2026-05-14";
+  };
   spooktacular = {
     pname = "spooktacular";
     version = "f36634b84e1d38d81bd282b0f88a497557e4a520";
@@ -16,5 +46,22 @@
       sha256 = "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=";
     };
     date = "2026-04-19";
+  };
+  tod = {
+    pname = "tod";
+    version = "v0.12.1";
+    src = fetchFromGitHub {
+      owner = "alanvardy";
+      repo = "tod";
+      rev = "v0.12.1";
+      fetchSubmodules = false;
+      sha256 = "sha256-091/1go/dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=";
+    };
+    cargoLock."Cargo.lock" = {
+      lockFile = ./. + "/sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock";
+      outputHashes = {
+        
+      };
+    };
   };
 }
