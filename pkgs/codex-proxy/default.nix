@@ -10,10 +10,12 @@ buildGoModule {
   pname = "codex-proxy";
   inherit version src;
 
-  # Upstream vendor dir is out of sync with go.mod. Setting vendorHash = null
-  # tells nixpkgs to regenerate vendor from go.mod via `go mod vendor` before
-  # building. This fixes the inconsistencies.
+  # Upstream vendor dir is out of sync with go.mod. Let nixpkgs regenerate it.
   vendorHash = null;
+
+  # Use overrideModAttrs to avoid GOFLAGS derivation conflict
+  overrideModAttrs = true;
+  GOFLAGS = [ "-mod=mod" "-trimpath" ];
 
   doCheck = false;
 
