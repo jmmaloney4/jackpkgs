@@ -108,6 +108,7 @@
           cargo = nautilusRustToolchain;
           rustc = nautilusRustToolchain;
         };
+        nautilusTraderDefaultPython = pkgs.python314;
         # Make flake lib available for tests
         flakeLib = inputs.nixpkgs.lib.extend (
           final: prev: jackLib
@@ -126,7 +127,7 @@
             cargo = nautilusRustToolchain;
             rustc = nautilusRustToolchain;
             rustPlatform = nautilusRustPlatform;
-            python312 = pkgs.python314;
+            python312 = nautilusTraderDefaultPython;
           };
           seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           spooktacular = pkgs.callPackage ./pkgs/spooktacular {
