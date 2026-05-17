@@ -355,7 +355,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     - `pyprojectPath` (str, default `./pyproject.toml`)
     - `uvLockPath` (str, default `./uv.lock`)
     - `workspaceRoot` (str, default `.`)
-    - `pythonPackage` (package, default `config.jackpkgs.pkgs.python312`)
+    - `pythonPackage` (package, default `config.jackpkgs.pkgs.python314`)
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
     - `setuptools.packages` (list of str)
     - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru, includeGroups }`)

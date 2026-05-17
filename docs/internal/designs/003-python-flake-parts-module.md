@@ -44,7 +44,7 @@ Path: `jackpkgs/modules/flake-parts/python.nix`
 
 - Per-system additions:
 
-  - `jackpkgs.python.pythonPackage` (package; default `pkgs.python312`)
+  - `jackpkgs.python.pythonPackage` (package; default `pkgs.python314`)
   - Read-only output `jackpkgs.outputs.pythonEditableHook` (automatically included in devshell)
 
 - Preconditions and assertions:
