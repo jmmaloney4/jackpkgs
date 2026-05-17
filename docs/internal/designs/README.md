@@ -51,9 +51,10 @@ If an ADR is superseded, add cross-links in both directions.
 
 ## Index
 
-| #   | Title                                                          | Status   |
-| --- | -------------------------------------------------------------- | -------- |
-| 036 | [Unified `just cut` Release Recipe](036-cut-release-recipe.md) | Accepted |
+| #   | Title                                                                            | Status   |
+| --- | -------------------------------------------------------------------------------- | -------- |
+| 036 | [Unified `just cut` Release Recipe](036-cut-release-recipe.md)                   | Accepted |
+| 037 | [Bump Python Default Interpreter to 3.14](037-python-314-default-interpreter.md) | Proposed |
 
 ## Template
 
