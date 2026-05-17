@@ -398,7 +398,7 @@ in {
                 "set -euo pipefail"
                 ""
                 "branch=$(git branch --show-current)"
-                "if [[ \\\"\\$branch\\\" != ${lib.escapeShellArg cutCfg.branch} ]]; then"
+                "if [[ \"$branch\" != ${lib.escapeShellArg cutCfg.branch} ]]; then"
                 "  echo \"Must be on ${lib.escapeShellArg cutCfg.branch} (currently on \${branch})\" >&2"
                 "  exit 1"
                 "fi"
