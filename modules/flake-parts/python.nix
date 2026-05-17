@@ -371,13 +371,12 @@ in {
           name,
           spec,
           ignoreCollisions ? [],
-        }:
-          let
-            env = addMainProgram (pythonSet.mkVirtualEnv name spec);
-          in
-            if ignoreCollisions != []
-            then env.overrideAttrs (_: { venvIgnoreCollisions = ignoreCollisions; })
-            else env;
+        }: let
+          env = addMainProgram (pythonSet.mkVirtualEnv name spec);
+        in
+          if ignoreCollisions != []
+          then env.overrideAttrs (_: {venvIgnoreCollisions = ignoreCollisions;})
+          else env;
 
         mkEnv = {
           name,
@@ -415,13 +414,12 @@ in {
             else defaultRoot;
           overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
           editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
+        in let
+          env = addMainProgram (editableSet.mkVirtualEnv name finalSpec);
         in
-          let
-            env = addMainProgram (editableSet.mkVirtualEnv name finalSpec);
-          in
-            if ignoreCollisions != []
-            then env.overrideAttrs (_: { venvIgnoreCollisions = ignoreCollisions; })
-            else env;
+          if ignoreCollisions != []
+          then env.overrideAttrs (_: {venvIgnoreCollisions = ignoreCollisions;})
+          else env;
 
         pythonWorkspace = {
           inherit workspace pythonSet defaultSpec computeSpec;

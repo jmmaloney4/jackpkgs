@@ -14,7 +14,7 @@ buildGoModule {
   vendorHash = "sha256-arq8l6fdS9tezKoO3FJPe5Y0zn1r03Hm1bBfesGv3dU=";
 
   # Build the actual CLI entrypoint, not the Cloudflare worker stub.
-  subPackages = [ "cmd/codex-proxy" ];
+  subPackages = ["cmd/codex-proxy"];
 
   doCheck = false;
 
