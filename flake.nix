@@ -108,7 +108,7 @@
           cargo = nautilusRustToolchain;
           rustc = nautilusRustToolchain;
         };
-        nautilusTraderDefaultPython = pkgs.python314;
+        nautilusTraderPython314 = pkgs.python314;
         # Make flake lib available for tests
         flakeLib = inputs.nixpkgs.lib.extend (
           final: prev: jackLib
@@ -127,7 +127,9 @@
             cargo = nautilusRustToolchain;
             rustc = nautilusRustToolchain;
             rustPlatform = nautilusRustPlatform;
-            python312 = nautilusTraderDefaultPython;
+            # Keep the legacy override parameter for `.override { python312 = ...; }` callers.
+            # The default value now comes from Python 3.14.
+            python312 = nautilusTraderPython314;
           };
           seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           spooktacular = pkgs.callPackage ./pkgs/spooktacular {
