@@ -126,6 +126,7 @@
             cargo = nautilusRustToolchain;
             rustc = nautilusRustToolchain;
             rustPlatform = nautilusRustPlatform;
+            python312 = pkgs.python314;
           };
           seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           spooktacular = pkgs.callPackage ./pkgs/spooktacular {

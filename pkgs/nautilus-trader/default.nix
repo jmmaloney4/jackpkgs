@@ -2,8 +2,7 @@
   lib,
   stdenv,
   pythonPackage ? null,
-  python312 ? null,
-  python314,
+  python312,
   rustPlatform,
   cargo,
   rustc,
@@ -25,9 +24,7 @@
   python_ =
     if pythonPackage != null
     then pythonPackage
-    else if python312 != null
-    then python312
-    else python314;
+    else python312;
 in
   stdenv.mkDerivation {
     pname = "nautilus-trader";
