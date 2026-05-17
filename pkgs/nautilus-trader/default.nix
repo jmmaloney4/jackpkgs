@@ -2,6 +2,7 @@
   lib,
   stdenv,
   pythonPackage ? null,
+  python312 ? null,
   python314,
   rustPlatform,
   cargo,
@@ -24,6 +25,8 @@
   python_ =
     if pythonPackage != null
     then pythonPackage
+    else if python312 != null
+    then python312
     else python314;
 in
   stdenv.mkDerivation {

@@ -414,7 +414,6 @@ in {
             else defaultRoot;
           overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
           editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
-        in let
           env = addMainProgram (editableSet.mkVirtualEnv name finalSpec);
         in
           if ignoreCollisions != []
