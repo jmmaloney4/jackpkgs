@@ -355,7 +355,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     - `pyprojectPath` (str, default `./pyproject.toml`)
     - `uvLockPath` (str, default `./uv.lock`)
     - `workspaceRoot` (str, default `.`)
-    - `pythonPackage` (package, default `config.jackpkgs.pkgs.python312`)
+    - `pythonPackage` (package, default `config.jackpkgs.pkgs.python314`)
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
     - `setuptools.packages` (list of str; compatibility shim for adding `setuptools` to `nativeBuildInputs`)
     - `buildFixes` (attrset keyed by locked package name; each entry supports `pythonNativeBuildInputs = [ "meson-python" "meson" "ninja" ]` and `nativeBuildInputs = [ pkgs.bison pkgs.flex ]`)

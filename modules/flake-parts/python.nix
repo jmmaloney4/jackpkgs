@@ -93,12 +93,14 @@ in {
           Use this when a dependency falls back to sdist and needs extra Python build
           backends or native tools beyond what upstream metadata declares.
         '';
-        example = {
-          beancount = {
-            pythonNativeBuildInputs = ["meson-python" "meson" "ninja"];
-            nativeBuildInputs = ["<pkgs.bison>" "<pkgs.flex>"];
-          };
-        };
+        example = lib.literalExpression ''
+          {
+            beancount = {
+              pythonNativeBuildInputs = [ "meson-python" "meson" "ninja" ];
+              nativeBuildInputs = [ pkgs.bison pkgs.flex ];
+            };
+          }
+        '';
       };
 
       # Environment definitions
