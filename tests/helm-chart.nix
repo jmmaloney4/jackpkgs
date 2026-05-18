@@ -28,19 +28,6 @@
     chartSubdir = "chart";
     rev = "chart-2.0.0";
   };
-
-  # Build with buildPhase
-  exampleWithBuild = mkHelmChartFromGitHub {
-    pname = "build-phase-chart";
-    version = "3.0.0";
-    owner = "example";
-    repo = "example-repo";
-    hash = lib.fakeHash;
-    chartSubdir = "charts/example";
-    buildPhase = ''
-      echo "building"
-    '';
-  };
 in {
   # Core attributes
   testPname = {
@@ -68,6 +55,12 @@ in {
   testCustomRevName = {
     expr = exampleCustomRev.name;
     expected = "custom-rev-chart-2.0.0";
+  };
+
+  # Don't build by default (no Makefile in Helm chart repos)
+  testDontBuildDefault = {
+    expr = example.dontBuild;
+    expected = true;
   };
 
   # dontConfigure is always true

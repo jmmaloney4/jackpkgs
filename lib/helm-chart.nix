@@ -66,12 +66,13 @@
         inherit owner repo rev hash;
       };
 
+      dontBuild = buildPhase == "";
       dontConfigure = true;
       inherit buildPhase;
 
       installPhase = ''
-        mkdir -p $out
-        cp -a ${lib.escapeShellArg chartSubdir}/* $out/
+        mkdir -p "$out"
+        cp -a -- ${lib.escapeShellArg (toString chartSubdir)}/. "$out/"
       '';
     };
 in {inherit mkHelmChartFromGitHub;}
