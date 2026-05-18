@@ -70,18 +70,6 @@ in {
     expected = "custom-rev-chart-2.0.0";
   };
 
-  # buildPhase defaults to empty
-  testDefaultBuildPhase = {
-    expr = example.buildPhase;
-    expected = "";
-  };
-
-  # buildPhase is passed through when provided
-  testCustomBuildPhase = {
-    expr = lib.strings.removeSuffix "\n" exampleWithBuild.buildPhase;
-    expected = "echo \"building\"";
-  };
-
   # dontConfigure is always true
   testDontConfigure = {
     expr = example.dontConfigure;

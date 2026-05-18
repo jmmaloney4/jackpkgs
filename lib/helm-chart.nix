@@ -59,7 +59,7 @@
     rev ? "v${version}",
     buildPhase ? "",
   }:
-    pkgs.stdenv.mkDerivation rec {
+    pkgs.stdenv.mkDerivation {
       inherit pname version;
 
       src = pkgs.fetchFromGitHub {
@@ -71,7 +71,7 @@
 
       installPhase = ''
         mkdir -p $out
-        cp -r ${chartSubdir}/* $out/
+        cp -a ${lib.escapeShellArg chartSubdir}/* $out/
       '';
     };
 in {inherit mkHelmChartFromGitHub;}

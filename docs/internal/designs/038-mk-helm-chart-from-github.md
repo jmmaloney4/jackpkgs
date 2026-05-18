@@ -88,5 +88,5 @@ Add a second `matchString` to the existing `fetchFromGitHub` regex manager.
 ______________________________________________________________________
 
 Author: Jack Maloney
-Date: 2025-05-18
-PR: jackpkgs#TBD
+Date: 2026-05-18
+PR: jackpkgs#274
