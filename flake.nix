@@ -285,6 +285,9 @@
             pulumi = import ./tests/pulumi.nix {
               inherit inputs lib;
             };
+            python-package-fixes = import ./tests/python-package-fixes.nix {
+              inherit lib;
+            };
           };
         };
 
