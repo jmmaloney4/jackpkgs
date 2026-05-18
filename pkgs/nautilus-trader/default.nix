@@ -2,6 +2,8 @@
   lib,
   stdenv,
   pythonPackage ? null,
+  # Historical argument name kept for `.override { python312 = ...; }` compatibility.
+  # `flake.nix` now wires this to `pkgs.python314`, so the default build still uses Python 3.14.
   python312,
   rustPlatform,
   cargo,

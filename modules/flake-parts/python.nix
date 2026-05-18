@@ -193,8 +193,8 @@ in {
       options.jackpkgs.python = {
         pythonPackage = mkOption {
           type = types.package;
-          default = config.jackpkgs.pkgs.python312;
-          defaultText = "config.jackpkgs.pkgs.python312";
+          default = config.jackpkgs.pkgs.python314;
+          defaultText = "config.jackpkgs.pkgs.python314";
           description = "Python package to use as base interpreter.";
         };
       };
@@ -414,7 +414,6 @@ in {
             else defaultRoot;
           overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
           editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
-        in let
           env = addMainProgram (editableSet.mkVirtualEnv name finalSpec);
         in
           if ignoreCollisions != []
