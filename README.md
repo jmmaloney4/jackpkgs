@@ -329,7 +329,7 @@ This is the shared pattern used by repos like `garden` and `zeus` for Pulumi sta
 - `jackpkgs.nodejs` provides Node 24, pnpm, and a reproducible `node_modules` derivation.
 - `jackpkgs.pulumi` provides the Pulumi CLI, shared Pulumi environment variables, and generated `preview` / `deploy` recipes.
 - `jackpkgs.checks.typescript.tsc` runs `tsc --noEmit` as a quality gate. TypeScript is for type-checking, not for building runtime artifacts.
-- Pulumi projects execute `.ts` source via `tsx`, not via Pulumi's built-in TypeScript runner and not via `ts-node`.
+- Pulumi projects execute `.ts` source via Node 24 native type stripping (`--experimental-strip-types`), not via Pulumi's built-in TypeScript runner, `ts-node`, or `tsx`.
 
 Minimal repo shape:
 
@@ -350,7 +350,6 @@ runtime:
   name: nodejs
   options:
     typescript: false
-    nodeargs: "--import tsx/esm"
 ```
 
 ```json
@@ -362,7 +361,6 @@ runtime:
     "node": ">=24.0.0"
   },
   "devDependencies": {
-    "tsx": "^4.0.0",
     "typescript": "^6.0.0",
     "@types/node": "^24.0.0"
   }
@@ -386,11 +384,16 @@ runtime:
 }
 ```
 
-Why `tsx` instead of Pulumi native TypeScript mode:
+Why native type stripping instead of `tsx`:
 
-- Pulumi's built-in TypeScript execution is disabled with `typescript: false`.
-- Node 24 can strip types from local `.ts` files, but it does not handle `.ts` sources inside `node_modules` the way our workspace-linked packages need.
-- `tsx/esm` handles ESM, `.ts` entrypoints, and workspace/internal packages without requiring a `dist/` build step.
+- `typescript: false` disables Pulumi's built-in TypeScript execution.
+- Node 24 strips type annotations from `.ts` files at runtime (`erasableSyntaxOnly` mode) — no transpiler needed for code that avoids `enum`, constructor parameter properties, `namespace`, and `import X = require()`.
+- This is simpler, faster, and avoids tsx bugs like its CJS extension resolution hook breaking `source-map-support` (a transitive dep of `@pulumi/pulumi`).
+
+When `tsx` is still needed:
+
+- If a stack imports a workspace package that ships `.ts` source inside `node_modules/`, Node refuses to strip types there. In that case, add `"tsx": "^4.0.0"` to `devDependencies` and `nodeargs: "--import tsx/esm"` to `Pulumi.yaml`.
+- If the stack uses non-erasable TypeScript syntax (`enum`, parameter properties, etc.), it needs a transpiler — but prefer refactoring to erasable-only syntax instead.
 
 What to remove from older setups:
 
@@ -398,6 +401,7 @@ What to remove from older setups:
 - `build`, `prepare`, or `prepublish` scripts that exist only to run `tsc` for runtime artifacts.
 - `dist/`-based `main`, `types`, or `exports` entries for internal Node 24 TypeScript-first packages.
 - `ts-node` as a Pulumi runtime dependency.
+- `tsx` as a Pulumi runtime dependency (unless the stack hits the `node_modules/.ts` edge case above).
 
 What still uses `tsc`:
 
@@ -405,7 +409,7 @@ What still uses `tsc`:
 - Pre-commit / pre-push hooks when `jackpkgs.pre-commit` is enabled
 - Local type-check commands such as `pnpm exec tsc --noEmit`
 
-The runtime path is `pulumi` -> `node` -> `tsx` -> `.ts` source. `tsc` is validation only.
+The runtime path is `pulumi` -> `node` -> `.ts` source (native type stripping). `tsc` is validation only.
 
 See `docs/internal/investigations/2026-04-03-typescript-first-esm-node24.md` for the design rationale and migration constraints.
 
