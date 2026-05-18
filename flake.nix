@@ -339,7 +339,7 @@
             pnpm-workspace-glob-resolution = mkPnpmFixtureCheck {
               name = "workspace-glob";
               src = fixtureWorkspaceGlob;
-              depsHash = "sha256-gIL4zhfAcMT3U0PIUAO4bBQk0EBXiGs0quYO3zm1DXU=";
+              depsHash = "sha256-u0GOAX5B1f2ANWbOezScp/eKQRRZA/JoYfQ5zLrNip4=";
               checkCommand = ''
                 test -d node_modules
                 node packages/beta/index.js | grep -qx "hello from alpha"
