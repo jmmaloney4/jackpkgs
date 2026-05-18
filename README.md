@@ -299,6 +299,7 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     - `projectRoot` (path, default `config.jackpkgs.projectRoot or inputs.self.outPath`) -- top-level option
     - `package` (package, default `config.jackpkgs.pkgs.nodejs_24`) - Node.js derivation -- per-system option
     - `pnpmPackage` (package, default `config.jackpkgs.pkgs.pnpm_11`) - pnpm derivation -- per-system option
+  - pnpm 11 narrows `.npmrc` support to auth and registry settings and uses the newer `allowBuilds` flow for dependency scripts.
   - Outputs:
     - `jackpkgs.outputs.nodeModules` - derivation containing `node_modules/`
     - `jackpkgs.outputs.pnpmDeps` - derivation containing fetched pnpm deps (for debugging/caching)

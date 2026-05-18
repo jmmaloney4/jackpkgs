@@ -170,12 +170,14 @@
               pname = "integration-${name}";
               version = "1.0.0";
               src = cleanSrc;
-              pnpmDeps = pkgs.fetchPnpmDeps ({
+              pnpmDeps = pkgs.fetchPnpmDeps (
+                {
                   pname = "integration-${name}-deps";
                   version = "1.0.0";
                   src = cleanSrc;
                   hash = depsHash;
                   fetcherVersion = 3;
+                  pnpm = pkgs.pnpm_11;
                 }
                 // ({
                     # On some fixtures, fetchPnpmDeps fixup's `find ... | xargs chmod`
@@ -189,7 +191,8 @@
                       ${pnpmDepsArgs.preFixup or ""}
                     '';
                   }
-                  // pnpmDepsArgs));
+                  // pnpmDepsArgs)
+              );
               nativeBuildInputs = [
                 pkgs.nodejs_24
                 pkgs.pnpm_11
