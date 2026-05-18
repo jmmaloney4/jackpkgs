@@ -70,6 +70,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.pyproject-nix.follows = "pyproject-nix";
     };
+    bun2nix = {
+      url = "github:nix-community/bun2nix";
+    };
   };
 
   outputs = inputs @ {
@@ -103,6 +106,8 @@
       }: let
         jackLib = import ./lib {inherit pkgs;};
         nvfetcherSources = pkgs.callPackage ./_sources/generated.nix {};
+        # Extend pkgs with bun2nix overlay so bun2nix builder functions are available
+        pkgsWithBun2nix = pkgs.extend inputs.bun2nix.overlays.default;
         nautilusRustToolchain = inputs.fenix.packages.${system}.minimal.toolchain;
         nautilusRustPlatform = pkgs.makeRustPlatform {
           cargo = nautilusRustToolchain;
@@ -118,6 +123,9 @@
             inherit (nvfetcherSources.codex-proxy) src version;
           };
           docfx = pkgs.callPackage ./pkgs/docfx {};
+          gemini-proxy = pkgsWithBun2nix.callPackage ./pkgs/gemini-proxy {
+            inherit (nvfetcherSources.gemini-proxy) src version;
+          };
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           imessage-bridge = pkgs.callPackage ./pkgs/imessage-bridge {};
           lean = pkgs.callPackage ./pkgs/lean {};
@@ -412,7 +420,7 @@
 
       flake = {
         # Expose overlays for backward compatibility
-        overlays.default = import ./overlay.nix;
+        overlays.default = import ./overlay.nix inputs;
 
         # Expose nix-darwin modules
         darwinModules.imessage-bridge = import ./modules/nix-darwin/imessage-bridge.nix;

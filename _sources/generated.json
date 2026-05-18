@@ -20,14 +20,35 @@
 		},
 		"version": "1.0.0"
 	},
+	"gemini-proxy": {
+		"cargoLock": null,
+		"date": "2026-03-09",
+		"extract": null,
+		"name": "gemini-proxy",
+		"passthru": null,
+		"pinned": false,
+		"src": {
+			"deepClone": false,
+			"fetchSubmodules": false,
+			"leaveDotGit": false,
+			"name": null,
+			"owner": "KashifKhn",
+			"repo": "gemini-proxy",
+			"rev": "5f701a244ed3c4699e6c1b0550bd50e961601ebe",
+			"sha256": "sha256-RYDeVd66AXHHbm7TzX8et8QUspvfjxpkq8o4VXh76Cw=",
+			"sparseCheckout": [],
+			"type": "github"
+		},
+		"version": "5f701a244ed3c4699e6c1b0550bd50e961601ebe"
+	},
 	"nautilus-trader": {
 		"cargoLock": {
 			"Cargo.lock": [
-				"sha256-zUBKHpxptOK0d7qIC0rtgG3u2IrcJHCI7eKyo4SSVYU=/Cargo.lock",
+				"sha256-kIXZ0SWTWGNfbn1jDTu1RdAx2FqYgqknxajWcwNClOg=/Cargo.lock",
 				{}
 			]
 		},
-		"date": "2026-05-14",
+		"date": "2026-05-19",
 		"extract": null,
 		"name": "nautilus-trader",
 		"passthru": null,
@@ -39,12 +60,12 @@
 			"name": null,
 			"owner": "nautechsystems",
 			"repo": "nautilus_trader",
-			"rev": "2a8953d4a87f75df8cecad07a50c4452f534528b",
-			"sha256": "sha256-zUBKHpxptOK0d7qIC0rtgG3u2IrcJHCI7eKyo4SSVYU=",
+			"rev": "6cf2d115e52796da93d6c22a77d1b07b1a69d48c",
+			"sha256": "sha256-kIXZ0SWTWGNfbn1jDTu1RdAx2FqYgqknxajWcwNClOg=",
 			"sparseCheckout": [],
 			"type": "github"
 		},
-		"version": "2a8953d4a87f75df8cecad07a50c4452f534528b"
+		"version": "6cf2d115e52796da93d6c22a77d1b07b1a69d48c"
 	},
 	"spooktacular": {
 		"cargoLock": null,
