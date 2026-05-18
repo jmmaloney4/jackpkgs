@@ -176,12 +176,14 @@
               pname = "integration-${name}";
               version = "1.0.0";
               src = cleanSrc;
-              pnpmDeps = pkgs.fetchPnpmDeps ({
+              pnpmDeps = pkgs.fetchPnpmDeps (
+                {
                   pname = "integration-${name}-deps";
                   version = "1.0.0";
                   src = cleanSrc;
                   hash = depsHash;
                   fetcherVersion = 3;
+                  pnpm = pkgs.pnpm_11;
                 }
                 // ({
                     # On some fixtures, fetchPnpmDeps fixup's `find ... | xargs chmod`
@@ -195,10 +197,11 @@
                       ${pnpmDepsArgs.preFixup or ""}
                     '';
                   }
-                  // pnpmDepsArgs));
+                  // pnpmDepsArgs)
+              );
               nativeBuildInputs = [
                 pkgs.nodejs_24
-                pkgs.pnpm_10
+                pkgs.pnpm_11
                 pkgs.pnpmConfigHook
               ];
               dontBuild = true;
@@ -303,7 +306,7 @@
             pnpm-simple-builds = mkPnpmFixtureCheck {
               name = "simple-pnpm";
               src = fixtureSimplePnpm;
-              depsHash = "sha256-Pg995/qFmh6ehdZOBdR0q94JhiLR6oBHI3CdPJK9ipQ=";
+              depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
               checkCommand = ''
                 test -d node_modules
                 node index.js | grep -qx "pass"
@@ -313,7 +316,7 @@
             pnpm-workspace-basic-postinstall = mkPnpmFixtureCheck {
               name = "workspace-basic";
               src = fixtureWorkspaceBasic;
-              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
+              depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
               checkCommand = ''
                 test -d node_modules
                 pnpm run postinstall
@@ -335,7 +338,7 @@
             pnpm-tsc-check = mkPnpmFixtureCheck {
               name = "tsc-check";
               src = fixtureTscCheck;
-              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
+              depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
               checkCommand = ''
                 test -d node_modules
                 node_modules/.bin/tsc --noEmit --lib ES2020,DOM packages/app/index.ts
@@ -345,7 +348,7 @@
             pnpm-vitest-check = mkPnpmFixtureCheck {
               name = "vitest-check";
               src = fixtureVitestCheck;
-              depsHash = "sha256-+Yuu23jx65TFnR5F71dDWU8SjFypZpaFdu+GGLe9qQ8=";
+              depsHash = "sha256-9K1MbHH/kb9xSryNn4m9/vWeroy88WHzI+z+zRHc03c=";
               checkCommand = ''
                 test -d node_modules
                 node_modules/.bin/vitest run --root packages/lib
@@ -355,7 +358,7 @@
             pnpm-node-modules-output-layout = mkPnpmFixtureCheck {
               name = "node-modules-output-layout";
               src = fixtureWorkspaceBasic;
-              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
+              depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
               checkCommand = ''
                 mkdir -p "$out"
                 cp -a node_modules "$out/"
@@ -371,7 +374,7 @@
             pnpm-nonhoisted-runtime = mkPnpmFixtureCheck {
               name = "nonhoisted-runtime";
               src = fixtureNonhoistedDep;
-              depsHash = "sha256-Pg995/qFmh6ehdZOBdR0q94JhiLR6oBHI3CdPJK9ipQ=";
+              depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
               checkCommand = ''
                 test -d node_modules
                 node packages/app/index.js | grep -qx "pass"
@@ -382,7 +385,7 @@
             pnpm-nonhoisted-output-layout = mkPnpmFixtureCheck {
               name = "nonhoisted-output-layout";
               src = fixtureNonhoistedDep;
-              depsHash = "sha256-Pg995/qFmh6ehdZOBdR0q94JhiLR6oBHI3CdPJK9ipQ=";
+              depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
               checkCommand = ''
                 mkdir -p "$out"
                 cp -a node_modules "$out/"

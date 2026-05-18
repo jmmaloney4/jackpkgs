@@ -54,8 +54,8 @@ in {
 
         pnpmPackage = mkOption {
           type = types.package;
-          default = config.jackpkgs.pkgs.pnpm_10;
-          defaultText = "config.jackpkgs.pkgs.pnpm_10";
+          default = config.jackpkgs.pkgs.pnpm_11;
+          defaultText = "config.jackpkgs.pkgs.pnpm_11";
           description = "pnpm package to use.";
         };
       };
@@ -95,6 +95,7 @@ in {
         version = "1.0.0";
         src = cfg.projectRoot;
         fetcherVersion = 3;
+        pnpm = sysCfg.pnpmPackage;
         hash = cfg.pnpmDepsHash;
       };
 
