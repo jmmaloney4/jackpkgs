@@ -704,10 +704,10 @@ in {
                   "pnpm install"
                   ""
                   "system=$(nix eval --raw --impure --expr 'builtins.currentSystem')"
-                  ""
                   "echo \"🔍 Detecting system: $system\""
-                  "echo \"📝 Setting temporary fake hash to trigger nix hash mismatch...\""
-                  ''node -e 'const fs = require("node:fs"); const path = process.argv[1]; const contents = fs.readFileSync(path, "utf8"); const pattern = /^[ \t]*#?[ \t]*pnpmDepsHash = .*$/m; if (!pattern.test(contents)) { throw new Error("Could not locate pnpmDepsHash in flake.nix"); } fs.writeFileSync(path, contents.replace(pattern, "        pnpmDepsHash = \"sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\";"));' "$flake"''
+                  ""
+                  "echo \"📝 Setting empty pnpmDepsHash (per ERR_PNPM_NO_OFFLINE_TARBALL guidance) to trigger hash mismatch...\""
+                  ''node -e 'const fs = require("node:fs"); const path = process.argv[1]; const contents = fs.readFileSync(path, "utf8"); const pattern = /^[ \t]*#?[ \t]*pnpmDepsHash = .*$/m; if (!pattern.test(contents)) { throw new Error("Could not locate pnpmDepsHash in flake.nix"); } fs.writeFileSync(path, contents.replace(pattern, "        pnpmDepsHash = \"\";"));' "$flake"''
                   ""
                   "echo \"🔨 Building devshell to fetch new hash...\""
                   "nix build \".#devShells.\${system}.default\" >\"$build_log\" 2>&1 || true"
