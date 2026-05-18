@@ -114,17 +114,23 @@
         );
         allPackages = {
           csharpier = pkgs.callPackage ./pkgs/csharpier {};
+          codex-proxy = pkgs.callPackage ./pkgs/codex-proxy {
+            inherit (nvfetcherSources.codex-proxy) src version;
+          };
           docfx = pkgs.callPackage ./pkgs/docfx {};
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           imessage-bridge = pkgs.callPackage ./pkgs/imessage-bridge {};
           lean = pkgs.callPackage ./pkgs/lean {};
-          seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
             inherit (nvfetcherSources.nautilus-trader) src version cargoLock;
             cargo = nautilusRustToolchain;
             rustc = nautilusRustToolchain;
             rustPlatform = nautilusRustPlatform;
+            # Keep the legacy override parameter for `.override { python312 = ...; }` callers.
+            # The default value now comes from Python 3.14.
+            python312 = pkgs.python314;
           };
+          seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           spooktacular = pkgs.callPackage ./pkgs/spooktacular {
             inherit (nvfetcherSources.spooktacular) src date;
           };
@@ -281,6 +287,12 @@
             };
             pulumi = import ./tests/pulumi.nix {
               inherit inputs lib;
+            };
+            python-package-fixes = import ./tests/python-package-fixes.nix {
+              inherit lib;
+            };
+            helm-chart = import ./tests/helm-chart.nix {
+              inherit lib pkgs;
             };
           };
         };

@@ -61,7 +61,46 @@ in {
       setuptools.packages = mkOption {
         type = types.listOf types.str;
         default = ["peewee" "multitasking" "sgmllib3k"];
-        description = "Packages that need setuptools added to nativeBuildInputs.";
+        description = "Packages that need setuptools added to nativeBuildInputs. Retained as a compatibility shim around jackpkgs.python.buildFixes.";
+      };
+
+      buildFixes = mkOption {
+        type = types.attrsOf (types.submodule ({...}: {
+          options = {
+            pythonNativeBuildInputs = mkOption {
+              type = types.listOf types.str;
+              default = [];
+              description = ''
+                Python packages from the uv2nix package set to append to nativeBuildInputs
+                for this locked dependency. Use package attribute names such as
+                "meson-python", "meson", or "ninja".
+              '';
+            };
+
+            nativeBuildInputs = mkOption {
+              type = types.listOf types.unspecified;
+              default = [];
+              description = ''
+                Additional native build inputs from nixpkgs to append to nativeBuildInputs
+                for this locked dependency.
+              '';
+            };
+          };
+        }));
+        default = {};
+        description = ''
+          Declarative per-package source-build fixes for locked Python dependencies.
+          Use this when a dependency falls back to sdist and needs extra Python build
+          backends or native tools beyond what upstream metadata declares.
+        '';
+        example = lib.literalExpression ''
+          {
+            beancount = {
+              pythonNativeBuildInputs = [ "meson-python" "meson" "ninja" ];
+              nativeBuildInputs = [ pkgs.bison pkgs.flex ];
+            };
+          }
+        '';
       };
 
       # Environment definitions
@@ -193,8 +232,8 @@ in {
       options.jackpkgs.python = {
         pythonPackage = mkOption {
           type = types.package;
-          default = config.jackpkgs.pkgs.python312;
-          defaultText = "config.jackpkgs.pkgs.python312";
+          default = config.jackpkgs.pkgs.python314;
+          defaultText = "config.jackpkgs.pkgs.python314";
           description = "Python package to use as base interpreter.";
         };
       };
@@ -304,20 +343,11 @@ in {
           sourcePreference = cfg.sourcePreference;
         };
 
-        # Extension: Setuptools override overlay for packages with broken/missing build deps
-        # Not documented in uv2nix, but necessary workaround for upstream packaging issues
-        # Some packages don't properly declare setuptools in their build-system dependencies
-        ensureSetuptools = final: prev: let
-          add = name:
-            if builtins.hasAttr name prev
-            then
-              lib.nameValuePair name (prev.${name}.overrideAttrs (old: {
-                nativeBuildInputs = (old.nativeBuildInputs or []) ++ [final.setuptools];
-              }))
-            else null;
-          pairs = builtins.filter (x: x != null) (map add cfg.setuptools.packages);
-        in
-          builtins.listToAttrs pairs;
+        packageFixOverlay = import ../../lib/python-package-fixes.nix {
+          inherit lib;
+          packageFixes = cfg.buildFixes;
+          setuptoolsPackages = cfg.setuptools.packages;
+        };
 
         # Build system overlay should match sourcePreference (wheel OR sdist, not both)
         # Per uv2nix docs: "The build system overlay has the same sdist/wheel distinction as mkPyprojectOverlay"
@@ -328,7 +358,7 @@ in {
             then [jackpkgsInputs.pyproject-build-systems.overlays.wheel]
             else [jackpkgsInputs.pyproject-build-systems.overlays.sdist]
           )
-          ++ [ensureSetuptools]
+          ++ [packageFixOverlay]
           ++ cfg.extraOverlays;
 
         pythonSet = pythonBase.overrideScope (lib.composeManyExtensions overlayList);
@@ -371,13 +401,12 @@ in {
           name,
           spec,
           ignoreCollisions ? [],
-        }:
-          let
-            env = addMainProgram (pythonSet.mkVirtualEnv name spec);
-          in
-            if ignoreCollisions != []
-            then env.overrideAttrs (_: { venvIgnoreCollisions = ignoreCollisions; })
-            else env;
+        }: let
+          env = addMainProgram (pythonSet.mkVirtualEnv name spec);
+        in
+          if ignoreCollisions != []
+          then env.overrideAttrs (_: {venvIgnoreCollisions = ignoreCollisions;})
+          else env;
 
         mkEnv = {
           name,
@@ -415,13 +444,11 @@ in {
             else defaultRoot;
           overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
           editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
+          env = addMainProgram (editableSet.mkVirtualEnv name finalSpec);
         in
-          let
-            env = addMainProgram (editableSet.mkVirtualEnv name finalSpec);
-          in
-            if ignoreCollisions != []
-            then env.overrideAttrs (_: { venvIgnoreCollisions = ignoreCollisions; })
-            else env;
+          if ignoreCollisions != []
+          then env.overrideAttrs (_: {venvIgnoreCollisions = ignoreCollisions;})
+          else env;
 
         pythonWorkspace = {
           inherit workspace pythonSet defaultSpec computeSpec;

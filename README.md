@@ -32,12 +32,12 @@ ______________________________________________________________________
     system = "x86_64-darwin"; # or x86_64-linux, aarch64-linux, etc.
   in {
     packages.${system} = {
-      inherit (jackpkgs.packages.${system}) csharpier docfx tod; # example
+      inherit (jackpkgs.packages.${system}) csharpier codex-proxy docfx tod; # example
     };
 
     # Or build one-off from CLI:
-    # nix build .#csharpier
-    # nix build github:jmmaloney4/jackpkgs#docfx
+    # nix build .#codex-proxy
+    # nix build github:jmmaloney4/jackpkgs#codex-proxy
   };
 }
 ```
@@ -55,7 +55,7 @@ ______________________________________________________________________
     };
   in {
     devShells.${system}.default = pkgs.mkShell {
-      packages = [ pkgs.csharpier pkgs.docfx pkgs.tod ];
+      packages = [ pkgs.csharpier pkgs.codex-proxy pkgs.docfx pkgs.tod ];
     };
   };
 }
@@ -322,6 +322,93 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     }
     ```
 
+#### Common Pattern: Pulumi + Node 24 + TypeScript-first repos
+
+This is the shared pattern used by repos like `garden` and `zeus` for Pulumi stacks:
+
+- `jackpkgs.nodejs` provides Node 24, pnpm, and a reproducible `node_modules` derivation.
+- `jackpkgs.pulumi` provides the Pulumi CLI, shared Pulumi environment variables, and generated `preview` / `deploy` recipes.
+- `jackpkgs.checks.typescript.tsc` runs `tsc --noEmit` as a quality gate. TypeScript is for type-checking, not for building runtime artifacts.
+- Pulumi projects execute `.ts` source via `tsx`, not via Pulumi's built-in TypeScript runner and not via `ts-node`.
+
+Minimal repo shape:
+
+```nix
+{
+  imports = [ inputs.jackpkgs.flakeModules.default ];
+
+  jackpkgs.nodejs = {
+    enable = true;
+    pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  };
+}
+```
+
+```yaml
+# deploy/<stack>/Pulumi.yaml
+runtime:
+  name: nodejs
+  options:
+    typescript: false
+    nodeargs: "--import tsx/esm"
+```
+
+```json
+// deploy/<stack>/package.json
+{
+  "type": "module",
+  "main": "index.ts",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^6.0.0",
+    "@types/node": "^24.0.0"
+  }
+}
+```
+
+```json
+// deploy/<stack>/tsconfig.json
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "types": ["node"]
+  }
+}
+```
+
+Why `tsx` instead of Pulumi native TypeScript mode:
+
+- Pulumi's built-in TypeScript execution is disabled with `typescript: false`.
+- Node 24 can strip types from local `.ts` files, but it does not handle `.ts` sources inside `node_modules` the way our workspace-linked packages need.
+- `tsx/esm` handles ESM, `.ts` entrypoints, and workspace/internal packages without requiring a `dist/` build step.
+
+What to remove from older setups:
+
+- `outDir`, `rootDir`, and other emit-only `tsconfig` settings unless a package truly still emits JS.
+- `build`, `prepare`, or `prepublish` scripts that exist only to run `tsc` for runtime artifacts.
+- `dist/`-based `main`, `types`, or `exports` entries for internal Node 24 TypeScript-first packages.
+- `ts-node` as a Pulumi runtime dependency.
+
+What still uses `tsc`:
+
+- CI checks via `jackpkgs.checks.typescript.tsc`
+- Pre-commit / pre-push hooks when `jackpkgs.pre-commit` is enabled
+- Local type-check commands such as `pnpm exec tsc --noEmit`
+
+The runtime path is `pulumi` -> `node` -> `tsx` -> `.ts` source. `tsc` is validation only.
+
+See `docs/internal/investigations/2026-04-03-typescript-first-esm-node24.md` for the design rationale and migration constraints.
+
 - quarto (`modules/flake-parts/quarto.nix`)
 
   - Provides Quarto tooling in a devShell fragment: `config.jackpkgs.outputs.quartoDevShell`.
@@ -356,9 +443,10 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     - `pyprojectPath` (str, default `./pyproject.toml`)
     - `uvLockPath` (str, default `./uv.lock`)
     - `workspaceRoot` (str, default `.`)
-    - `pythonPackage` (package, default `config.jackpkgs.pkgs.python312`)
+    - `pythonPackage` (package, default `config.jackpkgs.pkgs.python314`)
     - `sourcePreference` ("wheel" | "sdist", default "wheel")
-    - `setuptools.packages` (list of str)
+    - `setuptools.packages` (list of str; compatibility shim for adding `setuptools` to `nativeBuildInputs`)
+    - `buildFixes` (attrset keyed by locked package name; each entry supports `pythonNativeBuildInputs = [ "meson-python" "meson" "ninja" ]` and `nativeBuildInputs = [ pkgs.bison pkgs.flex ]`)
     - `environments` (attrset of env defs: `{ name, spec, editable, editableRoot, members, passthru, includeGroups }`)
       - **`spec`**: optional - explicit dependency specification for customization (overrides all other spec options)
       - **`includeGroups`**: nullable bool (default `null`) - include all `[dependency-groups]` (PEP 735) and `[tool.uv.dev-dependencies]` from workspace members.
