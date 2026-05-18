@@ -279,6 +279,9 @@
             pulumi = import ./tests/pulumi.nix {
               inherit inputs lib;
             };
+            container = import ./tests/container.nix {
+              inherit inputs lib;
+            };
           };
         };
 
