@@ -9,7 +9,13 @@
     builtins.derivation {
       inherit name system;
       builder = "/bin/sh";
-      args = ["-c" "mkdir -p \"$out\" && touch \"$out/${name}\""];
+      args = [
+        "-c"
+        ''
+          mkdir -p "$out"
+          touch "$out"/${lib.escapeShellArg name}
+        ''
+      ];
     };
 
   fakeInputs = inputs // {

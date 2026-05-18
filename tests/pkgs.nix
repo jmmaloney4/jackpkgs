@@ -54,10 +54,10 @@
         // {
           _jackpkgsTestMarker = "overlayed-direnv";
         };
-      python312 =
-        pkgs.python312
+      python314 =
+        pkgs.python314
         // {
-          _jackpkgsTestMarker = "overlayed-python312";
+          _jackpkgsTestMarker = "overlayed-python314";
         };
     };
 in {
@@ -167,7 +167,7 @@ in {
     ];
   in {
     expr = perSystem.jackpkgs.python.pythonPackage._jackpkgsTestMarker or null;
-    expected = "overlayed-python312";
+    expected = "overlayed-python314";
   };
 
   # ============================================================

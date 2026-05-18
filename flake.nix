@@ -114,17 +114,23 @@
         );
         allPackages = {
           csharpier = pkgs.callPackage ./pkgs/csharpier {};
+          codex-proxy = pkgs.callPackage ./pkgs/codex-proxy {
+            inherit (nvfetcherSources.codex-proxy) src version;
+          };
           docfx = pkgs.callPackage ./pkgs/docfx {};
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           imessage-bridge = pkgs.callPackage ./pkgs/imessage-bridge {};
           lean = pkgs.callPackage ./pkgs/lean {};
-          seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
             inherit (nvfetcherSources.nautilus-trader) src version cargoLock;
             cargo = nautilusRustToolchain;
             rustc = nautilusRustToolchain;
             rustPlatform = nautilusRustPlatform;
+            # Keep the legacy override parameter for `.override { python312 = ...; }` callers.
+            # The default value now comes from Python 3.14.
+            python312 = pkgs.python314;
           };
+          seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           spooktacular = pkgs.callPackage ./pkgs/spooktacular {
             inherit (nvfetcherSources.spooktacular) src date;
           };
@@ -282,6 +288,12 @@
             container = import ./tests/container.nix {
               inherit inputs lib;
             };
+            python-package-fixes = import ./tests/python-package-fixes.nix {
+              inherit lib;
+            };
+            helm-chart = import ./tests/helm-chart.nix {
+              inherit lib pkgs;
+            };
           };
         };
 
@@ -316,7 +328,7 @@
             pnpm-workspace-glob-resolution = mkPnpmFixtureCheck {
               name = "workspace-glob";
               src = fixtureWorkspaceGlob;
-              depsHash = "sha256-u0GOAX5B1f2ANWbOezScp/eKQRRZA/JoYfQ5zLrNip4=";
+              depsHash = "sha256-gIL4zhfAcMT3U0PIUAO4bBQk0EBXiGs0quYO3zm1DXU=";
               checkCommand = ''
                 test -d node_modules
                 node packages/beta/index.js | grep -qx "hello from alpha"

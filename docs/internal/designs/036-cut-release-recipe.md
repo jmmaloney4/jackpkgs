@@ -202,7 +202,7 @@ the configured file types. No runtime type-string branching.
 6. Add an `enable` option for the existing `release` feature (currently hardcoded `enable = true`)
    so consumers can fully replace tag-only recipes with `cut`. Separate PR.
 
-________________________________________________________________________
+______________________________________________________________________
 
 Author: jmmaloney4
 Date: 2026-05-11

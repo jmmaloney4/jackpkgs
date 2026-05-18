@@ -107,8 +107,8 @@ in {
         system=$(nix eval --raw --impure --expr 'builtins.currentSystem')
 
         echo "🔍 Detecting system: $system"
-        echo "📝 Setting temporary fake hash to trigger nix hash mismatch..."
-        node -e 'const fs = require("node:fs"); const path = process.argv[1]; const contents = fs.readFileSync(path, "utf8"); const pattern = /^[ \t]*#?[ \t]*pnpmDepsHash = .*$/m; if (!pattern.test(contents)) { throw new Error("Could not locate pnpmDepsHash in flake.nix"); } fs.writeFileSync(path, contents.replace(pattern, "        pnpmDepsHash = \"sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\";"));' "$flake"
+        echo "📝 Setting empty pnpmDepsHash (per ERR_PNPM_NO_OFFLINE_TARBALL guidance) to trigger hash mismatch..."
+        node -e 'const fs = require("node:fs"); const path = process.argv[1]; const contents = fs.readFileSync(path, "utf8"); const pattern = /^[ \t]*#?[ \t]*pnpmDepsHash = .*$/m; if (!pattern.test(contents)) { throw new Error("Could not locate pnpmDepsHash in flake.nix"); } fs.writeFileSync(path, contents.replace(pattern, "        pnpmDepsHash = \"\";"));' "$flake"
 
         echo "🔨 Building devshell to fetch new hash..."
         nix build ".#devShells.''${system}.default" >"$build_log" 2>&1 || true
@@ -194,44 +194,46 @@ in {
       "version=\${latest_tag#v}"
       "IFS='.' read -r major minor patch <<< \"\$version\""
       ""
-      "case \"\$level\" in"
+      "case \"{{level}}\" in"
       "  patch) new_version=\"\$major.\$minor.\$((patch + 1))\" ;;"
       "  minor) new_version=\"\$major.\$((minor + 1)).0\" ;;"
       "  major) new_version=\"\$((major + 1)).0.0\" ;;"
-      "  *)     echo \"Unknown level: \$level\" >&2; exit 1 ;;"
+      "  *)     echo \"Unknown level: {{level}}\" >&2; exit 1 ;;"
       "esac"
       ""
       "new_tag=\"v\$new_version\""
       "git tag -a \"\$new_tag\" -m \"Release \$new_tag\""
       "git push --atomic origin main \"\$new_tag\""
-    ] false
+    ]
+    false
   );
 
   # Test cut release recipe pattern (with npm file bump)
   testCutWithNpm = mkJustParseTest "cut-with-npm" (
     lib.concatStringsSep "\n" [
       (mkRecipeWithParams "cut" [''level="patch"''] "Cut a release: bump version files, commit, tag, push" [
-        "#!/usr/bin/env bash"
-        "set -euo pipefail"
-        ""
-        "latest_tag=$(git describe --tags --abbrev=0)"
-        "version=\${latest_tag#v}"
-        "IFS='.' read -r major minor patch <<< \"\$version\""
-        ""
-        "case \"\$level\" in"
-        "  patch) new_version=\"\$major.\$minor.\$((patch + 1))\" ;;"
-        "  minor) new_version=\"\$major.\$((minor + 1)).0\" ;;"
-        "  *)     echo \"Unknown level: \$level\" >&2; exit 1 ;;"
-        "esac"
-        ""
-        "new_tag=\"v\$new_version\""
-        "node -e \"const fs = require('fs'); const j = JSON.parse(fs.readFileSync('package.json')); j.version = '\${new_version}'; fs.writeFileSync('package.json', JSON.stringify(j, null, '\\t') + '\\n');\""
-        ""
-        "git add package.json"
-        "git commit -m \"release: bump to \${new_version}\""
-        "git tag -a \"\$new_tag\" -m \"Release \$new_tag\""
-        "git push --atomic origin main \"\$new_tag\""
-      ] false)
+          "#!/usr/bin/env bash"
+          "set -euo pipefail"
+          ""
+          "latest_tag=$(git describe --tags --abbrev=0)"
+          "version=\${latest_tag#v}"
+          "IFS='.' read -r major minor patch <<< \"\$version\""
+          ""
+          "case \"{{level}}\" in"
+          "  patch) new_version=\"\$major.\$minor.\$((patch + 1))\" ;;"
+          "  minor) new_version=\"\$major.\$((minor + 1)).0\" ;;"
+          "  *)     echo \"Unknown level: {{level}}\" >&2; exit 1 ;;"
+          "esac"
+          ""
+          "new_tag=\"v\$new_version\""
+          "node -e \"const fs = require('fs'); const j = JSON.parse(fs.readFileSync('package.json')); j.version = '\${new_version}'; fs.writeFileSync('package.json', JSON.stringify(j, null, '\\t') + '\\n');\""
+          ""
+          "git add package.json"
+          "git commit -m \"release: bump to \${new_version}\""
+          "git tag -a \"\$new_tag\" -m \"Release \$new_tag\""
+          "git push --atomic origin main \"\$new_tag\""
+        ]
+        false)
       ""
       "# Bump patch version"
       "bump:"
