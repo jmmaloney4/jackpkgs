@@ -6,6 +6,9 @@ with pkgs.lib; rec {
   # These helpers make it easy to generate justfile content without indentation issues
   justfile = import ./justfile-helpers.nix {lib = pkgs.lib;};
 
+  # Helm chart packaging from GitHub source repos
+  helmChart = import ./helm-chart.nix {inherit lib pkgs;};
+
   /**
   Build a YAML-to-Nix parser backed by yq-go IFD with an optional JSON
   sidecar optimisation.
