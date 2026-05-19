@@ -92,7 +92,6 @@ in {
 
       pnpmDeps = pkgs.fetchPnpmDeps {
         pname = "pnpm";
-        version = "1.0.0";
         src = cfg.projectRoot;
         fetcherVersion = 3;
         pnpm = sysCfg.pnpmPackage;
@@ -100,8 +99,7 @@ in {
       };
 
       nodeModules = pkgs.stdenv.mkDerivation {
-        pname = "node-modules";
-        version = "1.0.0";
+        name = "node-modules";
         src = cfg.projectRoot;
 
         nativeBuildInputs = [
