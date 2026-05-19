@@ -16,9 +16,9 @@ bun2nix.mkDerivation {
   module = "src/index.ts";
 
   # Remove upstream binary lockfile so bun uses our text lockfile instead
-  postUnpack = ''
-    rm -f source/bun.lockb
-    cp ${./bun.lock} source/bun.lock
+  postPatch = ''
+    rm -f bun.lockb
+    cp ${./bun.lock} bun.lock
   '';
 
   # Don't minify the server binary

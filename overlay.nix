@@ -19,8 +19,12 @@ else let
   bun2nixOverlay =
     if inputs ? bun2nix
     then inputs.bun2nix.overlays.default
-    else (import (builtins.fetchTarball "github:nix-community/bun2nix") {}).overlays.default;
-  superWithBun2nix = super.extend bun2nixOverlay;
+    else
+      (import (builtins.fetchTarball {
+        url = "https://github.com/nix-community/bun2nix/archive/f2bc12af1a6369648aac41041ceeaa0b866599c6.tar.gz";
+        sha256 = "sha256-oQvcadh2BCkrog+SGrG6YffKJrveYpjj3TdQJWaKhaM=";
+      })).overlays.default;
+  superWithBun2nix = super // (bun2nixOverlay self super);
   # Define packages inline instead of importing default.nix
   allPackages = {
     csharpier = super.callPackage ./pkgs/csharpier {};
