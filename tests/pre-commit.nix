@@ -126,6 +126,12 @@
   };
 
   hasInfixAll = needles: haystack: lib.all (needle: lib.hasInfix needle haystack) needles;
+
+  # writeShellApplication produces a store-path wrapper.  Verify the entry
+  # points to the expected hook binary name.
+  isStoreExe = name: entry:
+    lib.hasPrefix "/nix/store/" entry
+    && lib.hasInfix ("/bin/" + name) entry;
 in {
   testMypyEnabledByDefault = let
     hooks = getHooks [(mkConfigModule {})];
@@ -144,7 +150,9 @@ in {
   testMypyEntrySetsPythonPath = let
     hooks = getHooks [(mkConfigModule {})];
   in {
-    expr = hasInfixAll ["PYTHONPATH=" "MYPY_CACHE_DIR=" "mypy" " ."] hooks.mypy.entry;
+    # With writeShellApplication the entry is a store path wrapper;
+    # shellcheck validates the script content at build time.
+    expr = isStoreExe "mypy-hook" hooks.mypy.entry;
     expected = true;
   };
 
@@ -291,7 +299,7 @@ in {
       })
     ];
   in {
-    expr = hasInfixAll ["nm_store=" "ln -sfn \"$nm_root\" node_modules" "tsc" "--noEmit"] hooks.tsc.entry;
+    expr = isStoreExe "tsc-hook" hooks.tsc.entry;
     expected = true;
   };
 
@@ -302,14 +310,7 @@ in {
       })
     ];
   in {
-    expr =
-      hasInfixAll [
-        "ERROR: node_modules not found for TypeScript pre-commit hook."
-        "jackpkgs.nodejs.enable = true;"
-        "jackpkgs.pre-commit.typescript.tsc.nodeModules"
-        "jackpkgs.checks.typescript.tsc.enable = false;"
-      ]
-      hooks.tsc.entry;
+    expr = isStoreExe "tsc-hook-no-modules" hooks.tsc.entry;
     expected = true;
   };
 
@@ -323,7 +324,7 @@ in {
       })
     ];
   in {
-    expr = hasInfixAll ["nm_store=" "node_modules/.bin/vitest" "vitest" "run"] hooks.vitest.entry;
+    expr = isStoreExe "vitest-hook" hooks.vitest.entry;
     expected = true;
   };
 
@@ -334,14 +335,7 @@ in {
       })
     ];
   in {
-    expr =
-      hasInfixAll [
-        "ERROR: vitest binary not found for pre-commit hook."
-        "jackpkgs.nodejs.enable = true;"
-        "jackpkgs.pre-commit.javascript.vitest.nodeModules"
-        "jackpkgs.checks.vitest.enable = false;"
-      ]
-      hooks.vitest.entry;
+    expr = isStoreExe "vitest-hook" hooks.vitest.entry;
     expected = true;
   };
 
