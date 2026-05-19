@@ -319,14 +319,34 @@ in {
           then map jackpkgsLib.validateWorkspacePath checksCfg.biome.lint.packages
           else discoverPnpmPackages projectRoot;
 
-        mkNodeModulesSetup = nodeModules: ''
-          nm_store=${lib.escapeShellArg (toString nodeModules)}
+        # Create a writable node_modules directory populated with symlinks into
+        # the store.  Mirrors the linkNodeModules strategy in checks.nix: a
+        # single symlink to the read-only store would prevent mkWorkspaceSymlinks
+        # from creating workspace package symlinks (mkdir -p node_modules/@scope
+        # fails inside a read-only symlink target).
+        mkNodeModulesSetup = nodeModules: let
+          nmStore = lib.escapeShellArg (toString nodeModules);
+        in ''
+          nm_store=${nmStore}
           ${jackpkgsLib.nodejs.findNodeModulesRoot "nm_root" "$nm_store"}
           if [ -z "$nm_root" ]; then
             echo "ERROR: Unable to find node_modules in $nm_store" >&2
             exit 1
           fi
-          ln -sfn "$nm_root" node_modules
+          mkdir -p node_modules
+          shopt -s dotglob
+          for entry in "$nm_root"/*/; do
+            entry_name="$(basename "$entry")"
+            if [[ "$entry_name" == @* ]]; then
+              mkdir -p "node_modules/$entry_name"
+              for scoped_pkg in "$entry"*/; do
+                ln -sfn "$scoped_pkg" "node_modules/$entry_name/$(basename "$scoped_pkg")"
+              done
+            else
+              ln -sfn "$entry" "node_modules/$entry_name"
+            fi
+          done
+          shopt -u dotglob
           ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" "$nm_store"}
           if [ -n "$nm_bin" ]; then
             export PATH="$nm_bin:$PATH"
