@@ -171,19 +171,17 @@ in {
       nodeModules,
       workspaceRoot,
       packages,
-    }: let
-      nmStore = lib.escapeShellArg (toString nodeModules);
-    in ''
-      nm_store=${nmStore}
+    }: ''
+      nm_store="${nodeModules}"
       nm_root="$nm_store/node_modules"
-      if [ -z "$nm_root" ]; then
+      if [ ! -d "$nm_root" ]; then
         echo "ERROR: Unable to find node_modules in $nm_store" >&2
         echo "Expected: node_modules/ at the derivation root" >&2
         exit 1
       fi
 
       mkdir -p node_modules
-      shopt -s dotglob
+      shopt -s dotglob nullglob
       for entry in "$nm_root"/*/; do
         entry_name="$(basename "$entry")"
         if [[ "$entry_name" == @* ]]; then
@@ -195,7 +193,7 @@ in {
           ln -sfn "$entry" "node_modules/$entry_name"
         fi
       done
-      shopt -u dotglob
+      shopt -u dotglob nullglob
 
       ${lib.concatMapStringsSep "\n" (pkg: ''
           mkdir -p ${lib.escapeShellArg pkg}
@@ -210,7 +208,7 @@ in {
       ${mkWorkspaceSymlinks workspaceRoot packages}
 
       nm_bin="$nm_store/node_modules/.bin"
-      if [ -n "$nm_bin" ]; then
+      if [ -d "$nm_bin" ]; then
         export PATH="$nm_bin:$PATH"
       fi
     '';
