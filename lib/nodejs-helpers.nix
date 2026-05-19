@@ -99,7 +99,7 @@
       then "# Skipping workspace symlink for ${pkg}: package.json not found"
       else
         lib.optionalString isScoped "mkdir -p node_modules/${lib.escapeShellArg scope}\n"
-        + "ln -sfn $(pwd)/${lib.escapeShellArg pkg} node_modules/${lib.escapeShellArg pkgName}")
+        + "ln -sfn \"\$(pwd)/${lib.escapeShellArg pkg}\" node_modules/${lib.escapeShellArg pkgName}")
     packages;
 
   # ---------------------------------------------------------------------------
