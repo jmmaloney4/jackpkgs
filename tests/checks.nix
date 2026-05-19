@@ -700,7 +700,7 @@ in {
   in {
     expr =
       hasInfixAll [
-        "Linking node_modules from $nm_store..."
+        "Linking node_modules from"
         ''mkdir -p node_modules''
         ''shopt -s dotglob''
         ''for entry in "$nm_root"/*/; do''

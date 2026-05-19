@@ -166,5 +166,53 @@ in {
     findNodeModulesRoot = rootVar: storePath: ''
       ${rootVar}="${storePath}/node_modules"
     '';
+
+    mkWorkspaceRuntime = {
+      nodeModules,
+      workspaceRoot,
+      packages,
+    }: let
+      nmStore = lib.escapeShellArg (toString nodeModules);
+    in ''
+      nm_store=${nmStore}
+      nm_root="$nm_store/node_modules"
+      if [ -z "$nm_root" ]; then
+        echo "ERROR: Unable to find node_modules in $nm_store" >&2
+        echo "Expected: node_modules/ at the derivation root" >&2
+        exit 1
+      fi
+
+      mkdir -p node_modules
+      shopt -s dotglob
+      for entry in "$nm_root"/*/; do
+        entry_name="$(basename "$entry")"
+        if [[ "$entry_name" == @* ]]; then
+          mkdir -p "node_modules/$entry_name"
+          for scoped_pkg in "$entry"*/; do
+            ln -sfn "$scoped_pkg" "node_modules/$entry_name/$(basename "$scoped_pkg")"
+          done
+        else
+          ln -sfn "$entry" "node_modules/$entry_name"
+        fi
+      done
+      shopt -u dotglob
+
+      ${lib.concatMapStringsSep "\n" (pkg: ''
+          mkdir -p ${lib.escapeShellArg pkg}
+          if [ -d "$nm_store"/${lib.escapeShellArg pkg}/node_modules ]; then
+            ln -sfn "$nm_store"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
+          elif [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
+            ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
+          fi
+        '')
+        packages}
+
+      ${mkWorkspaceSymlinks workspaceRoot packages}
+
+      nm_bin="$nm_store/node_modules/.bin"
+      if [ -n "$nm_bin" ]; then
+        export PATH="$nm_bin:$PATH"
+      fi
+    '';
   };
 }

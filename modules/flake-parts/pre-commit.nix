@@ -319,65 +319,15 @@ in {
           then map jackpkgsLib.validateWorkspacePath checksCfg.biome.lint.packages
           else discoverPnpmPackages projectRoot;
 
-        # Create a writable node_modules directory populated with symlinks into
-        # the store.  Mirrors the linkNodeModules strategy in checks.nix: a
-        # single symlink to the read-only store would prevent mkWorkspaceSymlinks
-        # from creating workspace package symlinks (mkdir -p node_modules/@scope
-        # fails inside a read-only symlink target).
-        mkNodeModulesSetup = nodeModules: let
-          nmStore = lib.escapeShellArg (toString nodeModules);
-        in ''
-          nm_store=${nmStore}
-          ${jackpkgsLib.nodejs.findNodeModulesRoot "nm_root" "$nm_store"}
-          if [ -z "$nm_root" ]; then
-            echo "ERROR: Unable to find node_modules in $nm_store" >&2
-            exit 1
-          fi
-          mkdir -p node_modules
-          shopt -s dotglob
-          for entry in "$nm_root"/*/; do
-            entry_name="$(basename "$entry")"
-            if [[ "$entry_name" == @* ]]; then
-              mkdir -p "node_modules/$entry_name"
-              for scoped_pkg in "$entry"*/; do
-                ln -sfn "$scoped_pkg" "node_modules/$entry_name/$(basename "$scoped_pkg")"
-              done
-            else
-              ln -sfn "$entry" "node_modules/$entry_name"
-            fi
-          done
-          shopt -u dotglob
-          ${jackpkgsLib.nodejs.findNodeModulesBin "nm_bin" "$nm_store"}
-          if [ -n "$nm_bin" ]; then
-            export PATH="$nm_bin:$PATH"
-          fi
-        '';
-
-        # Link per-package node_modules from the derivation store.  pnpm
-        # installs package-local dependencies under <store>/<pkg>/node_modules
-        # (e.g. @pulumi/cloudflare lives under deploy/platform/cloudflared/
-        # node_modules, not at the root).  Without these, tsc --noEmit run
-        # inside each package directory cannot resolve its own dependencies.
-        linkPackageNodeModules = nodeModules: packages: let
-          nmStore = lib.escapeShellArg (toString nodeModules);
-        in
-          lib.concatMapStringsSep "\n" (pkg: ''
-            mkdir -p ${lib.escapeShellArg pkg}
-            if [ -d ${nmStore}/${lib.escapeShellArg pkg}/node_modules ]; then
-              ln -sfn ${nmStore}/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
-            elif [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
-              ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
-            fi
-          '')
-          packages;
-
         biomeLintEntry = lib.getExe (pkgs.writeShellApplication {
           name = "biome-lint-hook";
           runtimeInputs = lib.optionals (biomeNodeModules != null) [biomeNodeModules];
           text = ''
-            ${lib.optionalString (biomeNodeModules != null) (mkNodeModulesSetup biomeNodeModules)}
-            ${lib.optionalString (biomeNodeModules != null) (jackpkgsLib.mkWorkspaceSymlinks projectRoot biomePackages)}
-            ${lib.optionalString (biomeNodeModules != null) (linkPackageNodeModules biomeNodeModules biomePackages)}
+            ${lib.optionalString (biomeNodeModules != null) (jackpkgsLib.nodejs.mkWorkspaceRuntime {
+              nodeModules = biomeNodeModules;
+              workspaceRoot = projectRoot;
+              packages = biomePackages;
+            })}
             if command -v biome >/dev/null 2>&1; then
               BIOME_BIN="biome"
             else
@@ -406,9 +356,11 @@ in {
             name = "tsc-hook";
             runtimeInputs = [tscNodeModules];
             text = ''
-              ${mkNodeModulesSetup tscNodeModules}
-              ${jackpkgsLib.mkWorkspaceSymlinks projectRoot tscPackages}
-              ${linkPackageNodeModules tscNodeModules tscPackages}
+              ${jackpkgsLib.nodejs.mkWorkspaceRuntime {
+                nodeModules = tscNodeModules;
+                workspaceRoot = projectRoot;
+                packages = tscPackages;
+              }}
               ${lib.concatMapStringsSep "\n" (pkg: ''
                   (cd ${lib.escapeShellArg pkg} && "${tscExe}" --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs})
                 '')
@@ -434,9 +386,11 @@ in {
           name = "vitest-hook";
           runtimeInputs = lib.optionals (vitestNodeModules != null) [vitestNodeModules];
           text = ''
-            ${lib.optionalString (vitestNodeModules != null) (mkNodeModulesSetup vitestNodeModules)}
-            ${lib.optionalString (vitestNodeModules != null) (jackpkgsLib.mkWorkspaceSymlinks projectRoot vitestPackages)}
-            ${lib.optionalString (vitestNodeModules != null) (linkPackageNodeModules vitestNodeModules vitestPackages)}
+            ${lib.optionalString (vitestNodeModules != null) (jackpkgsLib.nodejs.mkWorkspaceRuntime {
+              nodeModules = vitestNodeModules;
+              workspaceRoot = projectRoot;
+              packages = vitestPackages;
+            })}
             if [ -x "./node_modules/.bin/vitest" ]; then
               VITEST_BIN="$(pwd)/node_modules/.bin/vitest"
             elif command -v vitest >/dev/null 2>&1; then
