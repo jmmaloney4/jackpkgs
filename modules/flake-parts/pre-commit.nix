@@ -371,78 +371,93 @@ in {
           '')
           packages;
 
-        biomeLintEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-          ${lib.optionalString (biomeNodeModules != null) (mkNodeModulesSetup biomeNodeModules)}
-          ${lib.optionalString (biomeNodeModules != null) (jackpkgsLib.mkWorkspaceSymlinks projectRoot biomePackages)}
-          ${lib.optionalString (biomeNodeModules != null) (linkPackageNodeModules biomeNodeModules biomePackages)}
-          if command -v biome >/dev/null 2>&1; then
-            BIOME_BIN="biome"
-          else
-            echo 'ERROR: biome binary not found for lint pre-commit hook.' >&2
-            echo 'Enable the Node.js module so that biome is available via node_modules:' >&2
-            echo '    jackpkgs.nodejs.enable = true;' >&2
-            echo 'Or set a custom node_modules derivation:' >&2
-            echo '    jackpkgs.pre-commit.biome.lint.nodeModules = <derivation>;' >&2
-            echo 'To disable the Biome lint hook:' >&2
-            echo '    jackpkgs.checks.biome.lint.enable = false;' >&2
-            exit 1
-          fi
+        biomeLintEntry = lib.getExe (pkgs.writeShellApplication {
+          name = "biome-lint-hook";
+          runtimeInputs = lib.optionals (biomeNodeModules != null) [biomeNodeModules];
+          text = ''
+            ${lib.optionalString (biomeNodeModules != null) (mkNodeModulesSetup biomeNodeModules)}
+            ${lib.optionalString (biomeNodeModules != null) (jackpkgsLib.mkWorkspaceSymlinks projectRoot biomePackages)}
+            ${lib.optionalString (biomeNodeModules != null) (linkPackageNodeModules biomeNodeModules biomePackages)}
+            if command -v biome >/dev/null 2>&1; then
+              BIOME_BIN="biome"
+            else
+              echo 'ERROR: biome binary not found for lint pre-commit hook.' >&2
+              echo 'Enable the Node.js module so that biome is available via node_modules:' >&2
+              echo '    jackpkgs.nodejs.enable = true;' >&2
+              echo 'Or set a custom node_modules derivation:' >&2
+              echo '    jackpkgs.pre-commit.biome.lint.nodeModules = <derivation>;' >&2
+              echo 'To disable the Biome lint hook:' >&2
+              echo '    jackpkgs.checks.biome.lint.enable = false;' >&2
+              exit 1
+            fi
 
-          ${lib.concatMapStringsSep "\n" (pkg: ''
-              (cd ${lib.escapeShellArg pkg} && "$BIOME_BIN" lint${escapeExtraArgs checksCfg.biome.lint.extraArgs} .)
-            '')
-            biomePackages}
-        ''}";
+            ${lib.concatMapStringsSep "\n" (pkg: ''
+                (cd ${lib.escapeShellArg pkg} && "$BIOME_BIN" lint${escapeExtraArgs checksCfg.biome.lint.extraArgs} .)
+              '')
+              biomePackages}
+          '';
+        });
 
         tscExe = lib.getExe' sysCfg.typescript.tsc.package "tsc";
 
         tscEntry =
           if tscNodeModules != null
-          then "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-            ${mkNodeModulesSetup tscNodeModules}
-            ${jackpkgsLib.mkWorkspaceSymlinks projectRoot tscPackages}
-            ${linkPackageNodeModules tscNodeModules tscPackages}
+          then lib.getExe (pkgs.writeShellApplication {
+            name = "tsc-hook";
+            runtimeInputs = [tscNodeModules];
+            text = ''
+              ${mkNodeModulesSetup tscNodeModules}
+              ${jackpkgsLib.mkWorkspaceSymlinks projectRoot tscPackages}
+              ${linkPackageNodeModules tscNodeModules tscPackages}
+              ${lib.concatMapStringsSep "\n" (pkg: ''
+                  (cd ${lib.escapeShellArg pkg} && "${tscExe}" --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs})
+                '')
+                tscPackages}
+            '';
+          })
+          else lib.getExe (pkgs.writeShellApplication {
+            name = "tsc-hook-no-modules";
+            text = ''
+              echo 'ERROR: node_modules not found for TypeScript pre-commit hook.' >&2
+              echo 'TypeScript pre-commit hooks require node_modules to be present.' >&2
+              echo 'Enable the Node.js module to provide node_modules:' >&2
+              echo '    jackpkgs.nodejs.enable = true;' >&2
+              echo 'Or set a custom node_modules derivation:' >&2
+              echo '    jackpkgs.pre-commit.typescript.tsc.nodeModules = <derivation>;' >&2
+              echo 'To disable TypeScript pre-commit hook:' >&2
+              echo '    jackpkgs.checks.typescript.tsc.enable = false;' >&2
+              exit 1
+            '';
+          });
+
+        vitestEntry = lib.getExe (pkgs.writeShellApplication {
+          name = "vitest-hook";
+          runtimeInputs = lib.optionals (vitestNodeModules != null) [vitestNodeModules];
+          text = ''
+            ${lib.optionalString (vitestNodeModules != null) (mkNodeModulesSetup vitestNodeModules)}
+            ${lib.optionalString (vitestNodeModules != null) (jackpkgsLib.mkWorkspaceSymlinks projectRoot vitestPackages)}
+            ${lib.optionalString (vitestNodeModules != null) (linkPackageNodeModules vitestNodeModules vitestPackages)}
+            if [ -x "./node_modules/.bin/vitest" ]; then
+              VITEST_BIN="$(pwd)/node_modules/.bin/vitest"
+            elif command -v vitest >/dev/null 2>&1; then
+              VITEST_BIN="vitest"
+            else
+              echo 'ERROR: vitest binary not found for pre-commit hook.' >&2
+              echo 'Enable the Node.js module to provide node_modules:' >&2
+              echo '    jackpkgs.nodejs.enable = true;' >&2
+              echo 'Or set a custom node_modules derivation:' >&2
+              echo '    jackpkgs.pre-commit.javascript.vitest.nodeModules = <derivation>;' >&2
+              echo 'To disable vitest pre-commit hook:' >&2
+              echo '    jackpkgs.checks.vitest.enable = false;' >&2
+              exit 1
+            fi
+
             ${lib.concatMapStringsSep "\n" (pkg: ''
-                (cd ${lib.escapeShellArg pkg} && ${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs})
+                (cd ${lib.escapeShellArg pkg} && "$VITEST_BIN" run --passWithNoTests${escapeExtraArgs checksCfg.vitest.extraArgs})
               '')
-              tscPackages}
-          ''}"
-          else "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-            echo 'ERROR: node_modules not found for TypeScript pre-commit hook.' >&2
-            echo 'TypeScript pre-commit hooks require node_modules to be present.' >&2
-            echo 'Enable the Node.js module to provide node_modules:' >&2
-            echo '    jackpkgs.nodejs.enable = true;' >&2
-            echo 'Or set a custom node_modules derivation:' >&2
-            echo '    jackpkgs.pre-commit.typescript.tsc.nodeModules = <derivation>;' >&2
-            echo 'To disable TypeScript pre-commit hook:' >&2
-            echo '    jackpkgs.checks.typescript.tsc.enable = false;' >&2
-            exit 1
-          ''}";
-
-        vitestEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-          ${lib.optionalString (vitestNodeModules != null) (mkNodeModulesSetup vitestNodeModules)}
-          ${lib.optionalString (vitestNodeModules != null) (jackpkgsLib.mkWorkspaceSymlinks projectRoot vitestPackages)}
-          ${lib.optionalString (vitestNodeModules != null) (linkPackageNodeModules vitestNodeModules vitestPackages)}
-          if command -v vitest >/dev/null 2>&1; then
-            VITEST_BIN="vitest"
-          elif [ -x "./node_modules/.bin/vitest" ]; then
-            VITEST_BIN="$(pwd)/node_modules/.bin/vitest"
-          else
-            echo 'ERROR: vitest binary not found for pre-commit hook.' >&2
-            echo 'Enable the Node.js module to provide node_modules:' >&2
-            echo '    jackpkgs.nodejs.enable = true;' >&2
-            echo 'Or set a custom node_modules derivation:' >&2
-            echo '    jackpkgs.pre-commit.javascript.vitest.nodeModules = <derivation>;' >&2
-            echo 'To disable vitest pre-commit hook:' >&2
-            echo '    jackpkgs.checks.vitest.enable = false;' >&2
-            exit 1
-          fi
-
-          ${lib.concatMapStringsSep "\n" (pkg: ''
-              (cd ${lib.escapeShellArg pkg} && "$VITEST_BIN" run --passWithNoTests${escapeExtraArgs checksCfg.vitest.extraArgs})
-            '')
-            vitestPackages}
-        ''}";
+              vitestPackages}
+          '';
+        });
         preCommitMypyPackageDefault = pythonEnvHelpers.selectDevToolsPackage {
           pythonCfg = jackpkgsPythonCfg;
           pythonWorkspace = config._module.args.pythonWorkspace or null;
@@ -494,26 +509,30 @@ in {
               then let
                 mypyPkg = sysCfg.python.mypy.package;
                 tyBin = lib.getExe sysCfg.python.mypy.tyPackage;
-              in "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-                ${tyBin} check --python ${mypyPkg}${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
-              ''}"
+              in lib.getExe (pkgs.writeShellApplication {
+                name = "ty-hook";
+                runtimeInputs = [sysCfg.python.mypy.tyPackage];
+                text = ''
+                  "${tyBin}" check --python "${mypyPkg}"${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
+                '';
+              })
               else let
                 mypyPkg = sysCfg.python.mypy.package;
-                # Resolve the Python interpreter version the same way
-                # checks.nix does (from jackpkgs.python.pythonPackage, not
-                # from the mypy tool package whose .version is the mypy
-                # version, not the Python version).
                 pythonVersion =
                   if jackpkgsPythonCfg ? pythonPackage && jackpkgsPythonCfg.pythonPackage != null
                   then jackpkgsPythonCfg.pythonPackage.pythonVersion
                       or (lib.versions.majorMinor jackpkgsPythonCfg.pythonPackage.version or "3.12")
                   else "3.12";
-              in "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-                ${mypyDeprecationWarning}
-                export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
-                export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
-                ${lib.getExe' mypyPkg "mypy"}${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
-              ''}";
+              in lib.getExe (pkgs.writeShellApplication {
+                name = "mypy-hook";
+                runtimeInputs = [mypyPkg];
+                text = ''
+                  ${mypyDeprecationWarning}
+                  export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
+                  export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
+                  "${lib.getExe' mypyPkg "mypy"}"${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
+                '';
+              });
             files = "\\.py$";
             excludes = defaultExcludes.preCommit;
           };
