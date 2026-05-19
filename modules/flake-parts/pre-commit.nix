@@ -398,7 +398,7 @@ in {
           fi
 
           ${lib.concatMapStringsSep "\n" (pkg: ''
-              (cd ${lib.escapeShellArg pkg} && "$VITEST_BIN" run${escapeExtraArgs checksCfg.vitest.extraArgs})
+              (cd ${lib.escapeShellArg pkg} && "$VITEST_BIN" run --passWithNoTests${escapeExtraArgs checksCfg.vitest.extraArgs})
             '')
             vitestPackages}
         ''}";
