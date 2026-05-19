@@ -18,29 +18,31 @@
       ];
     };
 
-  fakeInputs = inputs // {
-    nixpkgs = {
-      legacyPackages.${system} = {
-        buildEnv = args:
-          if args ? ignoreCollisions && args.ignoreCollisions
-          then {
-            inherit args;
-            ignoreCollisionsSeen = true;
-          }
-          else builtins.throw "jackpkgs.images should enable ignoreCollisions on the shared buildEnv";
-      };
-    };
-
-    nix2container = {
-      packages.${system} = {
-        nix2container = {
-          buildLayer = {copyToRoot, ...} @ args: copyToRoot;
-          buildImage = args: args;
+  fakeInputs =
+    inputs
+    // {
+      nixpkgs = {
+        legacyPackages.${system} = {
+          buildEnv = args:
+            if args ? ignoreCollisions && args.ignoreCollisions
+            then {
+              inherit args;
+              ignoreCollisionsSeen = true;
+            }
+            else builtins.throw "jackpkgs.images should enable ignoreCollisions on the shared buildEnv";
         };
-        skopeo-nix2container = mkTestDerivation "skopeo-nix2container";
+      };
+
+      nix2container = {
+        packages.${system} = {
+          nix2container = {
+            buildLayer = {copyToRoot, ...} @ args: copyToRoot;
+            buildImage = args: args;
+          };
+          skopeo-nix2container = mkTestDerivation "skopeo-nix2container";
+        };
       };
     };
-  };
 
   containerModule = import ../modules/flake-parts/container.nix {
     jackpkgsInputs = fakeInputs;
@@ -50,13 +52,15 @@
   evalFlake = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = [
-        {
-          _module.check = false;
-        }
-        justModule
-        containerModule
-      ] ++ modules;
+      imports =
+        [
+          {
+            _module.check = false;
+          }
+          justModule
+          containerModule
+        ]
+        ++ modules;
     };
 
   getFlakeImages = modules: (evalFlake modules).config.flake.images;
@@ -67,7 +71,7 @@ in {
         jackpkgs.images.enable = true;
         jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
 
-        perSystem = { ... }: {
+        perSystem = {...}: {
           jackpkgs.images.commonPackages = [
             (mkTestDerivation "shared-common-package")
           ];

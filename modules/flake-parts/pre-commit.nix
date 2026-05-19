@@ -352,35 +352,37 @@ in {
 
         tscEntry =
           if tscNodeModules != null
-          then lib.getExe (pkgs.writeShellApplication {
-            name = "tsc-hook";
-            runtimeInputs = [tscNodeModules];
-            text = ''
-              ${jackpkgsLib.nodejs.mkWorkspaceRuntime {
-                nodeModules = tscNodeModules;
-                workspaceRoot = projectRoot;
-                packages = tscPackages;
-              }}
-              ${lib.concatMapStringsSep "\n" (pkg: ''
-                  (cd ${lib.escapeShellArg pkg} && "${tscExe}" --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs})
-                '')
-                tscPackages}
-            '';
-          })
-          else lib.getExe (pkgs.writeShellApplication {
-            name = "tsc-hook-no-modules";
-            text = ''
-              echo 'ERROR: node_modules not found for TypeScript pre-commit hook.' >&2
-              echo 'TypeScript pre-commit hooks require node_modules to be present.' >&2
-              echo 'Enable the Node.js module to provide node_modules:' >&2
-              echo '    jackpkgs.nodejs.enable = true;' >&2
-              echo 'Or set a custom node_modules derivation:' >&2
-              echo '    jackpkgs.pre-commit.typescript.tsc.nodeModules = <derivation>;' >&2
-              echo 'To disable TypeScript pre-commit hook:' >&2
-              echo '    jackpkgs.checks.typescript.tsc.enable = false;' >&2
-              exit 1
-            '';
-          });
+          then
+            lib.getExe (pkgs.writeShellApplication {
+              name = "tsc-hook";
+              runtimeInputs = [tscNodeModules];
+              text = ''
+                ${jackpkgsLib.nodejs.mkWorkspaceRuntime {
+                  nodeModules = tscNodeModules;
+                  workspaceRoot = projectRoot;
+                  packages = tscPackages;
+                }}
+                ${lib.concatMapStringsSep "\n" (pkg: ''
+                    (cd ${lib.escapeShellArg pkg} && "${tscExe}" --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs})
+                  '')
+                  tscPackages}
+              '';
+            })
+          else
+            lib.getExe (pkgs.writeShellApplication {
+              name = "tsc-hook-no-modules";
+              text = ''
+                echo 'ERROR: node_modules not found for TypeScript pre-commit hook.' >&2
+                echo 'TypeScript pre-commit hooks require node_modules to be present.' >&2
+                echo 'Enable the Node.js module to provide node_modules:' >&2
+                echo '    jackpkgs.nodejs.enable = true;' >&2
+                echo 'Or set a custom node_modules derivation:' >&2
+                echo '    jackpkgs.pre-commit.typescript.tsc.nodeModules = <derivation>;' >&2
+                echo 'To disable TypeScript pre-commit hook:' >&2
+                echo '    jackpkgs.checks.typescript.tsc.enable = false;' >&2
+                exit 1
+              '';
+            });
 
         vitestEntry = lib.getExe (pkgs.writeShellApplication {
           name = "vitest-hook";
@@ -463,13 +465,14 @@ in {
               then let
                 mypyPkg = sysCfg.python.mypy.package;
                 tyBin = lib.getExe sysCfg.python.mypy.tyPackage;
-              in lib.getExe (pkgs.writeShellApplication {
-                name = "ty-hook";
-                runtimeInputs = [sysCfg.python.mypy.tyPackage];
-                text = ''
-                  "${tyBin}" check --python "${mypyPkg}"${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
-                '';
-              })
+              in
+                lib.getExe (pkgs.writeShellApplication {
+                  name = "ty-hook";
+                  runtimeInputs = [sysCfg.python.mypy.tyPackage];
+                  text = ''
+                    "${tyBin}" check --python "${mypyPkg}"${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
+                  '';
+                })
               else let
                 mypyPkg = sysCfg.python.mypy.package;
                 pythonVersion =
@@ -477,16 +480,17 @@ in {
                   then jackpkgsPythonCfg.pythonPackage.pythonVersion
                       or (lib.versions.majorMinor jackpkgsPythonCfg.pythonPackage.version or "3.12")
                   else "3.12";
-              in lib.getExe (pkgs.writeShellApplication {
-                name = "mypy-hook";
-                runtimeInputs = [mypyPkg];
-                text = ''
-                  ${mypyDeprecationWarning}
-                  export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
-                  export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
-                  "${lib.getExe' mypyPkg "mypy"}"${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
-                '';
-              });
+              in
+                lib.getExe (pkgs.writeShellApplication {
+                  name = "mypy-hook";
+                  runtimeInputs = [mypyPkg];
+                  text = ''
+                    ${mypyDeprecationWarning}
+                    export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
+                    export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
+                    "${lib.getExe' mypyPkg "mypy"}"${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
+                  '';
+                });
             files = "\\.py$";
             excludes = defaultExcludes.preCommit;
           };
