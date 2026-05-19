@@ -16,22 +16,34 @@
       sha256 = "sha256-o3GQ6R9vqioqIhqJ7GXVfM9vzEVhwiFLf5zp4xjcuIo=";
     };
   };
+  gemini-proxy = {
+    pname = "gemini-proxy";
+    version = "5f701a244ed3c4699e6c1b0550bd50e961601ebe";
+    src = fetchFromGitHub {
+      owner = "KashifKhn";
+      repo = "gemini-proxy";
+      rev = "5f701a244ed3c4699e6c1b0550bd50e961601ebe";
+      fetchSubmodules = false;
+      sha256 = "sha256-RYDeVd66AXHHbm7TzX8et8QUspvfjxpkq8o4VXh76Cw=";
+    };
+    date = "2026-03-09";
+  };
   nautilus-trader = {
     pname = "nautilus-trader";
-    version = "2a8953d4a87f75df8cecad07a50c4452f534528b";
+    version = "6cf2d115e52796da93d6c22a77d1b07b1a69d48c";
     src = fetchFromGitHub {
       owner = "nautechsystems";
       repo = "nautilus_trader";
-      rev = "2a8953d4a87f75df8cecad07a50c4452f534528b";
+      rev = "6cf2d115e52796da93d6c22a77d1b07b1a69d48c";
       fetchSubmodules = false;
-      sha256 = "sha256-zUBKHpxptOK0d7qIC0rtgG3u2IrcJHCI7eKyo4SSVYU=";
+      sha256 = "sha256-kIXZ0SWTWGNfbn1jDTu1RdAx2FqYgqknxajWcwNClOg=";
     };
     cargoLock."Cargo.lock" = {
-      lockFile = ./. + "/sha256-zUBKHpxptOK0d7qIC0rtgG3u2IrcJHCI7eKyo4SSVYU=/Cargo.lock";
+      lockFile = ./. + "/sha256-kIXZ0SWTWGNfbn1jDTu1RdAx2FqYgqknxajWcwNClOg=/Cargo.lock";
       outputHashes = {
       };
     };
-    date = "2026-05-14";
+    date = "2026-05-19";
   };
   spooktacular = {
     pname = "spooktacular";

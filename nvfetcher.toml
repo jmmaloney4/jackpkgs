@@ -15,3 +15,7 @@ fetch.github = "Spooky-Labs/spooktacular"
 [codex-proxy]
 src.github = "dvcrn/codex-proxy"
 fetch.github = "dvcrn/codex-proxy"
+
+[gemini-proxy]
+src.git = "https://github.com/KashifKhn/gemini-proxy"
+fetch.github = "KashifKhn/gemini-proxy"

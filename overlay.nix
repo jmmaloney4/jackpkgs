@@ -1,6 +1,10 @@
 # You can use this file as a nixpkgs overlay. This is useful in the
 # case where you don't want to add the whole NUR namespace to your
 # configuration.
+#
+# When used from the flake, bun2nix inputs are passed as the first argument.
+# When used standalone (without flake inputs), bun2nix is fetched from GitHub.
+inputs ? {}:
 self: super:
 if !(super ? callPackage && super ? system)
 then {}
@@ -11,6 +15,16 @@ else let
     value = v;
   };
   nvfetcherSources = super.callPackage ./_sources/generated.nix {};
+  # Extend super with bun2nix overlay so bun2nix builder functions are available
+  bun2nixOverlay =
+    if inputs ? bun2nix
+    then inputs.bun2nix.overlays.default
+    else
+      (import (builtins.fetchTarball {
+        url = "https://github.com/nix-community/bun2nix/archive/f2bc12af1a6369648aac41041ceeaa0b866599c6.tar.gz";
+        sha256 = "sha256-oQvcadh2BCkrog+SGrG6YffKJrveYpjj3TdQJWaKhaM=";
+      })).overlays.default;
+  superWithBun2nix = super // (bun2nixOverlay self super);
   # Define packages inline instead of importing default.nix
   allPackages = {
     csharpier = super.callPackage ./pkgs/csharpier {};
@@ -18,6 +32,9 @@ else let
       inherit (nvfetcherSources.codex-proxy) src version;
     };
     docfx = super.callPackage ./pkgs/docfx {};
+    gemini-proxy = superWithBun2nix.callPackage ./pkgs/gemini-proxy {
+      inherit (nvfetcherSources.gemini-proxy) src version;
+    };
     epub2tts = super.callPackage ./pkgs/epub2tts {};
     imessage-bridge = super.callPackage ./pkgs/imessage-bridge {};
     lean = super.callPackage ./pkgs/lean {};
