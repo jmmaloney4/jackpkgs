@@ -339,21 +339,13 @@ in {
           if command -v biome >/dev/null 2>&1; then
             BIOME_BIN="biome"
           else
-            cat >&2 <<'EOF'
-            ERROR: biome binary not found for lint pre-commit hook.
-
-            Enable the Node.js module so that biome is available via node_modules:
-
-                jackpkgs.nodejs.enable = true;
-
-            Or set a custom node_modules derivation:
-
-                jackpkgs.pre-commit.biome.lint.nodeModules = <derivation>;
-
-            To disable the Biome lint hook:
-
-                jackpkgs.checks.biome.lint.enable = false;
-            EOF
+            echo 'ERROR: biome binary not found for lint pre-commit hook.' >&2
+            echo 'Enable the Node.js module so that biome is available via node_modules:' >&2
+            echo '    jackpkgs.nodejs.enable = true;' >&2
+            echo 'Or set a custom node_modules derivation:' >&2
+            echo '    jackpkgs.pre-commit.biome.lint.nodeModules = <derivation>;' >&2
+            echo 'To disable the Biome lint hook:' >&2
+            echo '    jackpkgs.checks.biome.lint.enable = false;' >&2
             exit 1
           fi
 
@@ -376,23 +368,14 @@ in {
               tscPackages}
           ''}"
           else "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
-            cat >&2 <<'EOF'
-            ERROR: node_modules not found for TypeScript pre-commit hook.
-
-            TypeScript pre-commit hooks require node_modules to be present.
-
-            Enable the Node.js module to provide node_modules:
-
-                jackpkgs.nodejs.enable = true;
-
-            Or set a custom node_modules derivation:
-
-                jackpkgs.pre-commit.typescript.tsc.nodeModules = <derivation>;
-
-            To disable TypeScript pre-commit hook:
-
-                jackpkgs.checks.typescript.tsc.enable = false;
-            EOF
+            echo 'ERROR: node_modules not found for TypeScript pre-commit hook.' >&2
+            echo 'TypeScript pre-commit hooks require node_modules to be present.' >&2
+            echo 'Enable the Node.js module to provide node_modules:' >&2
+            echo '    jackpkgs.nodejs.enable = true;' >&2
+            echo 'Or set a custom node_modules derivation:' >&2
+            echo '    jackpkgs.pre-commit.typescript.tsc.nodeModules = <derivation>;' >&2
+            echo 'To disable TypeScript pre-commit hook:' >&2
+            echo '    jackpkgs.checks.typescript.tsc.enable = false;' >&2
             exit 1
           ''}";
 
@@ -404,21 +387,13 @@ in {
           elif command -v vitest >/dev/null 2>&1; then
             VITEST_BIN="vitest"
           else
-            cat >&2 <<'EOF'
-            ERROR: vitest binary not found for pre-commit hook.
-
-            Enable the Node.js module to provide node_modules:
-
-                jackpkgs.nodejs.enable = true;
-
-            Or set a custom node_modules derivation:
-
-                jackpkgs.pre-commit.javascript.vitest.nodeModules = <derivation>;
-
-            To disable vitest pre-commit hook:
-
-                jackpkgs.checks.vitest.enable = false;
-            EOF
+            echo 'ERROR: vitest binary not found for pre-commit hook.' >&2
+            echo 'Enable the Node.js module to provide node_modules:' >&2
+            echo '    jackpkgs.nodejs.enable = true;' >&2
+            echo 'Or set a custom node_modules derivation:' >&2
+            echo '    jackpkgs.pre-commit.javascript.vitest.nodeModules = <derivation>;' >&2
+            echo 'To disable vitest pre-commit hook:' >&2
+            echo '    jackpkgs.checks.vitest.enable = false;' >&2
             exit 1
           fi
 
