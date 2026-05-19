@@ -353,9 +353,28 @@ in {
           fi
         '';
 
+        # Link per-package node_modules from the derivation store.  pnpm
+        # installs package-local dependencies under <store>/<pkg>/node_modules
+        # (e.g. @pulumi/cloudflare lives under deploy/platform/cloudflared/
+        # node_modules, not at the root).  Without these, tsc --noEmit run
+        # inside each package directory cannot resolve its own dependencies.
+        linkPackageNodeModules = nodeModules: packages: let
+          nmStore = lib.escapeShellArg (toString nodeModules);
+        in
+          lib.concatMapStringsSep "\n" (pkg: ''
+            mkdir -p ${lib.escapeShellArg pkg}
+            if [ -d ${nmStore}/${lib.escapeShellArg pkg}/node_modules ]; then
+              ln -sfn ${nmStore}/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
+            elif [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
+              ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
+            fi
+          '')
+          packages;
+
         biomeLintEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
           ${lib.optionalString (biomeNodeModules != null) (mkNodeModulesSetup biomeNodeModules)}
           ${lib.optionalString (biomeNodeModules != null) (jackpkgsLib.mkWorkspaceSymlinks projectRoot biomePackages)}
+          ${lib.optionalString (biomeNodeModules != null) (linkPackageNodeModules biomeNodeModules biomePackages)}
           if command -v biome >/dev/null 2>&1; then
             BIOME_BIN="biome"
           else
@@ -382,6 +401,7 @@ in {
           then "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
             ${mkNodeModulesSetup tscNodeModules}
             ${jackpkgsLib.mkWorkspaceSymlinks projectRoot tscPackages}
+            ${linkPackageNodeModules tscNodeModules tscPackages}
             ${lib.concatMapStringsSep "\n" (pkg: ''
                 (cd ${lib.escapeShellArg pkg} && ${tscExe} --noEmit${escapeExtraArgs checksCfg.typescript.tsc.extraArgs})
               '')
@@ -402,6 +422,7 @@ in {
         vitestEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
           ${lib.optionalString (vitestNodeModules != null) (mkNodeModulesSetup vitestNodeModules)}
           ${lib.optionalString (vitestNodeModules != null) (jackpkgsLib.mkWorkspaceSymlinks projectRoot vitestPackages)}
+          ${lib.optionalString (vitestNodeModules != null) (linkPackageNodeModules vitestNodeModules vitestPackages)}
           if command -v vitest >/dev/null 2>&1; then
             VITEST_BIN="vitest"
           elif [ -x "./node_modules/.bin/vitest" ]; then
