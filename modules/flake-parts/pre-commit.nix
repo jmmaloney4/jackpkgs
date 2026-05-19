@@ -382,10 +382,10 @@ in {
         vitestEntry = "${lib.getExe pkgs.bash} -euo pipefail -c ${lib.escapeShellArg ''
           ${lib.optionalString (vitestNodeModules != null) (mkNodeModulesSetup vitestNodeModules)}
           ${lib.optionalString (vitestNodeModules != null) (jackpkgsLib.mkWorkspaceSymlinks projectRoot vitestPackages)}
-          if [ -x "./node_modules/.bin/vitest" ]; then
-            VITEST_BIN="./node_modules/.bin/vitest"
-          elif command -v vitest >/dev/null 2>&1; then
+          if command -v vitest >/dev/null 2>&1; then
             VITEST_BIN="vitest"
+          elif [ -x "./node_modules/.bin/vitest" ]; then
+            VITEST_BIN="$(pwd)/node_modules/.bin/vitest"
           else
             echo 'ERROR: vitest binary not found for pre-commit hook.' >&2
             echo 'Enable the Node.js module to provide node_modules:' >&2
