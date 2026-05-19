@@ -437,64 +437,15 @@ in {
           touch $out
         '';
 
-      # Link node_modules into the sandbox
-      # Strategy: link root node_modules, then link per-package node_modules when present.
-      # Expected layout from nodejs output derivation:
-      # - root: <store>/node_modules
-      # - workspace package: <store>/<pkg>/node_modules
       linkNodeModules = nodeModules: packages:
         if nodeModules == null
         then ""
         else ''
-          nm_store=${nodeModules}
-          echo "Linking node_modules from $nm_store..."
-
-          # Resolve node_modules root from output derivation
-          ${jackpkgsLib.nodejs.findNodeModulesRoot "nm_root" "$nm_store"}
-
-          if [ -z "$nm_root" ]; then
-            echo "ERROR: Unable to find node_modules in $nm_store" >&2
-            echo "Expected: node_modules/ at the derivation root" >&2
-            echo "Enable Node.js module or provide custom nodeModules via jackpkgs.checks.typescript.tsc.nodeModules" >&2
-            exit 1
-          fi
-
-          # Create a writable node_modules directory populated with symlinks into the
-          # store.  A single symlink to the read-only store would prevent
-          # mkWorkspaceSymlinks from later running `mkdir -p node_modules/@scope`.
-          # Use dotglob so hidden entries like .bin are included.
-          mkdir -p node_modules
-          shopt -s dotglob
-          for entry in "$nm_root"/*/; do
-            entry_name="$(basename "$entry")"
-            if [[ "$entry_name" == @* ]]; then
-              # Scoped package directory: link each package inside the scope individually
-              # so that the scope directory itself remains writable.
-              mkdir -p "node_modules/$entry_name"
-              for scoped_pkg in "$entry"*/; do
-                ln -sfn "$scoped_pkg" "node_modules/$entry_name/$(basename "$scoped_pkg")"
-              done
-            else
-              ln -sfn "$entry" "node_modules/$entry_name"
-            fi
-          done
-          shopt -u dotglob
-
-          # Link package-level node_modules
-          ${lib.concatMapStringsSep "\n" (pkg: ''
-              mkdir -p ${lib.escapeShellArg pkg}
-
-              # Link nested node_modules for workspace packages.
-              # Workspace-level node_modules are captured under the derivation root
-              # (e.g. <store>/packages/foo/node_modules), not under root node_modules.
-              if [ -d "$nm_store"/${lib.escapeShellArg pkg}/node_modules ]; then
-                ln -sfn "$nm_store"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
-              elif [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
-                # Backward-compatible fallback for custom layouts
-                ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
-              fi
-            '')
-            packages}
+          echo "Linking node_modules from ${toString nodeModules}..."
+          ${jackpkgsLib.nodejs.mkWorkspaceRuntime {
+            inherit nodeModules packages;
+            workspaceRoot = projectRoot;
+          }}
         '';
 
       # ============================================================
