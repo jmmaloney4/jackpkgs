@@ -592,6 +592,10 @@ in {
                 export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
                 export COVERAGE_FILE=$TMPDIR/.coverage
                 export PYTEST_CACHE_DIR=$TMPDIR/.pytest_cache
+                # Unset SSL_CERT_FILE so httpx/langfuse/litellm don't try to
+                # load a CA bundle that doesn't exist in the Nix sandbox.
+                # Tests are mocked and never make real TLS connections.
+                export SSL_CERT_FILE=""
               '';
               checkCommands = ''
                 echo "Running pytest (workspace root)..."
