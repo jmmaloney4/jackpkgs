@@ -711,7 +711,12 @@ in {
                 exit 1
               fi
               echo "Type-checking (workspace root)..."
-              tsc --noEmit ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
+              for _tsc_project in ${lib.escapeShellArgs tsPackages}; do
+                if [ -f "''${_tsc_project}/tsconfig.json" ]; then
+                  echo "  tsc (''${_tsc_project})"
+                  tsc --noEmit --project "''${_tsc_project}/tsconfig.json" ${lib.escapeShellArgs cfg.typescript.tsc.extraArgs}
+                fi
+              done
             '';
           };
         };
