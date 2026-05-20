@@ -129,6 +129,9 @@
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           imessage-bridge = pkgs.callPackage ./pkgs/imessage-bridge {};
           lean = pkgs.callPackage ./pkgs/lean {};
+          mcp-ynab = pkgs.callPackage ./pkgs/mcp-ynab {
+            inherit (nvfetcherSources.mcp-ynab) src version;
+          };
           nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
             inherit (nvfetcherSources.nautilus-trader) src version cargoLock;
             cargo = nautilusRustToolchain;
@@ -362,7 +365,7 @@
             pnpm-vitest-check = mkPnpmFixtureCheck {
               name = "vitest-check";
               src = fixtureVitestCheck;
-              depsHash = "sha256-9K1MbHH/kb9xSryNn4m9/vWeroy88WHzI+z+zRHc03c=";
+              depsHash = "sha256-VgoszjnpdXC3uhzjGWIjv7W6BQgT8uldbSkgHu8S4RI=";
               checkCommand = ''
                 test -d node_modules
                 node_modules/.bin/vitest run --root packages/lib
