@@ -146,7 +146,7 @@ in {
 
   # --- test recipe: vitest section ---
 
-  testVitestIncludedWhenNodejsEnabled = {
+  testVitestDefaultsToNodejsEnable = {
     expr = testSectionIncluded [(mkConfigModule {withNodejs = true;})];
     expected = {
       pytest = true;
@@ -172,16 +172,6 @@ in {
     expected = {
       pytest = true;
       vitest = false;
-    };
-  };
-
-  # --- test recipe: both enabled together ---
-
-  testBothToolsEnabledTogether = {
-    expr = testSectionIncluded [(mkConfigModule {withNodejs = true;})];
-    expected = {
-      pytest = true;
-      vitest = true;
     };
   };
 
