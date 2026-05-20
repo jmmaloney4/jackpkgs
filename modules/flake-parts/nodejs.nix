@@ -150,12 +150,15 @@ in {
 
       # Minimal CI devshell for pnpm operations (install, build, pack).
       # Follows ADR-013 CI devshell conventions: no inputsFrom, no dev tools,
-      # no interactive shell enhancements.
-      devShells.ci-pnpm = pkgs.mkShell {
+      # no interactive shell enhancements. Uses mkShellNoCC to avoid pulling
+      # in the full C toolchain (gcc, binutils) — node + pnpm don't need it.
+      devShells.ci-pnpm = pkgs.mkShellNoCC {
+        name = "ci-pnpm";
         packages = [
           sysCfg.package
           sysCfg.pnpmPackage
         ];
+        CI = true;
       };
 
       jackpkgs.shell.inputsFrom =
