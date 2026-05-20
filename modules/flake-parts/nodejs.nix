@@ -148,6 +148,16 @@ in {
         '';
       };
 
+      # Minimal CI devshell for pnpm operations (install, build, pack).
+      # Follows ADR-013 CI devshell conventions: no inputsFrom, no dev tools,
+      # no interactive shell enhancements.
+      devShells.ci-pnpm = pkgs.mkShell {
+        packages = [
+          sysCfg.package
+          sysCfg.pnpmPackage
+        ];
+      };
+
       jackpkgs.shell.inputsFrom =
         lib.optional (config.jackpkgs.outputs.nodejsDevShell != null)
         config.jackpkgs.outputs.nodejsDevShell;
