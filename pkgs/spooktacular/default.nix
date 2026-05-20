@@ -40,7 +40,7 @@ in
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-S5Q7Ds7FG865ZMJNDIpGZ9G8lakyUuKd9OdMCdBERUw=";
+    outputHash = "sha256-nvio+YciMeDrk7D1BXWHakYtrHWw8E3+6qkBqdbuXwo=";
 
     nativeBuildInputs = [git];
 
