@@ -483,11 +483,11 @@ in {
               ""
               "# Bump patch version"
               "bump:"
-              "    @just cut level=\"patch\""
+              "    @just cut \"patch\""
               ""
               "# New minor release"
               "release:"
-              "    @just cut level=\"minor\""
+              "    @just cut \"minor\""
               ""
             ];
           in {
@@ -681,6 +681,51 @@ in {
                     ""
                     "printf '%s\\n' \"All lint checks passed.\""
                   ]
+                )
+                false)
+              (mkRecipe "test" "Run unit and integration tests (pytest, vitest)" (
+                  let
+                    pytestExtraArgs = lib.escapeShellArgs checksCfgForRecipes.python.pytest.extraArgs;
+                    vitestExtraArgs = lib.escapeShellArgs checksCfgForRecipes.vitest.extraArgs;
+                    vitestPackages = checksCfgForRecipes.vitest.packages;
+                  in
+                    [
+                      "#!/usr/bin/env bash"
+                      "set -euo pipefail"
+                    ]
+                    ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.pytest.enable) [
+                      ""
+                      "# pytest (Python tests)"
+                      "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
+                      "  printf '%s\\n' \"==> pytest\""
+                      "  pytest ${pytestExtraArgs}"
+                      "fi"
+                    ])
+                    ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.vitest.enable) (
+                      if vitestPackages != null && vitestPackages != []
+                      then [
+                        ""
+                        "# vitest (JS/TS tests)"
+                        "for _vitest_pkg in ${lib.escapeShellArgs vitestPackages}; do"
+                        "  if [ -f \"\${_vitest_pkg}/package.json\" ]; then"
+                        "    printf '%s\\n' \"==> vitest (\${_vitest_pkg})\""
+                        "    (cd \"\${_vitest_pkg}\" && pnpm exec vitest run --passWithNoTests${lib.optionalString (vitestExtraArgs != "") " ${vitestExtraArgs}"})"
+                        "  fi"
+                        "done"
+                      ]
+                      else [
+                        ""
+                        "# vitest (JS/TS tests)"
+                        "if [ -f package.json ]; then"
+                        "    printf '%s\\n' \"==> vitest\""
+                        "    pnpm exec vitest run --passWithNoTests${lib.optionalString (vitestExtraArgs != "") " ${vitestExtraArgs}"}"
+                        "fi"
+                      ]
+                    ))
+                    ++ [
+                      ""
+                      "printf '%s\\n' \"All tests passed.\""
+                    ]
                 )
                 false)
             ];

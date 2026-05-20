@@ -290,6 +290,9 @@
             lint-recipe = import ./tests/lint-recipe.nix {
               inherit inputs lib;
             };
+            recipe-testing = import ./tests/test-recipe.nix {
+              inherit inputs lib;
+            };
             pkgs = import ./tests/pkgs.nix {
               inherit inputs lib;
             };

@@ -237,11 +237,11 @@ in {
       ""
       "# Bump patch version"
       "bump:"
-      "    @just cut level=\"patch\""
+      "    @just cut \"patch\""
       ""
       "# New minor release"
       "release:"
-      "    @just cut level=\"minor\""
+      "    @just cut \"minor\""
     ]
   );
 }
