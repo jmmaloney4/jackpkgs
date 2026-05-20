@@ -157,6 +157,8 @@ in {
         packages = [
           sysCfg.package
           sysCfg.pnpmPackage
+          pkgs.gh
+          pkgs.jq
         ];
         CI = true;
       };
