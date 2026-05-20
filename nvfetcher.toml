@@ -19,3 +19,7 @@ fetch.github = "dvcrn/codex-proxy"
 [gemini-proxy]
 src.git = "https://github.com/KashifKhn/gemini-proxy"
 fetch.github = "KashifKhn/gemini-proxy"
+
+[mcp-ynab]
+src.git = "https://github.com/jmmaloney4/mcp-ynab"
+fetch.github = "jmmaloney4/mcp-ynab"

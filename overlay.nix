@@ -36,6 +36,9 @@ else let
     epub2tts = super.callPackage ./pkgs/epub2tts {};
     imessage-bridge = super.callPackage ./pkgs/imessage-bridge {};
     lean = super.callPackage ./pkgs/lean {};
+    mcp-ynab = super.callPackage ./pkgs/mcp-ynab {
+      inherit (nvfetcherSources.mcp-ynab) src version;
+    };
     seedtool-cli = super.callPackage ./pkgs/seedtool-cli {};
     spooktacular = super.callPackage ./pkgs/spooktacular {
       inherit (nvfetcherSources.spooktacular) src date;

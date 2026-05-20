@@ -73,4 +73,16 @@
       };
     };
   };
+  mcp-ynab = {
+    pname = "mcp-ynab";
+    version = "b7b21e4990fa824b24bb86f2f2d8fd053817f047";
+    src = fetchFromGitHub {
+      owner = "jmmaloney4";
+      repo = "mcp-ynab";
+      rev = "b7b21e4990fa824b24bb86f2f2d8fd053817f047";
+      fetchSubmodules = false;
+      sha256 = "sha256-Ukh5FvBmk5A4ol2IRpBvrWp1K6fcWDfxssiw0gJ9l84=";
+    };
+    date = "2025-06-23";
+  };
 }

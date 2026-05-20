@@ -9,6 +9,9 @@
       # epub2tts = super.callPackage ../pkgs/epub2tts {};
       # lean = super.callPackage ../pkgs/lean {};
       seedtool-cli = super.callPackage ../pkgs/seedtool-cli {};
+      mcp-ynab = super.callPackage ../pkgs/mcp-ynab {
+        inherit (nvfetcherSources.mcp-ynab) src version;
+      };
       spooktacular = super.callPackage ../pkgs/spooktacular {
         inherit (nvfetcherSources.spooktacular) src date;
       };
