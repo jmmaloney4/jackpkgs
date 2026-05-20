@@ -81,10 +81,10 @@ replaced with one-line aliases:
 
 ```
 bump:
-    @just cut level="patch"
+    @just cut "patch"
 
 release:
-    @just cut level="minor"
+    @just cut "minor"
 ```
 
 This replaces the current tag-only implementations. Consumers that already use `just bump` or
