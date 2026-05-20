@@ -99,7 +99,7 @@ in {
       };
 
       nodeModules = pkgs.stdenv.mkDerivation {
-        name = "node-modules";
+        name = "node_modules";
         src = cfg.projectRoot;
 
         nativeBuildInputs = [
