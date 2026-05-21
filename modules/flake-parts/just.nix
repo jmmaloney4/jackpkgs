@@ -685,6 +685,7 @@ in {
                       then [
                         ""
                         "# tsc (TypeScript type checker)"
+                        "pnpm install --frozen-offline 2>/dev/null || pnpm install"
                         "for _tsc_project in ${lib.escapeShellArgs tscPackages}; do"
                         "  if [ -f \"\${_tsc_project}/tsconfig.json\" ]; then"
                         "    printf '%s\\n' \"==> tsc (\${_tsc_project})\""
