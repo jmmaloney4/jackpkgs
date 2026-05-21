@@ -642,21 +642,45 @@ in {
                         "fi"
                       ]
                   ))
-                  ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfgForRecipes) [
-                    ""
-                    "# biome (JS/TS linter)"
-                    "printf '%s\\n' \"==> biome lint\""
-                    "if [ \"$dry_run\" = \"true\" ]; then"
-                    "  ${lib.getExe sysCfg.biomePackage} lint ."
-                    "else"
-                    "  ${lib.getExe sysCfg.biomePackage} lint --write ."
-                    "fi"
-                  ])
+                  ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfgForRecipes) (
+                    let
+                      biomePackages = lib.attrByPath ["biome" "lint" "packages"] null checksCfgForRecipes;
+                      biomeExtraArgs = lib.escapeShellArgs (lib.attrByPath ["biome" "lint" "extraArgs"] [] checksCfgForRecipes);
+                    in
+                      # Converge with pre-commit biome hook: iterate per-package when packages
+                      # are defined.  Fall back to workspace-root lint when no packages list.
+                      if biomePackages != null && biomePackages != []
+                      then [
+                        ""
+                        "# biome (JS/TS linter)"
+                        "for _biome_pkg in ${lib.escapeShellArgs biomePackages}; do"
+                        "  printf '%s\\n' \"==> biome lint (\${_biome_pkg})\""
+                        "  if [ \"$dry_run\" = \"true\" ]; then"
+                        "    (cd \"\${_biome_pkg}\" && ${lib.getExe sysCfg.biomePackage} lint${lib.optionalString (biomeExtraArgs != "") " ${biomeExtraArgs}"} .)"
+                        "  else"
+                        "    (cd \"\${_biome_pkg}\" && ${lib.getExe sysCfg.biomePackage} lint --write${lib.optionalString (biomeExtraArgs != "") " ${biomeExtraArgs}"} .)"
+                        "  fi"
+                        "done"
+                      ]
+                      else [
+                        ""
+                        "# biome (JS/TS linter)"
+                        "printf '%s\\n' \"==> biome lint\""
+                        "if [ \"$dry_run\" = \"true\" ]; then"
+                        "  ${lib.getExe sysCfg.biomePackage} lint${lib.optionalString (biomeExtraArgs != "") " ${biomeExtraArgs}"} ."
+                        "else"
+                        "  ${lib.getExe sysCfg.biomePackage} lint --write${lib.optionalString (biomeExtraArgs != "") " ${biomeExtraArgs}"} ."
+                        "fi"
+                      ]
+                  ))
                   ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.typescript.tsc.enable) (
                     let
                       tscPackages = checksCfgForRecipes.typescript.tsc.packages;
                       extraArgs = lib.escapeShellArgs checksCfgForRecipes.typescript.tsc.extraArgs;
                     in
+                      # Converge with pre-commit tsc hook: always iterate per-package with
+                      # `tsc --noEmit --project <pkg>/tsconfig.json`.  When packages is
+                      # null/empty the check is skipped (no work to do), matching CI.
                       if tscPackages != null && tscPackages != []
                       then [
                         ""
@@ -668,14 +692,7 @@ in {
                         "  fi"
                         "done"
                       ]
-                      else [
-                        ""
-                        "# tsc (TypeScript type checker)"
-                        "if [ -f tsconfig.json ]; then"
-                        "  printf '%s\\n' \"==> tsc\""
-                        "  pnpm exec tsc --noEmit ${extraArgs}"
-                        "fi"
-                      ]
+                      else []
                   ))
                   ++ [
                     ""
@@ -702,6 +719,8 @@ in {
                       "fi"
                     ])
                     ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.vitest.enable) (
+                      # Converge with pre-commit vitest hook: always iterate per-package.
+                      # When packages is null/empty the check is skipped, matching CI.
                       if vitestPackages != null && vitestPackages != []
                       then [
                         ""
@@ -713,14 +732,7 @@ in {
                         "  fi"
                         "done"
                       ]
-                      else [
-                        ""
-                        "# vitest (JS/TS tests)"
-                        "if [ -f package.json ]; then"
-                        "    printf '%s\\n' \"==> vitest\""
-                        "    pnpm exec vitest run --passWithNoTests${lib.optionalString (vitestExtraArgs != "") " ${vitestExtraArgs}"}"
-                        "fi"
-                      ]
+                      else []
                     ))
                     ++ [
                       ""
