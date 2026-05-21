@@ -55,17 +55,20 @@ Proposed
 The correct end state has three layers, each with one owner:
 
 1. Runtime preparation for captured `nodeModules`
+
    - Owner: `lib/nodejs-helpers.nix`
    - Used by: `checks.nix`, `pre-commit.nix`
    - Responsibility: materialize writable root `node_modules`, link package-local `node_modules`, create workspace import symlinks, expose trusted `.bin` tools on `PATH`
 
 2. Package-set resolution
+
    - Owner: `lib/nodejs-helpers.nix`
    - Used by: `checks.nix`, `pre-commit.nix`, `just.nix`
    - Responsibility: resolve the project set from explicit config or pnpm workspace discovery with one canonical fallback order
    - Requirement: the same config should resolve to the same package list in all three surfaces
 
 3. Tool-invocation policy
+
    - Owner: shared helper(s) or one clearly documented policy surface per tool
    - Used by: `checks.nix`, `pre-commit.nix`, `just.nix`
    - Responsibility: define whether a tool runs once at root, once per package, what config file is authoritative, and what fallback behavior is allowed
