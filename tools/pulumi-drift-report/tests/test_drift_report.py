@@ -15,6 +15,7 @@ if str(SRC) not in sys.path:
 
 from jmmaloney4.tools.pulumi_drift_report import (  # noqa: E402, I001
     discover_pulumi_projects,
+    read_project_name,
     render_text,
     run_drift_report,
 )  # type: ignore[import-not-found]
@@ -88,6 +89,17 @@ else:
 def test_discover_projects_ignores_node_modules(pulumi_checkout: Path) -> None:
     projects = discover_pulumi_projects(pulumi_checkout)
     assert projects == [pulumi_checkout]
+
+
+def test_discover_projects_supports_pulumi_yml(tmp_path: Path) -> None:
+    root = tmp_path / "checkout"
+    root.mkdir()
+    (root / "Pulumi.yml").write_text("name: demo-yml\nruntime: nodejs\n", encoding="utf-8")
+
+    projects = discover_pulumi_projects(root)
+
+    assert projects == [root]
+    assert read_project_name(root) == "demo-yml"
 
 
 def test_run_drift_report_renders_preview_and_refresh(

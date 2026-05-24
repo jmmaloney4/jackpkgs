@@ -25,36 +25,39 @@ IGNORED_DIR_NAMES = {
 
 PULUMI_SKIP_UPDATE_CHECK = "1"
 
+_PULUMI_CONFIG_FILENAMES = ("Pulumi.yaml", "Pulumi.yml")
+
 
 _PROJECT_NAME_RE = re.compile(r"^name:\s*(?:(?P<dq>\".*?\")|(?P<sq>'.*?')|(?P<bare>[^#\s]+))\s*(?:#.*)?$")
 
 
 def discover_pulumi_projects(root: Path) -> list[Path]:
-    """Find directories containing a Pulumi.yaml file under *root*."""
+    """Find directories containing a Pulumi project file under *root*."""
     projects: list[Path] = []
     root = root.resolve()
     for current_root, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_DIR_NAMES)
-        if "Pulumi.yaml" in filenames:
+        if any(filename in filenames for filename in _PULUMI_CONFIG_FILENAMES):
             projects.append(Path(current_root))
     return sorted(projects)
 
 
 def read_project_name(project_dir: Path) -> str | None:
-    """Extract the project name from Pulumi.yaml if possible."""
-    config = project_dir / "Pulumi.yaml"
-    try:
-        text = config.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return None
-    for line in text.splitlines():
-        match = _PROJECT_NAME_RE.match(line.strip())
-        if not match:
+    """Extract the project name from a Pulumi project file if possible."""
+    for filename in _PULUMI_CONFIG_FILENAMES:
+        config = project_dir / filename
+        try:
+            text = config.read_text(encoding="utf-8")
+        except FileNotFoundError:
             continue
-        value = match.group("dq") or match.group("sq") or match.group("bare")
-        if value is None:
-            return None
-        return value.strip().strip("\"'")
+        for line in text.splitlines():
+            match = _PROJECT_NAME_RE.match(line.strip())
+            if not match:
+                continue
+            value = match.group("dq") or match.group("sq") or match.group("bare")
+            if value is None:
+                return None
+            return value.strip().strip("\"'")
     return None
 
 
