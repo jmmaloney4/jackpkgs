@@ -12,6 +12,11 @@ from typing import Any
 
 from .models import DriftReport, ProjectReport, ResourceChange, RunReport, StackReport
 
+try:  # optional at runtime; Nix packaging provides it, regex remains a fallback
+    import yaml
+except ImportError:  # pragma: no cover - fallback for minimal environments
+    yaml = None
+
 IGNORED_DIR_NAMES = {
     ".direnv",
     ".git",
@@ -50,6 +55,15 @@ def read_project_name(project_dir: Path) -> str | None:
             text = config.read_text(encoding="utf-8")
         except FileNotFoundError:
             continue
+        if yaml is not None:
+            try:
+                document = yaml.safe_load(text)
+            except Exception:  # pragma: no cover - fallback for malformed config
+                document = None
+            if isinstance(document, dict):
+                name = document.get("name")
+                if isinstance(name, str) and name.strip():
+                    return name.strip().strip('"')
         for line in text.splitlines():
             match = _PROJECT_NAME_RE.match(line.strip())
             if not match:
