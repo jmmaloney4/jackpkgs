@@ -9,6 +9,13 @@ from typing import Sequence
 from .report import render_text, report_to_json, run_drift_report
 
 
+def _report_has_errors(report) -> bool:
+    return bool(report.errors) or any(
+        project.errors or any(stack.errors for stack in project.stacks)
+        for project in report.projects
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pulumi-drift-report",
@@ -62,11 +69,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         print(render_text(report))
 
-    has_errors = any(
-        project.errors
-        or any(stack.errors for stack in project.stacks)
-        for project in report.projects
-    ) or bool(report.errors)
+    has_errors = _report_has_errors(report)
     return 1 if has_errors else 0
 
 

@@ -131,6 +131,21 @@ def list_stacks(pulumi_bin: str, project_dir: Path) -> list[str]:
     return sorted(names)
 
 
+def _parse_json_lines(stdout: str) -> list[Any]:
+    records: list[Any] = []
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    if not records:
+        raise json.JSONDecodeError("Expected JSONL records", stdout, 0)
+    return records
+
+
 def parse_document(stdout: str) -> Any:
     """Parse Pulumi's JSON output, supporting JSON and JSONL forms."""
     stripped = stdout.strip()
@@ -139,21 +154,12 @@ def parse_document(stdout: str) -> Any:
     try:
         return json.loads(stripped)
     except json.JSONDecodeError:
-        records: list[Any] = []
-        for line in stripped.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-        if records:
-            return records
-        raise
+        return _parse_json_lines(stripped)
 
 
 def _parse_urn(urn: str) -> tuple[str | None, str | None]:
+    if not urn.startswith("urn:pulumi:"):
+        return None, None
     parts = urn.split("::")
     if len(parts) < 4:
         return None, None
@@ -228,7 +234,15 @@ def _run_operation(
     stack_name: str,
     operation: str,
 ) -> RunReport:
-    args: list[str] = [operation, "--json", "--stack", stack_name, "--non-interactive", "--suppress-progress"]
+    args: list[str] = [
+        operation,
+        "--json",
+        "--stack",
+        stack_name,
+        "--non-interactive",
+        "--suppress-progress",
+        "--suppress-outputs",
+    ]
     if operation == "preview":
         args.append("--refresh")
     elif operation == "refresh":

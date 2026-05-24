@@ -61,6 +61,8 @@ elif 'preview' in args:
         print(json.dumps({'steps': [{'op': 'create', 'urn': 'urn:pulumi:dev::demo-project::pkg:index:Thing::second'}]}))
     elif mode == 'invalid':
         print('not-json')
+    elif mode == 'malformed-urn':
+        print(json.dumps({'steps': [{'op': 'update', 'urn': 'not-a-pulumi-urn'}]}))
     else:
         print(
             json.dumps(
@@ -156,6 +158,23 @@ def test_run_drift_report_reports_parse_errors_per_stack(
     assert preview.error is not None
     assert "Failed to parse Pulumi output" in preview.error
     assert report.projects[0].stacks[0].errors
+
+
+def test_run_drift_report_handles_malformed_urns(
+    pulumi_checkout: Path,
+    fake_pulumi_bin: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PATH", f"{fake_pulumi_bin}:{os.environ['PATH']}")
+    monkeypatch.setenv("PULUMI_FAKE_MODE", "malformed-urn")
+
+    report = run_drift_report(pulumi_checkout, pulumi_bin="pulumi")
+    preview = report.projects[0].stacks[0].preview
+
+    assert preview is not None
+    assert preview.resource_changes[0].urn == "not-a-pulumi-urn"
+    assert preview.resource_changes[0].resource_type is None
+    assert preview.resource_changes[0].name is None
 
 
 def test_cli_json_output(
