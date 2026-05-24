@@ -10,7 +10,12 @@ python3Packages.stdenv.mkDerivation {
 
   nativeBuildInputs = [makeWrapper];
   dontBuild = true;
-  doCheck = false;
+  doCheck = true;
+  nativeCheckInputs = [python3Packages.pytest];
+
+  checkPhase = ''
+    pytest -q tests
+  '';
 
   installPhase = ''
     runHook preInstall

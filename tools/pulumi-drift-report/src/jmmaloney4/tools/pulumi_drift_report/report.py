@@ -26,7 +26,7 @@ IGNORED_DIR_NAMES = {
 PULUMI_SKIP_UPDATE_CHECK = "1"
 
 
-_PROJECT_NAME_RE = re.compile(r"^name:\s*(?:(?P<dq>\".*?\")|(?P<sq>'.*?')|(?P<bare>\S+))\s*$")
+_PROJECT_NAME_RE = re.compile(r"^name:\s*(?:(?P<dq>\".*?\")|(?P<sq>'.*?')|(?P<bare>[^#\s]+))\s*(?:#.*)?$")
 
 
 def discover_pulumi_projects(root: Path) -> list[Path]:
@@ -145,7 +145,7 @@ def _parse_urn(urn: str) -> tuple[str | None, str | None]:
 
 def _step_to_change(step: dict[str, Any]) -> ResourceChange | None:
     op = str(step.get("op") or step.get("operation") or step.get("kind") or "unknown")
-    if op.lower() in {"same", "unchanged", "no-op"}:
+    if op.lower() in {"same", "unchanged", "no-op", "read"}:
         return None
 
     urn = step.get("urn")
@@ -186,16 +186,17 @@ def _steps_from_document(document: Any) -> list[dict[str, Any]]:
         return []
 
     if isinstance(document, list):
-        if all(isinstance(item, dict) for item in document) and any(
-            any(key in item for key in ("op", "urn", "operation", "kind"))
-            for item in document
-        ):
-            return [item for item in document if isinstance(item, dict)]
+        steps: list[dict[str, Any]] = []
         for item in document:
-            if isinstance(item, dict):
-                steps = item.get("steps")
-                if isinstance(steps, list):
-                    return [step for step in steps if isinstance(step, dict)]
+            if not isinstance(item, dict):
+                continue
+            nested_steps: Any = item.get("steps")
+            if isinstance(nested_steps, list):
+                steps.extend(step for step in nested_steps if isinstance(step, dict))
+                continue
+            if any(key in item for key in ("op", "urn", "operation", "kind")):
+                steps.append(item)
+        return steps
     return []
 
 
@@ -229,9 +230,19 @@ def _run_operation(
             error=error,
         )
 
-    document = parse_document(result.stdout)
+    try:
+        document = parse_document(result.stdout)
+    except (json.JSONDecodeError, RuntimeError) as exc:
+        return RunReport(
+            operation=operation,
+            command=_pulumi_command(pulumi_bin, project_dir, *args),
+            exit_code=result.returncode,
+            stderr=result.stderr,
+            error=f"Failed to parse Pulumi output: {exc}",
+        )
+
     steps = _steps_from_document(document)
-    changes = []
+    changes: list[ResourceChange] = []
     for step in steps:
         change = _step_to_change(step)
         if change is not None:

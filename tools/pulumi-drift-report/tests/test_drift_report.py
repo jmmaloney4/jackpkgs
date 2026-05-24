@@ -47,29 +47,37 @@ def fake_pulumi_bin(tmp_path: Path) -> Path:
 from __future__ import annotations
 
 import json
+import os
 import sys
 
 args = sys.argv[1:]
-if "stack" in args and "ls" in args:
-    print(json.dumps([{"name": "dev"}]))
-elif "preview" in args:
-    print(
-        json.dumps(
-            {
-                "steps": [
-                    {
-                        "op": "update",
-                        "urn": "urn:pulumi:dev::demo-project::pkg:index:Thing::example",
-                        "type": "pkg:index:Thing",
-                    }
-                ]
-            }
+mode = os.environ.get('PULUMI_FAKE_MODE', 'normal')
+if 'stack' in args and 'ls' in args:
+    print(json.dumps([{'name': 'dev'}]))
+elif 'preview' in args:
+    if mode == 'jsonl':
+        print(json.dumps({'steps': [{'op': 'update', 'urn': 'urn:pulumi:dev::demo-project::pkg:index:Thing::first'}]}))
+        print(json.dumps({'steps': [{'op': 'create', 'urn': 'urn:pulumi:dev::demo-project::pkg:index:Thing::second'}]}))
+    elif mode == 'invalid':
+        print('not-json')
+    else:
+        print(
+            json.dumps(
+                {
+                    'steps': [
+                        {
+                            'op': 'update',
+                            'urn': 'urn:pulumi:dev::demo-project::pkg:index:Thing::example',
+                            'type': 'pkg:index:Thing',
+                        }
+                    ]
+                }
+            )
         )
-    )
-elif "refresh" in args:
-    print(json.dumps({"steps": []}))
+elif 'refresh' in args:
+    print(json.dumps({'steps': []}))
 else:
-    print(json.dumps({"steps": []}))
+    print(json.dumps({'steps': []}))
 """,
         encoding="utf-8",
     )
@@ -100,6 +108,42 @@ def test_run_drift_report_renders_preview_and_refresh(
     assert not report.errors
     assert report.projects[0].stacks[0].preview is not None
     assert report.projects[0].stacks[0].preview.resource_changes[0].operation == "update"
+
+
+def test_run_drift_report_handles_jsonl_and_all_steps(
+    pulumi_checkout: Path,
+    fake_pulumi_bin: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PATH", f"{fake_pulumi_bin}:{os.environ['PATH']}")
+    monkeypatch.setenv("PULUMI_FAKE_MODE", "jsonl")
+
+    report = run_drift_report(pulumi_checkout, pulumi_bin="pulumi")
+    preview = report.projects[0].stacks[0].preview
+
+    assert preview is not None
+    changes = preview.resource_changes
+
+    assert [change.operation for change in changes] == ["update", "create"]
+    assert any(change.urn.endswith("::first") for change in changes)
+    assert any(change.urn.endswith("::second") for change in changes)
+
+
+def test_run_drift_report_reports_parse_errors_per_stack(
+    pulumi_checkout: Path,
+    fake_pulumi_bin: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PATH", f"{fake_pulumi_bin}:{os.environ['PATH']}")
+    monkeypatch.setenv("PULUMI_FAKE_MODE", "invalid")
+
+    report = run_drift_report(pulumi_checkout, pulumi_bin="pulumi")
+    preview = report.projects[0].stacks[0].preview
+
+    assert preview is not None
+    assert preview.error is not None
+    assert "Failed to parse Pulumi output" in preview.error
+    assert report.projects[0].stacks[0].errors
 
 
 def test_cli_json_output(

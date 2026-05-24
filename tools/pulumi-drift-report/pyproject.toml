@@ -2,7 +2,7 @@
 name = "jmmaloney4-tools-pulumi-drift-report"
 version = "0.0.1"
 description = "Report Pulumi preview and refresh changes across every stack in a checkout"
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.13"
 dependencies = []
 
 [project.scripts]
