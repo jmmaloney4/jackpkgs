@@ -744,6 +744,7 @@ ______________________________________________________________________
 - `docfx` - .NET docs generator
 - `epub2tts` - EPUB -> TTS
 - `lean` - Lean theorem prover
+- `pulumi-drift-report` - Pulumi preview/refresh drift reporter
 - `seedtool-cli` - SSKR seed tool CLI
 - `tod` - Todoist CLI
 

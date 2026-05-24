@@ -39,6 +39,7 @@ else let
     mcp-ynab = super.callPackage ./pkgs/mcp-ynab {
       inherit (nvfetcherSources.mcp-ynab) src version;
     };
+    pulumi-drift-report = super.callPackage ./pkgs/pulumi-drift-report {};
     seedtool-cli = super.callPackage ./pkgs/seedtool-cli {};
     spooktacular = super.callPackage ./pkgs/spooktacular {
       inherit (nvfetcherSources.spooktacular) src date;
