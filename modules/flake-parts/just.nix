@@ -384,7 +384,19 @@ in {
             hasFiles = cutCfg.files != [];
             npmFiles = lib.filter (f: f.type == "npm") cutCfg.files;
             allFilePaths = map (f: f.path) cutCfg.files;
-            commitMsg = lib.replaceStrings ["{version}"] ["\${new_version}"] cutCfg.commitMessage;
+            # Build the git commit -m argument by splitting at {version},
+            # escaping each static part with escapeShellArg (single-quoted,
+            # injection-safe), and joining with the bash-expandable variable
+            # "$new_version" in its own double-quoted segment. Bash concatenates
+            # adjacent quoted segments, so 'text'"$var"'more' expands $var
+            # while keeping the static parts literal.
+            # When {version} is absent, the list has one element and no
+            # joiner is inserted — the template passes through unchanged.
+            commitMsg = let
+              parts = lib.splitString "{version}" cutCfg.commitMessage;
+              escapedParts = map lib.escapeShellArg parts;
+            in
+              lib.concatStringsSep "\"$new_version\"" escapedParts;
 
             # Generate npm version bump commands at Nix eval time
             npmBumpCommands =
@@ -432,7 +444,7 @@ in {
               ++ [
                 ""
                 "git add ${lib.escapeShellArgs allFilePaths}"
-                "git commit -m ${lib.escapeShellArg commitMsg}"
+                "git commit -m ${commitMsg}"
                 ""
                 "git tag -a \"\$new_tag\" -m \"Release \$new_tag\""
                 "git push --atomic origin ${lib.escapeShellArg cutCfg.branch} \"\$new_tag\""
