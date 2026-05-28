@@ -384,7 +384,11 @@ in {
             hasFiles = cutCfg.files != [];
             npmFiles = lib.filter (f: f.type == "npm") cutCfg.files;
             allFilePaths = map (f: f.path) cutCfg.files;
-            commitMsg = lib.replaceStrings ["{version}"] ["\${new_version}"] cutCfg.commitMessage;
+            # Build commit message with bash variable interpolation.
+            # We use the prefix before {version} as a static part and inject
+            # "$new_version" as a bash-expandable reference inside double quotes.
+            commitMsgPrefix = lib.head (lib.splitString "{version}" cutCfg.commitMessage);
+            commitMsgSuffix = lib.concatStrings (lib.tail (lib.splitString "{version}" cutCfg.commitMessage));
 
             # Generate npm version bump commands at Nix eval time
             npmBumpCommands =
@@ -432,7 +436,7 @@ in {
               ++ [
                 ""
                 "git add ${lib.escapeShellArgs allFilePaths}"
-                "git commit -m ${lib.escapeShellArg commitMsg}"
+                "git commit -m \"${commitMsgPrefix}\$new_version${commitMsgSuffix}\""
                 ""
                 "git tag -a \"\$new_tag\" -m \"Release \$new_tag\""
                 "git push --atomic origin ${lib.escapeShellArg cutCfg.branch} \"\$new_tag\""
