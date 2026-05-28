@@ -396,7 +396,7 @@ in {
               parts = lib.splitString "{version}" cutCfg.commitMessage;
               escapedParts = map lib.escapeShellArg parts;
             in
-              lib.concatStringsSep "\"\$new_version\"" escapedParts;
+              lib.concatStringsSep "\"$new_version\"" escapedParts;
 
             # Generate npm version bump commands at Nix eval time
             npmBumpCommands =
