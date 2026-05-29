@@ -13,8 +13,8 @@ src.git = "https://github.com/Spooky-Labs/spooktacular"
 fetch.github = "Spooky-Labs/spooktacular"
 
 [codex-proxy]
-src.github = "dvcrn/codex-proxy"
-fetch.github = "dvcrn/codex-proxy"
+src.git = "https://github.com/jmmaloney4/codex-proxy"
+fetch.github = "jmmaloney4/codex-proxy"
 
 [gemini-proxy]
 src.git = "https://github.com/KashifKhn/gemini-proxy"

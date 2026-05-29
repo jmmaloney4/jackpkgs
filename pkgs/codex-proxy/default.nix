@@ -11,7 +11,7 @@ buildGoModule {
 
   # Upstream does not ship a vendor directory at tag 1.0.0, so let nixpkgs
   # build a vendor derivation from go.mod/go.sum.
-  vendorHash = "sha256-arq8l6fdS9tezKoO3FJPe5Y0zn1r03Hm1bBfesGv3dU=";
+  vendorHash = "sha256-VaOYoBT3U0WsHOQNrtBoB25ysb3wCjwgHTaTTYbkyb0=";
 
   # Build the actual CLI entrypoint, not the Cloudflare worker stub.
   subPackages = ["cmd/codex-proxy"];

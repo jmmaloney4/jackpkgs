@@ -7,14 +7,15 @@
 }: {
   codex-proxy = {
     pname = "codex-proxy";
-    version = "1.0.0";
+    version = "0f453a3038fdef274d55dc8e9aaee0547495ff23";
     src = fetchFromGitHub {
-      owner = "dvcrn";
+      owner = "jmmaloney4";
       repo = "codex-proxy";
-      rev = "1.0.0";
+      rev = "0f453a3038fdef274d55dc8e9aaee0547495ff23";
       fetchSubmodules = false;
-      sha256 = "sha256-o3GQ6R9vqioqIhqJ7GXVfM9vzEVhwiFLf5zp4xjcuIo=";
+      sha256 = "sha256-PfMZI7PmmpuvGRtEmy97wojsVO/snzuPtlZSLcJ7KYE=";
     };
+    date = "2026-05-29";
   };
   gemini-proxy = {
     pname = "gemini-proxy";
@@ -28,22 +29,34 @@
     };
     date = "2026-03-09";
   };
+  mcp-ynab = {
+    pname = "mcp-ynab";
+    version = "b7b21e4990fa824b24bb86f2f2d8fd053817f047";
+    src = fetchFromGitHub {
+      owner = "jmmaloney4";
+      repo = "mcp-ynab";
+      rev = "b7b21e4990fa824b24bb86f2f2d8fd053817f047";
+      fetchSubmodules = false;
+      sha256 = "sha256-Ukh5FvBmk5A4ol2IRpBvrWp1K6fcWDfxssiw0gJ9l84=";
+    };
+    date = "2026-03-07";
+  };
   nautilus-trader = {
     pname = "nautilus-trader";
-    version = "6cf2d115e52796da93d6c22a77d1b07b1a69d48c";
+    version = "1408bec68bb01ba1c3166e1f3803f1536fc9c950";
     src = fetchFromGitHub {
       owner = "nautechsystems";
       repo = "nautilus_trader";
-      rev = "6cf2d115e52796da93d6c22a77d1b07b1a69d48c";
+      rev = "1408bec68bb01ba1c3166e1f3803f1536fc9c950";
       fetchSubmodules = false;
-      sha256 = "sha256-kIXZ0SWTWGNfbn1jDTu1RdAx2FqYgqknxajWcwNClOg=";
+      sha256 = "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=";
     };
     cargoLock."Cargo.lock" = {
-      lockFile = ./. + "/sha256-kIXZ0SWTWGNfbn1jDTu1RdAx2FqYgqknxajWcwNClOg=/Cargo.lock";
+      lockFile = ./. + "/sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock";
       outputHashes = {
       };
     };
-    date = "2026-05-19";
+    date = "2026-05-29";
   };
   spooktacular = {
     pname = "spooktacular";
@@ -72,17 +85,5 @@
       outputHashes = {
       };
     };
-  };
-  mcp-ynab = {
-    pname = "mcp-ynab";
-    version = "b7b21e4990fa824b24bb86f2f2d8fd053817f047";
-    src = fetchFromGitHub {
-      owner = "jmmaloney4";
-      repo = "mcp-ynab";
-      rev = "b7b21e4990fa824b24bb86f2f2d8fd053817f047";
-      fetchSubmodules = false;
-      sha256 = "sha256-Ukh5FvBmk5A4ol2IRpBvrWp1K6fcWDfxssiw0gJ9l84=";
-    };
-    date = "2025-06-23";
   };
 }

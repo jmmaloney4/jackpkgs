@@ -1,7 +1,7 @@
 {
 	"codex-proxy": {
 		"cargoLock": null,
-		"date": null,
+		"date": "2026-05-29",
 		"extract": null,
 		"name": "codex-proxy",
 		"passthru": null,
@@ -11,14 +11,14 @@
 			"fetchSubmodules": false,
 			"leaveDotGit": false,
 			"name": null,
-			"owner": "dvcrn",
+			"owner": "jmmaloney4",
 			"repo": "codex-proxy",
-			"rev": "1.0.0",
-			"sha256": "sha256-o3GQ6R9vqioqIhqJ7GXVfM9vzEVhwiFLf5zp4xjcuIo=",
+			"rev": "0f453a3038fdef274d55dc8e9aaee0547495ff23",
+			"sha256": "sha256-PfMZI7PmmpuvGRtEmy97wojsVO/snzuPtlZSLcJ7KYE=",
 			"sparseCheckout": [],
 			"type": "github"
 		},
-		"version": "1.0.0"
+		"version": "0f453a3038fdef274d55dc8e9aaee0547495ff23"
 	},
 	"gemini-proxy": {
 		"cargoLock": null,
@@ -41,14 +41,35 @@
 		},
 		"version": "5f701a244ed3c4699e6c1b0550bd50e961601ebe"
 	},
+	"mcp-ynab": {
+		"cargoLock": null,
+		"date": "2026-03-07",
+		"extract": null,
+		"name": "mcp-ynab",
+		"passthru": null,
+		"pinned": false,
+		"src": {
+			"deepClone": false,
+			"fetchSubmodules": false,
+			"leaveDotGit": false,
+			"name": null,
+			"owner": "jmmaloney4",
+			"repo": "mcp-ynab",
+			"rev": "b7b21e4990fa824b24bb86f2f2d8fd053817f047",
+			"sha256": "sha256-Ukh5FvBmk5A4ol2IRpBvrWp1K6fcWDfxssiw0gJ9l84=",
+			"sparseCheckout": [],
+			"type": "github"
+		},
+		"version": "b7b21e4990fa824b24bb86f2f2d8fd053817f047"
+	},
 	"nautilus-trader": {
 		"cargoLock": {
 			"Cargo.lock": [
-				"sha256-kIXZ0SWTWGNfbn1jDTu1RdAx2FqYgqknxajWcwNClOg=/Cargo.lock",
+				"sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock",
 				{}
 			]
 		},
-		"date": "2026-05-19",
+		"date": "2026-05-29",
 		"extract": null,
 		"name": "nautilus-trader",
 		"passthru": null,
@@ -60,12 +81,12 @@
 			"name": null,
 			"owner": "nautechsystems",
 			"repo": "nautilus_trader",
-			"rev": "6cf2d115e52796da93d6c22a77d1b07b1a69d48c",
-			"sha256": "sha256-kIXZ0SWTWGNfbn1jDTu1RdAx2FqYgqknxajWcwNClOg=",
+			"rev": "1408bec68bb01ba1c3166e1f3803f1536fc9c950",
+			"sha256": "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=",
 			"sparseCheckout": [],
 			"type": "github"
 		},
-		"version": "6cf2d115e52796da93d6c22a77d1b07b1a69d48c"
+		"version": "1408bec68bb01ba1c3166e1f3803f1536fc9c950"
 	},
 	"spooktacular": {
 		"cargoLock": null,
@@ -113,17 +134,5 @@
 			"type": "github"
 		},
 		"version": "v0.12.1"
-	},
-	"mcp-ynab": {
-		"date": "2025-06-23",
-		"pname": "mcp-ynab",
-		"src": {
-			"fetchSubmodules": false,
-			"owner": "jmmaloney4",
-			"repo": "mcp-ynab",
-			"rev": "b7b21e4990fa824b24bb86f2f2d8fd053817f047",
-			"sha256": "sha256-Ukh5FvBmk5A4ol2IRpBvrWp1K6fcWDfxssiw0gJ9l84="
-		},
-		"version": "b7b21e4990fa824b24bb86f2f2d8fd053817f047"
 	}
 }
