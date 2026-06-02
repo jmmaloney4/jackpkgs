@@ -4,18 +4,19 @@
   fetchurl,
   fetchFromGitHub,
   dockerTools,
-}: {
+}:
+{
   codex-proxy = {
     pname = "codex-proxy";
-    version = "0f453a3038fdef274d55dc8e9aaee0547495ff23";
+    version = "aa8d9032ff92ae984482f44818b509f72cd0d7b2";
     src = fetchFromGitHub {
       owner = "jmmaloney4";
       repo = "codex-proxy";
-      rev = "0f453a3038fdef274d55dc8e9aaee0547495ff23";
+      rev = "aa8d9032ff92ae984482f44818b509f72cd0d7b2";
       fetchSubmodules = false;
-      sha256 = "sha256-PfMZI7PmmpuvGRtEmy97wojsVO/snzuPtlZSLcJ7KYE=";
+      sha256 = "sha256-q1UE3cCFsGqOdd4aljVX1QBw4zmVMEJnKcACigfHy64=";
     };
-    date = "2026-05-29";
+    date = "2026-06-02";
   };
   gemini-proxy = {
     pname = "gemini-proxy";
@@ -54,6 +55,7 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock";
       outputHashes = {
+        
       };
     };
     date = "2026-05-29";
@@ -83,6 +85,7 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock";
       outputHashes = {
+        
       };
     };
   };

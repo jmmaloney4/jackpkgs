@@ -1,138 +1,138 @@
 {
-	"codex-proxy": {
-		"cargoLock": null,
-		"date": "2026-05-29",
-		"extract": null,
-		"name": "codex-proxy",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "jmmaloney4",
-			"repo": "codex-proxy",
-			"rev": "0f453a3038fdef274d55dc8e9aaee0547495ff23",
-			"sha256": "sha256-PfMZI7PmmpuvGRtEmy97wojsVO/snzuPtlZSLcJ7KYE=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "0f453a3038fdef274d55dc8e9aaee0547495ff23"
-	},
-	"gemini-proxy": {
-		"cargoLock": null,
-		"date": "2026-03-09",
-		"extract": null,
-		"name": "gemini-proxy",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "KashifKhn",
-			"repo": "gemini-proxy",
-			"rev": "5f701a244ed3c4699e6c1b0550bd50e961601ebe",
-			"sha256": "sha256-RYDeVd66AXHHbm7TzX8et8QUspvfjxpkq8o4VXh76Cw=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "5f701a244ed3c4699e6c1b0550bd50e961601ebe"
-	},
-	"mcp-ynab": {
-		"cargoLock": null,
-		"date": "2026-03-07",
-		"extract": null,
-		"name": "mcp-ynab",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "jmmaloney4",
-			"repo": "mcp-ynab",
-			"rev": "b7b21e4990fa824b24bb86f2f2d8fd053817f047",
-			"sha256": "sha256-Ukh5FvBmk5A4ol2IRpBvrWp1K6fcWDfxssiw0gJ9l84=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "b7b21e4990fa824b24bb86f2f2d8fd053817f047"
-	},
-	"nautilus-trader": {
-		"cargoLock": {
-			"Cargo.lock": [
-				"sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock",
-				{}
-			]
-		},
-		"date": "2026-05-29",
-		"extract": null,
-		"name": "nautilus-trader",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "nautechsystems",
-			"repo": "nautilus_trader",
-			"rev": "1408bec68bb01ba1c3166e1f3803f1536fc9c950",
-			"sha256": "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "1408bec68bb01ba1c3166e1f3803f1536fc9c950"
-	},
-	"spooktacular": {
-		"cargoLock": null,
-		"date": "2026-04-19",
-		"extract": null,
-		"name": "spooktacular",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "Spooky-Labs",
-			"repo": "spooktacular",
-			"rev": "f36634b84e1d38d81bd282b0f88a497557e4a520",
-			"sha256": "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "f36634b84e1d38d81bd282b0f88a497557e4a520"
-	},
-	"tod": {
-		"cargoLock": {
-			"Cargo.lock": [
-				"sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock",
-				{}
-			]
-		},
-		"date": null,
-		"extract": null,
-		"name": "tod",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "alanvardy",
-			"repo": "tod",
-			"rev": "v0.12.1",
-			"sha256": "sha256-091/1go/dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "v0.12.1"
-	}
+    "codex-proxy": {
+        "cargoLock": null,
+        "date": "2026-06-02",
+        "extract": null,
+        "name": "codex-proxy",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "jmmaloney4",
+            "repo": "codex-proxy",
+            "rev": "aa8d9032ff92ae984482f44818b509f72cd0d7b2",
+            "sha256": "sha256-q1UE3cCFsGqOdd4aljVX1QBw4zmVMEJnKcACigfHy64=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "aa8d9032ff92ae984482f44818b509f72cd0d7b2"
+    },
+    "gemini-proxy": {
+        "cargoLock": null,
+        "date": "2026-03-09",
+        "extract": null,
+        "name": "gemini-proxy",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "KashifKhn",
+            "repo": "gemini-proxy",
+            "rev": "5f701a244ed3c4699e6c1b0550bd50e961601ebe",
+            "sha256": "sha256-RYDeVd66AXHHbm7TzX8et8QUspvfjxpkq8o4VXh76Cw=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "5f701a244ed3c4699e6c1b0550bd50e961601ebe"
+    },
+    "mcp-ynab": {
+        "cargoLock": null,
+        "date": "2026-03-07",
+        "extract": null,
+        "name": "mcp-ynab",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "jmmaloney4",
+            "repo": "mcp-ynab",
+            "rev": "b7b21e4990fa824b24bb86f2f2d8fd053817f047",
+            "sha256": "sha256-Ukh5FvBmk5A4ol2IRpBvrWp1K6fcWDfxssiw0gJ9l84=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "b7b21e4990fa824b24bb86f2f2d8fd053817f047"
+    },
+    "nautilus-trader": {
+        "cargoLock": {
+            "Cargo.lock": [
+                "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock",
+                {}
+            ]
+        },
+        "date": "2026-05-29",
+        "extract": null,
+        "name": "nautilus-trader",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "nautechsystems",
+            "repo": "nautilus_trader",
+            "rev": "1408bec68bb01ba1c3166e1f3803f1536fc9c950",
+            "sha256": "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "1408bec68bb01ba1c3166e1f3803f1536fc9c950"
+    },
+    "spooktacular": {
+        "cargoLock": null,
+        "date": "2026-04-19",
+        "extract": null,
+        "name": "spooktacular",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "Spooky-Labs",
+            "repo": "spooktacular",
+            "rev": "f36634b84e1d38d81bd282b0f88a497557e4a520",
+            "sha256": "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "f36634b84e1d38d81bd282b0f88a497557e4a520"
+    },
+    "tod": {
+        "cargoLock": {
+            "Cargo.lock": [
+                "sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock",
+                {}
+            ]
+        },
+        "date": null,
+        "extract": null,
+        "name": "tod",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "alanvardy",
+            "repo": "tod",
+            "rev": "v0.12.1",
+            "sha256": "sha256-091/1go/dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "v0.12.1"
+    }
 }
