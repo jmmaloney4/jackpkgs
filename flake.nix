@@ -147,7 +147,7 @@
           # rebuilding it from `github:nlewo/nix2container#...`. The tagged
           # v1.0.0 release fetches a skopeo patch from a GitHub commit URL whose
           # fixed-output hash GitHub has since broken, so building it fresh fails;
-          # our pinned input (HEAD) ships skopeo-1.21.0 without that patch.
+          # our pinned input (HEAD) ships skopeo-1.22.2 without that patch.
           # Consumed by sector7's image-push scripts to read/push nix images.
           skopeo-nix2container = inputs.nix2container.packages.${system}.skopeo-nix2container;
           spooktacular = pkgs.callPackage ./pkgs/spooktacular {
