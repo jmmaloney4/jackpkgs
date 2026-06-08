@@ -745,6 +745,7 @@ ______________________________________________________________________
 - `epub2tts` - EPUB -> TTS
 - `lean` - Lean theorem prover
 - `seedtool-cli` - SSKR seed tool CLI
+- `skopeo-nix2container` - skopeo with the `nix:` transport (re-exported from nix2container), for reading/pushing nix2container images
 - `tod` - Todoist CLI
 
 Build from CLI (examples):

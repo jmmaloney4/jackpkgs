@@ -142,6 +142,14 @@
             python312 = pkgs.python314;
           };
           seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
+          # Re-export skopeo-nix2container from the nix2container flake so it is
+          # built once and pushed to our binary cache, instead of every consumer
+          # rebuilding it from `github:nlewo/nix2container#...`. The tagged
+          # v1.0.0 release fetches a skopeo patch from a GitHub commit URL whose
+          # fixed-output hash GitHub has since broken, so building it fresh fails;
+          # our pinned input (HEAD) ships skopeo-1.21.0 without that patch.
+          # Consumed by sector7's image-push scripts to read/push nix images.
+          skopeo-nix2container = inputs.nix2container.packages.${system}.skopeo-nix2container;
           spooktacular = pkgs.callPackage ./pkgs/spooktacular {
             inherit (nvfetcherSources.spooktacular) src date;
           };
