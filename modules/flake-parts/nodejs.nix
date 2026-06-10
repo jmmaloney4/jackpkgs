@@ -26,6 +26,14 @@ in {
         description = ''
           Hash for the pnpm deps FOD. Set to empty string initially,
           then run nix build to get the correct hash from the error message.
+
+          Note: the deps FOD installs with --frozen-lockfile (see `pnpmDeps`
+          below). pnpm 11.4.0+ fails closed with ERR_PNPM_MISSING_TARBALL_INTEGRITY
+          on `https://….tgz` (GitHub-release) dependencies whose pnpm-lock.yaml
+          `resolution: {tarball: …}` entry has no `integrity` field — pnpm does not
+          write one for URL tarballs. Hand-add `integrity: sha512-…` to each such
+          resolution block before refreshing this hash. This recurs on every
+          tarball-dep version bump.
         '';
       };
 
@@ -90,6 +98,10 @@ in {
     }: let
       sysCfg = config.jackpkgs.nodejs;
 
+      # Installs with --frozen-lockfile. pnpm 11.4.0+ (pnpmPackage defaults to
+      # pkgs.pnpm_11) fails closed on GitHub-release `.tgz` deps whose lockfile
+      # resolution has no `integrity` field (ERR_PNPM_MISSING_TARBALL_INTEGRITY);
+      # such entries need a hand-added `integrity:` line. See pnpmDepsHash above.
       pnpmDeps = pkgs.fetchPnpmDeps {
         pname = "pnpm";
         src = cfg.projectRoot;
