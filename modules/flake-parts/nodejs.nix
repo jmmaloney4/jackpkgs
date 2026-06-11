@@ -43,6 +43,18 @@ in {
         defaultText = "config.jackpkgs.projectRoot or inputs.self.outPath";
         description = "Root of the Node.js project (containing pnpm-lock.yaml and pnpm-workspace.yaml).";
       };
+
+      prePnpmInstall = mkOption {
+        type = types.lines;
+        default = "";
+        example = "export pnpm_config_network_concurrency=4";
+        description = ''
+          Extra shell commands run inside the pnpm deps FOD right before
+          `pnpm install`. Tweaking fetch behavior here cannot invalidate
+          `pnpmDepsHash` as long as the fetched content is unchanged (FODs
+          are verified by output hash only).
+        '';
+      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -62,8 +74,18 @@ in {
 
         pnpmPackage = mkOption {
           type = types.package;
-          default = config.jackpkgs.pkgs.pnpm_11;
-          defaultText = "config.jackpkgs.pkgs.pnpm_11";
+          # Run pnpm on nodejs-slim_latest instead of its default node runtime:
+          # the nixpkgs build of nodejs_24 24.15.0 has broken worker_threads fd
+          # tracking on aarch64-darwin — pnpm's install workers spam "File
+          # descriptor N opened in unmanaged mode twice" and the process is
+          # SIGKILLed (EXC_GUARD) at worker exit, which kills the deps FOD
+          # right after `pnpm install` completes. nodejs 26 is unaffected.
+          # Revisit once nixpkgs ships nodejs_24 >= 24.16.0.
+          # https://github.com/NixOS/nixpkgs/issues/525627
+          default = config.jackpkgs.pkgs.pnpm_11.override {
+            nodejs-slim = config.jackpkgs.pkgs.nodejs-slim_latest;
+          };
+          defaultText = "config.jackpkgs.pkgs.pnpm_11.override { nodejs-slim = config.jackpkgs.pkgs.nodejs-slim_latest; }";
           description = "pnpm package to use.";
         };
       };
@@ -108,6 +130,7 @@ in {
         fetcherVersion = 3;
         pnpm = sysCfg.pnpmPackage;
         hash = cfg.pnpmDepsHash;
+        prePnpmInstall = cfg.prePnpmInstall;
       };
 
       nodeModules = pkgs.stdenv.mkDerivation {
@@ -140,6 +163,10 @@ in {
     in {
       jackpkgs.outputs.nodeModules = nodeModules;
       jackpkgs.outputs.pnpmDeps = pnpmDeps;
+
+      # Buildable directly so `just update-pnpm-hash` can provoke the FOD hash
+      # mismatch without building the entire devshell closure alongside it.
+      packages.pnpm-deps = pnpmDeps;
 
       jackpkgs.outputs.nodejsDevShell = pkgs.mkShell {
         packages = [
