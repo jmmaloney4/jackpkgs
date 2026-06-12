@@ -22,7 +22,7 @@
     },
     "codex-proxy-rs": {
         "cargoLock": null,
-        "date": "2026-06-11",
+        "date": "2026-06-12",
         "extract": null,
         "name": "codex-proxy-rs",
         "passthru": null,
@@ -34,12 +34,12 @@
             "name": null,
             "owner": "jmmaloney4",
             "repo": "codex-proxy-rs",
-            "rev": "07f3d69095f4713d7a570349741e588d0b7f2e9d",
-            "sha256": "sha256-mmDCRaRRVALTEQj2DXPzCL4oBaXrLx6vXNE+VX6nppw=",
+            "rev": "66d63ef74c64bf222e0d15916b75676f3f590f13",
+            "sha256": "sha256-S2c6qj2OmbmerA/PkbQVcLrPPWhqs5rRs/cIAzxgpXs=",
             "sparseCheckout": [],
             "type": "github"
         },
-        "version": "07f3d69095f4713d7a570349741e588d0b7f2e9d"
+        "version": "66d63ef74c64bf222e0d15916b75676f3f590f13"
     },
     "gemini-proxy": {
         "cargoLock": null,
