@@ -29,6 +29,9 @@ else let
     codex-proxy = super.callPackage ./pkgs/codex-proxy {
       inherit (nvfetcherSources.codex-proxy) src version;
     };
+    codex-proxy-rs = super.callPackage ./pkgs/codex-proxy-rs {
+      inherit (nvfetcherSources.codex-proxy-rs) src version;
+    };
     docfx = super.callPackage ./pkgs/docfx {};
     gemini-proxy = superWithBun2nix.callPackage ./pkgs/gemini-proxy {
       inherit (nvfetcherSources.gemini-proxy) src version;

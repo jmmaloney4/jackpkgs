@@ -20,6 +20,27 @@
         },
         "version": "aa8d9032ff92ae984482f44818b509f72cd0d7b2"
     },
+    "codex-proxy-rs": {
+        "cargoLock": null,
+        "date": "2026-06-11",
+        "extract": null,
+        "name": "codex-proxy-rs",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "jmmaloney4",
+            "repo": "codex-proxy-rs",
+            "rev": "07f3d69095f4713d7a570349741e588d0b7f2e9d",
+            "sha256": "sha256-mmDCRaRRVALTEQj2DXPzCL4oBaXrLx6vXNE+VX6nppw=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "07f3d69095f4713d7a570349741e588d0b7f2e9d"
+    },
     "gemini-proxy": {
         "cargoLock": null,
         "date": "2026-03-09",
