@@ -20,7 +20,8 @@ jobs:
       binary-cache-endpoint: ${{ vars.ATTIC_SERVER_URL }}
       binary-cache-name: ${{ vars.ATTIC_CACHE_NAME }}
     secrets:
-      # Only forward the push-capable cache token on trusted events so PR runs
-      # can read from the cache but not push to it. Empty string makes the
-      # sector7 reusable workflow's push steps fall back to read-only mode.
-      BINARY_CACHE_TOKEN: ${{ github.event_name == 'push' && secrets.ATTIC_CACHE_TOKEN || '' }}
+      # Forward the push-capable cache token only on trusted events (push,
+      # workflow_dispatch). PR runs read from the cache via the substituter
+      # but cannot push, eliminating cache poisoning / token exfiltration
+      # risk from PR-triggered builds.
+      BINARY_CACHE_TOKEN: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.ATTIC_CACHE_TOKEN || '' }}
