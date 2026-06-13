@@ -15,3 +15,13 @@ jobs:
     with:
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
+      binary-cache-url: ${{ vars.ATTIC_CACHE_URL }}
+      binary-cache-public-key: ${{ vars.ATTIC_CACHE_PUBLIC_KEY }}
+      binary-cache-endpoint: ${{ vars.ATTIC_SERVER_URL }}
+      binary-cache-name: ${{ vars.ATTIC_CACHE_NAME }}
+    secrets:
+      # Forward the push-capable cache token only on trusted events (push,
+      # workflow_dispatch). PR runs read from the cache via the substituter
+      # but cannot push, eliminating cache poisoning / token exfiltration
+      # risk from PR-triggered builds.
+      BINARY_CACHE_TOKEN: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && secrets.ATTIC_CACHE_TOKEN || '' }}
