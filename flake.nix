@@ -235,6 +235,132 @@
               '';
             }
             // extraAttrs);
+
+        # pnpm integration fixtures. Each is a full build (pnpm install + checkCommand),
+        # aggregated into the single `fixture-tests` check below rather than exposed
+        # individually.
+        pnpmFixtureChecks = {
+          pnpm-simple-builds = mkPnpmFixtureCheck {
+            name = "simple-pnpm";
+            src = fixtureSimplePnpm;
+            depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
+            checkCommand = ''
+              test -d node_modules
+              node index.js | grep -qx "pass"
+            '';
+          };
+
+          pnpm-workspace-basic-postinstall = mkPnpmFixtureCheck {
+            name = "workspace-basic";
+            src = fixtureWorkspaceBasic;
+            depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
+            checkCommand = ''
+              test -d node_modules
+              pnpm run postinstall
+              test -f lib/dist/index.js
+              node --input-type=module -e "const lib = await import('./lib/dist/index.js'); if (lib.add(2, 3) !== 5) process.exit(1);"
+            '';
+          };
+
+          pnpm-workspace-glob-resolution = mkPnpmFixtureCheck {
+            name = "workspace-glob";
+            src = fixtureWorkspaceGlob;
+            depsHash = "sha256-gIL4zhfAcMT3U0PIUAO4bBQk0EBXiGs0quYO3zm1DXU=";
+            checkCommand = ''
+              test -d node_modules
+              node packages/beta/index.js | grep -qx "hello from alpha"
+            '';
+          };
+
+          pnpm-tsc-check = mkPnpmFixtureCheck {
+            name = "tsc-check";
+            src = fixtureTscCheck;
+            depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
+            checkCommand = ''
+              test -d node_modules
+              node_modules/.bin/tsc --noEmit --lib ES2020,DOM packages/app/index.ts
+            '';
+          };
+
+          pnpm-vitest-check = mkPnpmFixtureCheck {
+            name = "vitest-check";
+            src = fixtureVitestCheck;
+            depsHash = "sha256-VgoszjnpdXC3uhzjGWIjv7W6BQgT8uldbSkgHu8S4RI=";
+            checkCommand = ''
+              test -d node_modules
+              node_modules/.bin/vitest run --root packages/lib
+            '';
+          };
+
+          pnpm-node-modules-output-layout = mkPnpmFixtureCheck {
+            name = "node-modules-output-layout";
+            src = fixtureWorkspaceBasic;
+            depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
+            checkCommand = ''
+              mkdir -p "$out"
+              cp -a node_modules "$out/"
+              test -d "$out/node_modules"
+              test -L "$out/node_modules/.pnpm/node_modules/@test/lib"
+              test ! -e "$out/node_modules/.pnpm/node_modules/@test/lib"
+            '';
+            extraAttrs = {
+              dontCheckForBrokenSymlinks = true;
+            };
+          };
+
+          pnpm-nonhoisted-runtime = mkPnpmFixtureCheck {
+            name = "nonhoisted-runtime";
+            src = fixtureNonhoistedDep;
+            depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
+            checkCommand = ''
+              test -d node_modules
+              node packages/app/index.js | grep -qx "pass"
+            '';
+          };
+
+          # Mirrors nodejs.nix:125-129 installPhase; keep in sync.
+          pnpm-nonhoisted-output-layout = mkPnpmFixtureCheck {
+            name = "nonhoisted-output-layout";
+            src = fixtureNonhoistedDep;
+            depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
+            checkCommand = ''
+              mkdir -p "$out"
+              cp -a node_modules "$out/"
+              find . -mindepth 2 -name 'node_modules' -type d \
+                -not -path './node_modules/*' | while read -r dir; do
+                mkdir -p "$out/$(dirname "$dir")"
+                cp -a "$dir" "$out/$dir"
+              done
+
+              test -d "$out/node_modules"
+              test ! -e "$out/node_modules/is-odd"
+              test -L "$out/packages/app/node_modules/is-odd"
+              test -z "$(find "$out/node_modules/.pnpm" -path '*/node_modules/node_modules' -print -quit)"
+            '';
+            extraAttrs = {
+              dontCheckForBrokenSymlinks = true;
+            };
+          };
+        };
+
+        # Combined set of fixture-style tests (justfile parser validation, module
+        # recipe patterns, and pnpm integration fixtures). Each value is a derivation;
+        # the keys preserve the old check names for debugging via `passthru`.
+        fixtureTests =
+          lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests
+          // lib.mapAttrs' (name: test: lib.nameValuePair "module-${name}" test) moduleJustfileTests
+          // pnpmFixtureChecks;
+
+        # A single aggregate check that depends on every fixture test, collapsing what
+        # used to be ~32 individual CI checks into one. Building this forces all
+        # sub-derivations to build; any failure fails the aggregate. Individual tests
+        # remain reachable for debugging, e.g.
+        #   nix build .#checks.<system>.fixture-tests.justfile-testSingleRecipe
+        fixtureTestsCheck = pkgs.runCommand "fixture-tests" {passthru = fixtureTests;} ''
+          echo "Aggregated fixture tests (justfile + module + pnpm):"
+          ${lib.concatMapStringsSep "\n" (name: "echo '  ✅ ${name}: ${fixtureTests.${name}}'") (builtins.attrNames fixtureTests)}
+          touch "$out"
+        '';
       in {
         # Make jackLib and platformFilteredPackages available for devShell
         _module.args.jackpkgs =
@@ -325,114 +451,11 @@
           };
         };
 
-        checks =
-          # Add all justfile validation tests
-          lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests
-          # Add module pattern tests
-          // lib.mapAttrs' (name: test: lib.nameValuePair "module-${name}" test) moduleJustfileTests
-          // {
-            pnpm-simple-builds = mkPnpmFixtureCheck {
-              name = "simple-pnpm";
-              src = fixtureSimplePnpm;
-              depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
-              checkCommand = ''
-                test -d node_modules
-                node index.js | grep -qx "pass"
-              '';
-            };
-
-            pnpm-workspace-basic-postinstall = mkPnpmFixtureCheck {
-              name = "workspace-basic";
-              src = fixtureWorkspaceBasic;
-              depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
-              checkCommand = ''
-                test -d node_modules
-                pnpm run postinstall
-                test -f lib/dist/index.js
-                node --input-type=module -e "const lib = await import('./lib/dist/index.js'); if (lib.add(2, 3) !== 5) process.exit(1);"
-              '';
-            };
-
-            pnpm-workspace-glob-resolution = mkPnpmFixtureCheck {
-              name = "workspace-glob";
-              src = fixtureWorkspaceGlob;
-              depsHash = "sha256-gIL4zhfAcMT3U0PIUAO4bBQk0EBXiGs0quYO3zm1DXU=";
-              checkCommand = ''
-                test -d node_modules
-                node packages/beta/index.js | grep -qx "hello from alpha"
-              '';
-            };
-
-            pnpm-tsc-check = mkPnpmFixtureCheck {
-              name = "tsc-check";
-              src = fixtureTscCheck;
-              depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
-              checkCommand = ''
-                test -d node_modules
-                node_modules/.bin/tsc --noEmit --lib ES2020,DOM packages/app/index.ts
-              '';
-            };
-
-            pnpm-vitest-check = mkPnpmFixtureCheck {
-              name = "vitest-check";
-              src = fixtureVitestCheck;
-              depsHash = "sha256-VgoszjnpdXC3uhzjGWIjv7W6BQgT8uldbSkgHu8S4RI=";
-              checkCommand = ''
-                test -d node_modules
-                node_modules/.bin/vitest run --root packages/lib
-              '';
-            };
-
-            pnpm-node-modules-output-layout = mkPnpmFixtureCheck {
-              name = "node-modules-output-layout";
-              src = fixtureWorkspaceBasic;
-              depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
-              checkCommand = ''
-                mkdir -p "$out"
-                cp -a node_modules "$out/"
-                test -d "$out/node_modules"
-                test -L "$out/node_modules/.pnpm/node_modules/@test/lib"
-                test ! -e "$out/node_modules/.pnpm/node_modules/@test/lib"
-              '';
-              extraAttrs = {
-                dontCheckForBrokenSymlinks = true;
-              };
-            };
-
-            pnpm-nonhoisted-runtime = mkPnpmFixtureCheck {
-              name = "nonhoisted-runtime";
-              src = fixtureNonhoistedDep;
-              depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
-              checkCommand = ''
-                test -d node_modules
-                node packages/app/index.js | grep -qx "pass"
-              '';
-            };
-
-            # Mirrors nodejs.nix:125-129 installPhase; keep in sync.
-            pnpm-nonhoisted-output-layout = mkPnpmFixtureCheck {
-              name = "nonhoisted-output-layout";
-              src = fixtureNonhoistedDep;
-              depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
-              checkCommand = ''
-                mkdir -p "$out"
-                cp -a node_modules "$out/"
-                find . -mindepth 2 -name 'node_modules' -type d \
-                  -not -path './node_modules/*' | while read -r dir; do
-                  mkdir -p "$out/$(dirname "$dir")"
-                  cp -a "$dir" "$out/$dir"
-                done
-
-                test -d "$out/node_modules"
-                test ! -e "$out/node_modules/is-odd"
-                test -L "$out/packages/app/node_modules/is-odd"
-                test -z "$(find "$out/node_modules/.pnpm" -path '*/node_modules/node_modules' -print -quit)"
-              '';
-              extraAttrs = {
-                dontCheckForBrokenSymlinks = true;
-              };
-            };
-          };
+        # All justfile, module, and pnpm fixture tests collapse into one CI check.
+        # See `fixtureTests` / `fixtureTestsCheck` above for the aggregation.
+        checks = {
+          fixture-tests = fixtureTestsCheck;
+        };
       };
 
       flake = {
