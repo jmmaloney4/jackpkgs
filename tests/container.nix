@@ -104,8 +104,9 @@ in {
     expected = false;
   };
 
-  # With fromImage set and config fields left empty/null, fromImage is threaded
-  # through and those fields are omitted so the base image's config is inherited.
+  # With fromImage set, fromImage is threaded through and config fields default to
+  # "inherit": entrypoint/workingDir are omitted WITHOUT the caller setting them
+  # (workingDir defaults to null for fromImage builds), so the base's config stands.
   testFromImagePassthroughAndInherits = let
     base = mkTestDerivation "base-image";
     images = getFlakeImages [
@@ -118,8 +119,6 @@ in {
           jackpkgs.images.images.layered = {
             packages = [];
             fromImage = base;
-            entrypoint = [];
-            workingDir = null;
           };
         };
       }
@@ -134,6 +133,37 @@ in {
       hasFromImage = true;
       omitsEntrypoint = true;
       omitsWorkingDir = true;
+    };
+  };
+
+  # SSL_CERT_FILE is not auto-injected into a fromImage build with no explicit env
+  # (it would replace the base's entire env); from-scratch images still get it.
+  testFromImageSkipsSslEnvWhenNoEnv = let
+    base = mkTestDerivation "base-image";
+    cacert = (mkTestDerivation "cacert") // {pname = "cacert";};
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [cacert];
+          jackpkgs.images.images.scratch.packages = [];
+          jackpkgs.images.images.layered = {
+            packages = [];
+            fromImage = base;
+          };
+        };
+      }
+    ];
+  in {
+    expr = {
+      scratchHasSsl = builtins.any (e: lib.hasPrefix "SSL_CERT_FILE=" e) (images.scratch.config.Env or []);
+      layeredOmitsEnv = !(images.layered.config ? Env);
+    };
+    expected = {
+      scratchHasSsl = true;
+      layeredOmitsEnv = true;
     };
   };
 

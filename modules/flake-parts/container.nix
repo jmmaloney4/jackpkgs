@@ -87,7 +87,11 @@ in {
         };
 
         images = mkOption {
-          type = types.attrsOf (types.submodule ({name, ...}: {
+          type = types.attrsOf (types.submodule ({
+            name,
+            config,
+            ...
+          }: {
             options = {
               name = mkOption {
                 type = types.str;
@@ -121,7 +125,13 @@ in {
 
               workingDir = mkOption {
                 type = types.nullOr types.str;
-                default = "/workspace";
+                # Inherit the base's workingDir by default for fromImage builds
+                # (null -> omitted); from-scratch images keep /workspace.
+                default =
+                  if config.fromImage != null
+                  then null
+                  else "/workspace";
+                defaultText = lib.literalExpression ''if fromImage != null then null else "/workspace"'';
                 description = "Working directory inside the container. null omits it (inherit from a fromImage base).";
               };
 
@@ -329,8 +339,16 @@ in {
           null
           (imageCfg.packages
             ++ lib.optionals (!imageCfg.skipCommonLayer) linuxSysCfg.commonPackages);
+        # Don't auto-inject SSL_CERT_FILE into a fromImage build that has no
+        # explicit env: nix2container replaces (not merges) config.Env against the
+        # base, so a lone SSL_CERT_FILE would wipe the base's own PATH/HOME/etc.
+        # The base brings its own certs.
+        shouldInjectSslEnv =
+          cacertPkg
+          != null
+          && !(imageCfg.fromImage != null && imageCfg.env == []);
         sslEnv =
-          lib.optional (cacertPkg != null)
+          lib.optional shouldInjectSslEnv
           "SSL_CERT_FILE=${cacertPkg}/etc/ssl/certs/ca-bundle.crt";
         imageEnv = imageCfg.env ++ sslEnv;
 
