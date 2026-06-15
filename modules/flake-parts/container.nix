@@ -159,6 +159,18 @@ in {
                   inherited rather than clobbered.
                 '';
               };
+
+              skipCommonLayer = mkOption {
+                type = types.bool;
+                default = false;
+                description = ''
+                  Skip the shared commonPackages layer for this image. Useful with
+                  a fromImage base that already provides bash/coreutils/certs (e.g.
+                  linuxserver), where adding ours is redundant and would shadow the
+                  base's userland. When true, SSL_CERT_FILE is not derived from
+                  commonPackages (only from this image's own `packages`).
+                '';
+              };
             };
           }));
           default = {};
@@ -280,11 +292,13 @@ in {
       linuxPkgs = jackpkgsInputs.nixpkgs.legacyPackages.${cfg.linuxSystem};
     in
       builtins.mapAttrs (imageName: imageCfg: let
-        # Build common layer from commonPackages. Skipped for fromImage builds:
-        # the base image already provides bash/coreutils/certs, so adding ours is
-        # redundant and would shadow the base's userland.
+        # Build common layer from commonPackages, unless the image opts out via
+        # skipCommonLayer. Kept by default (including for fromImage), so distroless
+        # or otherwise-minimal bases still get the shared userland. Opt out for a
+        # base that already provides bash/coreutils/certs (e.g. linuxserver), where
+        # adding ours is redundant and would shadow the base's userland.
         commonLayer =
-          if linuxSysCfg.commonPackages != [] && imageCfg.fromImage == null
+          if linuxSysCfg.commonPackages != [] && !imageCfg.skipCommonLayer
           then
             nix2container.buildLayer {
               copyToRoot = linuxPkgs.buildEnv {
@@ -306,13 +320,15 @@ in {
         # Fold per-image packages into layers, deduplicating against common layer
         imageLayers = foldImageLayers nix2container baseLayers imageCfg.packages;
 
-        # Inject SSL_CERT_FILE automatically using the consumer's cacert
-        # (from commonPackages / per-image packages), not jackpkgs' pinned nixpkgs.
+        # Inject SSL_CERT_FILE from a cacert that is ACTUALLY in the image: scan
+        # commonPackages only when the common layer is present (not opted out), so a
+        # skipCommonLayer build never points SSL_CERT_FILE at an absent cert path.
         cacertPkg =
           lib.findFirst
           (p: lib.isAttrs p && lib.elem (p.pname or "") ["nss-cacert" "cacert"])
           null
-          (imageCfg.packages ++ linuxSysCfg.commonPackages);
+          (imageCfg.packages
+            ++ lib.optionals (!imageCfg.skipCommonLayer) linuxSysCfg.commonPackages);
         sslEnv =
           lib.optional (cacertPkg != null)
           "SSL_CERT_FILE=${cacertPkg}/etc/ssl/certs/ca-bundle.crt";

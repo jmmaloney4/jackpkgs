@@ -137,9 +137,9 @@ in {
     };
   };
 
-  # fromImage images skip the shared common layer (the base provides userland);
-  # from-scratch images still get it.
-  testFromImageSkipsCommonLayer = let
+  # The shared common layer is kept by default (even for fromImage), and skipped
+  # only when skipCommonLayer is set.
+  testSkipCommonLayerOptOut = let
     base = mkTestDerivation "base-image";
     images = getFlakeImages [
       {
@@ -148,22 +148,28 @@ in {
 
         perSystem = {...}: {
           jackpkgs.images.commonPackages = [(mkTestDerivation "shared-common")];
-          jackpkgs.images.images.scratch.packages = [];
-          jackpkgs.images.images.layered = {
+          # fromImage WITHOUT opt-out keeps the common layer.
+          jackpkgs.images.images.kept = {
             packages = [];
             fromImage = base;
+          };
+          # Explicit opt-out skips it.
+          jackpkgs.images.images.skipped = {
+            packages = [];
+            fromImage = base;
+            skipCommonLayer = true;
           };
         };
       }
     ];
   in {
     expr = {
-      scratchHasCommon = (builtins.elemAt images.scratch.layers 0).ignoreCollisionsSeen or false;
-      layeredNoCommon = images.layered.layers == [];
+      keptHasCommon = (builtins.elemAt images.kept.layers 0).ignoreCollisionsSeen or false;
+      skippedNoCommon = images.skipped.layers == [];
     };
     expected = {
-      scratchHasCommon = true;
-      layeredNoCommon = true;
+      keptHasCommon = true;
+      skippedNoCommon = true;
     };
   };
 }
