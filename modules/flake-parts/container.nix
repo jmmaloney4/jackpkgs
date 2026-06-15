@@ -87,7 +87,11 @@ in {
         };
 
         images = mkOption {
-          type = types.attrsOf (types.submodule ({name, ...}: {
+          type = types.attrsOf (types.submodule ({
+            name,
+            config,
+            ...
+          }: {
             options = {
               name = mkOption {
                 type = types.str;
@@ -116,13 +120,26 @@ in {
               env = mkOption {
                 type = types.listOf types.str;
                 default = [];
-                description = "OCI environment variables in KEY=VAL format. SSL_CERT_FILE is injected automatically.";
+                description = ''
+                  OCI environment variables in KEY=VAL format. SSL_CERT_FILE is
+                  injected automatically (suppressed for a fromImage build with no
+                  explicit env, where it would otherwise clobber the base env).
+                  NOTE: for a fromImage build, setting env REPLACES the base
+                  image's entire environment (nix2container does not merge), so
+                  include any base vars (PATH/HOME/...) you still need.
+                '';
               };
 
               workingDir = mkOption {
-                type = types.str;
-                default = "/workspace";
-                description = "Working directory inside the container.";
+                type = types.nullOr types.str;
+                # Inherit the base's workingDir by default for fromImage builds
+                # (null -> omitted); from-scratch images keep /workspace.
+                default =
+                  if config.fromImage != null
+                  then null
+                  else "/workspace";
+                defaultText = lib.literalExpression ''if fromImage != null then null else "/workspace"'';
+                description = "Working directory inside the container. null omits it (inherit from a fromImage base).";
               };
 
               tag = mkOption {
@@ -144,6 +161,37 @@ in {
                 type = types.nullOr types.str;
                 default = null;
                 description = "Per-image registry override. Falls back to jackpkgs.images.registry.";
+              };
+
+              fromImage = mkOption {
+                type = types.nullOr types.unspecified;
+                default = null;
+                description = ''
+                  Base image to build on top of — the output of
+                  `nix2container.pullImage`. null (default) builds from scratch.
+                  When set, the image's `packages`/`extraLayers` are layered onto
+                  the base, and config fields left at their empty/null value
+                  (entrypoint = [], env = [], cmd = null, workingDir = null) are
+                  omitted so the base image's own entrypoint/env/workingDir are
+                  inherited rather than clobbered.
+                '';
+              };
+
+              skipCommonLayer = mkOption {
+                type = types.bool;
+                # Default: skip for fromImage builds (the base typically already
+                # provides bash/coreutils/certs, and prepending ours would shadow
+                # the base's userland and cert paths) and keep for from-scratch.
+                # Override explicitly, e.g. set false for a distroless fromImage
+                # base that genuinely needs the shared userland layer.
+                default = config.fromImage != null;
+                defaultText = lib.literalExpression "fromImage != null";
+                description = ''
+                  Skip the shared commonPackages layer for this image. Defaults to
+                  true for fromImage builds, false otherwise. When skipped,
+                  SSL_CERT_FILE is not derived from commonPackages (only from this
+                  image's own `packages`).
+                '';
               };
             };
           }));
@@ -266,9 +314,13 @@ in {
       linuxPkgs = jackpkgsInputs.nixpkgs.legacyPackages.${cfg.linuxSystem};
     in
       builtins.mapAttrs (imageName: imageCfg: let
-        # Build common layer from commonPackages
+        # Build common layer from commonPackages, unless the image opts out via
+        # skipCommonLayer. Kept by default (including for fromImage), so distroless
+        # or otherwise-minimal bases still get the shared userland. Opt out for a
+        # base that already provides bash/coreutils/certs (e.g. linuxserver), where
+        # adding ours is redundant and would shadow the base's userland.
         commonLayer =
-          if linuxSysCfg.commonPackages != []
+          if linuxSysCfg.commonPackages != [] && !imageCfg.skipCommonLayer
           then
             nix2container.buildLayer {
               copyToRoot = linuxPkgs.buildEnv {
@@ -290,29 +342,47 @@ in {
         # Fold per-image packages into layers, deduplicating against common layer
         imageLayers = foldImageLayers nix2container baseLayers imageCfg.packages;
 
-        # Inject SSL_CERT_FILE automatically using the consumer's cacert
-        # (from commonPackages / per-image packages), not jackpkgs' pinned nixpkgs.
+        # Inject SSL_CERT_FILE from a cacert that is ACTUALLY in the image: scan
+        # commonPackages only when the common layer is present (not opted out), so a
+        # skipCommonLayer build never points SSL_CERT_FILE at an absent cert path.
         cacertPkg =
           lib.findFirst
           (p: lib.isAttrs p && lib.elem (p.pname or "") ["nss-cacert" "cacert"])
           null
-          (imageCfg.packages ++ linuxSysCfg.commonPackages);
+          (imageCfg.packages
+            ++ lib.optionals (!imageCfg.skipCommonLayer) linuxSysCfg.commonPackages);
+        # Don't auto-inject SSL_CERT_FILE into a fromImage build that has no
+        # explicit env: nix2container replaces (not merges) config.Env against the
+        # base, so a lone SSL_CERT_FILE would wipe the base's own PATH/HOME/etc.
+        # The base brings its own certs.
+        shouldInjectSslEnv =
+          cacertPkg
+          != null
+          && !(imageCfg.fromImage != null && imageCfg.env == []);
         sslEnv =
-          lib.optional (cacertPkg != null)
+          lib.optional shouldInjectSslEnv
           "SSL_CERT_FILE=${cacertPkg}/etc/ssl/certs/ca-bundle.crt";
         imageEnv = imageCfg.env ++ sslEnv;
+
+        # OCI config, omitting fields left at their empty/null value so a fromImage
+        # base's own entrypoint/env/workingDir are inherited rather than clobbered.
+        # For from-scratch images, omitting an empty field is equivalent to setting
+        # it empty, so existing images are unaffected.
+        imageConfig =
+          (lib.optionalAttrs (imageCfg.entrypoint != []) {Entrypoint = imageCfg.entrypoint;})
+          // (lib.optionalAttrs (imageCfg.cmd != null) {Cmd = imageCfg.cmd;})
+          // (lib.optionalAttrs (imageEnv != []) {Env = imageEnv;})
+          // (lib.optionalAttrs (imageCfg.workingDir != null) {WorkingDir = imageCfg.workingDir;});
       in
-        nix2container.buildImage {
-          name = imageCfg.name;
-          tag = imageCfg.tag;
-          layers = imageLayers ++ imageCfg.extraLayers;
-          config = {
-            Entrypoint = imageCfg.entrypoint;
-            Cmd = imageCfg.cmd;
-            Env = imageEnv;
-            WorkingDir = imageCfg.workingDir;
-          };
-        })
+        nix2container.buildImage ({
+            name = imageCfg.name;
+            tag = imageCfg.tag;
+            layers = imageLayers ++ imageCfg.extraLayers;
+            config = imageConfig;
+          }
+          // lib.optionalAttrs (imageCfg.fromImage != null) {
+            inherit (imageCfg) fromImage;
+          }))
       linuxSysCfg.images;
   };
 }

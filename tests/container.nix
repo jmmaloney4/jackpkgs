@@ -85,4 +85,122 @@ in {
     expr = (builtins.elemAt images.demo.layers 0).ignoreCollisionsSeen or false;
     expected = true;
   };
+
+  # Without fromImage, the arg is omitted entirely (from-scratch), not passed null.
+  testFromImageDefaultsToScratch = let
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.demo.packages = [];
+        };
+      }
+    ];
+  in {
+    expr = images.demo ? fromImage;
+    expected = false;
+  };
+
+  # With fromImage set, fromImage is threaded through and config fields default to
+  # "inherit": entrypoint/workingDir are omitted WITHOUT the caller setting them
+  # (workingDir defaults to null for fromImage builds), so the base's config stands.
+  testFromImagePassthroughAndInherits = let
+    base = mkTestDerivation "base-image";
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.layered = {
+            packages = [];
+            fromImage = base;
+          };
+        };
+      }
+    ];
+  in {
+    expr = {
+      hasFromImage = images.layered.fromImage == base;
+      omitsEntrypoint = !(images.layered.config ? Entrypoint);
+      omitsWorkingDir = !(images.layered.config ? WorkingDir);
+    };
+    expected = {
+      hasFromImage = true;
+      omitsEntrypoint = true;
+      omitsWorkingDir = true;
+    };
+  };
+
+  # Even with the common layer kept (cacert present), SSL_CERT_FILE is not
+  # auto-injected into a fromImage build with no explicit env (it would replace the
+  # base's entire env). From-scratch images still get it.
+  testFromImageSkipsSslEnvWhenNoEnv = let
+    base = mkTestDerivation "base-image";
+    cacert = (mkTestDerivation "cacert") // {pname = "cacert";};
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [cacert];
+          jackpkgs.images.images.scratch.packages = [];
+          jackpkgs.images.images.layered = {
+            packages = [];
+            fromImage = base;
+            skipCommonLayer = false; # keep common so cacert is present
+          };
+        };
+      }
+    ];
+  in {
+    expr = {
+      scratchHasSsl = builtins.any (e: lib.hasPrefix "SSL_CERT_FILE=" e) (images.scratch.config.Env or []);
+      layeredOmitsEnv = !(images.layered.config ? Env);
+    };
+    expected = {
+      scratchHasSsl = true;
+      layeredOmitsEnv = true;
+    };
+  };
+
+  # skipCommonLayer defaults to true for fromImage (skip) and is overridable.
+  testSkipCommonLayerDefaultAndOverride = let
+    base = mkTestDerivation "base-image";
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [(mkTestDerivation "shared-common")];
+          # fromImage default: skip the common layer.
+          jackpkgs.images.images.defaultSkips = {
+            packages = [];
+            fromImage = base;
+          };
+          # Override to keep it (e.g. a distroless base needing userland).
+          jackpkgs.images.images.keptViaOverride = {
+            packages = [];
+            fromImage = base;
+            skipCommonLayer = false;
+          };
+        };
+      }
+    ];
+  in {
+    expr = {
+      defaultSkipsCommon = images.defaultSkips.layers == [];
+      keptHasCommon = (builtins.elemAt images.keptViaOverride.layers 0).ignoreCollisionsSeen or false;
+    };
+    expected = {
+      defaultSkipsCommon = true;
+      keptHasCommon = true;
+    };
+  };
 }
