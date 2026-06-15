@@ -94,6 +94,7 @@ in {
         jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
 
         perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
           jackpkgs.images.images.demo.packages = [];
         };
       }
@@ -113,6 +114,7 @@ in {
         jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
 
         perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
           jackpkgs.images.images.layered = {
             packages = [];
             fromImage = base;
@@ -132,6 +134,36 @@ in {
       hasFromImage = true;
       omitsEntrypoint = true;
       omitsWorkingDir = true;
+    };
+  };
+
+  # fromImage images skip the shared common layer (the base provides userland);
+  # from-scratch images still get it.
+  testFromImageSkipsCommonLayer = let
+    base = mkTestDerivation "base-image";
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [(mkTestDerivation "shared-common")];
+          jackpkgs.images.images.scratch.packages = [];
+          jackpkgs.images.images.layered = {
+            packages = [];
+            fromImage = base;
+          };
+        };
+      }
+    ];
+  in {
+    expr = {
+      scratchHasCommon = (builtins.elemAt images.scratch.layers 0).ignoreCollisionsSeen or false;
+      layeredNoCommon = images.layered.layers == [];
+    };
+    expected = {
+      scratchHasCommon = true;
+      layeredNoCommon = true;
     };
   };
 }

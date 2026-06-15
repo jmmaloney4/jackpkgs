@@ -280,9 +280,11 @@ in {
       linuxPkgs = jackpkgsInputs.nixpkgs.legacyPackages.${cfg.linuxSystem};
     in
       builtins.mapAttrs (imageName: imageCfg: let
-        # Build common layer from commonPackages
+        # Build common layer from commonPackages. Skipped for fromImage builds:
+        # the base image already provides bash/coreutils/certs, so adding ours is
+        # redundant and would shadow the base's userland.
         commonLayer =
-          if linuxSysCfg.commonPackages != []
+          if linuxSysCfg.commonPackages != [] && imageCfg.fromImage == null
           then
             nix2container.buildLayer {
               copyToRoot = linuxPkgs.buildEnv {
