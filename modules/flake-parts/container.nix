@@ -120,9 +120,9 @@ in {
               };
 
               workingDir = mkOption {
-                type = types.str;
+                type = types.nullOr types.str;
                 default = "/workspace";
-                description = "Working directory inside the container.";
+                description = "Working directory inside the container. null omits it (inherit from a fromImage base).";
               };
 
               tag = mkOption {
@@ -144,6 +144,20 @@ in {
                 type = types.nullOr types.str;
                 default = null;
                 description = "Per-image registry override. Falls back to jackpkgs.images.registry.";
+              };
+
+              fromImage = mkOption {
+                type = types.nullOr types.unspecified;
+                default = null;
+                description = ''
+                  Base image to build on top of — the output of
+                  `nix2container.pullImage`. null (default) builds from scratch.
+                  When set, the image's `packages`/`extraLayers` are layered onto
+                  the base, and config fields left at their empty/null value
+                  (entrypoint = [], env = [], cmd = null, workingDir = null) are
+                  omitted so the base image's own entrypoint/env/workingDir are
+                  inherited rather than clobbered.
+                '';
               };
             };
           }));
@@ -301,18 +315,26 @@ in {
           lib.optional (cacertPkg != null)
           "SSL_CERT_FILE=${cacertPkg}/etc/ssl/certs/ca-bundle.crt";
         imageEnv = imageCfg.env ++ sslEnv;
+
+        # OCI config, omitting fields left at their empty/null value so a fromImage
+        # base's own entrypoint/env/workingDir are inherited rather than clobbered.
+        # For from-scratch images, omitting an empty field is equivalent to setting
+        # it empty, so existing images are unaffected.
+        imageConfig =
+          (lib.optionalAttrs (imageCfg.entrypoint != []) {Entrypoint = imageCfg.entrypoint;})
+          // (lib.optionalAttrs (imageCfg.cmd != null) {Cmd = imageCfg.cmd;})
+          // (lib.optionalAttrs (imageEnv != []) {Env = imageEnv;})
+          // (lib.optionalAttrs (imageCfg.workingDir != null) {WorkingDir = imageCfg.workingDir;});
       in
-        nix2container.buildImage {
-          name = imageCfg.name;
-          tag = imageCfg.tag;
-          layers = imageLayers ++ imageCfg.extraLayers;
-          config = {
-            Entrypoint = imageCfg.entrypoint;
-            Cmd = imageCfg.cmd;
-            Env = imageEnv;
-            WorkingDir = imageCfg.workingDir;
-          };
-        })
+        nix2container.buildImage ({
+            name = imageCfg.name;
+            tag = imageCfg.tag;
+            layers = imageLayers ++ imageCfg.extraLayers;
+            config = imageConfig;
+          }
+          // lib.optionalAttrs (imageCfg.fromImage != null) {
+            inherit (imageCfg) fromImage;
+          }))
       linuxSysCfg.images;
   };
 }

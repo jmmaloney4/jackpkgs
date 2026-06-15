@@ -85,4 +85,53 @@ in {
     expr = (builtins.elemAt images.demo.layers 0).ignoreCollisionsSeen or false;
     expected = true;
   };
+
+  # Without fromImage, the arg is omitted entirely (from-scratch), not passed null.
+  testFromImageDefaultsToScratch = let
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.images.demo.packages = [];
+        };
+      }
+    ];
+  in {
+    expr = images.demo ? fromImage;
+    expected = false;
+  };
+
+  # With fromImage set and config fields left empty/null, fromImage is threaded
+  # through and those fields are omitted so the base image's config is inherited.
+  testFromImagePassthroughAndInherits = let
+    base = mkTestDerivation "base-image";
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.images.layered = {
+            packages = [];
+            fromImage = base;
+            entrypoint = [];
+            workingDir = null;
+          };
+        };
+      }
+    ];
+  in {
+    expr = {
+      hasFromImage = images.layered.fromImage == base;
+      omitsEntrypoint = !(images.layered.config ? Entrypoint);
+      omitsWorkingDir = !(images.layered.config ? WorkingDir);
+    };
+    expected = {
+      hasFromImage = true;
+      omitsEntrypoint = true;
+      omitsWorkingDir = true;
+    };
+  };
 }
