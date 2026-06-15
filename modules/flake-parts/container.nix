@@ -120,7 +120,14 @@ in {
               env = mkOption {
                 type = types.listOf types.str;
                 default = [];
-                description = "OCI environment variables in KEY=VAL format. SSL_CERT_FILE is injected automatically.";
+                description = ''
+                  OCI environment variables in KEY=VAL format. SSL_CERT_FILE is
+                  injected automatically (suppressed for a fromImage build with no
+                  explicit env, where it would otherwise clobber the base env).
+                  NOTE: for a fromImage build, setting env REPLACES the base
+                  image's entire environment (nix2container does not merge), so
+                  include any base vars (PATH/HOME/...) you still need.
+                '';
               };
 
               workingDir = mkOption {
@@ -172,13 +179,18 @@ in {
 
               skipCommonLayer = mkOption {
                 type = types.bool;
-                default = false;
+                # Default: skip for fromImage builds (the base typically already
+                # provides bash/coreutils/certs, and prepending ours would shadow
+                # the base's userland and cert paths) and keep for from-scratch.
+                # Override explicitly, e.g. set false for a distroless fromImage
+                # base that genuinely needs the shared userland layer.
+                default = config.fromImage != null;
+                defaultText = lib.literalExpression "fromImage != null";
                 description = ''
-                  Skip the shared commonPackages layer for this image. Useful with
-                  a fromImage base that already provides bash/coreutils/certs (e.g.
-                  linuxserver), where adding ours is redundant and would shadow the
-                  base's userland. When true, SSL_CERT_FILE is not derived from
-                  commonPackages (only from this image's own `packages`).
+                  Skip the shared commonPackages layer for this image. Defaults to
+                  true for fromImage builds, false otherwise. When skipped,
+                  SSL_CERT_FILE is not derived from commonPackages (only from this
+                  image's own `packages`).
                 '';
               };
             };

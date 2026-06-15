@@ -136,8 +136,9 @@ in {
     };
   };
 
-  # SSL_CERT_FILE is not auto-injected into a fromImage build with no explicit env
-  # (it would replace the base's entire env); from-scratch images still get it.
+  # Even with the common layer kept (cacert present), SSL_CERT_FILE is not
+  # auto-injected into a fromImage build with no explicit env (it would replace the
+  # base's entire env). From-scratch images still get it.
   testFromImageSkipsSslEnvWhenNoEnv = let
     base = mkTestDerivation "base-image";
     cacert = (mkTestDerivation "cacert") // {pname = "cacert";};
@@ -152,6 +153,7 @@ in {
           jackpkgs.images.images.layered = {
             packages = [];
             fromImage = base;
+            skipCommonLayer = false; # keep common so cacert is present
           };
         };
       }
@@ -167,9 +169,8 @@ in {
     };
   };
 
-  # The shared common layer is kept by default (even for fromImage), and skipped
-  # only when skipCommonLayer is set.
-  testSkipCommonLayerOptOut = let
+  # skipCommonLayer defaults to true for fromImage (skip) and is overridable.
+  testSkipCommonLayerDefaultAndOverride = let
     base = mkTestDerivation "base-image";
     images = getFlakeImages [
       {
@@ -178,28 +179,28 @@ in {
 
         perSystem = {...}: {
           jackpkgs.images.commonPackages = [(mkTestDerivation "shared-common")];
-          # fromImage WITHOUT opt-out keeps the common layer.
-          jackpkgs.images.images.kept = {
+          # fromImage default: skip the common layer.
+          jackpkgs.images.images.defaultSkips = {
             packages = [];
             fromImage = base;
           };
-          # Explicit opt-out skips it.
-          jackpkgs.images.images.skipped = {
+          # Override to keep it (e.g. a distroless base needing userland).
+          jackpkgs.images.images.keptViaOverride = {
             packages = [];
             fromImage = base;
-            skipCommonLayer = true;
+            skipCommonLayer = false;
           };
         };
       }
     ];
   in {
     expr = {
-      keptHasCommon = (builtins.elemAt images.kept.layers 0).ignoreCollisionsSeen or false;
-      skippedNoCommon = images.skipped.layers == [];
+      defaultSkipsCommon = images.defaultSkips.layers == [];
+      keptHasCommon = (builtins.elemAt images.keptViaOverride.layers 0).ignoreCollisionsSeen or false;
     };
     expected = {
+      defaultSkipsCommon = true;
       keptHasCommon = true;
-      skippedNoCommon = true;
     };
   };
 }
