@@ -20,15 +20,15 @@
   };
   codex-proxy-rs = {
     pname = "codex-proxy-rs";
-    version = "dbf02325347ef49160c95eaebf6f5e4be83f79a9";
+    version = "607ffc34c446e993c9f9d573c3f2a7f8b265d6a4";
     src = fetchFromGitHub {
       owner = "jmmaloney4";
       repo = "codex-proxy-rs";
-      rev = "dbf02325347ef49160c95eaebf6f5e4be83f79a9";
+      rev = "607ffc34c446e993c9f9d573c3f2a7f8b265d6a4";
       fetchSubmodules = false;
-      sha256 = "sha256-0piqRoveYyYru9zfX67BdJFAQNPOyRfRWstJ9E/coyI=";
+      sha256 = "sha256-/r+xgNbSIvudfGF6hID+tl7Gt8dD1J+Wf1DvIf6quDA=";
     };
-    date = "2026-06-17";
+    date = "2026-06-18";
   };
   gemini-proxy = {
     pname = "gemini-proxy";
