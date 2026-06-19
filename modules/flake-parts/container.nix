@@ -87,7 +87,7 @@ in {
         description = ''
           When true (the default), inject "org.opencontainers.image.revision"
           into every image, derived from the CONSUMER flake's git revision via
-          `self.rev or self.dirtyRev`: a clean tree yields the commit SHA, a
+          `self.dirtyRev or self.rev`: a clean tree yields the commit SHA, a
           dirty tree yields "<sha>-dirty", and a source with no git info
           (e.g. a tarball) omits the label rather than emitting a placeholder.
           A per-image or global `labels` entry for the same key overrides it.
