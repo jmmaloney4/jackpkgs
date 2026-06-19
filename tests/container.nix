@@ -185,6 +185,9 @@ in {
       {
         jackpkgs.images.enable = true;
         jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+        # Disable the (default-on) revision label so the "omitted" assertion
+        # isolates per-image label behavior from the auto revision.
+        jackpkgs.images.addRevisionLabel = false;
 
         perSystem = {...}: {
           jackpkgs.images.commonPackages = [];
@@ -324,6 +327,45 @@ in {
   in {
     expr = images.demo.config.Labels."org.opencontainers.image.revision" or null;
     expected = "pinned";
+  };
+
+  # addRevisionLabel defaults to true: the revision label is injected without
+  # the consumer setting anything.
+  testRevisionLabelDefaultOn = let
+    images = getFlakeImagesWithSelf {rev = "4444444444444444444444444444444444444444";} [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.demo.packages = [];
+        };
+      }
+    ];
+  in {
+    expr = images.demo.config.Labels."org.opencontainers.image.revision" or null;
+    expected = "4444444444444444444444444444444444444444";
+  };
+
+  # Explicit addRevisionLabel = false opts out; with no other labels Labels is
+  # omitted entirely even on a clean tree with a real revision available.
+  testRevisionLabelDisabledOmits = let
+    images = getFlakeImagesWithSelf {rev = "5555555555555555555555555555555555555555";} [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+        jackpkgs.images.addRevisionLabel = false;
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.demo.packages = [];
+        };
+      }
+    ];
+  in {
+    expr = images.demo.config ? Labels;
+    expected = false;
   };
 
   # skipCommonLayer defaults to true for fromImage (skip) and is overridable.

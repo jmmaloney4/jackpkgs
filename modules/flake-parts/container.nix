@@ -83,16 +83,17 @@ in {
 
       addRevisionLabel = mkOption {
         type = types.bool;
-        default = false;
+        default = true;
         description = ''
-          When true, inject "org.opencontainers.image.revision" into every
-          image, derived from the CONSUMER flake's git revision via
+          When true (the default), inject "org.opencontainers.image.revision"
+          into every image, derived from the CONSUMER flake's git revision via
           `self.rev or self.dirtyRev`: a clean tree yields the commit SHA, a
           dirty tree yields "<sha>-dirty", and a source with no git info
           (e.g. a tarball) omits the label rather than emitting a placeholder.
           A per-image or global `labels` entry for the same key overrides it.
-          NOTE: enabling this makes each image's hash change per commit, which
-          is the point (traceability) but means images rebuild every commit.
+          NOTE: this makes each image's hash change per commit, which is the
+          point (traceability) but means images rebuild every commit. Set false
+          to opt out (e.g. for reproducible-by-content builds).
         '';
       };
     };
