@@ -322,6 +322,57 @@ jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
     }
     ```
 
+- images (`modules/flake-parts/container.nix`)
+
+  - Builds Linux OCI images under `config.flake.images` using `nix2container`.
+  - Provides generated `just` recipes for image workflows: `image-build`, `image-digest`, `image-push`, and `image-push-all`.
+  - Global options under `jackpkgs.images`:
+    - `enable` (bool, default `false`)
+    - `linuxSystem` (string, default `"x86_64-linux"`) - system used to evaluate and build images
+    - `registry` (string, required) - default registry/repository prefix for generated image names
+    - `authMode` (enum) - push credential mode used by generated recipes
+    - `labels` (attrset of string, default `{}`) - OCI labels merged into every image
+    - `addRevisionLabel` (bool, default `true`) - injects `org.opencontainers.image.revision` from the consumer flake metadata, preferring `self.dirtyRev` over `self.rev`
+  - Per-system options under `perSystem.jackpkgs.images`:
+    - `commonPackages` (list of packages) - shared packages layered into images unless opted out per image
+    - `images.<name>` - image definitions
+  - Per-image options under `perSystem.jackpkgs.images.images.<name>`:
+    - `packages` (list of packages)
+    - `entrypoint` (list of strings)
+    - `cmd` (null or list of strings)
+    - `env` (list of strings)
+    - `workingDir` (null or string)
+    - `tag` (string)
+    - `extraLayers` (list)
+    - `labels` (attrset of string, default `{}`) - per-image OCI labels; overrides global labels on key collisions
+    - `registry` (null or string) - override the global registry/repository prefix
+    - `fromImage` (null or derivation) - layer onto a base image instead of building from scratch
+    - `skipCommonLayer` (bool) - skip the shared `commonPackages` layer for this image
+  - Label precedence is `auto revision < jackpkgs.images.labels < image.labels`.
+  - When the merged label set is empty, `Labels` is omitted entirely so `fromImage` bases keep their own labels.
+  - Example:
+    ```nix
+    {
+      imports = [ inputs.jackpkgs.flakeModules.default ];
+
+      jackpkgs.images = {
+        enable = true;
+        registry = "ghcr.io/example/project";
+        labels."org.opencontainers.image.source" = "https://github.com/example/project";
+      };
+
+      perSystem = { pkgs, ... }: {
+        jackpkgs.images = {
+          commonPackages = [ pkgs.bash pkgs.coreutils ];
+          images.app = {
+            packages = [ pkgs.hello ];
+            labels."com.example.role" = "app";
+          };
+        };
+      };
+    }
+    ```
+
 #### Common Pattern: Pulumi + Node 24 + TypeScript-first repos
 
 This is the shared pattern used by repos like `garden` and `zeus` for Pulumi stacks:
