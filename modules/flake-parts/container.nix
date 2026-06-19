@@ -157,6 +157,21 @@ in {
                 '';
               };
 
+              labels = mkOption {
+                type = types.attrsOf types.str;
+                default = {};
+                example = lib.literalExpression ''
+                  { "org.opencontainers.image.source" = "https://github.com/OWNER/REPO"; }
+                '';
+                description = ''
+                  OCI image labels (config.Labels), e.g. setting
+                  "org.opencontainers.image.source" to link the image to its
+                  GitHub repository. For a fromImage build, nix2container MERGES
+                  these with the base image's labels (unlike env, which it
+                  replaces), so the base's labels are preserved.
+                '';
+              };
+
               registry = mkOption {
                 type = types.nullOr types.str;
                 default = null;
@@ -372,7 +387,8 @@ in {
           (lib.optionalAttrs (imageCfg.entrypoint != []) {Entrypoint = imageCfg.entrypoint;})
           // (lib.optionalAttrs (imageCfg.cmd != null) {Cmd = imageCfg.cmd;})
           // (lib.optionalAttrs (imageEnv != []) {Env = imageEnv;})
-          // (lib.optionalAttrs (imageCfg.workingDir != null) {WorkingDir = imageCfg.workingDir;});
+          // (lib.optionalAttrs (imageCfg.workingDir != null) {WorkingDir = imageCfg.workingDir;})
+          // (lib.optionalAttrs (imageCfg.labels != {}) {Labels = imageCfg.labels;});
       in
         nix2container.buildImage ({
             name = imageCfg.name;

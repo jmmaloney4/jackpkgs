@@ -169,6 +169,41 @@ in {
     };
   };
 
+  # labels populate config.Labels when set, and the key is omitted entirely when
+  # left at the default (so a fromImage base's own labels are not clobbered).
+  testLabels = let
+    base = mkTestDerivation "base-image";
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.labeled = {
+            packages = [];
+            labels."org.opencontainers.image.source" = "https://github.com/jmmaloney4/jackpkgs";
+          };
+          # No labels set, fromImage base: Labels must be omitted so the base's
+          # labels stand (nix2container merges, but we still avoid an empty map).
+          jackpkgs.images.images.unlabeled = {
+            packages = [];
+            fromImage = base;
+          };
+        };
+      }
+    ];
+  in {
+    expr = {
+      sourceLabel = images.labeled.config.Labels."org.opencontainers.image.source" or null;
+      unlabeledOmitsLabels = !(images.unlabeled.config ? Labels);
+    };
+    expected = {
+      sourceLabel = "https://github.com/jmmaloney4/jackpkgs";
+      unlabeledOmitsLabels = true;
+    };
+  };
+
   # skipCommonLayer defaults to true for fromImage (skip) and is overridable.
   testSkipCommonLayerDefaultAndOverride = let
     base = mkTestDerivation "base-image";
