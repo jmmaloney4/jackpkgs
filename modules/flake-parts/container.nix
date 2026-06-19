@@ -364,7 +364,7 @@ in {
       # swallows the missing-attr case in each step.
       revisionLabels = lib.optionalAttrs cfg.addRevisionLabel (
         let
-          revision = inputs.self.rev or inputs.self.dirtyRev or null;
+          revision = inputs.self.dirtyRev or inputs.self.rev or null;
         in
           lib.optionalAttrs (revision != null) {
             "org.opencontainers.image.revision" = revision;
