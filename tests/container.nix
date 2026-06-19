@@ -49,8 +49,8 @@
   };
   justModule = import ../modules/flake-parts/just.nix {jackpkgsInputs = fakeInputs;};
 
-  evalFlake = modules:
-    flakeParts.evalFlakeModule {inherit inputs;} {
+  evalFlakeWith = evalInputs: modules:
+    flakeParts.evalFlakeModule {inputs = evalInputs;} {
       systems = [system];
       imports =
         [
@@ -63,7 +63,15 @@
         ++ modules;
     };
 
-  getFlakeImages = modules: (evalFlake modules).config.flake.images;
+  getFlakeImages = modules: (evalFlakeWith inputs modules).config.flake.images;
+
+  # The module reads the CONSUMER flake's revision via `inputs.self`. The real
+  # `inputs.self` is nondeterministic (clean in CI -> rev, dirty in dev ->
+  # dirtyRev), so override `self` to exercise each case deterministically.
+  # Strip the conflicting rev attrs first so `a.rev or a.dirtyRev` resolves the
+  # intended branch regardless of how the real checkout was evaluated.
+  withSelf = selfAttrs: inputs // {self = (builtins.removeAttrs inputs.self ["rev" "shortRev" "dirtyRev" "dirtyShortRev"]) // selfAttrs;};
+  getFlakeImagesWithSelf = selfAttrs: modules: (evalFlakeWith (withSelf selfAttrs) modules).config.flake.images;
 in {
   testCommonLayerBuildEnvEnablesIgnoreCollisions = let
     images = getFlakeImages [
@@ -202,6 +210,120 @@ in {
       sourceLabel = "https://github.com/jmmaloney4/jackpkgs";
       unlabeledOmitsLabels = true;
     };
+  };
+
+  # Global jackpkgs.images.labels merge into every image, with per-image labels
+  # winning on key collisions.
+  testGlobalLabelsMergeAndPrecedence = let
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+        jackpkgs.images.labels = {
+          "org.opencontainers.image.source" = "https://github.com/jmmaloney4/jackpkgs";
+          "com.example.team" = "platform";
+        };
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.demo = {
+            packages = [];
+            # Per-image override of a global key.
+            labels."com.example.team" = "data";
+          };
+        };
+      }
+    ];
+  in {
+    expr = {
+      inheritsGlobal = images.demo.config.Labels."org.opencontainers.image.source" or null;
+      perImageWins = images.demo.config.Labels."com.example.team" or null;
+    };
+    expected = {
+      inheritsGlobal = "https://github.com/jmmaloney4/jackpkgs";
+      perImageWins = "data";
+    };
+  };
+
+  # addRevisionLabel on a CLEAN consumer tree injects the commit SHA.
+  testRevisionLabelClean = let
+    images = getFlakeImagesWithSelf {rev = "1111111111111111111111111111111111111111";} [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+        jackpkgs.images.addRevisionLabel = true;
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.demo.packages = [];
+        };
+      }
+    ];
+  in {
+    expr = images.demo.config.Labels."org.opencontainers.image.revision" or null;
+    expected = "1111111111111111111111111111111111111111";
+  };
+
+  # addRevisionLabel on a DIRTY consumer tree falls back to dirtyRev, which
+  # already carries the "-dirty" suffix.
+  testRevisionLabelDirty = let
+    images = getFlakeImagesWithSelf {dirtyRev = "2222222222222222222222222222222222222222-dirty";} [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+        jackpkgs.images.addRevisionLabel = true;
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.demo.packages = [];
+        };
+      }
+    ];
+  in {
+    expr = images.demo.config.Labels."org.opencontainers.image.revision" or null;
+    expected = "2222222222222222222222222222222222222222-dirty";
+  };
+
+  # No git info (neither rev nor dirtyRev): the revision label is omitted rather
+  # than emitting a placeholder, and with no other labels Labels is absent.
+  testRevisionLabelOmittedWhenNoGit = let
+    images = getFlakeImagesWithSelf {} [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+        jackpkgs.images.addRevisionLabel = true;
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.demo.packages = [];
+        };
+      }
+    ];
+  in {
+    expr = images.demo.config ? Labels;
+    expected = false;
+  };
+
+  # Per-image labels override the auto-injected revision on key collision.
+  testRevisionLabelOverriddenPerImage = let
+    images = getFlakeImagesWithSelf {rev = "3333333333333333333333333333333333333333";} [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+        jackpkgs.images.addRevisionLabel = true;
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.demo = {
+            packages = [];
+            labels."org.opencontainers.image.revision" = "pinned";
+          };
+        };
+      }
+    ];
+  in {
+    expr = images.demo.config.Labels."org.opencontainers.image.revision" or null;
+    expected = "pinned";
   };
 
   # skipCommonLayer defaults to true for fromImage (skip) and is overridable.
