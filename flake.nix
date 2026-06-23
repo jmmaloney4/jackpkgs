@@ -135,6 +135,7 @@
           mcp-ynab = pkgs.callPackage ./pkgs/mcp-ynab {
             inherit (nvfetcherSources.mcp-ynab) src version;
           };
+          pulumi-drift-report = pkgs.callPackage ./pkgs/pulumi-drift-report {};
           nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
             inherit (nvfetcherSources.nautilus-trader) src version cargoLock;
             cargo = nautilusRustToolchain;

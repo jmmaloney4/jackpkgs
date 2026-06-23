@@ -8,10 +8,11 @@
       docfx = super.callPackage ../pkgs/docfx {};
       # epub2tts = super.callPackage ../pkgs/epub2tts {};
       # lean = super.callPackage ../pkgs/lean {};
-      seedtool-cli = super.callPackage ../pkgs/seedtool-cli {};
       mcp-ynab = super.callPackage ../pkgs/mcp-ynab {
         inherit (nvfetcherSources.mcp-ynab) src version;
       };
+      pulumi-drift-report = super.callPackage ../pkgs/pulumi-drift-report {};
+      seedtool-cli = super.callPackage ../pkgs/seedtool-cli {};
       spooktacular = super.callPackage ../pkgs/spooktacular {
         inherit (nvfetcherSources.spooktacular) src date;
       };
