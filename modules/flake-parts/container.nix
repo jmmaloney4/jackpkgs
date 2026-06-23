@@ -66,6 +66,36 @@ in {
           ("op", "raw", etc.) can be added without a module schema change.
         '';
       };
+
+      labels = mkOption {
+        type = types.attrsOf types.str;
+        default = {};
+        example = lib.literalExpression ''
+          { "org.opencontainers.image.source" = "https://github.com/OWNER/REPO"; }
+        '';
+        description = ''
+          OCI labels merged into every image's config.Labels. Per-image
+          `labels` take precedence on key collisions. Set the standard
+          "org.opencontainers.image.source" here once to link all images to
+          the GitHub repository.
+        '';
+      };
+
+      addRevisionLabel = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          When true (the default), inject "org.opencontainers.image.revision"
+          into every image, derived from the CONSUMER flake's git revision via
+          `self.dirtyRev or self.rev`: a clean tree yields the commit SHA, a
+          dirty tree yields "<sha>-dirty", and a source with no git info
+          (e.g. a tarball) omits the label rather than emitting a placeholder.
+          A per-image or global `labels` entry for the same key overrides it.
+          NOTE: this makes each image's hash change per commit, which is the
+          point (traceability) but means images rebuild every commit. Set false
+          to opt out (e.g. for reproducible-by-content builds).
+        '';
+      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -154,6 +184,21 @@ in {
                 description = ''
                   Raw nix2container layers to append (escape hatch for custom
                   layering strategies like busybox /bin/sh for Cloud Run).
+                '';
+              };
+
+              labels = mkOption {
+                type = types.attrsOf types.str;
+                default = {};
+                example = lib.literalExpression ''
+                  { "org.opencontainers.image.source" = "https://github.com/OWNER/REPO"; }
+                '';
+                description = ''
+                  OCI image labels (config.Labels), e.g. setting
+                  "org.opencontainers.image.source" to link the image to its
+                  GitHub repository. For a fromImage build, nix2container MERGES
+                  these with the base image's labels (unlike env, which it
+                  replaces), so the base's labels are preserved.
                 '';
               };
 
@@ -312,6 +357,19 @@ in {
       linuxSysCfg = (getSystem cfg.linuxSystem).jackpkgs.images;
       nix2container = jackpkgsInputs.nix2container.packages.${cfg.linuxSystem}.nix2container;
       linuxPkgs = jackpkgsInputs.nixpkgs.legacyPackages.${cfg.linuxSystem};
+
+      # Git revision of the CONSUMER flake (inputs.self here is the flake that
+      # imports this module, not jackpkgs). Clean tree -> rev (sha); dirty tree
+      # -> dirtyRev ("<sha>-dirty"); no git info (tarball/path) -> null. `or`
+      # swallows the missing-attr case in each step.
+      revisionLabels = lib.optionalAttrs cfg.addRevisionLabel (
+        let
+          revision = inputs.self.dirtyRev or inputs.self.rev or null;
+        in
+          lib.optionalAttrs (revision != null) {
+            "org.opencontainers.image.revision" = revision;
+          }
+      );
     in
       builtins.mapAttrs (imageName: imageCfg: let
         # Build common layer from commonPackages, unless the image opts out via
@@ -364,6 +422,12 @@ in {
           "SSL_CERT_FILE=${cacertPkg}/etc/ssl/certs/ca-bundle.crt";
         imageEnv = imageCfg.env ++ sslEnv;
 
+        # Merge label sources by ascending precedence: auto-derived revision <
+        # global jackpkgs.images.labels < per-image labels. Omitted from the
+        # config entirely when the result is empty, so a fromImage base's own
+        # labels are preserved (nix2container merges Labels with the base).
+        mergedLabels = revisionLabels // cfg.labels // imageCfg.labels;
+
         # OCI config, omitting fields left at their empty/null value so a fromImage
         # base's own entrypoint/env/workingDir are inherited rather than clobbered.
         # For from-scratch images, omitting an empty field is equivalent to setting
@@ -372,7 +436,8 @@ in {
           (lib.optionalAttrs (imageCfg.entrypoint != []) {Entrypoint = imageCfg.entrypoint;})
           // (lib.optionalAttrs (imageCfg.cmd != null) {Cmd = imageCfg.cmd;})
           // (lib.optionalAttrs (imageEnv != []) {Env = imageEnv;})
-          // (lib.optionalAttrs (imageCfg.workingDir != null) {WorkingDir = imageCfg.workingDir;});
+          // (lib.optionalAttrs (imageCfg.workingDir != null) {WorkingDir = imageCfg.workingDir;})
+          // (lib.optionalAttrs (mergedLabels != {}) {Labels = mergedLabels;});
       in
         nix2container.buildImage ({
             name = imageCfg.name;
