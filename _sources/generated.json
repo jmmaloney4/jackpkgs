@@ -41,6 +41,27 @@
         },
         "version": "e13efb14dc810a83caf40a642c48427fab3772d0"
     },
+    "dbn-cli": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "dbn-cli",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "databento",
+            "repo": "dbn",
+            "rev": "v0.61.0",
+            "sha256": "sha256-PMfTgyfLg0O61CypAN+l3porXuOE+bK777J9i4QE+W8=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "v0.61.0"
+    },
     "gemini-proxy": {
         "cargoLock": null,
         "date": "2026-03-09",

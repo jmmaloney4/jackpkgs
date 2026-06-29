@@ -125,6 +125,9 @@
           codex-proxy-rs = pkgs.callPackage ./pkgs/codex-proxy-rs {
             inherit (nvfetcherSources.codex-proxy-rs) src version;
           };
+          dbn-cli = pkgs.callPackage ./pkgs/dbn-cli {
+            inherit (nvfetcherSources.dbn-cli) src version;
+          };
           docfx = pkgs.callPackage ./pkgs/docfx {};
           gemini-proxy = pkgsWithBun2nix.callPackage ./pkgs/gemini-proxy {
             inherit (nvfetcherSources.gemini-proxy) src version;
