@@ -455,17 +455,9 @@ in {
       pythonPerSystemCfg = config.jackpkgs.python or {};
       pythonWorkspaceArg = pythonWorkspace;
 
-      # Discover Python workspace members from pyproject.toml
-      discoverPythonMembers = workspaceRoot: pyprojectPath: let
-        pyproject = builtins.fromTOML (builtins.readFile pyprojectPath);
-        memberGlobs = pyproject.tool.uv.workspace.members or ["."];
-
-        allMembers = lib.flatten (map (jackpkgsLib.expandWorkspaceGlob workspaceRoot) memberGlobs);
-
-        hasProject = member:
-          builtins.pathExists (workspaceRoot + "/${member}/pyproject.toml");
-      in
-        lib.filter hasProject allMembers;
+      # Shared workspace-path helpers (ADR-041: single source of truth for
+      # Python workspace member discovery and source-root derivation).
+      pythonWorkspacePaths = import ../../lib/python-workspace-paths.nix {inherit lib;};
 
       # Discover workspace members if Python module is enabled
       pythonWorkspaceMembers =
@@ -474,7 +466,10 @@ in {
           validatedPath = jackpkgsLib.validateWorkspacePath pythonCfg.pyprojectPath;
           resolvedPyprojectPath = pythonCfg.workspaceRoot + "/${validatedPath}";
         in
-          discoverPythonMembers pythonCfg.workspaceRoot resolvedPyprojectPath
+          pythonWorkspacePaths.discoverPythonWorkspaceMembers {
+            workspaceRoot = pythonCfg.workspaceRoot;
+            pyprojectPath = resolvedPyprojectPath;
+          }
         else [];
 
       # Build Python environment with dev tools for CI checks using the

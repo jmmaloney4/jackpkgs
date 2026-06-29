@@ -1,0 +1,6 @@
+[tool.uv.workspace]
+members = ["."]
+
+[project]
+name = "root-package"
+version = "0.1.0"

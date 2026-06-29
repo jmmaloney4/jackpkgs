@@ -9,6 +9,9 @@ with pkgs.lib; rec {
   # Helm chart packaging from GitHub source repos
   helmChart = import ./helm-chart.nix {inherit lib pkgs;};
 
+  # Python workspace path derivation helpers (ADR-041)
+  pythonWorkspacePaths = import ./python-workspace-paths.nix {inherit lib;};
+
   /**
   Build a YAML-to-Nix parser backed by yq-go IFD with an optional JSON
   sidecar optimisation.
