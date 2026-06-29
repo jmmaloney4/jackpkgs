@@ -445,6 +445,9 @@
             python-package-fixes = import ./tests/python-package-fixes.nix {
               inherit lib;
             };
+            python-workspace-paths = import ./tests/python-workspace-paths.nix {
+              inherit lib;
+            };
             helm-chart = import ./tests/helm-chart.nix {
               inherit lib pkgs;
             };
