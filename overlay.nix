@@ -32,6 +32,9 @@ else let
     codex-proxy-rs = super.callPackage ./pkgs/codex-proxy-rs {
       inherit (nvfetcherSources.codex-proxy-rs) src version;
     };
+    dbn-cli = super.callPackage ./pkgs/dbn-cli {
+      inherit (nvfetcherSources.dbn-cli) src version;
+    };
     docfx = super.callPackage ./pkgs/docfx {};
     gemini-proxy = superWithBun2nix.callPackage ./pkgs/gemini-proxy {
       inherit (nvfetcherSources.gemini-proxy) src version;

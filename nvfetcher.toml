@@ -8,6 +8,10 @@ src.github = "alanvardy/tod"
 fetch.github = "alanvardy/tod"
 cargo_lock = ["Cargo.lock"]
 
+[dbn-cli]
+src.github = "databento/dbn"
+fetch.github = "databento/dbn"
+
 [spooktacular]
 src.git = "https://github.com/Spooky-Labs/spooktacular"
 fetch.github = "Spooky-Labs/spooktacular"

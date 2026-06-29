@@ -30,6 +30,17 @@
     };
     date = "2026-06-18";
   };
+  dbn-cli = {
+    pname = "dbn-cli";
+    version = "v0.61.0";
+    src = fetchFromGitHub {
+      owner = "databento";
+      repo = "dbn";
+      rev = "v0.61.0";
+      fetchSubmodules = false;
+      sha256 = "sha256-PMfTgyfLg0O61CypAN+l3porXuOE+bK777J9i4QE+W8=";
+    };
+  };
   gemini-proxy = {
     pname = "gemini-proxy";
     version = "5f701a244ed3c4699e6c1b0550bd50e961601ebe";
