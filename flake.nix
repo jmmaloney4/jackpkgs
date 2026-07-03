@@ -448,6 +448,9 @@
             python-workspace-paths = import ./tests/python-workspace-paths.nix {
               inherit lib;
             };
+            python-namespace-check = import ./tests/python-namespace-check.nix {
+              inherit lib;
+            };
             helm-chart = import ./tests/helm-chart.nix {
               inherit lib pkgs;
             };
