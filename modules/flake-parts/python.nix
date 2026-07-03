@@ -6,6 +6,7 @@
 }: let
   inherit (lib) mkIf;
   cfg = config.jackpkgs.python;
+  namespaceCheck = import ../../lib/python-namespace-check.nix {inherit lib;};
 in {
   imports = [
     jackpkgsInputs.flake-root.flakeModule
@@ -508,6 +509,56 @@ in {
           if (lib.length editableKeys) > 1
           then throw ("jackpkgs.python: at most one environment may have editable = true; found: " + lib.concatStringsSep ", " editableKeys)
           else null;
+
+        editableMembers =
+          if editableKeys == []
+          then []
+          else let
+            editableKey = lib.head editableKeys;
+            envCfg = cfg.environments.${editableKey};
+            memberNames =
+              if envCfg.members != null
+              then envCfg.members
+              else builtins.attrNames workspace.workspaceProjects;
+          in
+            builtins.map (
+              memberName: let
+                project = workspace.workspaceProjects.${memberName};
+                srcDir = project.projectRoot + "/src";
+              in {
+                name = memberName;
+                inherit srcDir;
+              }
+            )
+            memberNames;
+
+        editableNamespaceConflicts =
+          if editableMembers == []
+          then []
+          else namespaceCheck.checkMembers editableMembers;
+
+        _editableNamespaceConsistencyCheck =
+          if editableNamespaceConflicts == []
+          then null
+          else let
+            renderConflict = conflict: ''
+              shared root '${conflict.rootName}'
+                regular-package contributors: ${lib.concatStringsSep ", " conflict.withInit}
+                implicit-namespace contributors: ${lib.concatStringsSep ", " conflict.withoutInit}
+            '';
+            details = lib.concatStringsSep "\n" (builtins.map renderConflict editableNamespaceConflicts);
+          in
+            throw ''
+              jackpkgs.python: editable workspace has inconsistent namespace packaging.
+
+              Mixed PEP 420 implicit namespaces and regular packages were detected at shared package roots.
+              This breaks editable workspace imports because a shared-root __init__.py captures the namespace
+              and hides sibling workspace members on sys.path.
+
+              ${details}
+
+              Fix: remove shared-root __init__.py files and use PEP 420 consistently across workspace members.
+            '';
       in {
         # Reusable editable Python shell hook fragment
         jackpkgs.outputs.pythonEditableHook = pkgs.mkShell (
