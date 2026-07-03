@@ -524,8 +524,7 @@ in {
             builtins.map (
               memberName: let
                 project = workspace.workspaceProjects.${memberName};
-                projectRootString = builtins.toString project.projectRoot;
-                srcDir = builtins.toPath (projectRootString + "/src");
+                srcDir = project.projectRoot + "/src";
               in {
                 name = memberName;
                 inherit srcDir;
