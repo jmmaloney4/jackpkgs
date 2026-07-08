@@ -451,6 +451,9 @@
             python-workspace-paths = import ./tests/python-workspace-paths.nix {
               inherit lib;
             };
+            python-group-spec = import ./tests/python-group-spec.nix {
+              inherit lib;
+            };
             python-namespace-check = import ./tests/python-namespace-check.nix {
               inherit lib;
             };
