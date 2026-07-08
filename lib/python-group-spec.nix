@@ -9,7 +9,7 @@
 #   depsGroups  :: { <member> = [ <defined-group> ... ]; }   (all groups defined)
 # A "spec" has the same shape: { <member> = [ <group> ... ]; }.
 {lib}: let
-  inherit (lib) isList unique concatLists attrValues intersectLists mapAttrs subtractLists mapAttrsToList concatStringsSep;
+  inherit (lib) isList unique concatLists attrValues attrNames genAttrs intersectLists mapAttrs subtractLists mapAttrsToList concatStringsSep;
 
   # Every group name defined by any member — the validation source of truth.
   allGroupNames = depsGroups: unique (concatLists (attrValues depsGroups));
@@ -28,11 +28,17 @@
     then depsGroups
     else if isList includeGroups
     then
-      mapAttrs (
-        name: memberGroups:
-          unique ((depsDefault.${name} or []) ++ intersectLists includeGroups memberGroups)
+      # Iterate the UNION of both member sets, not just depsGroups: uv2nix keys
+      # them identically today, but a member present in depsDefault yet absent
+      # from depsGroups (no declared groups) must keep its production deps
+      # rather than vanish from the spec.
+      genAttrs (unique (attrNames depsDefault ++ attrNames depsGroups)) (
+        name:
+          unique (
+            (depsDefault.${name} or [])
+            ++ intersectLists includeGroups (depsGroups.${name} or [])
+          )
       )
-      depsGroups
     else depsDefault;
 
   # Merge per-member `groups` ONTO an already-resolved spec (computed OR

@@ -71,6 +71,23 @@ in {
     expected = depsDefault;
   };
 
+  # A member present in depsDefault but absent from depsGroups (no declared
+  # groups) must keep its production deps rather than vanish from the spec.
+  testResolveListPreservesMemberMissingFromGroups = {
+    expr = gs.resolveSpec {
+      depsDefault = {
+        root = [];
+        loner = ["prod"];
+      };
+      depsGroups = {root = ["dev" "test"];}; # `loner` absent here
+      includeGroups = ["dev"];
+    };
+    expected = {
+      root = ["dev"];
+      loner = ["prod"];
+    };
+  };
+
   # ---------------------------------------------------------------
   # composeGroups
   # ---------------------------------------------------------------
