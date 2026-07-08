@@ -273,7 +273,29 @@ in {
     expected = false;
   };
 
-  testRuffPytestNumpydocDefaultToMypyPackage = let
+  # With no dev env and no override, mypy resolves to the bare-mypy fallback,
+  # which has no `ruff` executable. ruff must substitute the standalone ruff
+  # package (the bug that broke the ruff pre-commit hook). pytest/numpydoc keep
+  # inheriting mypy unchanged.
+  testRuffFallsBackToStandaloneRuffWhenNoDevEnv = let
+    perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
+    pcfg = perSystemCfg.jackpkgs.pre-commit.python;
+    pkgs = perSystemCfg.jackpkgs.pkgs;
+  in {
+    expr =
+      pcfg.mypy.package
+      == pkgs.mypy
+      && pcfg.ruff.package == pkgs.ruff
+      && pcfg.ruff.package != pcfg.mypy.package
+      && pcfg.pytest.package == pkgs.mypy
+      && pcfg.numpydoc.package == pkgs.mypy;
+    expected = true;
+  };
+
+  # Non-regression: an explicit `mypy.package` override (a custom env that also
+  # contains ruff) is still honored by ruff — the substitution only triggers for
+  # the bare-mypy fallback, not for a real override. pytest/numpydoc follow too.
+  testRuffHonorsMypyPackageOverride = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
         perSystemConfig.jackpkgs.pre-commit.python.mypy.package = dummyNodeModules;
@@ -283,9 +305,32 @@ in {
   in {
     expr =
       pcfg.ruff.package
-      == pcfg.mypy.package
-      && pcfg.pytest.package == pcfg.mypy.package
-      && pcfg.numpydoc.package == pcfg.mypy.package;
+      == dummyNodeModules
+      && pcfg.pytest.package == dummyNodeModules
+      && pcfg.numpydoc.package == dummyNodeModules;
+    expected = true;
+  };
+
+  # Non-regression: when a non-editable dev-tools env is registered (the blessed
+  # `jackpkgs.python.environments` path), mypy AND ruff resolve to that SAME env
+  # — the shared-dev-env behavior the old `ruff.package = mypy.package` default
+  # provided is preserved.
+  testRuffAndMypyShareRegisteredDevEnv = let
+    devEnv = dummyNodeModules;
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        topConfig = {
+          jackpkgs.python.environments.devtools = {
+            editable = false;
+            includeGroups = true;
+          };
+          jackpkgs.outputs.pythonEnvironments.devtools = devEnv;
+        };
+      })
+    ];
+    pcfg = perSystemCfg.jackpkgs.pre-commit.python;
+  in {
+    expr = pcfg.ruff.package == devEnv && pcfg.mypy.package == devEnv;
     expected = true;
   };
 

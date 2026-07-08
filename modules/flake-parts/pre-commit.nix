@@ -86,7 +86,14 @@ in {
             package = mkOption {
               type = types.package;
               default = config.jackpkgs.pre-commit.python.mypy.package;
-              defaultText = "config.jackpkgs.pre-commit.python.mypy.package";
+              defaultText = ''
+                Follows the resolved `mypy` hook package (shared dev-tools env or
+                custom override), except it substitutes the standalone
+                `config.jackpkgs.pkgs.ruff` whenever `mypy` resolves to the bare
+                `config.jackpkgs.pkgs.mypy` (which has no `ruff` executable) —
+                whether via fallback or an explicit pin. Set this option directly
+                to override.
+              '';
               description = "ruff package (or Python environment containing ruff) to use.";
             };
           };
@@ -431,8 +438,27 @@ in {
             else fromFlake;
           fallbackPackage = config.jackpkgs.pkgs.mypy;
         };
+        # ruff inherits the RESOLVED mypy package — a shared dev-tools env or a
+        # custom `mypy.package` override — so the shared-env behavior is
+        # preserved for any env that actually contains ruff. The one substitution
+        # is when mypy resolves to the bare `pkgs.mypy`: that package has no
+        # `ruff` executable (which broke the hook with "Executable ... not
+        # found"), so ruff uses the standalone `pkgs.ruff` instead (mirrors
+        # just.nix). This triggers whether the bare mypy arrived via the fallback
+        # OR an explicit `mypy.package = pkgs.mypy` pin — correct either way,
+        # since running ruff from a ruff-less package cannot work; pin
+        # `ruff.package` directly to override. pytest/numpydoc keep inheriting
+        # mypy.package unchanged (no standalone nixpkgs package; both off by
+        # default).
+        preCommitRuffPackageDefault = let
+          mypyPkg = config.jackpkgs.pre-commit.python.mypy.package;
+        in
+          if mypyPkg == config.jackpkgs.pkgs.mypy
+          then config.jackpkgs.pkgs.ruff
+          else mypyPkg;
       in {
         jackpkgs.pre-commit.python.mypy.package = lib.mkDefault preCommitMypyPackageDefault;
+        jackpkgs.pre-commit.python.ruff.package = lib.mkDefault preCommitRuffPackageDefault;
         pre-commit = {
           check.enable = true;
 
