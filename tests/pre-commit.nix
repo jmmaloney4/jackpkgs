@@ -273,34 +273,48 @@ in {
     expected = false;
   };
 
-  # With no python dev env registered, each hook must fall back to a package
-  # that actually contains its tool. ruff previously defaulted to the mypy
-  # package (no `ruff` executable), which broke the ruff pre-commit hook; it now
-  # falls back to the standalone ruff package. pytest/numpydoc have no top-level
-  # nixpkgs package, so they still fall back to the mypy env (correct whenever a
-  # real dev env is selected — the common case).
-  testRuffFallsBackToStandaloneRuffNotMypy = let
-    perSystemCfg = getPerSystemCfg [
-      (mkConfigModule {
-        perSystemConfig.jackpkgs.pre-commit.python.mypy.package = dummyNodeModules;
-      })
-    ];
+  # With no dev env and no override, mypy resolves to the bare-mypy fallback,
+  # which has no `ruff` executable. ruff must substitute the standalone ruff
+  # package (the bug that broke the ruff pre-commit hook). pytest/numpydoc keep
+  # inheriting mypy unchanged.
+  testRuffFallsBackToStandaloneRuffWhenNoDevEnv = let
+    perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
     pcfg = perSystemCfg.jackpkgs.pre-commit.python;
     pkgs = perSystemCfg.jackpkgs.pkgs;
   in {
     expr =
-      pcfg.ruff.package
-      == pkgs.ruff
+      pcfg.mypy.package
+      == pkgs.mypy
+      && pcfg.ruff.package == pkgs.ruff
       && pcfg.ruff.package != pcfg.mypy.package
       && pcfg.pytest.package == pkgs.mypy
       && pcfg.numpydoc.package == pkgs.mypy;
     expected = true;
   };
 
+  # Non-regression: an explicit `mypy.package` override (a custom env that also
+  # contains ruff) is still honored by ruff — the substitution only triggers for
+  # the bare-mypy fallback, not for a real override. pytest/numpydoc follow too.
+  testRuffHonorsMypyPackageOverride = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        perSystemConfig.jackpkgs.pre-commit.python.mypy.package = dummyNodeModules;
+      })
+    ];
+    pcfg = perSystemCfg.jackpkgs.pre-commit.python;
+  in {
+    expr =
+      pcfg.ruff.package
+      == dummyNodeModules
+      && pcfg.pytest.package == dummyNodeModules
+      && pcfg.numpydoc.package == dummyNodeModules;
+    expected = true;
+  };
+
   # Non-regression: when a non-editable dev-tools env is registered (the blessed
   # `jackpkgs.python.environments` path), mypy AND ruff resolve to that SAME env
-  # rather than their standalone fallbacks — the shared-dev-env behavior the old
-  # `ruff.package = mypy.package` default provided is preserved.
+  # — the shared-dev-env behavior the old `ruff.package = mypy.package` default
+  # provided is preserved.
   testRuffAndMypyShareRegisteredDevEnv = let
     devEnv = dummyNodeModules;
     perSystemCfg = getPerSystemCfg [

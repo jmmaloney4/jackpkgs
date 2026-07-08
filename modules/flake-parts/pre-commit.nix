@@ -85,11 +85,12 @@ in {
           ruff = {
             package = mkOption {
               type = types.package;
-              default = config.jackpkgs.pkgs.ruff;
+              default = config.jackpkgs.pre-commit.python.mypy.package;
               defaultText = ''
-                Dev-tools Python env (same precedence as the mypy hook), else the
-                standalone `config.jackpkgs.pkgs.ruff` — NOT the mypy package,
-                which contains no `ruff` executable.
+                Follows the resolved `mypy` hook package (shared dev-tools env or
+                override), except it substitutes the standalone
+                `config.jackpkgs.pkgs.ruff` when `mypy` resolved to the bare-mypy
+                fallback — which contains no `ruff` executable.
               '';
               description = "ruff package (or Python environment containing ruff) to use.";
             };
@@ -98,12 +99,8 @@ in {
           pytest = {
             package = mkOption {
               type = types.package;
-              default = config.jackpkgs.pkgs.mypy;
-              defaultText = ''
-                Dev-tools Python env (same precedence as the mypy hook). Falls
-                back to the mypy env only as a last resort (no standalone pytest
-                package in nixpkgs); enable this hook with a real dev env.
-              '';
+              default = config.jackpkgs.pre-commit.python.mypy.package;
+              defaultText = "config.jackpkgs.pre-commit.python.mypy.package";
               description = "pytest package (or Python environment containing pytest) to use.";
             };
           };
@@ -111,12 +108,8 @@ in {
           numpydoc = {
             package = mkOption {
               type = types.package;
-              default = config.jackpkgs.pkgs.mypy;
-              defaultText = ''
-                Dev-tools Python env (same precedence as the mypy hook). Falls
-                back to the mypy env only as a last resort (no standalone
-                numpydoc package in nixpkgs); enable this hook with a real dev env.
-              '';
+              default = config.jackpkgs.pre-commit.python.mypy.package;
+              defaultText = "config.jackpkgs.pre-commit.python.mypy.package";
               description = ''
                 Python package (or environment) that provides
                 `python -m numpydoc.hooks.validate_docstrings`.
@@ -426,43 +419,40 @@ in {
               vitestPackages}
           '';
         });
-        # Shared dev-tools env selection (same precedence as checks.nix): prefer
-        # a non-editable python env with dependency groups, else fall back to the
-        # per-tool standalone package. Each hook must fall back to ITS OWN tool —
-        # ruff/pytest/numpydoc previously defaulted to mypy.package, which has no
-        # `ruff` executable when no dev env exists (e.g. a repo with no python
-        # workspace), breaking the ruff hook with "Executable ... not found".
-        selectDevToolsWithFallback = fallbackPackage:
-          pythonEnvHelpers.selectDevToolsPackage {
-            pythonCfg = jackpkgsPythonCfg;
-            pythonWorkspace = config._module.args.pythonWorkspace or null;
-            pythonEnvOutputs = let
-              fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} moduleTop.config;
-              fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
-            in
-              fromFlake // fromSystem;
-            pythonDefaultEnv = let
-              fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
-              fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null moduleTop.config;
-            in
-              if fromSystem != null
-              then fromSystem
-              else fromFlake;
-            inherit fallbackPackage;
-          };
-        preCommitMypyPackageDefault = selectDevToolsWithFallback config.jackpkgs.pkgs.mypy;
-        # ruff has a standalone nixpkgs package, so fall back to it (mirrors
-        # `jackpkgs.just.ruffPackage` in just.nix). pytest/numpydoc have no
-        # top-level nixpkgs package, so they keep the mypy env as last resort —
-        # correct whenever a real dev env is selected (the common case).
-        preCommitRuffPackageDefault = selectDevToolsWithFallback config.jackpkgs.pkgs.ruff;
-        preCommitPytestPackageDefault = selectDevToolsWithFallback config.jackpkgs.pkgs.mypy;
-        preCommitNumpydocPackageDefault = selectDevToolsWithFallback config.jackpkgs.pkgs.mypy;
+        preCommitMypyPackageDefault = pythonEnvHelpers.selectDevToolsPackage {
+          pythonCfg = jackpkgsPythonCfg;
+          pythonWorkspace = config._module.args.pythonWorkspace or null;
+          pythonEnvOutputs = let
+            fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} moduleTop.config;
+            fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
+          in
+            fromFlake // fromSystem;
+          pythonDefaultEnv = let
+            fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
+            fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null moduleTop.config;
+          in
+            if fromSystem != null
+            then fromSystem
+            else fromFlake;
+          fallbackPackage = config.jackpkgs.pkgs.mypy;
+        };
+        # ruff inherits the RESOLVED mypy package — a shared dev-tools env or an
+        # explicit `mypy.package` override — so the shared-env behavior is
+        # preserved. The one exception: when mypy resolved to the bare-mypy
+        # FALLBACK (no dev env and no override), that package has no `ruff`
+        # executable, which broke the ruff hook with "Executable ... not found".
+        # In only that case, use the standalone ruff (mirrors just.nix). pytest
+        # and numpydoc keep inheriting mypy.package unchanged (no standalone
+        # nixpkgs package exists, and both hooks are off by default).
+        preCommitRuffPackageDefault = let
+          mypyPkg = config.jackpkgs.pre-commit.python.mypy.package;
+        in
+          if mypyPkg == config.jackpkgs.pkgs.mypy
+          then config.jackpkgs.pkgs.ruff
+          else mypyPkg;
       in {
         jackpkgs.pre-commit.python.mypy.package = lib.mkDefault preCommitMypyPackageDefault;
         jackpkgs.pre-commit.python.ruff.package = lib.mkDefault preCommitRuffPackageDefault;
-        jackpkgs.pre-commit.python.pytest.package = lib.mkDefault preCommitPytestPackageDefault;
-        jackpkgs.pre-commit.python.numpydoc.package = lib.mkDefault preCommitNumpydocPackageDefault;
         pre-commit = {
           check.enable = true;
 
