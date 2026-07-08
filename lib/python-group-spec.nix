@@ -76,7 +76,7 @@
       "${label}: includeGroups references unknown group(s): ${concatStringsSep ", " unknownInclude}. Defined groups: ${concatStringsSep ", " known}.";
     memberErrors = concatLists (mapAttrsToList (
         member: gs:
-          if !(depsGroups ? ${member})
+          if !(lib.hasAttr member depsGroups)
           then ["${label}: groups.\"${member}\" is not a workspace member. Members: ${concatStringsSep ", " (lib.attrNames depsGroups)}."]
           else
             map (
