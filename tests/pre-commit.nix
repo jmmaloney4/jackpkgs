@@ -273,19 +273,50 @@ in {
     expected = false;
   };
 
-  testRuffPytestNumpydocDefaultToMypyPackage = let
+  # With no python dev env registered, each hook must fall back to a package
+  # that actually contains its tool. ruff previously defaulted to the mypy
+  # package (no `ruff` executable), which broke the ruff pre-commit hook; it now
+  # falls back to the standalone ruff package. pytest/numpydoc have no top-level
+  # nixpkgs package, so they still fall back to the mypy env (correct whenever a
+  # real dev env is selected — the common case).
+  testRuffFallsBackToStandaloneRuffNotMypy = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
         perSystemConfig.jackpkgs.pre-commit.python.mypy.package = dummyNodeModules;
       })
     ];
     pcfg = perSystemCfg.jackpkgs.pre-commit.python;
+    pkgs = perSystemCfg.jackpkgs.pkgs;
   in {
     expr =
       pcfg.ruff.package
-      == pcfg.mypy.package
-      && pcfg.pytest.package == pcfg.mypy.package
-      && pcfg.numpydoc.package == pcfg.mypy.package;
+      == pkgs.ruff
+      && pcfg.ruff.package != pcfg.mypy.package
+      && pcfg.pytest.package == pkgs.mypy
+      && pcfg.numpydoc.package == pkgs.mypy;
+    expected = true;
+  };
+
+  # Non-regression: when a non-editable dev-tools env is registered (the blessed
+  # `jackpkgs.python.environments` path), mypy AND ruff resolve to that SAME env
+  # rather than their standalone fallbacks — the shared-dev-env behavior the old
+  # `ruff.package = mypy.package` default provided is preserved.
+  testRuffAndMypyShareRegisteredDevEnv = let
+    devEnv = dummyNodeModules;
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        topConfig = {
+          jackpkgs.python.environments.devtools = {
+            editable = false;
+            includeGroups = true;
+          };
+          jackpkgs.outputs.pythonEnvironments.devtools = devEnv;
+        };
+      })
+    ];
+    pcfg = perSystemCfg.jackpkgs.pre-commit.python;
+  in {
+    expr = pcfg.ruff.package == devEnv && pcfg.mypy.package == devEnv;
     expected = true;
   };
 
