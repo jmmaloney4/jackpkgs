@@ -145,20 +145,72 @@ in {
             };
 
             includeGroups = mkOption {
-              type = types.nullOr types.bool;
+              type = types.nullOr (types.either types.bool (types.listOf types.str));
               default = null;
               description = ''
-                Include all dependency groups defined in [dependency-groups] sections
-                (PEP 735) or [tool.uv.dev-dependencies] of workspace members.
+                Which PEP 735 dependency groups ([dependency-groups] sections, or
+                [tool.uv.dev-dependencies]) of workspace members to include when the
+                spec is computed (i.e. when `spec` is null — an explicit `spec`
+                overrides this option entirely).
+
+                Accepts:
+                - `true`  — include ALL groups defined by every member.
+                - `false` — production only (each member's default-groups).
+                - `[ "a" "b" ]` — include the named groups. For each member, the
+                  effective groups are that member's default-groups UNIONED with the
+                  requested names it actually defines (mirroring `uv sync --group`);
+                  members that do not define a requested group simply skip it.
+                  `[]` is therefore equivalent to `false`. Every requested name MUST
+                  be defined by at least one workspace member, or evaluation fails.
 
                 When null (default), the effective value depends on environment intent:
                 - editable = true: defaults to true (dev dependencies included)
                 - editable = false: defaults to false (production dependencies only)
 
-                Explicitly set to true or false to override the default behavior.
-
                 This is the recommended way to include development dependencies like
-                pytest, mypy, type stubs, etc.
+                pytest, mypy, type stubs, etc. To add a group ON TOP of an explicit
+                `spec` (rather than replacing it), use `groups` instead.
+              '';
+            };
+
+            groups = mkOption {
+              type = types.attrsOf (types.listOf types.str);
+              default = {};
+              description = ''
+                Per-member dependency groups to add ON TOP of the final spec —
+                whether that spec was auto-computed (via includeGroups) or supplied
+                explicitly via `spec`. Unlike `includeGroups` (which only shapes the
+                auto-computed spec and is ignored when `spec` is set), `groups`
+                always composes.
+
+                Format: attrset keyed by workspace package name, values are group
+                names to enable for that member. Each key MUST be a workspace member
+                and each group MUST be defined by that member, or evaluation fails.
+
+                Example — give the editable env (which keeps its hand-built `spec`)
+                the `research` group without rewriting the spec:
+                  groups."my-workspace-root" = [ "research" ];
+              '';
+            };
+
+            provideDevTools = mkOption {
+              type = types.nullOr types.bool;
+              default = null;
+              description = ''
+                Advertise this (non-editable) environment as the provider of the
+                quality-gate tools (pytest, mypy, ruff) that the `checks`, `just`,
+                and `pre-commit` modules run against.
+
+                Discovery resolves as:
+                - `true`  — use this env for the check tools.
+                - `false` — never use this env.
+                - null (default) — backward-compatible heuristic: treated as a
+                  provider iff `includeGroups == true` (the historical behavior).
+
+                Set this to `true` when you lean an env's groups down with a
+                list-form `includeGroups` (e.g. `[ "dev" "test" ]`) but still want it
+                to back the checks — the `== true` heuristic would otherwise miss it
+                and force a redundant all-groups env to be built.
               '';
             };
 
@@ -366,17 +418,24 @@ in {
 
         defaultSpec = workspace.deps.default;
 
-        # Compute environment-specific specs based on options
-        # uv2nix provides pre-configured dependency specifications:
-        # - workspace.deps.default: No dependency-groups (production only)
-        # - workspace.deps.groups: All dependency-groups enabled (PEP 735)
+        # Group-selection combinators (pure; unit-tested in
+        # tests/python-group-spec.nix). uv2nix provides the two inputs:
+        # - workspace.deps.default: each member's default-groups (production)
+        # - workspace.deps.groups:  each member's full set of dependency-groups
+        #   (PEP 735); the attr VALUE per member is that member's defined groups.
         #
         # Note: PEP 621 optional-dependencies are not supported.
         # Use PEP 735 dependency-groups for development dependencies.
+        groupSpec = import ../../lib/python-group-spec.nix {inherit lib;};
+
+        # Stable API kept for lib/python-env-selection.nix and any consumer that
+        # calls computeSpec directly. includeGroups is bool | [str].
         computeSpec = {includeGroups ? false}:
-          if includeGroups
-          then workspace.deps.groups
-          else workspace.deps.default;
+          groupSpec.resolveSpec {
+            depsDefault = workspace.deps.default;
+            depsGroups = workspace.deps.groups;
+            inherit includeGroups;
+          };
 
         # Extension: Virtual environment post-processing for better UX
         # Not documented in uv2nix, but provides:
@@ -467,16 +526,35 @@ in {
                 then envCfg.includeGroups
                 else envCfg.editable;
 
-              # Compute the final spec:
-              # 1. If explicit spec is provided, use it
-              # 2. Otherwise, compute based on effectiveIncludeGroups
-              finalSpec =
+              # Compute the base spec:
+              # 1. If explicit spec is provided, use it verbatim.
+              # 2. Otherwise, compute it from effectiveIncludeGroups.
+              baseSpec =
                 if envCfg.spec != null
                 then envCfg.spec
                 else
                   computeSpec {
                     includeGroups = effectiveIncludeGroups;
                   };
+
+              # Validate any requested group names (list-form includeGroups is
+              # only meaningful when the spec is computed, i.e. spec == null) and
+              # the per-member `groups`, then compose `groups` onto the base spec.
+              # validateGroupSelection throws on unknown names; on success it
+              # returns `payload` (the composed spec) unchanged.
+              finalSpec = groupSpec.validateGroupSelection {
+                depsGroups = workspace.deps.groups;
+                includeGroups =
+                  if envCfg.spec == null
+                  then effectiveIncludeGroups
+                  else null;
+                inherit (envCfg) groups;
+                label = "jackpkgs.python.environments.${envKey}";
+                payload = groupSpec.composeGroups {
+                  spec = baseSpec;
+                  inherit (envCfg) groups;
+                };
+              };
             in
               if envCfg.editable
               then

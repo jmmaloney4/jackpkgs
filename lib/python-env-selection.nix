@@ -9,9 +9,21 @@
     isEditableEnv = envCfg: envCfg != null && (envCfg.editable or false);
     isNonEditableEnv = envCfg: envCfg != null && !isEditableEnv envCfg;
 
+    # An env advertises itself as the check-tools provider (pytest/mypy/ruff)
+    # either explicitly via `provideDevTools`, or — when that is unset — via the
+    # historical heuristic `includeGroups == true`. The explicit flag is the
+    # escape hatch for envs leaned down with a list-form includeGroups (e.g.
+    # [ "dev" "test" ]), which the `== true` heuristic would otherwise miss.
     isDevToolsEnvCandidate = envCfg:
       isNonEditableEnv envCfg
-      && (envCfg.includeGroups or null) == true;
+      && (
+        let
+          provide = envCfg.provideDevTools or null;
+        in
+          if provide != null
+          then provide
+          else (envCfg.includeGroups or null) == true
+      );
 
     hasDevEnv = configuredEnvs ? dev;
     devEnvConfig = configuredEnvs.dev or null;

@@ -59,6 +59,7 @@ If an ADR is superseded, add cross-links in both directions.
 | 039 | [Shellcheck for Generated Pre-commit Hook Scripts](039-shellcheck-pre-commit-hooks.md)                              | Accepted |
 | 040 | [Converge Node Workspace Runtime Setup Across `checks` and `pre-commit`](040-node-workspace-runtime-convergence.md) | Proposed |
 | 041 | [Python Monorepo Type-Check Path Derivation](041-python-monorepo-typecheck-path-derivation.md)                      | Proposed |
+| 042 | [Selective Dependency Groups for Python Environments](042-python-selective-dependency-groups.md)                    | Proposed |
 
 ## Template
 
