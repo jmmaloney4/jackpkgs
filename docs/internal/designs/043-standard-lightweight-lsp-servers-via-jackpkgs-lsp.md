@@ -242,6 +242,8 @@ jackpkgs.lsp = {
     description = "Nix LSP backend.";
   };
 
+  rust.enable = mkEnableOption "rust-analyzer" // { default = false; };
+
   # Explicit extras (for repos that want servers not auto-selected)
   extraPackages = mkOption {
     type = types.listOf types.package;
@@ -274,8 +276,8 @@ lspPackages =
   ++ [ pkgs.yaml-language-server ]
   # Bash — always
   ++ [ pkgs.bash-language-server ]
-  # Rust — installed when a Cargo.toml is detected at repo root
-  ++ lib.optionals (builtins.pathExists "${repoRoot}/Cargo.toml")
+  # Rust — opt-in because repo-root path probing is brittle at evaluation time
+  ++ lib.optionals cfg.rust.enable
     [ pkgs.rust-analyzer ]
   # Explicit extras
   ++ cfg.extraPackages;
@@ -336,8 +338,8 @@ Install the relevant extensions and point them at the devshell binaries:
 {
   "typescript.tsdk": "${env:DEVSHELL_PREFIX}/lib/node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
-  "python.languageServer": "Ty",           // when ty extension is available
-  "python.analysis.typeCheckingMode": "standard",
+  // Requires the Astral "ty" VS Code extension once available;
+  // until then, Pylance remains the default Python LSP in VS Code.
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nil",
   "yaml.languageServer.path": "yaml-language-server",
@@ -392,7 +394,7 @@ Helix auto-discovers LSP binaries on `PATH` via `languages.toml`:
 # .helix/languages.toml (repo-local)
 [[language]]
 name = "typescript"
-language-servers = ["tsgo", "yaml-language-server"]
+language-servers = ["tsgo"]
 
 [language-server.tsgo]
 command = "tsgo"
@@ -454,7 +456,7 @@ lsp:
       command: typescript-language-server
       args: ["--stdio"]
     python:
-      command: pyright
+      command: pyright-langserver
       args: ["--stdio"]
 ```
 
