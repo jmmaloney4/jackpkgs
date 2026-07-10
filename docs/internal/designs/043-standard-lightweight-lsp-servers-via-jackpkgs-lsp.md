@@ -215,7 +215,7 @@ PR: #<pending>
 
 ```nix
 jackpkgs.lsp = {
-  enable = mkEnableOption "jackpkgs-lsp (standard lightweight LSP servers)" // { default = true; };
+  enable = mkEnableOption "jackpkgs-lsp (standard lightweight LSP servers)" // { default = false; };
 
   # Backend selection — defaults follow auto-selection rules
   typescript.backend = mkOption {
