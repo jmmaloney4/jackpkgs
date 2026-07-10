@@ -60,7 +60,7 @@ If an ADR is superseded, add cross-links in both directions.
 | 040 | [Converge Node Workspace Runtime Setup Across `checks` and `pre-commit`](040-node-workspace-runtime-convergence.md) | Proposed |
 | 041 | [Python Monorepo Type-Check Path Derivation](041-python-monorepo-typecheck-path-derivation.md)                      | Proposed |
 | 042 | [Selective Dependency Groups for Python Environments](042-python-selective-dependency-groups.md)                    | Proposed |
-| 043 | [Standard Lightweight LSP Servers via jackpkgs.lsp](043-standard-lightweight-lsp-servers-via-jackpkgs-lsp.md)            | Proposed |
+| 043 | [Standard Lightweight LSP Servers via jackpkgs.lsp](043-standard-lightweight-lsp-servers-via-jackpkgs-lsp.md)       | Proposed |
 
 ## Template
 
