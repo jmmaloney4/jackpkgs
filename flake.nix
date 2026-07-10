@@ -457,6 +457,9 @@
             python-namespace-check = import ./tests/python-namespace-check.nix {
               inherit lib;
             };
+            lsp = import ./tests/lsp.nix {
+              inherit lib inputs;
+            };
             helm-chart = import ./tests/helm-chart.nix {
               inherit lib pkgs;
             };
