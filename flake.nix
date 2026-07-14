@@ -388,8 +388,6 @@
           }
           // platformFilteredPackages;
 
-        jackpkgs.pre-commit.adr.enable = false;
-
         packages =
           lib.filterAttrs (
             _: v:

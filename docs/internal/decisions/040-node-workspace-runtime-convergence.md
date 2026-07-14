@@ -150,11 +150,11 @@ In practice, that means:
 ## Related
 
 - `docs/internal/plans/2026-05-19-node-tooling-sandbox-convergence.md`
-- ADR-023: `docs/internal/designs/023-return-to-pnpm.md`
-- ADR-028: `docs/internal/designs/028-pnpm-workspace-node-modules-capture.md`
-- ADR-029: `docs/internal/designs/029-unified-quality-gate-controls.md`
-- ADR-034: `docs/internal/designs/034-multi-project-typescript-lint.md`
-- ADR-038: `docs/internal/designs/038-mk-helm-chart-from-github.md`
+- ADR-023: `docs/internal/decisions/023-return-to-pnpm.md`
+- ADR-028: `docs/internal/decisions/028-pnpm-workspace-node-modules-capture.md`
+- ADR-029: `docs/internal/decisions/029-unified-quality-gate-controls.md`
+- ADR-045: `docs/internal/decisions/045-multi-project-typescript-lint.md`
+- ADR-038: `docs/internal/decisions/038-mk-helm-chart-from-github.md`
 - `lib/nodejs-helpers.nix`
 - `modules/flake-parts/checks.nix`
 - `modules/flake-parts/pre-commit.nix`

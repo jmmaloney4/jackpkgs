@@ -1,4 +1,4 @@
-# ADR-034: Multi-Project TypeScript Lint in `just lint`
+# ADR-045: Multi-Project TypeScript Lint in `just lint`
 
 ## Status
 

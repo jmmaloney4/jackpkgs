@@ -298,7 +298,7 @@ environments.dev = {
    - Add examples showing explicit `spec` configuration
    - Document that `spec` defaults to `workspace.deps.default` when null
    - Document that editable environments are automatically included in devshell
-2. Update `docs/internal/designs/003-python-flake-parts-module.md`:
+2. Update `docs/internal/decisions/003-python-flake-parts-module.md`:
    - Document workspace-only support
    - Update constraints section to accept `[project]` OR `[tool.uv.workspace]`
    - Remove `extras` from environment builder documentation

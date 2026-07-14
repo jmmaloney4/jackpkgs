@@ -70,7 +70,7 @@ Accepted
 
 ## Related
 
-- `docs/internal/designs/003-python-flake-parts-module.md`
+- `docs/internal/decisions/003-python-flake-parts-module.md`
 - `README.md`
 - `modules/flake-parts/python.nix`
 - `pkgs/nautilus-trader/default.nix`

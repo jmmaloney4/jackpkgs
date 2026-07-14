@@ -175,8 +175,8 @@ The pre-commit hook ensures all committed lockfiles are Nix-compatible without m
 
 ## References
 
-- ADR-019: `docs/internal/designs/019-migrate-from-pnpm-to-npm.md`
-- ADR-020: `docs/internal/designs/020-migrate-to-buildnpmpackage.md`
+- ADR-019: `docs/internal/decisions/019-migrate-from-pnpm-to-npm.md`
+- ADR-020: `docs/internal/decisions/020-migrate-to-buildnpmpackage.md`
 - Tool: `npm-lockfile-fix` v0.1.1 (https://github.com/jeslie0/npm-lockfile-fix)
 - nixpkgs `importNpmLock`: https://github.com/NixOS/nixpkgs/blob/master/pkgs/build-support/node/import-npm-lock/
 

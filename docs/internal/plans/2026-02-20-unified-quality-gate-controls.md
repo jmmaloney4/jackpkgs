@@ -1,7 +1,7 @@
 # Implementation Plan: Unified Quality-Gate Controls (ADR-029)
 
 **Date:** 2026-02-20
-**ADR:** `docs/internal/designs/029-unified-quality-gate-controls.md`
+**ADR:** `docs/internal/decisions/029-unified-quality-gate-controls.md`
 **Scope:** `modules/flake-parts/checks.nix`, `modules/flake-parts/pre-commit.nix`,
 `tests/checks.nix`, `tests/pre-commit.nix`, `README.md`
 

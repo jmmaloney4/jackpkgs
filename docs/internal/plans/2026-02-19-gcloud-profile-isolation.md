@@ -2,7 +2,7 @@
 
 **Status**: Proposed
 **Date**: 2026-02-19
-**ADR**: [027-per-project-gcloud-profile-isolation](../designs/027-per-project-gcloud-profile-isolation.md)
+**ADR**: [027-per-project-gcloud-profile-isolation](../decisions/027-per-project-gcloud-profile-isolation.md)
 
 ## Summary
 
