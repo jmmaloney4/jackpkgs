@@ -770,6 +770,7 @@ in {
 
                       while IFS= read -r line; do
                           url=$(printf '%s' "$line" | sed -n 's/.*resolution: {tarball: \([^}]*\)}.*/\1/p')
+                          url=$(printf '%s' "$url" | sed "s/^'//; s/'$//")
                           if [ -z "$url" ]; then continue; fi
                           if ! printf '%s' "$url" | grep -qE '^https://(github\.com|codeload\.github\.com)/'; then
                               echo "❌ Refusing to fetch non-GitHub URL: $url"

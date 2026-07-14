@@ -292,6 +292,13 @@ in {
     expectedOutputSubstring = "Fixed 1 tarball entry";
   };
 
+  testFixTarballIntegrityQuotedGithubUrl = mkFixTarballIntegrityBehaviorTest {
+    name = "fix-tarball-integrity-quoted-github-url";
+    fixture = ./fixtures/fix-tarball-integrity/quoted-github-input.yaml;
+    expectedSubstring = "integrity: sha512-";
+    expectedOutputSubstring = "Fixed 1 tarball entry";
+  };
+
   testFixTarballIntegrityAlreadyFixed = mkFixTarballIntegrityBehaviorTest {
     name = "fix-tarball-integrity-already-fixed";
     fixture = ./fixtures/fix-tarball-integrity/already-fixed-input.yaml;
