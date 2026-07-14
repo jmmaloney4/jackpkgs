@@ -163,6 +163,7 @@
             inherit (nvfetcherSources.tod) src version;
             nvCargoLock = nvfetcherSources.tod.cargoLock;
           };
+          adr-conflict-check = pkgs.callPackage ./pkgs/adr-conflict-check {};
         };
         platformFilteredPackages = jackLib.filterByPlatforms system allPackages;
         # Import test helpers that validate the flake-exposed API surface
@@ -468,9 +469,17 @@
 
         # All justfile, module, and pnpm fixture tests collapse into one CI check.
         # See `fixtureTests` / `fixtureTestsCheck` above for the aggregation.
-        checks = {
-          fixture-tests = fixtureTestsCheck;
-        };
+        checks =
+          {
+            fixture-tests = fixtureTestsCheck;
+          }
+          # ADR script-behaviour tests stay as individual checks.
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "adr-${name}" drv) (
+            import ./tests/adr.nix {
+              inherit pkgs;
+              adr-conflict-check = allPackages.adr-conflict-check;
+            }
+          );
       };
 
       flake = {

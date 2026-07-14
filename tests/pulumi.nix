@@ -31,6 +31,9 @@
     nodejsEnable ? false,
   }: {
     _module.check = false;
+    perSystem = {pkgs, ...}: {
+      packages."adr-conflict-check" = pkgs.writeShellScriptBin "adr-conflict-check" "";
+    };
     jackpkgs.nodejs = lib.mkIf nodejsEnable {
       enable = true;
       pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
