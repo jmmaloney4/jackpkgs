@@ -185,6 +185,17 @@
         fixtureVitestCheck = integrationFixturesRoot + "/pnpm-vitest-check";
         fixtureNonhoistedDep = integrationFixturesRoot + "/pnpm-workspace-nonhoisted-dep";
 
+        # Run pnpm on nodejs-slim_latest instead of its default node runtime:
+        # the nixpkgs build of nodejs_24 24.15.0 has broken worker_threads fd
+        # tracking on aarch64-darwin — pnpm's install workers trigger
+        # EXC_GUARD SIGKILL at worker exit, killing the deps FOD right after
+        # `pnpm install` completes. nodejs 26 is unaffected.
+        # Mirrors the workaround in modules/flake-parts/nodejs.nix (#301).
+        # https://github.com/NixOS/nixpkgs/issues/525627
+        safePnpm = pkgs.pnpm_11.override {
+          nodejs-slim = pkgs.nodejs-slim_latest;
+        };
+
         mkPnpmFixtureCheck = {
           name,
           src,
@@ -209,7 +220,7 @@
                   src = cleanSrc;
                   hash = depsHash;
                   fetcherVersion = 3;
-                  pnpm = pkgs.pnpm_11;
+                  pnpm = safePnpm;
                 }
                 // ({
                     # On some fixtures, fetchPnpmDeps fixup's `find ... | xargs chmod`
@@ -227,7 +238,7 @@
               );
               nativeBuildInputs = [
                 pkgs.nodejs_24
-                pkgs.pnpm_11
+                safePnpm
                 pkgs.pnpmConfigHook
               ];
               dontBuild = true;
@@ -376,6 +387,8 @@
             overlays = import ./overlays;
           }
           // platformFilteredPackages;
+
+        jackpkgs.pre-commit.adr.enable = false;
 
         packages =
           lib.filterAttrs (
