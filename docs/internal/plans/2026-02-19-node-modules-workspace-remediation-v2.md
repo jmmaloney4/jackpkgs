@@ -141,7 +141,7 @@ Add focused test or evaluation assertion for the `builtins.derivation` context w
 - `modules/flake-parts/checks.nix` (Phase 1)
 - `flake.nix` integration checks
 - `tests/checks.nix` (option/wiring + behavior expectations)
-- `docs/internal/designs/023-return-to-pnpm.md` (clarify constraints and current behavior)
+- `docs/internal/decisions/023-return-to-pnpm.md` (clarify constraints and current behavior)
 - `README.md` (if any user-facing option/behavior changes)
 
 ## Acceptance criteria

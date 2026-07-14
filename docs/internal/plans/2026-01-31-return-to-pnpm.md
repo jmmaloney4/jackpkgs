@@ -604,7 +604,7 @@ ______________________________________________________________________
 
 ### Phase 7: Documentation
 
-**File:** `docs/internal/designs/023-return-to-pnpm.md`
+**File:** `docs/internal/decisions/023-return-to-pnpm.md`
 
 The ADR has been written separately (see file). Ensure it references this plan.
 

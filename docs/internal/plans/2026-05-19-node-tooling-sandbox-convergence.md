@@ -206,7 +206,7 @@ Pick one model and document it. My recommendation:
 - when `typescript.tsc.packages` is explicitly set or auto-discovered for a pnpm workspace, all three surfaces should run per-project type checks using each package's own `tsconfig.json`
 - root-only `tsc --noEmit` should remain only as a fallback for true single-project repos
 
-That matches the direction already captured in ADR-034.
+That matches the direction already captured in ADR-045.
 
 ## Proposed refactor phases
 
@@ -258,8 +258,8 @@ Files:
 - `modules/flake-parts/checks.nix`
 - `modules/flake-parts/pre-commit.nix`
 - `modules/flake-parts/just.nix`
-- `docs/internal/designs/034-multi-project-typescript-lint.md`
-- possibly a new ADR if the final behavior differs materially from ADR-034
+- `docs/internal/decisions/045-multi-project-typescript-lint.md`
+- possibly a new ADR if the final behavior differs materially from ADR-045
 
 Work:
 

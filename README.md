@@ -664,7 +664,7 @@ jackpkgs.checks.python.numpydoc = {
 - To avoid Nix type errors when joining paths at eval-time, ensure:
   - `jackpkgs.projectRoot` is a Nix path (e.g., `inputs.self.outPath` or `./.`), or an absolute path converted via `builtins.toPath`.
   - Keep option values as relative strings; modules will resolve them.
-- See ADR-004 for details and troubleshooting: `docs/internal/designs/004-project-root-resolution.md`.
+- See ADR-004 for details and troubleshooting: `docs/internal/decisions/004-project-root-resolution.md`.
 
 ### DevShell usage pattern
 

@@ -372,7 +372,6 @@ The `bun.lockb` file pins exact dependency versions. Combined with `--frozen-loc
 
 ## Related Documentation
 
-- [ADR-026: OpenChamber Packaging Approach](../designs/026-openchamber-packaging-approach.md)
 - [Plan: OpenChamber Packaging Implementation](../plans/2026-02-18-openchamber-packaging.md)
 
 ## References
