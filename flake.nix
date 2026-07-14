@@ -219,7 +219,7 @@
                   version = "1.0.0";
                   src = cleanSrc;
                   hash = depsHash;
-                  fetcherVersion = 3;
+                  fetcherVersion = 4;
                   pnpm = safePnpm;
                 }
                 // ({
@@ -258,7 +258,7 @@
           pnpm-simple-builds = mkPnpmFixtureCheck {
             name = "simple-pnpm";
             src = fixtureSimplePnpm;
-            depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
+            depsHash = "sha256-cnrJCL+ZkGR2kcjSzFdOwmUExhX2F/JDtLzG/NwAiH4=";
             checkCommand = ''
               test -d node_modules
               node index.js | grep -qx "pass"
@@ -268,7 +268,7 @@
           pnpm-workspace-basic-postinstall = mkPnpmFixtureCheck {
             name = "workspace-basic";
             src = fixtureWorkspaceBasic;
-            depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
+            depsHash = "sha256-B1iBXUev+REvZpPF2djpVc10Wvd4K5r/LdngvN8V29Q=";
             checkCommand = ''
               test -d node_modules
               pnpm run postinstall
@@ -280,7 +280,7 @@
           pnpm-workspace-glob-resolution = mkPnpmFixtureCheck {
             name = "workspace-glob";
             src = fixtureWorkspaceGlob;
-            depsHash = "sha256-gIL4zhfAcMT3U0PIUAO4bBQk0EBXiGs0quYO3zm1DXU=";
+            depsHash = "sha256-dIp6CNh1Kn4aqJWku1G/FUdn/u+epzhqlqwnAkB2uW0=";
             checkCommand = ''
               test -d node_modules
               node packages/beta/index.js | grep -qx "hello from alpha"
@@ -290,7 +290,7 @@
           pnpm-tsc-check = mkPnpmFixtureCheck {
             name = "tsc-check";
             src = fixtureTscCheck;
-            depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
+            depsHash = "sha256-B1iBXUev+REvZpPF2djpVc10Wvd4K5r/LdngvN8V29Q=";
             checkCommand = ''
               test -d node_modules
               node_modules/.bin/tsc --noEmit --lib ES2020,DOM packages/app/index.ts
@@ -300,7 +300,7 @@
           pnpm-vitest-check = mkPnpmFixtureCheck {
             name = "vitest-check";
             src = fixtureVitestCheck;
-            depsHash = "sha256-VgoszjnpdXC3uhzjGWIjv7W6BQgT8uldbSkgHu8S4RI=";
+            depsHash = "sha256-ALh9yqJI0DhGsClMzl8oT7pL+IyU5EdLhDugqQL+S90=";
             checkCommand = ''
               test -d node_modules
               node_modules/.bin/vitest run --root packages/lib
@@ -310,7 +310,7 @@
           pnpm-node-modules-output-layout = mkPnpmFixtureCheck {
             name = "node-modules-output-layout";
             src = fixtureWorkspaceBasic;
-            depsHash = "sha256-7t46ZAfJERoP/gCEIyqubbo3Ob3RLHW6NTDr1a5nnCw=";
+            depsHash = "sha256-B1iBXUev+REvZpPF2djpVc10Wvd4K5r/LdngvN8V29Q=";
             checkCommand = ''
               mkdir -p "$out"
               cp -a node_modules "$out/"
@@ -326,7 +326,7 @@
           pnpm-nonhoisted-runtime = mkPnpmFixtureCheck {
             name = "nonhoisted-runtime";
             src = fixtureNonhoistedDep;
-            depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
+            depsHash = "sha256-cnrJCL+ZkGR2kcjSzFdOwmUExhX2F/JDtLzG/NwAiH4=";
             checkCommand = ''
               test -d node_modules
               node packages/app/index.js | grep -qx "pass"
@@ -337,7 +337,7 @@
           pnpm-nonhoisted-output-layout = mkPnpmFixtureCheck {
             name = "nonhoisted-output-layout";
             src = fixtureNonhoistedDep;
-            depsHash = "sha256-R0X9msP0FeYEOnoO5rDwpykuj7FgWqEM8cGvZHwrvOc=";
+            depsHash = "sha256-cnrJCL+ZkGR2kcjSzFdOwmUExhX2F/JDtLzG/NwAiH4=";
             checkCommand = ''
               mkdir -p "$out"
               cp -a node_modules "$out/"

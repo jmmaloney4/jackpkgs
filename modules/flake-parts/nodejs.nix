@@ -127,7 +127,7 @@ in {
       pnpmDeps = pkgs.fetchPnpmDeps {
         pname = "pnpm";
         src = cfg.projectRoot;
-        fetcherVersion = 3;
+        fetcherVersion = 4;
         pnpm = sysCfg.pnpmPackage;
         hash = cfg.pnpmDepsHash;
         prePnpmInstall = cfg.prePnpmInstall;
