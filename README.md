@@ -777,6 +777,54 @@ in {
 
 This is the pattern used successfully in downstream repos where the editable shell needs to provide store-backed launchers but live-source imports from the working tree.
 
+#### Common Pattern: Isolated tool env under `warehouse/` (dbt)
+
+`jackpkgs.python` is designed around one uv workspace root and one lockfile. When a tool-specific ecosystem cannot coexist with the repo's main Python workspace lock, keep it on uv2nix but isolate it into its own subproject instead of forcing it into the root `uv.lock`.
+
+The standard helper lives at `jackpkgs.lib.python.mkIsolatedUvEnvFactory`.
+
+Use this pattern when the tool ecosystem would materially downgrade or constrain the main workspace lock, or when it needs a different Python minor than the main repo.
+
+```nix
+perSystem = {
+  pkgs,
+  config,
+  inputs,
+  ...
+}: let
+  mkIsolatedUvEnv = config.jackpkgs.lib.python.mkIsolatedUvEnvFactory {
+    inherit (inputs) uv2nix pyproject-nix pyproject-build-systems;
+  };
+
+  dbtEnv = mkIsolatedUvEnv {
+    name = "python-dbt";
+    workspaceRoot = ../warehouse;
+    python = pkgs.python313;
+    mainProgram = "dbt";
+    ignoreCollisions = ["*/site-packages/dbt/__init__.py"];
+  };
+in {
+  packages.python-dbt = dbtEnv;
+
+  devShells.default = pkgs.mkShell {
+    inputsFrom = [config.jackpkgs.outputs.devShell];
+    buildInputs = [
+      (pkgs.writeShellScriptBin "dbt" ''
+        exec env -u PYTHONPATH -u PYTHONHOME ${dbtEnv}/bin/dbt "$@"
+      '')
+    ];
+  };
+};
+```
+
+Notes:
+
+- The helper builds a dedicated uv2nix env from a separate `pyproject.toml` + `uv.lock` root such as `warehouse/`.
+- It handles the Darwin SDK override internally, so downstream repos do not need to copy that boilerplate.
+- It supports `mainProgram` and `ignoreCollisions` for namespace-package cases like dbt.
+- `uv2nix` gives you reproducibility, not compatibility. If upstream packages are not ready for Python 3.14, pin the isolated tool env to the newest supported interpreter.
+- Keep the main repo Python env on `jackpkgs.python`; isolate only the incompatible tool boundary.
+
 **Validation checklist**
 
 After `direnv reload` or `nix develop`, the healthy state is:
