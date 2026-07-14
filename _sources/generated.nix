@@ -4,8 +4,7 @@
   fetchurl,
   fetchFromGitHub,
   dockerTools,
-}:
-{
+}: {
   codex-proxy = {
     pname = "codex-proxy";
     version = "aa8d9032ff92ae984482f44818b509f72cd0d7b2";
@@ -78,7 +77,6 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock";
       outputHashes = {
-        
       };
     };
     date = "2026-05-29";
@@ -108,7 +106,6 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock";
       outputHashes = {
-        
       };
     };
   };

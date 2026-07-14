@@ -110,6 +110,55 @@ in {
           };
         };
 
+        notebook = {
+          ipynb.ruff = {
+            enable = mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Enable notebook linting for Jupyter `.ipynb` files using `nbqa ruff check`.
+              '';
+            };
+
+            extraArgs = mkOption {
+              type = types.listOf types.str;
+              default = ["--no-cache"];
+              description = "Extra arguments to pass to `ruff check` via nbqa";
+              example = ["--no-cache"];
+            };
+
+            includes = mkOption {
+              type = types.listOf types.str;
+              default = ["*.ipynb"];
+              description = "File patterns to include for `.ipynb` notebook checks.";
+            };
+          };
+
+          myst.ruff = {
+            enable = mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Enable notebook linting for MyST-NB markdown notebooks using jupytext and `ruff check`.
+              '';
+            };
+
+            extraArgs = mkOption {
+              type = types.listOf types.str;
+              default = ["--no-cache"];
+              description = "Extra arguments to pass to `ruff check` for MyST notebooks";
+              example = ["--no-cache"];
+            };
+
+            includes = mkOption {
+              type = types.listOf types.str;
+              default = [];
+              description = ''File patterns to include for MyST-NB checks. Users SHOULD configure explicitly.'';
+              example = ["docs/**/*.md"];
+            };
+          };
+        };
+
         numpydoc = {
           enable = mkOption {
             type = types.bool;
@@ -542,6 +591,9 @@ in {
           if cfg.python.mypy.tyPackage != null
           then cfg.python.mypy.tyPackage
           else config.jackpkgs.pkgs.ty;
+        nbqaRuffExe = lib.getExe' pythonEnvForChecks "ruff";
+        nbqaPackage = pkgs.nbqa;
+        jupytextPackage = pkgs.python313Packages.jupytext;
       in
         lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvForChecks != null && pythonWorkspaceMembers != [])
         (
@@ -609,6 +661,48 @@ in {
               checkCommands = ''
                 echo "Running ruff check (workspace root)..."
                 "${lib.getExe' pythonEnvForChecks "ruff"}" check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .
+              '';
+            };
+          }
+          // lib.optionalAttrs cfg.python.notebook.ipynb.ruff.enable {
+            python-notebook-ipynb-ruff = mkCheck {
+              name = "python-notebook-ipynb-ruff";
+              src = pythonCfg.workspaceRoot;
+              nativeBuildInputs = [pythonEnvForChecks pkgs.fd nbqaPackage];
+              setupCommands = ''
+                export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
+              '';
+              checkCommands = ''
+                echo "Running nbqa ruff check (workspace root)..."
+                mapfile -t notebook_files < <(
+                  ${lib.concatMapStringsSep "\n" (pattern: ''fd -t f --glob ${lib.escapeShellArg pattern} .'') cfg.python.notebook.ipynb.ruff.includes}
+                )
+                if [ "''${#notebook_files[@]}" -eq 0 ]; then
+                  echo "No .ipynb notebooks matched; skipping."
+                  exit 0
+                fi
+                "${lib.getExe nbqaPackage}" "${nbqaRuffExe} check" --nbqa-shell ${lib.escapeShellArgs cfg.python.notebook.ipynb.ruff.extraArgs} -- "''${notebook_files[@]}"
+              '';
+            };
+          }
+          // lib.optionalAttrs (cfg.python.notebook.myst.ruff.enable && cfg.python.notebook.myst.ruff.includes != []) {
+            python-notebook-myst-ruff = mkCheck {
+              name = "python-notebook-myst-ruff";
+              src = pythonCfg.workspaceRoot;
+              nativeBuildInputs = [pythonEnvForChecks pkgs.fd jupytextPackage];
+              setupCommands = ''
+                export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
+              '';
+              checkCommands = ''
+                echo "Running jupytext ruff check (workspace root)..."
+                mapfile -t myst_notebook_files < <(
+                  ${lib.concatMapStringsSep "\n" (pattern: ''fd -t f --glob ${lib.escapeShellArg pattern} .'') cfg.python.notebook.myst.ruff.includes}
+                )
+                if [ "''${#myst_notebook_files[@]}" -eq 0 ]; then
+                  echo "No MyST notebooks matched; skipping."
+                  exit 0
+                fi
+                "${lib.getExe jupytextPackage}" --check "${nbqaRuffExe} check ${lib.escapeShellArgs cfg.python.notebook.myst.ruff.extraArgs} {}" --pipe-fmt py:percent "''${myst_notebook_files[@]}"
               '';
             };
           }

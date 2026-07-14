@@ -53,6 +53,7 @@ If an ADR is superseded, add cross-links in both directions.
 
 | #   | Title                                                                                                               | Status   |
 | --- | ------------------------------------------------------------------------------------------------------------------- | -------- |
+| 031 | [Notebook Quality Gates via nbqa and jupytext](031-notebook-quality-gates-via-nbqa.md)                              | Accepted |
 | 036 | [Unified `just cut` Release Recipe](036-cut-release-recipe.md)                                                      | Accepted |
 | 037 | [Bump Python Default Interpreter to 3.14](037-python-314-default-interpreter.md)                                    | Accepted |
 | 038 | [mkHelmChartFromGitHub Helper](038-mk-helm-chart-from-github.md)                                                    | Accepted |

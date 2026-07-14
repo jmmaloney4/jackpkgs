@@ -1032,4 +1032,85 @@ in {
       && !(checks.tsc.drvAttrs ? src);
     expected = true;
   };
+
+  testNotebookChecksDisabledByDefault = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+  in {
+    expr = missingChecksNamed checks ["python-notebook-ipynb-ruff" "python-notebook-myst-ruff"];
+    expected = true;
+  };
+
+  testIpynbNotebookCheckEnabled = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.notebook.ipynb.ruff.enable = true;
+      };
+    };
+  in {
+    expr = hasCheck checks "python-notebook-ipynb-ruff";
+    expected = true;
+  };
+
+  testMystNotebookCheckRequiresIncludes = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.notebook.myst.ruff.enable = true;
+      };
+    };
+  in {
+    expr = missingCheck checks "python-notebook-myst-ruff";
+    expected = true;
+  };
+
+  testMystNotebookCheckEnabledWithIncludes = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.notebook.myst.ruff = {
+          enable = true;
+          includes = ["docs/**/*.md"];
+        };
+      };
+    };
+  in {
+    expr = hasCheck checks "python-notebook-myst-ruff";
+    expected = true;
+  };
+
+  testIpynbNotebookCheckScript = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.notebook.ipynb.ruff = {
+          enable = true;
+          extraArgs = ["--select=E,F"];
+        };
+      };
+    };
+    script = getBuildCommand checks."python-notebook-ipynb-ruff";
+  in {
+    expr = hasInfixAll ["nbqa ruff check" "--nbqa-shell" "--select=E,F"] script;
+    expected = true;
+  };
+
+  testMystNotebookCheckScript = let
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.notebook.myst.ruff = {
+          enable = true;
+          includes = ["docs/**/*.md"];
+          extraArgs = ["--select=E,F"];
+        };
+      };
+    };
+    script = getBuildCommand checks."python-notebook-myst-ruff";
+  in {
+    expr = hasInfixAll ["jupytext" "--select=E,F" "--pipe-fmt py:percent"] script;
+    expected = true;
+  };
 }
