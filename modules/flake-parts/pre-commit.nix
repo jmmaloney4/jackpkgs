@@ -48,6 +48,13 @@ in {
           description = "nbstripout package to use.";
         };
 
+        nbqa.package = mkOption {
+          type = types.package;
+          default = pkgs.nbqa;
+          defaultText = "pkgs.nbqa";
+          description = "nbqa package to use for notebook pre-commit hooks.";
+        };
+
         python = {
           mypy = {
             package = mkOption {
@@ -116,6 +123,22 @@ in {
                 Python package (or environment) that provides
                 `python -m numpydoc.hooks.validate_docstrings`.
               '';
+            };
+          };
+
+          notebook = {
+            ipynb.ruff.package = mkOption {
+              type = types.package;
+              default = config.jackpkgs.pre-commit.python.ruff.package;
+              defaultText = "config.jackpkgs.pre-commit.python.ruff.package";
+              description = "ruff package to use for `.ipynb` notebook pre-commit hooks.";
+            };
+
+            myst.jupytextPackage = mkOption {
+              type = types.package;
+              default = pkgs.python313Packages.jupytext;
+              defaultText = "pkgs.python313Packages.jupytext";
+              description = "jupytext package to use for MyST-NB pre-commit hooks.";
             };
           };
         };
@@ -508,6 +531,27 @@ in {
             package = sysCfg.nbstripoutPackage;
             entry = "${lib.getExe sysCfg.nbstripoutPackage}";
             files = "\\.ipynb$";
+          };
+
+          settings.hooks.nbqa-ruff = {
+            enable = checksCfg.python.notebook.ipynb.ruff.enable;
+            package = sysCfg.nbqa.package;
+            entry = let
+              ruffExe = lib.getExe' sysCfg.python.notebook.ipynb.ruff.package "ruff";
+              nbqaExe = lib.getExe' sysCfg.nbqa.package "nbqa";
+            in "${nbqaExe} \"${ruffExe} check\" --nbqa-shell${escapeExtraArgs checksCfg.python.notebook.ipynb.ruff.extraArgs}";
+            files = "\\.ipynb$";
+            pass_filenames = false;
+          };
+
+          settings.hooks.jupytext-ruff = {
+            enable = checksCfg.python.notebook.myst.ruff.enable && checksCfg.python.notebook.myst.ruff.includes != [];
+            package = sysCfg.python.notebook.myst.jupytextPackage;
+            entry = let
+              jupytextExe = lib.getExe' sysCfg.python.notebook.myst.jupytextPackage "jupytext";
+            in "${jupytextExe} --check \"ruff check${escapeExtraArgs checksCfg.python.notebook.myst.ruff.extraArgs} {}\" --pipe-fmt py:percent";
+            files = "\\.md$";
+            pass_filenames = true;
           };
 
           settings.hooks.mypy = {

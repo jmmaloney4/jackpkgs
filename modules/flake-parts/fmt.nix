@@ -55,6 +55,69 @@ in {
             such as LaTeX.
           '';
         };
+        nbqa = {
+          ruffPackage = mkOption {
+            type = types.nullOr types.package;
+            default = pkgs.ruff;
+            defaultText = "pkgs.ruff";
+            description = ''
+              Package providing ruff for notebook formatting.
+              Set to null to use the ruff from your Python environment via ruffCommand.
+            '';
+          };
+          ruffCommand = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = ''
+              Custom ruff command path. Takes precedence over ruffPackage when set.
+              Use this to specify a ruff from your Python environment, e.g.,
+              "${"$"}{config.packages.my-python-env}/bin/ruff".
+            '';
+          };
+          ruffFormatOptions = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            description = ''Extra options to pass to ruff format.'';
+            example = ["--line-length=88" "--target-version=py312"];
+          };
+          ipynb = {
+            enable = mkOption {
+              type = types.bool;
+              default = false;
+              description = ''Enable nbqa-based formatting for Jupyter `.ipynb` notebooks.'';
+            };
+            includes = mkOption {
+              type = types.listOf types.str;
+              default = ["*.ipynb"];
+              description = ''File patterns to include for `.ipynb` notebook formatting.'';
+            };
+            nbqaPackage = mkOption {
+              type = types.package;
+              default = pkgs.nbqa;
+              defaultText = "pkgs.nbqa";
+              description = ''nbqa package to use for `.ipynb` formatting.'';
+            };
+          };
+          myst = {
+            enable = mkOption {
+              type = types.bool;
+              default = false;
+              description = ''Enable jupytext-based formatting for MyST-NB markdown notebooks.'';
+            };
+            includes = mkOption {
+              type = types.listOf types.str;
+              default = [];
+              description = ''File patterns to include for MyST-NB formatting. Users SHOULD configure explicitly.'';
+              example = ["docs/**/*.md"];
+            };
+            jupytextPackage = mkOption {
+              type = types.package;
+              default = pkgs.python313Packages.jupytext;
+              defaultText = "pkgs.python313Packages.jupytext";
+              description = ''jupytext package to use for MyST-NB formatting.'';
+            };
+          };
+        };
       };
     });
   };
@@ -71,6 +134,28 @@ in {
         "pnpm-lock.yaml"
         "**/pnpm-lock.yaml"
       ];
+      nbqaCfg = sysCfg.nbqa;
+      ruffCmd =
+        if nbqaCfg.ruffCommand != null
+        then nbqaCfg.ruffCommand
+        else if nbqaCfg.ruffPackage != null
+        then "${nbqaCfg.ruffPackage}/bin/ruff"
+        else "ruff";
+      notebookFormatters =
+        lib.optionalAttrs nbqaCfg.ipynb.enable {
+          python-notebook-format = {
+            command = "${nbqaCfg.ipynb.nbqaPackage}/bin/nbqa";
+            options = ["${ruffCmd} format" "--nbqa-shell"] ++ nbqaCfg.ruffFormatOptions ++ ["--"];
+            includes = nbqaCfg.ipynb.includes;
+          };
+        }
+        // lib.optionalAttrs nbqaCfg.myst.enable {
+          python-myst-notebook-format = {
+            command = "${nbqaCfg.myst.jupytextPackage}/bin/jupytext";
+            options = ["--pipe" "${ruffCmd} format {}" "--pipe-fmt" "py:percent"];
+            includes = nbqaCfg.myst.includes;
+          };
+        };
     in {
       formatter = lib.mkDefault config.treefmt.build.wrapper;
       treefmt.config = let
@@ -133,9 +218,13 @@ in {
             wrap = "keep";
           };
         };
-        settings.formatter.mdformat.options = lib.mkAfter (
-          lib.optional (!sysCfg.mdformat.validate) "--no-validate"
-        );
+        settings.formatter =
+          notebookFormatters
+          // {
+            mdformat.options = lib.mkAfter (
+              lib.optional (!sysCfg.mdformat.validate) "--no-validate"
+            );
+          };
         # ruff lints and formats python code
         programs.ruff-check = {
           enable = true;

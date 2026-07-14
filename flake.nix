@@ -477,6 +477,9 @@
             helm-chart = import ./tests/helm-chart.nix {
               inherit lib pkgs;
             };
+            fmt = import ./tests/fmt.nix {
+              inherit inputs lib;
+            };
           };
         };
 

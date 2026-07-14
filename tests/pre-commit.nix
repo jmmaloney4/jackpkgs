@@ -471,4 +471,68 @@ in {
     expr = hooks.adr-conflict-check.enable;
     expected = false;
   };
+
+  testNbqaRuffHookDisabledByDefault = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hooks.nbqa-ruff.enable or false;
+    expected = false;
+  };
+
+  testNbqaRuffHookEnabled = let
+    hooks = getHooks [
+      (mkConfigModule {
+        topConfig.jackpkgs.checks.python.notebook.ipynb.ruff.enable = true;
+      })
+    ];
+  in {
+    expr = hooks.nbqa-ruff.enable;
+    expected = true;
+  };
+
+  testNbqaRuffHookEntry = let
+    hooks = getHooks [
+      (mkConfigModule {
+        topConfig.jackpkgs.checks.python.notebook.ipynb.ruff = {
+          enable = true;
+          extraArgs = ["--select=E,F"];
+        };
+      })
+    ];
+  in {
+    expr = hasInfixAll ["nbqa" "ruff" "check" "--nbqa-shell" "--select=E,F"] hooks.nbqa-ruff.entry;
+    expected = true;
+  };
+
+  testJupytextRuffHookDisabledByDefault = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hooks.jupytext-ruff.enable or false;
+    expected = false;
+  };
+
+  testJupytextRuffHookRequiresIncludes = let
+    hooks = getHooks [
+      (mkConfigModule {
+        topConfig.jackpkgs.checks.python.notebook.myst.ruff.enable = true;
+      })
+    ];
+  in {
+    expr = hooks.jupytext-ruff.enable or false;
+    expected = false;
+  };
+
+  testJupytextRuffHookEnabledWithIncludes = let
+    hooks = getHooks [
+      (mkConfigModule {
+        topConfig.jackpkgs.checks.python.notebook.myst.ruff = {
+          enable = true;
+          includes = ["docs/**/*.md"];
+        };
+      })
+    ];
+  in {
+    expr = hooks.jupytext-ruff.enable;
+    expected = true;
+  };
 }
