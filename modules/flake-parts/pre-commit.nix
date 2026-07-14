@@ -291,8 +291,8 @@ in {
 
           package = mkOption {
             type = types.package;
-            default = config.packages."adr-conflict-check";
-            defaultText = "config.packages.\"adr-conflict-check\"";
+            default = jackpkgsInputs.self.packages.${pkgs.stdenv.hostPlatform.system}."adr-conflict-check";
+            defaultText = "jackpkgsInputs.self.packages.${pkgs.stdenv.hostPlatform.system}.\"adr-conflict-check\"";
             description = "The `adr-conflict-check` package to use.";
           };
         };
