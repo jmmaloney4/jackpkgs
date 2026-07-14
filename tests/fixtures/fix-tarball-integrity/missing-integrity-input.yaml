@@ -1,0 +1,16 @@
+lockfileVersion: '9.0'
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+importers:
+  .:
+    dependencies:
+      test-tarball-pkg:
+        specifier: https://github.com/test/test/archive/refs/tags/v1.0.0.tar.gz
+        version: https://github.com/test/test/archive/refs/tags/v1.0.0.tar.gz
+packages:
+  test-tarball-pkg@github:test/test/archive/refs/tags/v1.0.0.tar.gz:
+    resolution: {tarball: 'https://github.com/test/test/archive/refs/tags/v1.0.0.tar.gz'}
+    name: test-tarball-pkg
+    version: github:test/test/archive/refs/tags/v1.0.0.tar.gz
+    engines: {node: '>=0.10.0'}

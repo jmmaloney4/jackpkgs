@@ -1,0 +1,16 @@
+lockfileVersion: '9.0'
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+importers:
+  .:
+    dependencies:
+      evil-pkg:
+        specifier: https://example.com/evil.tar.gz
+        version: https://example.com/evil.tar.gz
+packages:
+  evil-pkg@example.com/evil.tar.gz:
+    resolution: {tarball: 'https://example.com/evil.tar.gz'}
+    name: evil-pkg
+    version: example.com/evil.tar.gz
+    engines: {node: '>=0.10.0'}

@@ -40,6 +40,109 @@
       touch $out
     '';
 
+  mkFixTarballIntegrityBehaviorTest = {
+    name,
+    fixture,
+    expectedSubstring ? null,
+    expectedExact ? null,
+    shouldFail ? false,
+    expectedOutputSubstring ? null,
+  }:
+    pkgs.runCommand "test-module-${name}" {
+      nativeBuildInputs = [just pkgs.openssl pkgs.perl pkgs.gnused pkgs.gnugrep];
+    } ''
+            cp ${fixture} pnpm-lock.yaml
+
+            printf 'mock tar payload\n' > payload.tar
+            expected_hash=$(openssl dgst -sha512 -binary payload.tar | base64 | tr -d '\n')
+
+            cat > justfile <<'EOF'
+      fix-tarball-integrity:
+          #!/usr/bin/env bash
+          set -euo pipefail
+          lockfile="pnpm-lock.yaml"
+          fixed=0
+
+          backup=__DOLLAR__(mktemp)
+          cp "$lockfile" "$backup"
+          trap 'rc=$?; if [ $rc -ne 0 ]; then echo "❌ Restoring lockfile from backup..."; mv "$backup" "$lockfile"; else rm -f "$backup"; fi' EXIT
+
+          while IFS= read -r line; do
+              url=__DOLLAR__(printf '%s' "$line" | sed -n 's/.*resolution: {tarball: \([^}]*\)}.*/\1/p' | tr -d "'")
+              if [ -z "$url" ]; then continue; fi
+              if ! printf '%s' "$url" | grep -qE '^https://(github\.com|codeload\.github\.com)/'; then
+                  echo "❌ Refusing to fetch non-GitHub URL: $url"
+                  exit 1
+              fi
+              echo "🔐 Computing integrity for __DOLLAR__(basename "$url")..."
+              safe_url=__DOLLAR__(printf '%s' "$url" | sed 's/[&\\]/\\&/g')
+              perl -pi -e "s|resolution: \{tarball: '?\Q$url\E'?\}|resolution: {integrity: sha512-__EXPECTED_HASH__, tarball: '$safe_url'}|" "$lockfile"
+              fixed=__DOLLAR__((fixed + 1))
+          done < <(grep 'resolution: {tarball:' "$lockfile" | grep -v 'integrity:')
+
+          if [ "$fixed" -eq 0 ]; then
+              echo "✅ All tarball entries already have integrity hashes"
+          else
+              echo "✅ Fixed $fixed tarball entr__DOLLAR__([ $fixed -eq 1 ] && echo 'y' || echo 'ies')"
+          fi
+      EOF
+
+            perl -0pi -e 's/__DOLLAR__/\$/g; s/__EXPECTED_HASH__/'"$expected_hash"'/g' justfile
+
+            set +e
+            output=$(${just}/bin/just fix-tarball-integrity 2>&1)
+            rc=$?
+            set -e
+            printf '%s\n' "$output"
+
+            if ${
+        if shouldFail
+        then "true"
+        else "false"
+      }; then
+              [ "$rc" -ne 0 ] || { echo "Expected failure but command succeeded"; exit 1; }
+            else
+              [ "$rc" -eq 0 ] || { echo "Expected success but command failed"; exit 1; }
+            fi
+
+            ${
+        if expectedOutputSubstring != null
+        then ''
+          printf '%s' "$output" | grep -F ${lib.escapeShellArg expectedOutputSubstring} >/dev/null || {
+            echo "Missing expected output substring: ${expectedOutputSubstring}"
+            exit 1
+          }
+        ''
+        else ""
+      }
+
+            ${
+        if expectedSubstring != null
+        then ''
+          grep -F ${lib.escapeShellArg expectedSubstring} pnpm-lock.yaml >/dev/null || {
+            echo "Missing expected lockfile substring: ${expectedSubstring}"
+            cat pnpm-lock.yaml
+            exit 1
+          }
+        ''
+        else ""
+      }
+
+            ${
+        if expectedExact != null
+        then ''
+          diff -u ${fixture} pnpm-lock.yaml >/dev/null || {
+            echo "Lockfile changed unexpectedly"
+            diff -u ${fixture} pnpm-lock.yaml || true
+            exit 1
+          }
+        ''
+        else ""
+      }
+
+            touch $out
+    '';
+
   # Mock packages for generating realistic paths
   mockPackages = {
     fd = pkgs.writeShellScriptBin "fd" "echo 'mock fd'";
@@ -88,6 +191,46 @@ in {
 
   # Test Node.js pnpm hash update recipe pattern
   testNodejsUpdatePnpmHash = mkJustParseTest "nodejs-update-pnpm-hash" ''
+    # Restore sha512 integrity on GitHub tarball resolutions that pnpm strips from pnpm-lock.yaml
+    fix-tarball-integrity:
+        #!/usr/bin/env bash
+        set -euo pipefail
+        lockfile="pnpm-lock.yaml"
+        fixed=0
+
+        backup=$(mktemp)
+        cp "$lockfile" "$backup"
+        trap 'rc=$?; if [ $rc -ne 0 ]; then echo "❌ Restoring lockfile from backup..."; mv "$backup" "$lockfile"; else rm -f "$backup"; fi' EXIT
+
+        while IFS= read -r line; do
+            url=$(printf '%s' "$line" | sed -n 's/.*resolution: {tarball: \([^}]*\)}.*/\1/p')
+            if [ -z "$url" ]; then continue; fi
+            if ! printf '%s' "$url" | grep -qE '^https://(github\.com|codeload\.github\.com)/'; then
+                echo "❌ Refusing to fetch non-GitHub URL: $url"
+                exit 1
+            fi
+            echo "🔐 Computing integrity for $(basename "$url")..."
+            tmpfile=$(mktemp)
+            curl -sfL "$url" -o "$tmpfile"
+            if ! tar -tf "$tmpfile" >/dev/null 2>&1; then
+                echo "❌ Downloaded file is not a valid archive (URL may be wrong or rate-limited)"
+                head -5 "$tmpfile"
+                rm -f "$tmpfile"
+                exit 1
+            fi
+            hash=$(openssl dgst -sha512 -binary "$tmpfile" | base64 | tr -d '\n')
+            rm -f "$tmpfile"
+            printf '✅  sha512-%s\n' "$hash"
+            safe_url=$(printf '%s' "$url" | sed 's/[&\\]/\\&/g')
+            perl -pi -e "s|resolution: \{tarball: \Q$url\E\}|resolution: {integrity: sha512-$hash, tarball: $safe_url}|" "$lockfile"
+            fixed=$((fixed + 1))
+        done < <(grep 'resolution: {tarball:' "$lockfile" | grep -v 'integrity:')
+        if [ "$fixed" -eq 0 ]; then
+            echo "✅ All tarball entries already have integrity hashes"
+        else
+            echo "✅ Fixed $fixed tarball entr$([ $fixed -eq 1 ] && echo 'y' || echo 'ies')"
+        fi
+
     # Refresh pnpm-lock.yaml and update pnpmDepsHash in flake.nix
     update-pnpm-hash:
         #!/usr/bin/env bash
@@ -103,6 +246,9 @@ in {
 
         echo "📦 Running pnpm install to refresh pnpm-lock.yaml..."
         pnpm install
+
+        echo "🔐 Restoring tarball integrity hashes..."
+        just fix-tarball-integrity
 
         system=$(nix eval --raw --impure --expr 'builtins.currentSystem')
 
@@ -138,7 +284,35 @@ in {
         @just update-pnpm-hash
   '';
 
-  # Test recipe with just variables (common pattern)
+  # Behavioral tests for fix-tarball-integrity recipe
+  testFixTarballIntegrityMissingIntegrity = mkFixTarballIntegrityBehaviorTest {
+    name = "fix-tarball-integrity-missing-integrity";
+    fixture = ./fixtures/fix-tarball-integrity/missing-integrity-input.yaml;
+    expectedSubstring = "integrity: sha512-";
+    expectedOutputSubstring = "Fixed 1 tarball entry";
+  };
+
+  testFixTarballIntegrityQuotedGithubUrl = mkFixTarballIntegrityBehaviorTest {
+    name = "fix-tarball-integrity-quoted-github-url";
+    fixture = ./fixtures/fix-tarball-integrity/quoted-github-input.yaml;
+    expectedSubstring = "integrity: sha512-";
+    expectedOutputSubstring = "Fixed 1 tarball entry";
+  };
+
+  testFixTarballIntegrityAlreadyFixed = mkFixTarballIntegrityBehaviorTest {
+    name = "fix-tarball-integrity-already-fixed";
+    fixture = ./fixtures/fix-tarball-integrity/already-fixed-input.yaml;
+    expectedExact = ./fixtures/fix-tarball-integrity/already-fixed-input.yaml;
+    expectedOutputSubstring = "All tarball entries already have integrity hashes";
+  };
+
+  testFixTarballIntegrityRejectsNonGithub = mkFixTarballIntegrityBehaviorTest {
+    name = "fix-tarball-integrity-rejects-non-github";
+    fixture = ./fixtures/fix-tarball-integrity/non-github-input.yaml;
+    shouldFail = true;
+    expectedOutputSubstring = "Refusing to fetch non-GitHub URL";
+  };
+
   testRecipeWithJustVariables = mkJustParseTest "just-variables" ''
     # Test recipe with parameters
     test-var param="default":
