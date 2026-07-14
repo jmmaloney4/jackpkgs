@@ -193,6 +193,13 @@
           extraAttrs ? {},
           pnpmDepsArgs ? {},
         }: let
+          # Run pnpm on nodejs-slim_latest instead of nodejs_24 to dodge the
+          # EXC_GUARD SIGKILL bug in nodejs_24 24.15.0 on aarch64-darwin.
+          # Mirrors the pnpmPackage override in modules/flake-parts/nodejs.nix.
+          # Drop once the nixpkgs pin carries nodejs_24 ≥ 24.16.0.
+          pnpmFixed = pkgs.pnpm_11.override {
+            nodejs-slim = pkgs.nodejs-slim_latest;
+          };
           cleanSrc = lib.cleanSourceWith {
             inherit src;
             filter = path: _type: builtins.baseNameOf path != "node_modules";
@@ -209,7 +216,7 @@
                   src = cleanSrc;
                   hash = depsHash;
                   fetcherVersion = 3;
-                  pnpm = pkgs.pnpm_11;
+                  pnpm = pnpmFixed;
                 }
                 // ({
                     # On some fixtures, fetchPnpmDeps fixup's `find ... | xargs chmod`
@@ -227,7 +234,7 @@
               );
               nativeBuildInputs = [
                 pkgs.nodejs_24
-                pkgs.pnpm_11
+                pnpmFixed
                 pkgs.pnpmConfigHook
               ];
               dontBuild = true;
