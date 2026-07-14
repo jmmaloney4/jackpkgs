@@ -755,7 +755,7 @@ ______________________________________________________________________
 | **Working Directory** | Your source code                                | Yes (editable)  | Your files, read directly by tools         |
 | **Local (impure)**    | `node_modules/` from `pnpm install`             | Yes             | Only for devs without dream2nix configured |
 
-### How Binaries Get on $PATH
+### How Binaries Get on \$PATH
 
 **In DevShells (`nodejs.nix`):**
 

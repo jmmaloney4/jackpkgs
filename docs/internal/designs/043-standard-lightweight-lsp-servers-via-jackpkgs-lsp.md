@@ -64,25 +64,27 @@ Proposed
 
 ### Auto-selection rules
 
-| jackpkgs module enabled | LSP server installed | Notes |
-|---|---|---|
-| `jackpkgs.python` | `ty` + `ruff` | `ty` for semantics, `ruff` for lint/format |
-| `jackpkgs.nodejs` | `tsgo` | Native Go TS LSP; falls back to `typescript-language-server` if `tsgo` unavailable |
-| `jackpkgs.pulumi` | `tsgo` | Pulumi projects are TS-heavy |
-| (always, Nix repo) | `nil` | Lightweight Nix LSP |
-| (always) | `yaml-language-server` | Cheap, useful for Helm/Pulumi/K8s YAML |
-| (always) | `bash-language-server` | Cheap, useful for shell scripts |
-| Cargo.toml present | `rust-analyzer` | Already in nixpkgs |
+| jackpkgs module enabled | LSP server installed   | Notes                                                                              |
+| ----------------------- | ---------------------- | ---------------------------------------------------------------------------------- |
+| `jackpkgs.python`       | `ty` + `ruff`          | `ty` for semantics, `ruff` for lint/format                                         |
+| `jackpkgs.nodejs`       | `tsgo`                 | Native Go TS LSP; falls back to `typescript-language-server` if `tsgo` unavailable |
+| `jackpkgs.pulumi`       | `tsgo`                 | Pulumi projects are TS-heavy                                                       |
+| (always, Nix repo)      | `nil`                  | Lightweight Nix LSP                                                                |
+| (always)                | `yaml-language-server` | Cheap, useful for Helm/Pulumi/K8s YAML                                             |
+| (always)                | `bash-language-server` | Cheap, useful for shell scripts                                                    |
+| Cargo.toml present      | `rust-analyzer`        | Already in nixpkgs                                                                 |
 
 ### Scope
 
 In scope:
+
 - Installing the right LSP binaries in devshells
 - Packaging `tsgo` and `ty` in the jackpkgs overlay if needed
 - Configuration guidance for editors and agent harnesses
 - Allowing per-repo override of backend selection
 
 Out of scope:
+
 - Process supervision / shared LSP daemons
 - Worktree attach/detach lifecycle management
 - Cross-machine or network-distributed semantic services
