@@ -88,6 +88,46 @@ in {
 
   # Test Node.js pnpm hash update recipe pattern
   testNodejsUpdatePnpmHash = mkJustParseTest "nodejs-update-pnpm-hash" ''
+    # Restore sha512 integrity on GitHub tarball resolutions that pnpm strips from pnpm-lock.yaml
+    fix-tarball-integrity:
+        #!/usr/bin/env bash
+        set -euo pipefail
+        lockfile="pnpm-lock.yaml"
+        fixed=0
+
+        backup=$(mktemp)
+        cp "$lockfile" "$backup"
+        trap 'rc=$?; if [ $rc -ne 0 ]; then echo "❌ Restoring lockfile from backup..."; mv "$backup" "$lockfile"; else rm -f "$backup"; fi' EXIT
+
+        while IFS= read -r line; do
+            url=$(printf '%s' "$line" | sed -n 's/.*resolution: {tarball: \([^}]*\)}.*/\1/p')
+            if [ -z "$url" ]; then continue; fi
+            if ! printf '%s' "$url" | grep -qE '^https://(github\.com|codeload\.github\.com)/'; then
+                echo "❌ Refusing to fetch non-GitHub URL: $url"
+                exit 1
+            fi
+            echo "🔐 Computing integrity for $(basename "$url")..."
+            tmpfile=$(mktemp)
+            curl -sfL "$url" -o "$tmpfile"
+            if ! tar -tf "$tmpfile" >/dev/null 2>&1; then
+                echo "❌ Downloaded file is not a valid archive (URL may be wrong or rate-limited)"
+                head -5 "$tmpfile"
+                rm -f "$tmpfile"
+                exit 1
+            fi
+            hash=$(openssl dgst -sha512 -binary "$tmpfile" | base64 | tr -d '\n')
+            rm -f "$tmpfile"
+            printf '✅  sha512-%s\n' "$hash"
+            safe_url=$(printf '%s' "$url" | sed 's/[&\\]/\\&/g')
+            perl -pi -e "s|resolution: \{tarball: \Q$url\E\}|resolution: {integrity: sha512-$hash, tarball: $safe_url}|" "$lockfile"
+            fixed=$((fixed + 1))
+        done < <(grep 'resolution: {tarball:' "$lockfile" | grep -v 'integrity:')
+        if [ "$fixed" -eq 0 ]; then
+            echo "✅ All tarball entries already have integrity hashes"
+        else
+            echo "✅ Fixed $fixed tarball entr$([ $fixed -eq 1 ] && echo 'y' || echo 'ies')"
+        fi
+
     # Refresh pnpm-lock.yaml and update pnpmDepsHash in flake.nix
     update-pnpm-hash:
         #!/usr/bin/env bash
@@ -103,6 +143,9 @@ in {
 
         echo "📦 Running pnpm install to refresh pnpm-lock.yaml..."
         pnpm install
+
+        echo "🔐 Restoring tarball integrity hashes..."
+        just fix-tarball-integrity
 
         system=$(nix eval --raw --impure --expr 'builtins.currentSystem')
 
