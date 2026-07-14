@@ -789,7 +789,7 @@ in {
                           rm -f "$tmpfile"
                           printf '✅  sha512-%s\n' "$hash"
                           safe_url=$(printf '%s' "$url" | sed 's/[&\\]/\\&/g')
-                          perl -pi -e "s|resolution: \{tarball: \Q$url\E\}|resolution: {integrity: sha512-$hash, tarball: $safe_url}|" "$lockfile"
+                          perl -pi -e "s|resolution: \{tarball: '?\Q$url\E'?\}|resolution: {integrity: sha512-$hash, tarball: '$safe_url'}|" "$lockfile"
                           fixed=$((fixed + 1))
                       done < <(grep 'resolution: {tarball:' "$lockfile" | grep -v 'integrity:')
                       if [ "$fixed" -eq 0 ]; then

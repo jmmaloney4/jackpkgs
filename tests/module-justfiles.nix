@@ -76,7 +76,7 @@
               fi
               echo "🔐 Computing integrity for __DOLLAR__(basename "$url")..."
               safe_url=__DOLLAR__(printf '%s' "$url" | sed 's/[&\\]/\\&/g')
-              perl -pi -e "s|resolution: \{tarball: \Q$url\E\}|resolution: {integrity: sha512-__EXPECTED_HASH__, tarball: $safe_url}|" "$lockfile"
+              perl -pi -e "s|resolution: \{tarball: '?\Q$url\E'?\}|resolution: {integrity: sha512-__EXPECTED_HASH__, tarball: '$safe_url'}|" "$lockfile"
               fixed=__DOLLAR__((fixed + 1))
           done < <(grep 'resolution: {tarball:' "$lockfile" | grep -v 'integrity:')
 
