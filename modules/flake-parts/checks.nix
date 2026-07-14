@@ -174,6 +174,26 @@ in {
             '';
           };
 
+          package = mkOption {
+            type = types.nullOr types.package;
+            default = null;
+            defaultText = "config.jackpkgs.outputs.pythonEnvironments.dev or the shared check env";
+            description = ''
+              Python environment to run numpydoc from.
+
+              The selected derivation must provide a `python` executable that can
+              import `numpydoc.hooks.validate_docstrings`.
+
+              When null, the numpydoc check prefers `jackpkgs.outputs.pythonEnvironments.dev`
+              when available, and otherwise falls back to the shared `pythonEnvForChecks`
+              selected for the other Python checks. Override this when numpydoc lives
+              in a dependency group that is deliberately excluded from the lean
+              CI check env (for example a `research` or `docs` group), so the
+              check can use a richer environment that includes numpydoc without
+              pulling the extra deps into pytest/mypy/ruff.
+            '';
+          };
+
           extraArgs = mkOption {
             type = types.listOf types.str;
             default = [];
@@ -594,6 +614,10 @@ in {
         nbqaRuffExe = lib.getExe' pythonEnvForChecks "ruff";
         nbqaPackage = pkgs.nbqa;
         jupytextPackage = pkgs.python313Packages.jupytext;
+        numpydocPackage =
+          if cfg.python.numpydoc.package != null
+          then cfg.python.numpydoc.package
+          else (jackpkgsOutputs.pythonEnvironments.dev or pythonEnvForChecks);
       in
         lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvForChecks != null && pythonWorkspaceMembers != [])
         (
@@ -711,9 +735,9 @@ in {
             numpydoc = mkCheck {
               name = "numpydoc";
               src = pythonCfg.workspaceRoot;
-              nativeBuildInputs = [pythonEnvForChecks];
+              nativeBuildInputs = [numpydocPackage];
               setupCommands = ''
-                export PYTHONPATH="${pythonEnvForChecks}/lib/python${pythonVersion}/site-packages"
+                export PYTHONPATH="${numpydocPackage}/lib/python${pythonVersion}/site-packages"
               '';
               checkCommands = ''
                 echo "Running numpydoc (workspace root)..."

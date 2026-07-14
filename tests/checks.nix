@@ -490,6 +490,29 @@ in {
     expected = true;
   };
 
+  testPythonNumpydocPackageOverride = let
+    fakeEnv = builtins.derivation {
+      name = "fake-numpydoc-env";
+      system = system;
+      pythonVersion = "3.13";
+      builder = "/bin/sh";
+      args = ["-c" "mkdir -p $out/bin $out/lib/python3.13/site-packages && touch $out/bin/python $out"];
+    };
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.numpydoc = {
+          enable = true;
+          package = fakeEnv;
+        };
+      };
+    };
+    script = getBuildCommand checks.numpydoc;
+  in {
+    expr = lib.hasInfix "fake-numpydoc-env" script;
+    expected = true;
+  };
+
   testPythonRuffDefaultHasNoCache = let
     checks = mkChecks {
       configModule = mkConfigModule {pythonEnable = true;};
