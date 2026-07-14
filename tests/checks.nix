@@ -135,6 +135,7 @@
         builtins.derivation {
           name = "python-default-env";
           system = system;
+          pythonVersion = "3.13";
           builder = "/bin/sh";
           args = ["-c" "mkdir -p $out/bin && touch $out/bin/pytest $out/bin/mypy $out/bin/ruff $out"];
         }
@@ -430,7 +431,9 @@ in {
     };
     script = getBuildCommand checks.pytest;
   in {
-    expr = lib.hasInfix "python-default-env/bin/pytest" script;
+    expr =
+      lib.hasInfix "python-default-env/bin/pytest" script
+      && lib.hasInfix "/lib/python3.13/site-packages" script;
     expected = true;
   };
 

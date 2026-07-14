@@ -496,13 +496,14 @@ in {
         then pythonDefaultEnv
         else pythonEnvWithDevTools;
 
-      # Extract Python version from environment for PYTHONPATH
+      # Extract Python version from the selected check environment itself,
+      # so PYTHONPATH always matches the interpreter that runs the tools.
       pythonVersion =
-        if pythonPerSystemCfg ? pythonPackage && pythonPerSystemCfg.pythonPackage != null
-        then
-          # Prefer pythonVersion, fall back to deriving from version, then default
-          pythonPerSystemCfg.pythonPackage.pythonVersion
-            or (lib.versions.majorMinor pythonPerSystemCfg.pythonPackage.version or "3.12")
+        if pythonEnvForChecks != null && (pythonEnvForChecks ? pythonVersion)
+        then pythonEnvForChecks.pythonVersion
+        else if pythonPerSystemCfg ? pythonPackage && pythonPerSystemCfg.pythonPackage != null
+        then pythonPerSystemCfg.pythonPackage.pythonVersion
+            or (lib.version.majorMinor (pythonPerSystemCfg.pythonPackage.version or "3.12"))
         else "3.12";
 
       # ============================================================
