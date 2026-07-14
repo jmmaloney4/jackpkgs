@@ -148,8 +148,8 @@ in {
     - `treefmtPackage` (package, default `config.jackpkgs.pkgs.treefmt`)
     - `projectRootFile` (str, default `config.flake-root.projectRootFile`)
     - `excludes` (list of str, default `["**/node_modules/**" "**/dist/**"]`)
-    - `mdformat.validate` (bool, default `true`) - set to `false` to skip mdformat's validation step (`--no-validate`); useful for markdown files with extended/non-standard syntax (e.g., LaTeX).
-  - Enables formatters: Alejandra (Nix), Biome (JS/TS), HuJSON, latexindent, mdformat (MD), Ruff (check + format), Rustfmt, Shfmt (shell), Taplo (TOML), Yamlfmt.
+    - `mdformat.validate` (bool, default `true`) — set to `false` to skip mdformat's validation step (`--no-validate`); useful for markdown files with extended/non-standard syntax (e.g., LaTeX).
+  - Enables formatters: Alejandra (Nix), Biome (JS/TS), HuJSON, latexindent, mdformat (MD, incl. frontmatter/GFM/footnote/MyST plugins), Ruff (check + format), Rustfmt, Shfmt (shell), Taplo (TOML), Yamlfmt.
 
 - just (`modules/flake-parts/just.nix`)
 
