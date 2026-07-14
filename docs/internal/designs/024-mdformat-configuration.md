@@ -1,11 +1,11 @@
 ---
 id: ADR-024
 title: Mdformat Configuration
-status: proposed
+status: accepted
 date: 2026-02-10
 ---
 
-# ADR-024: Add mdformat with frontmatter and GFM plugins to default formatters
+# ADR-024: Add mdformat with frontmatter, GFM, footnote, and MyST plugins to default formatters
 
 ## Status
 
@@ -31,6 +31,7 @@ Specifically, we will include the following plugins by default:
 1. **`mdformat-frontmatter`**: Preserves YAML frontmatter blocks.
 2. **`mdformat-gfm`**: Supports GitHub Flavored Markdown extensions (tables, strikethrough, autolinks, task lists).
 3. **`mdformat-footnote`**: Supports markdown footnotes (`[^1]`).
+4. **`mdformat-myst`**: Supports MyST-flavored Markdown directives and roles used by executable documentation and scientific markdown projects.
 
 We will also apply the following configuration defaults:
 
@@ -79,19 +80,19 @@ Modify `modules/flake-parts/fmt.nix` to include the `mdformat` configuration blo
         programs.mdformat = {
           enable = true;
           inherit excludes;
-          
+
           package = pkgs.mdformat;
 
-          plugins = ps: [ 
+          plugins = ps: [
             ps.mdformat-frontmatter
             ps.mdformat-gfm
             ps.mdformat-footnote
+            ps.mdformat-myst
           ];
 
           settings = {
-            end_of_line = "lf";
+            end-of-line = "lf";
             number = true;
-            validate = true;
             wrap = "keep";
           };
         };
