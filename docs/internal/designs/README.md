@@ -62,6 +62,7 @@ If an ADR is superseded, add cross-links in both directions.
 | 041 | [Python Monorepo Type-Check Path Derivation](041-python-monorepo-typecheck-path-derivation.md)                      | Proposed |
 | 042 | [Selective Dependency Groups for Python Environments](042-python-selective-dependency-groups.md)                    | Proposed |
 | 043 | [Standard Lightweight LSP Servers via jackpkgs.lsp](043-standard-lightweight-lsp-servers-via-jackpkgs-lsp.md)       | Proposed |
+| 044 | [Isolated uv2nix Python Environment Helper](044-isolated-uv2nix-env-helper.md)                                      | Proposed |
 
 ## Template
 

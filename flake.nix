@@ -471,6 +471,9 @@
             python-namespace-check = import ./tests/python-namespace-check.nix {
               inherit lib;
             };
+            python-isolated-env = import ./tests/python-isolated-env.nix {
+              inherit lib pkgs inputs;
+            };
             lsp = import ./tests/lsp.nix {
               inherit lib inputs;
             };

@@ -2,6 +2,29 @@
 with pkgs.lib; rec {
   # Add your library functions here
 
+  # Isolated uv2nix Python environment builder (ADR 044)
+  #
+  # Requires flake inputs (uv2nix, pyproject-nix, pyproject-build-systems)
+  # which are not available at lib/default.nix evaluation time.
+  # Consumers call mkIsolatedUvEnvFactory with the inputs from their flake,
+  # then use the returned function in perSystem context.
+  #
+  # Example:
+  #   mkIsolatedUvEnv = jackpkgs.lib.python.mkIsolatedUvEnvFactory {
+  #     inherit (inputs) uv2nix pyproject-nix pyproject-build-systems;
+  #   };
+  python.mkIsolatedUvEnvFactory = {
+    uv2nix,
+    pyproject-nix,
+    pyproject-build-systems,
+  }:
+    import ./python-isolated-env.nix {
+      inherit (pkgs) lib;
+      inherit pkgs uv2nix;
+      pyprojectNix = pyproject-nix;
+      pyprojectBuildSystems = pyproject-build-systems;
+    };
+
   # Justfile generation helpers
   # These helpers make it easy to generate justfile content without indentation issues
   justfile = import ./justfile-helpers.nix {lib = pkgs.lib;};
