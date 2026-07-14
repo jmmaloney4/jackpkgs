@@ -17,31 +17,31 @@ ADR_DIR="docs/internal/decisions"
 # ── argument parsing ─────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --adr-dir)
-      ADR_DIR="$2"
-      shift 2
-      ;;
-    --adr-dir=*)
-      ADR_DIR="${1#--adr-dir=}"
-      shift
-      ;;
-    -h|--help)
-      echo "Usage: adr-conflict-check [--adr-dir <path>]"
-      echo ""
-      echo "Options:"
-      echo "  --adr-dir <path>  Directory containing ADR files (default: docs/internal/decisions)"
-      exit 0
-      ;;
-    *)
-      echo "adr-conflict-check: unknown argument: $1" >&2
-      echo "Run 'adr-conflict-check --help' for usage." >&2
-      exit 1
-      ;;
+  --adr-dir)
+    ADR_DIR="$2"
+    shift 2
+    ;;
+  --adr-dir=*)
+    ADR_DIR="${1#--adr-dir=}"
+    shift
+    ;;
+  -h | --help)
+    echo "Usage: adr-conflict-check [--adr-dir <path>]"
+    echo ""
+    echo "Options:"
+    echo "  --adr-dir <path>  Directory containing ADR files (default: docs/internal/decisions)"
+    exit 0
+    ;;
+  *)
+    echo "adr-conflict-check: unknown argument: $1" >&2
+    echo "Run 'adr-conflict-check --help' for usage." >&2
+    exit 1
+    ;;
   esac
 done
 
 # ── resolve directory ────────────────────────────────────────────────────────
-if [[ ! -d "$ADR_DIR" ]]; then
+if [[ ! -d $ADR_DIR ]]; then
   echo "adr-conflict-check: directory not found: $ADR_DIR" >&2
   echo "Set --adr-dir to the correct path for your project." >&2
   exit 1
@@ -65,15 +65,15 @@ for f in "${md_files[@]}"; do
   base="$(basename "$f")"
 
   # Skip README.md entirely – not an ADR.
-  [[ "$base" == "README.md" ]] && continue
+  [[ $base == "README.md" ]] && continue
 
   # Extract leading NNN (exactly 3 digits).
-  if [[ "$base" =~ ^([0-9]{3})- ]]; then
+  if [[ $base =~ ^([0-9]{3})- ]]; then
     raw="${BASH_REMATCH[1]}"
-    num=$((10#$raw))   # strip leading zeros for arithmetic; use decimal base
-    key="$raw"         # keep zero-padded key for display consistency
+    num=$((10#$raw)) # strip leading zeros for arithmetic; use decimal base
+    key="$raw"       # keep zero-padded key for display consistency
     if [[ -v num_to_files["$key"] ]]; then
-      num_to_files["$key"]+=" $base"
+      num_to_files["$key"]+=$'\n'"$base"
     else
       num_to_files["$key"]="$base"
     fi
@@ -98,19 +98,15 @@ fi
 declare -a dup_lines=()
 for key in "${!num_to_files[@]}"; do
   files_for_key="${num_to_files[$key]}"
-  # Count space-separated entries (files are space-separated in value)
-  count=$(echo "$files_for_key" | wc -w)
+  count=$(printf '%s\n' "$files_for_key" | wc -l)
   if [[ $count -gt 1 ]]; then
-    dup_lines+=("  $key -> $files_for_key")
+    dup_lines+=("  $key -> ${files_for_key//$'\n'/ }")
   fi
 done
 
 if [[ ${#dup_lines[@]} -gt 0 ]]; then
   echo "ERROR: Duplicate ADR numbers found in $ADR_DIR:"
-  # Sort for stable output
-  while IFS= read -r line; do
-    echo "$line"
-  done < <(printf '%s\n' "${dup_lines[@]}" | sort)
+  printf '%s\n' "${dup_lines[@]}" | sort
   echo ""
   errors=1
 fi
@@ -120,7 +116,7 @@ fi
 declare -a real_nums=()
 for key in "${!num_to_files[@]}"; do
   n=$((10#$key))
-  [[ $n -eq 0 ]] && continue   # 000 is always the template – skip
+  [[ $n -eq 0 ]] && continue # 000 is always the template – skip
   real_nums+=("$n")
 done
 
@@ -138,7 +134,7 @@ if [[ ${#real_nums[@]} -gt 0 ]]; then
   done
 
   gaps=()
-  for (( i = min; i <= max; i++ )); do
+  for ((i = min; i <= max; i++)); do
     if [[ ! -v num_set["$i"] ]]; then
       # Format as 3-digit zero-padded for display
       gaps+=("$(printf '%03d' "$i")")

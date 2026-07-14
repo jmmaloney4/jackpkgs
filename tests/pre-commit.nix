@@ -115,6 +115,7 @@
           lib.recursiveUpdate
           {
             _module.args.jackpkgsProjectRoot = null;
+            packages."adr-conflict-check" = pkgs.writeShellScriptBin "adr-conflict-check" "";
             jackpkgs.pre-commit = {
               treefmtPackage = pkgs.treefmt;
               nbstripoutPackage = pkgs.nbstripout;

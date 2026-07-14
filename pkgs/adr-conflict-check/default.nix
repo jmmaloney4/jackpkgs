@@ -1,4 +1,7 @@
-{ stdenv, lib }:
+{
+  stdenv,
+  lib,
+}:
 stdenv.mkDerivation {
   pname = "adr-conflict-check";
   version = "0.1.0";

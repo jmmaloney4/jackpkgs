@@ -467,129 +467,19 @@
           };
         };
 
-<<<<<<< HEAD
         # All justfile, module, and pnpm fixture tests collapse into one CI check.
         # See `fixtureTests` / `fixtureTestsCheck` above for the aggregation.
-        checks = {
-          fixture-tests = fixtureTestsCheck;
-        };
-=======
         checks =
-          # Add all justfile validation tests
-          lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests
-          # Add module pattern tests
-          // lib.mapAttrs' (name: test: lib.nameValuePair "module-${name}" test) moduleJustfileTests
-          // {
-            pnpm-simple-builds = mkPnpmFixtureCheck {
-              name = "simple-pnpm";
-              src = fixtureSimplePnpm;
-              depsHash = "sha256-Pg995/qFmh6ehdZOBdR0q94JhiLR6oBHI3CdPJK9ipQ=";
-              checkCommand = ''
-                test -d node_modules
-                node index.js | grep -qx "pass"
-              '';
-            };
-
-            pnpm-workspace-basic-postinstall = mkPnpmFixtureCheck {
-              name = "workspace-basic";
-              src = fixtureWorkspaceBasic;
-              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
-              checkCommand = ''
-                test -d node_modules
-                pnpm run postinstall
-                test -f lib/dist/index.js
-                node --input-type=module -e "const lib = await import('./lib/dist/index.js'); if (lib.add(2, 3) !== 5) process.exit(1);"
-              '';
-            };
-
-            pnpm-workspace-glob-resolution = mkPnpmFixtureCheck {
-              name = "workspace-glob";
-              src = fixtureWorkspaceGlob;
-              depsHash = "sha256-u0GOAX5B1f2ANWbOezScp/eKQRRZA/JoYfQ5zLrNip4=";
-              checkCommand = ''
-                test -d node_modules
-                node packages/beta/index.js | grep -qx "hello from alpha"
-              '';
-            };
-
-            pnpm-tsc-check = mkPnpmFixtureCheck {
-              name = "tsc-check";
-              src = fixtureTscCheck;
-              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
-              checkCommand = ''
-                test -d node_modules
-                node_modules/.bin/tsc --noEmit --lib ES2020,DOM packages/app/index.ts
-              '';
-            };
-
-            pnpm-vitest-check = mkPnpmFixtureCheck {
-              name = "vitest-check";
-              src = fixtureVitestCheck;
-              depsHash = "sha256-+Yuu23jx65TFnR5F71dDWU8SjFypZpaFdu+GGLe9qQ8=";
-              checkCommand = ''
-                test -d node_modules
-                node_modules/.bin/vitest run --root packages/lib
-              '';
-            };
-
-            pnpm-node-modules-output-layout = mkPnpmFixtureCheck {
-              name = "node-modules-output-layout";
-              src = fixtureWorkspaceBasic;
-              depsHash = "sha256-4ym+vvg1zaiIKtF1Bzfb5AF/njvUBauh6gbB3uR/eWU=";
-              checkCommand = ''
-                mkdir -p "$out"
-                cp -a node_modules "$out/"
-                test -d "$out/node_modules"
-                test -L "$out/node_modules/.pnpm/node_modules/@test/lib"
-                test ! -e "$out/node_modules/.pnpm/node_modules/@test/lib"
-              '';
-              extraAttrs = {
-                dontCheckForBrokenSymlinks = true;
-              };
-            };
-
-            pnpm-nonhoisted-runtime = mkPnpmFixtureCheck {
-              name = "nonhoisted-runtime";
-              src = fixtureNonhoistedDep;
-              depsHash = "sha256-Pyw+kyJeLDLPK9pkYvuT2/V7yg5kawHzMwY8B4thNEk=";
-              checkCommand = ''
-                test -d node_modules
-                node packages/app/index.js | grep -qx "pass"
-              '';
-            };
-
-            # Mirrors nodejs.nix:125-129 installPhase; keep in sync.
-            pnpm-nonhoisted-output-layout = mkPnpmFixtureCheck {
-              name = "nonhoisted-output-layout";
-              src = fixtureNonhoistedDep;
-              depsHash = "sha256-Pyw+kyJeLDLPK9pkYvuT2/V7yg5kawHzMwY8B4thNEk=";
-              checkCommand = ''
-                mkdir -p "$out"
-                cp -a node_modules "$out/"
-                find . -mindepth 2 -name 'node_modules' -type d \
-                  -not -path './node_modules/*' | while read -r dir; do
-                  mkdir -p "$out/$(dirname "$dir")"
-                  cp -a "$dir" "$out/$dir"
-                done
-
-                test -d "$out/node_modules"
-                test ! -e "$out/node_modules/is-odd"
-                test -L "$out/packages/app/node_modules/is-odd"
-                test -z "$(find "$out/node_modules/.pnpm" -path '*/node_modules/node_modules' -print -quit)"
-              '';
-              extraAttrs = {
-                dontCheckForBrokenSymlinks = true;
-              };
-            };
+          {
+            fixture-tests = fixtureTestsCheck;
           }
-          # ADR script-behaviour tests
+          # ADR script-behaviour tests stay as individual checks.
           // lib.mapAttrs' (name: drv: lib.nameValuePair "adr-${name}" drv) (
             import ./tests/adr.nix {
               inherit pkgs;
               adr-conflict-check = allPackages.adr-conflict-check;
             }
           );
->>>>>>> aef3566 (feat(pre-commit): add adr-conflict-check hook)
       };
 
       flake = {
