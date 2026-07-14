@@ -4,7 +4,7 @@
   lib,
   jackpkgsLib,
   ...
-} @ args: let
+} @ moduleTop: let
   inherit (lib) mkOption types mkEnableOption;
   pythonEnvHelpers = import ../../lib/python-env-selection.nix {inherit lib;};
   cfg = config.jackpkgs.checks;
@@ -423,12 +423,13 @@ in {
       mkCheck = {
         name,
         buildInputs ? [],
+        nativeBuildInputs ? [],
         src ? null,
         setupCommands ? "",
         checkCommands,
       }:
         pkgs.runCommand name ({
-            inherit buildInputs;
+            inherit buildInputs nativeBuildInputs;
           }
           // lib.optionalAttrs (src != null) {inherit src;}) ''
           ${lib.optionalString (src != null) ''cd "$src"''}
@@ -480,13 +481,29 @@ in {
         pythonEnvOutputs = config.jackpkgs.outputs.pythonEnvironments or {};
       };
 
-      # Extract Python version from environment for PYTHONPATH
+      # Prefer the consumer project's configured default Python env when available.
+      # This typically includes dev tools (pytest/mypy/ruff) via the workspace spec.
+      jackpkgsOutputs = config.jackpkgs.outputs or {};
+      pythonDefaultEnv = let
+        fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
+        fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null moduleTop.config;
+      in
+        if fromSystem != null
+        then fromSystem
+        else fromFlake;
+      pythonEnvForChecks =
+        if pythonDefaultEnv != null
+        then pythonDefaultEnv
+        else pythonEnvWithDevTools;
+
+      # Extract Python version from the selected check environment itself,
+      # so PYTHONPATH always matches the interpreter that runs the tools.
       pythonVersion =
-        if pythonPerSystemCfg ? pythonPackage && pythonPerSystemCfg.pythonPackage != null
-        then
-          # Prefer pythonVersion, fall back to deriving from version, then default
-          pythonPerSystemCfg.pythonPackage.pythonVersion
-            or (lib.versions.majorMinor pythonPerSystemCfg.pythonPackage.version or "3.12")
+        if pythonEnvForChecks != null && (pythonEnvForChecks ? pythonVersion)
+        then pythonEnvForChecks.pythonVersion
+        else if pythonPerSystemCfg ? pythonPackage && pythonPerSystemCfg.pythonPackage != null
+        then pythonPerSystemCfg.pythonPackage.pythonVersion
+            or (lib.version.majorMinor (pythonPerSystemCfg.pythonPackage.version or "3.12"))
         else "3.12";
 
       # ============================================================
@@ -526,16 +543,16 @@ in {
           then cfg.python.mypy.tyPackage
           else config.jackpkgs.pkgs.ty;
       in
-        lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvWithDevTools != null && pythonWorkspaceMembers != [])
+        lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvForChecks != null && pythonWorkspaceMembers != [])
         (
           lib.optionalAttrs cfg.python.pytest.enable {
             # pytest check (workspace root)
             pytest = mkCheck {
               name = "pytest";
               src = pythonCfg.workspaceRoot;
-              buildInputs = [pythonEnvWithDevTools];
+              nativeBuildInputs = [pythonEnvForChecks];
               setupCommands = ''
-                export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+                export PYTHONPATH="${pythonEnvForChecks}/lib/python${pythonVersion}/site-packages"
                 export COVERAGE_FILE=$TMPDIR/.coverage
                 export PYTEST_CACHE_DIR=$TMPDIR/.pytest_cache
                 # Unset SSL_CERT_FILE so httpx/langfuse/litellm don't try to
@@ -545,7 +562,7 @@ in {
               '';
               checkCommands = ''
                 echo "Running pytest (workspace root)..."
-                pytest ${lib.escapeShellArgs cfg.python.pytest.extraArgs}
+                "${lib.getExe' pythonEnvForChecks "pytest"}" ${lib.escapeShellArgs cfg.python.pytest.extraArgs}
               '';
             };
           }
@@ -557,25 +574,26 @@ in {
                 mkCheck {
                   name = "mypy";
                   src = pythonCfg.workspaceRoot;
-                  buildInputs = [pythonEnvWithDevTools tyPackage];
+                  buildInputs = [tyPackage];
+                  nativeBuildInputs = [pythonEnvForChecks];
                   checkCommands = ''
                     echo "Running ty check (workspace root)..."
-                    ty check --python ${pythonEnvWithDevTools} ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
+                    ty check --python ${pythonEnvForChecks} ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
                   '';
                 }
               else
                 mkCheck {
                   name = "mypy";
                   src = pythonCfg.workspaceRoot;
-                  buildInputs = [pythonEnvWithDevTools];
+                  nativeBuildInputs = [pythonEnvForChecks];
                   setupCommands = ''
-                    export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+                    export PYTHONPATH="${pythonEnvForChecks}/lib/python${pythonVersion}/site-packages"
                     export MYPY_CACHE_DIR=$TMPDIR/.mypy_cache
                   '';
                   checkCommands = ''
                     ${mypyDeprecationWarning}
                     echo "Running mypy (workspace root)..."
-                    mypy ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
+                    "${lib.getExe' pythonEnvForChecks "mypy"}" ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
                   '';
                 };
           }
@@ -584,13 +602,13 @@ in {
             ruff = mkCheck {
               name = "ruff";
               src = pythonCfg.workspaceRoot;
-              buildInputs = [pythonEnvWithDevTools];
+              nativeBuildInputs = [pythonEnvForChecks];
               setupCommands = ''
                 export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
               '';
               checkCommands = ''
                 echo "Running ruff check (workspace root)..."
-                ruff check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .
+                "${lib.getExe' pythonEnvForChecks "ruff"}" check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .
               '';
             };
           }
@@ -599,9 +617,9 @@ in {
             numpydoc = mkCheck {
               name = "numpydoc";
               src = pythonCfg.workspaceRoot;
-              buildInputs = [pythonEnvWithDevTools];
+              nativeBuildInputs = [pythonEnvForChecks];
               setupCommands = ''
-                export PYTHONPATH="${pythonEnvWithDevTools}/lib/python${pythonVersion}/site-packages"
+                export PYTHONPATH="${pythonEnvForChecks}/lib/python${pythonVersion}/site-packages"
               '';
               checkCommands = ''
                 echo "Running numpydoc (workspace root)..."

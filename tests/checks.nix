@@ -22,6 +22,13 @@
     inherit (lib) mkOption types;
   in {
     options.jackpkgs = {
+      outputs = {
+        pythonDefaultEnv = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+        };
+      };
+
       python = {
         enable = mkOption {
           type = types.bool;
@@ -118,7 +125,22 @@
       else {};
   };
 
-  perSystemArgs = projectRoot: {
+  perSystemArgs = {
+    projectRoot,
+    withPythonDefaultEnv ? false,
+  }: {
+    jackpkgs.outputs.pythonDefaultEnv =
+      if withPythonDefaultEnv
+      then
+        builtins.derivation {
+          name = "python-default-env";
+          system = system;
+          pythonVersion = "3.13";
+          builder = "/bin/sh";
+          args = ["-c" "mkdir -p $out/bin && touch $out/bin/pytest $out/bin/mypy $out/bin/ruff $out"];
+        }
+      else null;
+
     perSystem = {pkgs, ...}: {
       _module.args.pythonWorkspace = mkPythonWorkspaceStub pkgs;
       _module.args.jackpkgsProjectRoot = projectRoot;
@@ -170,8 +192,13 @@
   mkChecks = {
     configModule,
     projectRoot ? pythonWorkspace,
+    withPythonDefaultEnv ? false,
   }: let
-    eval = evalFlake [baseModule configModule (perSystemArgs projectRoot)];
+    eval = evalFlake [
+      baseModule
+      configModule
+      (perSystemArgs {inherit projectRoot withPythonDefaultEnv;})
+    ];
     perSystemCfg = eval.config.perSystem system;
   in
     perSystemCfg.checks or {};
@@ -180,7 +207,11 @@
     configModule,
     projectRoot ? pythonWorkspace,
   }: let
-    eval = evalFlakeNoMock [baseModule configModule (perSystemArgs projectRoot)];
+    eval = evalFlakeNoMock [
+      baseModule
+      configModule
+      (perSystemArgs {inherit projectRoot;})
+    ];
     perSystemCfg = eval.config.perSystem system;
   in
     perSystemCfg.checks or {};
@@ -300,7 +331,7 @@ in {
     script = getBuildCommand checks.pytest;
   in {
     expr =
-      hasInfixAll ["PYTHONPATH=" "COVERAGE_FILE=" "pytest" "--import-mode=importlib" "--color=yes" "-v"] script;
+      hasInfixAll ["PYTHONPATH=" "COVERAGE_FILE=" "/bin/pytest" "--color=yes" "-v"] script;
     expected = true;
   };
 
@@ -310,7 +341,7 @@ in {
     };
     script = getBuildCommand checks.pytest;
   in {
-    expr = hasInfixAll ["pytest" "--import-mode=importlib"] script;
+    expr = hasInfixAll ["/bin/pytest" "--import-mode=importlib"] script;
     expected = true;
   };
 
@@ -324,7 +355,7 @@ in {
     script = getBuildCommand checks.mypy;
   in {
     expr =
-      hasInfixAll ["PYTHONPATH=" "MYPY_CACHE_DIR=" "mypy" "--strict"] script;
+      hasInfixAll ["PYTHONPATH=" "MYPY_CACHE_DIR=" "/bin/mypy" "--strict"] script;
     expected = true;
   };
 
@@ -389,7 +420,20 @@ in {
     };
     script = getBuildCommand checks.ruff;
   in {
-    expr = hasInfixAll ["ruff check" "--no-cache"] script;
+    expr = hasInfixAll ["/bin/ruff" "check" "--no-cache"] script;
+    expected = true;
+  };
+
+  testPythonChecksPreferDefaultEnv = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+      withPythonDefaultEnv = true;
+    };
+    script = getBuildCommand checks.pytest;
+  in {
+    expr =
+      lib.hasInfix "python-default-env/bin/pytest" script
+      && lib.hasInfix "/lib/python3.13/site-packages" script;
     expected = true;
   };
 
