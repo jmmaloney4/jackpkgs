@@ -200,6 +200,7 @@ in {
     - `adr.enable` (default `true`)
     - `adr.directory` (default `docs/internal/decisions`)
     - `adr.package` (default `config.packages."adr-conflict-check"`)
+    - `adr.allowSkipped` (list of 3-digit strings, default `[]`; legacy ADR gaps to suppress, e.g. `["017" "018"]`)
     - `python.mypy.package` (dev-tools env selection: prefers non-editable env with `includeGroups = true`; falls back to `pythonDefaultEnv`, then `pkgs.mypy`)
     - `python.mypy.tyPackage` (defaults to `pkgs.ty`; used when `typeChecker = "ty"`)
     - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package` (each defaults to `python.mypy.package`)

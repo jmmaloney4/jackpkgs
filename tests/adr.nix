@@ -16,10 +16,11 @@
     name,
     fixture,
     shouldPass,
+    extraArgs ? [],
   }:
     pkgs.runCommand "adr-conflict-check-${name}" {} ''
       set +e
-      ${pkgs.lib.getExe adr-conflict-check} --adr-dir "${fixtureRoot}/${fixture}"
+      ${pkgs.lib.getExe adr-conflict-check} --adr-dir "${fixtureRoot}/${fixture}" ${pkgs.lib.escapeShellArgs extraArgs}
       rc=$?
       set -e
       ${
@@ -81,4 +82,17 @@ in {
     fixture = "adr-spaces";
     shouldPass = true;
   };
+
+  # A gap in the sequence is allowed when the missing number is declared
+  # via --allow-skipped (legacy grandfathering).
+  allowSkipped = mkAdrTest {
+    name = "allow-skipped";
+    fixture = "adr-allow-skipped";
+    shouldPass = true;
+    extraArgs = ["--allow-skipped" "002"];
+  };
+
+  # index.md must not be flagged as malformed — it's a structural index page.
+  # This is covered by the allow-skipped fixture which includes index.md.
+  # The test passes because index.md is skipped and the gap is allowed.
 }
