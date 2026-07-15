@@ -6,6 +6,7 @@
 #   2. Duplicate numbers    – two or more files share the same NNN prefix
 #   3. Skipped numbers      – gaps in the NNN sequence (000 is reserved for
 #                             the template and is excluded from gap detection)
+#   4. Allowed skips        – explicit legacy gaps declared by the caller
 #
 # Exit 0 on success, exit 1 if any violation is found.
 
@@ -13,6 +14,7 @@ set -euo pipefail
 
 # ── defaults ────────────────────────────────────────────────────────────────
 ADR_DIR="docs/internal/decisions"
+ALLOW_SKIPPED_RAW=""
 
 # ── argument parsing ─────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -25,11 +27,20 @@ while [[ $# -gt 0 ]]; do
     ADR_DIR="${1#--adr-dir=}"
     shift
     ;;
+  --allow-skipped)
+    ALLOW_SKIPPED_RAW="$2"
+    shift 2
+    ;;
+  --allow-skipped=*)
+    ALLOW_SKIPPED_RAW="${1#--allow-skipped=}"
+    shift
+    ;;
   -h | --help)
     echo "Usage: adr-conflict-check [--adr-dir <path>]"
     echo ""
     echo "Options:"
     echo "  --adr-dir <path>  Directory containing ADR files (default: docs/internal/decisions)"
+    echo "  --allow-skipped <csv>  Comma-separated ADR numbers allowed to be missing (e.g. 017,018,024)"
     exit 0
     ;;
   *)
@@ -39,6 +50,29 @@ while [[ $# -gt 0 ]]; do
     ;;
   esac
 done
+
+declare -A allowed_skipped=()
+if [[ -n $ALLOW_SKIPPED_RAW ]]; then
+  IFS=',' read -r -a allowed_parts <<<"$ALLOW_SKIPPED_RAW"
+  for raw_part in "${allowed_parts[@]}"; do
+    part="$(printf '%s' "$raw_part" | tr -d '[:space:]')"
+    [[ -z $part ]] && continue
+
+    if [[ ! $part =~ ^[0-9]{3}$ ]]; then
+      echo "adr-conflict-check: invalid allowed skipped ADR number: $part" >&2
+      echo "Expected zero-padded 3-digit numbers, e.g. 017,018,024" >&2
+      exit 1
+    fi
+
+    dec=$((10#$part))
+    if [[ $dec -eq 0 ]]; then
+      echo "adr-conflict-check: 000 cannot be listed in --allow-skipped" >&2
+      exit 1
+    fi
+
+    allowed_skipped["$dec"]=1
+  done
+fi
 
 # ── resolve directory ────────────────────────────────────────────────────────
 if [[ ! -d $ADR_DIR ]]; then
@@ -64,8 +98,8 @@ malformed=()
 for f in "${md_files[@]}"; do
   base="$(basename "$f")"
 
-  # Skip README.md entirely – not an ADR.
-  [[ $base == "README.md" ]] && continue
+  # Skip structural markdown files that are not ADR records.
+  [[ $base == "README.md" || $base == "index.md" ]] && continue
 
   # Extract leading NNN (exactly 3 digits).
   if [[ $base =~ ^([0-9]{3})- ]]; then
@@ -135,7 +169,7 @@ if [[ ${#real_nums[@]} -gt 0 ]]; then
 
   gaps=()
   for ((i = min; i <= max; i++)); do
-    if [[ ! -v num_set["$i"] ]]; then
+    if [[ ! -v num_set["$i"] && ! -v allowed_skipped["$i"] ]]; then
       # Format as 3-digit zero-padded for display
       gaps+=("$(printf '%03d' "$i")")
     fi

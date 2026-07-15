@@ -295,6 +295,21 @@ in {
             defaultText = "jackpkgsInputs.self.packages.${pkgs.stdenv.hostPlatform.system}.\"adr-conflict-check\"";
             description = "The `adr-conflict-check` package to use.";
           };
+
+          allowSkipped = mkOption {
+            type = types.listOf types.str;
+            default = [];
+            example = ["017" "018" "024"];
+            description = ''
+              ADR numbers (zero-padded 3-digit strings) that are allowed to
+              be missing from the sequence.  Use this to grandfather legacy
+              gaps from before the hook was enforced, without creating
+              tombstone placeholder ADRs.
+
+              Each entry must be a valid 3-digit number (e.g. `"017"`).
+              Passed as `--allow-skipped` to `adr-conflict-check`.
+            '';
+          };
         };
       };
     });
@@ -656,7 +671,7 @@ in {
           settings.hooks.adr-conflict-check = {
             enable = sysCfg.adr.enable;
             package = sysCfg.adr.package;
-            entry = "${lib.getExe sysCfg.adr.package} --adr-dir ${lib.escapeShellArg sysCfg.adr.directory}";
+            entry = "${lib.getExe sysCfg.adr.package} --adr-dir ${lib.escapeShellArg sysCfg.adr.directory}${lib.optionalString (sysCfg.adr.allowSkipped != []) " --allow-skipped ${lib.escapeShellArg (lib.concatStringsSep "," sysCfg.adr.allowSkipped)}"}";
             files = "\\.md$";
             pass_filenames = false;
           };

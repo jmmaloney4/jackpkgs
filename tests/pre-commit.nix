@@ -472,6 +472,24 @@ in {
     expected = false;
   };
 
+  testAdrHookAllowSkippedForwarded = let
+    hooks = getHooks [
+      (mkConfigModule {
+        perSystemConfig.jackpkgs.pre-commit.adr.allowSkipped = ["017" "018" "024"];
+      })
+    ];
+  in {
+    expr = hasInfixAll ["--allow-skipped" "017,018,024"] hooks.adr-conflict-check.entry;
+    expected = true;
+  };
+
+  testAdrHookNoAllowSkippedByDefault = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = ! lib.hasInfix "--allow-skipped" hooks.adr-conflict-check.entry;
+    expected = true;
+  };
+
   testNbqaRuffHookDisabledByDefault = let
     hooks = getHooks [(mkConfigModule {})];
   in {
