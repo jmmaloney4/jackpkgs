@@ -59,7 +59,7 @@
   in
     lib.concatStringsSep "\n" (
       ["# ${comment}" "${name}:"]
-      ++ map (cmd: "    ${cmd}") processedCommands
+      ++ lib.concatMap (cmd: map (line: "    ${line}") (lib.splitString "\n" cmd)) processedCommands
       ++ [""]
     );
 
