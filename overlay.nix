@@ -26,6 +26,7 @@ else let
   # Define packages inline instead of importing default.nix
   allPackages = {
     csharpier = super.callPackage ./pkgs/csharpier {};
+    biome = super.callPackage ./pkgs/biome {};
     codex-proxy = super.callPackage ./pkgs/codex-proxy {
       inherit (nvfetcherSources.codex-proxy) src version;
     };

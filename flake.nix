@@ -119,6 +119,7 @@
         );
         allPackages = {
           csharpier = pkgs.callPackage ./pkgs/csharpier {};
+          biome = pkgs.callPackage ./pkgs/biome {};
           codex-proxy = pkgs.callPackage ./pkgs/codex-proxy {
             inherit (nvfetcherSources.codex-proxy) src version;
           };
