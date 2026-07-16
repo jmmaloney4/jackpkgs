@@ -130,6 +130,56 @@ in {
     expected = true;
   };
 
+  testPulumiPreviewHasSummaryFunctionAndOutput = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        stacks = defaultStacks;
+      })
+    ];
+    justfile = perSystemCfg.jackpkgs.outputs.pulumiJustfile;
+  in {
+    expr =
+      hasInfixAll [
+        "run_preview()"
+        "preview_summaries=()"
+        "preview_summaries+=(\"\${project_path} (\${stack_name})"
+        "📊 Preview summary:"
+        "for summary in \"\${preview_summaries[@]}\""
+      ]
+      justfile;
+    expected = true;
+  };
+
+  testPulumiPreviewUsesRunPreviewFunction = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        stacks = defaultStacks;
+      })
+    ];
+    justfile = perSystemCfg.jackpkgs.outputs.pulumiJustfile;
+    # The preview recipe ends before the deploy recipe begins.
+    previewSection = lib.head (lib.splitString "\ndeploy " justfile);
+  in {
+    expr =
+      # The function is defined once in the preview recipe body.
+      lib.count (lib.hasInfix "run_preview") (lib.splitString "\n" previewSection)
+      >= 3; # function definition + 1 call site (single-stack default config)
+    expected = true;
+  };
+
+  testPulumiPreviewSummaryFormat = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        stacks = defaultStacks;
+      })
+    ];
+    justfile = perSystemCfg.jackpkgs.outputs.pulumiJustfile;
+  in {
+    # Summary line format: path (stack) +N/+-N/~N/-N
+    expr = lib.hasInfix "+\${create_count}/+-\${replace_count}/~\${update_count}/-\${delete_count}" justfile;
+    expected = true;
+  };
+
   testPulumiShellHookEscapesValuesWithSpecialChars = let
     scaryUrl = "s3://bucket/path?query=1&flag=true";
     scarySecret = "passphrase's complex value";
