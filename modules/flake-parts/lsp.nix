@@ -106,7 +106,20 @@ in {
       tsWanted = cfg.typescript.backend != "none" && (nodejsEnabled || pulumiEnabled);
       tsPackages =
         if cfg.typescript.backend == "tsgo"
-        then [jpkgs.typescript-go]
+        then
+          # Fail loudly and actionably if the consumer's nixpkgs predates
+          # `typescript-go` (added ~2025-11), rather than a bare
+          # "attribute 'typescript-go' missing" — and never silently drop
+          # the LSP, which is the bug this backend previously had.
+          if jpkgs ? typescript-go
+          then [jpkgs.typescript-go]
+          else
+            throw ''
+              jackpkgs.lsp: typescript.backend = "tsgo" requires a nixpkgs that
+              provides the `typescript-go` package (added to nixpkgs ~2025-11).
+              The nixpkgs behind `jackpkgs.pkgs` does not have it. Advance that
+              nixpkgs pin, or set typescript.backend = "typescript-language-server".
+            ''
         else [jpkgs.typescript-language-server jpkgs.typescript];
 
       pyWanted = cfg.python.backend != "none" && pythonEnabled;

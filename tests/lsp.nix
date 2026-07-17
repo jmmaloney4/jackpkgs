@@ -174,6 +174,39 @@ in {
     expected = true;
   };
 
+  # When the tsgo backend is selected but the consumer's nixpkgs lacks
+  # `typescript-go`, eval must fail loudly rather than silently drop the LSP.
+  # Silent-empty was the original bug; this guarantees we never regress to it,
+  # even in the missing-attr case.
+  testLspTsgoBackendThrowsWhenTypescriptGoAbsent = let
+    perSystem = getPerSystem [
+      pkgsModule
+      shellModule
+      nodejsModule
+      lspModule
+      mkNodeConfig
+      {
+        _module.check = false;
+        jackpkgs.lsp.enable = true;
+        jackpkgs.lsp.typescript.backend = "tsgo";
+        # jackpkgs.pkgs is a perSystem option, so it must be overridden inside
+        # perSystem — a top-level set would be silently dropped by check=false.
+        perSystem = {
+          system,
+          lib,
+          ...
+        }: {
+          jackpkgs.pkgs =
+            lib.mkForce (removeAttrs inputs.nixpkgs.legacyPackages.${system} ["typescript-go"]);
+        };
+      }
+    ];
+    eval = builtins.tryEval (builtins.length perSystem.jackpkgs.shell.packages);
+  in {
+    expr = eval.success;
+    expected = false;
+  };
+
   testLspDoesNotAddTypescriptByDefaultWithoutNodeOrPulumi = let
     perSystem = getPerSystem [
       pkgsModule
