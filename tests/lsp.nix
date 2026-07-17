@@ -132,6 +132,89 @@ in {
     expected = true;
   };
 
+  # Regression: `backend = "tsgo"` must resolve to the nixpkgs `typescript-go`
+  # package. This previously guarded on a `tsgo` attr that nixpkgs never
+  # defines, so the backend silently produced no TypeScript LSP at all.
+  testLspAddsTsgoWhenBackendIsTsgo = let
+    perSystem = getPerSystem [
+      pkgsModule
+      shellModule
+      nodejsModule
+      lspModule
+      mkNodeConfig
+      {
+        _module.check = false;
+        jackpkgs.lsp.enable = true;
+        jackpkgs.lsp.typescript.backend = "tsgo";
+      }
+    ];
+    packages = perSystem.jackpkgs.shell.packages;
+  in {
+    expr = hasPackageNamed "typescript-go" packages;
+    expected = true;
+  };
+
+  # The tsgo backend replaces the tsserver stack rather than supplementing it.
+  testLspTsgoBackendExcludesTypescriptLanguageServer = let
+    perSystem = getPerSystem [
+      pkgsModule
+      shellModule
+      nodejsModule
+      lspModule
+      mkNodeConfig
+      {
+        _module.check = false;
+        jackpkgs.lsp.enable = true;
+        jackpkgs.lsp.typescript.backend = "tsgo";
+      }
+    ];
+    packages = perSystem.jackpkgs.shell.packages;
+  in {
+    expr = !(hasPackageNamed "typescript-language-server" packages);
+    expected = true;
+  };
+
+  # When the tsgo backend is selected but the consumer's nixpkgs lacks
+  # `typescript-go`, eval must fail loudly rather than silently drop the LSP.
+  # Silent-empty was the original bug; this guarantees we never regress to it,
+  # even in the missing-attr case.
+  testLspTsgoBackendThrowsWhenTypescriptGoAbsent = let
+    perSystem = getPerSystem [
+      pkgsModule
+      shellModule
+      nodejsModule
+      lspModule
+      mkNodeConfig
+      {
+        _module.check = false;
+        jackpkgs.lsp.enable = true;
+        jackpkgs.lsp.typescript.backend = "tsgo";
+        # jackpkgs.pkgs is a perSystem option, so it must be overridden inside
+        # perSystem — a top-level set would be silently dropped by check=false.
+        perSystem = {
+          system,
+          lib,
+          ...
+        }: {
+          jackpkgs.pkgs =
+            lib.mkForce (removeAttrs inputs.nixpkgs.legacyPackages.${system} ["typescript-go"]);
+        };
+      }
+    ];
+    # deepSeq the package names (not builtins.length): length forces only the
+    # list spine, so it catches a throw at the list-value level (today's case)
+    # but would silently miss a throw that ever moved to an element. Forcing
+    # each pname is robust to that refactor without building the derivations.
+    eval = builtins.tryEval (
+      builtins.deepSeq
+      (map (p: p.pname or p.name or "") perSystem.jackpkgs.shell.packages)
+      true
+    );
+  in {
+    expr = eval.success;
+    expected = false;
+  };
+
   testLspDoesNotAddTypescriptByDefaultWithoutNodeOrPulumi = let
     perSystem = getPerSystem [
       pkgsModule

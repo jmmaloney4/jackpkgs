@@ -31,8 +31,15 @@ in {
           TypeScript/JavaScript LSP backend.
 
           `tsgo` is the native Go compiler from TypeScript 7 — far lighter
-          than tsserver. It is not yet in nixpkgs; set this to `"tsgo"`
-          only if you provide `tsgo` via an overlay or `extraPackages`.
+          than tsserver. It comes from the nixpkgs `typescript-go` package
+          and serves LSP via `tsgo --lsp --stdio`.
+
+          Note that `typescript-go` also provides `tsc` as a symlink to the
+          same binary, so selecting `"tsgo"` puts the TypeScript 7 compiler
+          on PATH in place of nixpkgs `typescript`. Repos pinned to
+          TypeScript 6 should keep that in mind when invoking bare `tsc`
+          from the devshell.
+
           Defaults to `"typescript-language-server"` (the current
           tsserver-based LSP) for broad compatibility.
         '';
@@ -100,10 +107,19 @@ in {
       tsPackages =
         if cfg.typescript.backend == "tsgo"
         then
-          # tsgo is not yet in nixpkgs; the consumer must provide it via
-          # overlay or extraPackages. This guard prevents an eval failure
-          # when the attr is absent.
-          lib.optional (jpkgs ? tsgo) jpkgs.tsgo
+          # Fail loudly and actionably if the consumer's nixpkgs predates
+          # `typescript-go` (added ~2025-11), rather than a bare
+          # "attribute 'typescript-go' missing" — and never silently drop
+          # the LSP, which is the bug this backend previously had.
+          if jpkgs ? typescript-go
+          then [jpkgs.typescript-go]
+          else
+            throw ''
+              jackpkgs.lsp: typescript.backend = "tsgo" requires a nixpkgs that
+              provides the `typescript-go` package (added to nixpkgs ~2025-11).
+              The nixpkgs behind `jackpkgs.pkgs` does not have it. Advance that
+              nixpkgs pin, or set typescript.backend = "typescript-language-server".
+            ''
         else [jpkgs.typescript-language-server jpkgs.typescript];
 
       pyWanted = cfg.python.backend != "none" && pythonEnabled;

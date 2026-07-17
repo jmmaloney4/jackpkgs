@@ -9,19 +9,24 @@ Accepted
 - Jackpkgs consumers (zeus, garden, yard) depend on Nix for all tooling —
   formatters, linters, compilers, language servers. The canonical source for
   these packages is nixpkgs.
+
 - nixpkgs package updates lag behind upstream releases. Typical delay ranges
   from days to weeks depending on the package's maintainer activity and PR
   review throughput in nixpkgs.
+
 - When a pinned tool version in nixpkgs has a bug that blocks CI or corrupts
   output, consumers cannot wait for nixpkgs to catch up. They need an immediate
   fix.
+
 - **Triggering case:** Biome `2.5.0` (the version in nixpkgs as of 2026-07-15)
   has a nondeterministic workspace-worker panic that corrupts JSON files during
   `biome check --write` in large monorepos under the Nix sandbox. The panic
   manifests as:
+
   ```
   could not downcast root node to language biome_js_syntax::syntax_node::JsLanguage
   ```
+
   After the panic, Biome rewrites some JSON files as if they were JavaScript,
   producing garbage like `("extends"); : "./tsconfig.base.json"`.
 
@@ -164,11 +169,11 @@ Out of scope:
 ### Phase 1 — Biome override (this ADR)
 
 - [x] Create `pkgs/biome/default.nix` as a standalone `buildRustPackage`
-      mirroring the nixpkgs `pkgs/by-name/bi/biome/package.nix`.
+  mirroring the nixpkgs `pkgs/by-name/bi/biome/package.nix`.
 - [x] Override `version` to `2.5.4`, `src` to the
-      `@biomejs/biome@2.5.4` tag.
+  `@biomejs/biome@2.5.4` tag.
 - [x] Compute `cargoHash` via trial build (use the hash Nix reports, not
-      `cargo vendor` output).
+  `cargo vendor` output).
 - [x] Expose via `overlay.nix` and `flake.nix`.
 - [x] Verify `nix build .#biome` produces a `2.5.4` binary.
 - [ ] Bump zeus's jackpkgs input and validate `nix flake check`.
