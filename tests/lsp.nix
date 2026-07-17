@@ -201,7 +201,15 @@ in {
         };
       }
     ];
-    eval = builtins.tryEval (builtins.length perSystem.jackpkgs.shell.packages);
+    # deepSeq the package names (not builtins.length): length forces only the
+    # list spine, so it catches a throw at the list-value level (today's case)
+    # but would silently miss a throw that ever moved to an element. Forcing
+    # each pname is robust to that refactor without building the derivations.
+    eval = builtins.tryEval (
+      builtins.deepSeq
+      (map (p: p.pname or p.name or "") perSystem.jackpkgs.shell.packages)
+      true
+    );
   in {
     expr = eval.success;
     expected = false;
