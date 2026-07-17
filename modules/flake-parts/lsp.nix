@@ -31,8 +31,15 @@ in {
           TypeScript/JavaScript LSP backend.
 
           `tsgo` is the native Go compiler from TypeScript 7 — far lighter
-          than tsserver. It is not yet in nixpkgs; set this to `"tsgo"`
-          only if you provide `tsgo` via an overlay or `extraPackages`.
+          than tsserver. It comes from the nixpkgs `typescript-go` package
+          and serves LSP via `tsgo --lsp --stdio`.
+
+          Note that `typescript-go` also provides `tsc` as a symlink to the
+          same binary, so selecting `"tsgo"` puts the TypeScript 7 compiler
+          on PATH in place of nixpkgs `typescript`. Repos pinned to
+          TypeScript 6 should keep that in mind when invoking bare `tsc`
+          from the devshell.
+
           Defaults to `"typescript-language-server"` (the current
           tsserver-based LSP) for broad compatibility.
         '';
@@ -99,11 +106,7 @@ in {
       tsWanted = cfg.typescript.backend != "none" && (nodejsEnabled || pulumiEnabled);
       tsPackages =
         if cfg.typescript.backend == "tsgo"
-        then
-          # tsgo is not yet in nixpkgs; the consumer must provide it via
-          # overlay or extraPackages. This guard prevents an eval failure
-          # when the attr is absent.
-          lib.optional (jpkgs ? tsgo) jpkgs.tsgo
+        then [jpkgs.typescript-go]
         else [jpkgs.typescript-language-server jpkgs.typescript];
 
       pyWanted = cfg.python.backend != "none" && pythonEnabled;

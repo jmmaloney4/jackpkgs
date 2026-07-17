@@ -132,6 +132,48 @@ in {
     expected = true;
   };
 
+  # Regression: `backend = "tsgo"` must resolve to the nixpkgs `typescript-go`
+  # package. This previously guarded on a `tsgo` attr that nixpkgs never
+  # defines, so the backend silently produced no TypeScript LSP at all.
+  testLspAddsTsgoWhenBackendIsTsgo = let
+    perSystem = getPerSystem [
+      pkgsModule
+      shellModule
+      nodejsModule
+      lspModule
+      mkNodeConfig
+      {
+        _module.check = false;
+        jackpkgs.lsp.enable = true;
+        jackpkgs.lsp.typescript.backend = "tsgo";
+      }
+    ];
+    packages = perSystem.jackpkgs.shell.packages;
+  in {
+    expr = hasPackageNamed "typescript-go" packages;
+    expected = true;
+  };
+
+  # The tsgo backend replaces the tsserver stack rather than supplementing it.
+  testLspTsgoBackendExcludesTypescriptLanguageServer = let
+    perSystem = getPerSystem [
+      pkgsModule
+      shellModule
+      nodejsModule
+      lspModule
+      mkNodeConfig
+      {
+        _module.check = false;
+        jackpkgs.lsp.enable = true;
+        jackpkgs.lsp.typescript.backend = "tsgo";
+      }
+    ];
+    packages = perSystem.jackpkgs.shell.packages;
+  in {
+    expr = !(hasPackageNamed "typescript-language-server" packages);
+    expected = true;
+  };
+
   testLspDoesNotAddTypescriptByDefaultWithoutNodeOrPulumi = let
     perSystem = getPerSystem [
       pkgsModule
