@@ -19,15 +19,15 @@
   };
   codex-proxy-rs = {
     pname = "codex-proxy-rs";
-    version = "5fb6560078521cdb97a80b37695be99ebe72d20c";
+    version = "f4fef760c5ede38a99f057c4dae86f2429747946";
     src = fetchFromGitHub {
       owner = "jmmaloney4";
       repo = "codex-proxy-rs";
-      rev = "5fb6560078521cdb97a80b37695be99ebe72d20c";
+      rev = "f4fef760c5ede38a99f057c4dae86f2429747946";
       fetchSubmodules = false;
-      sha256 = "sha256-CiEzfh7QNnNnJJuJIKl274E1StYzKX5quMBYa/sTK1U=";
+      sha256 = "sha256-3PjOeH64EuiVHp+UfTQL8cNelP7WQlC/7mhLW38mL8E=";
     };
-    date = "2026-07-18";
+    date = "2026-07-19";
   };
   dbn-cli = {
     pname = "dbn-cli";
