@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -13,17 +13,20 @@ Proposed
   `default`), else fall back to the `provideDevTools` helper
   (`lib/python-env-selection.nix`), else synthesize an all-groups
   `python-ci-checks` env.
+
 - The pre-commit and just modules resolve their tool environment through
   `selectDevToolsPackage` (`lib/python-env-selection.nix:58-73`,
   consumed at `pre-commit.nix:498` and `just.nix:207,214`) with the
   **opposite preference order**: devtools env first, `pythonDefaultEnv`
   second. The same concept — "which env carries the quality-gate tools" —
   is answered by two divergent code paths.
+
 - The `default`-first preference in `checks.nix` (introduced in `303c371`)
   assumes the default env carries dev tools via the workspace spec. Both
   known consumers structure their environments the other way — a
   runtime-only `default` plus a leaned-down dev-tools env — and both were
   forced into the identical sledgehammer workaround:
+
   - `cavinsresearch/zeus` `flake.nix:394`:
     `jackpkgs.outputs.pythonDefaultEnv = lib.mkForce ...pythonEnvironments.dev;`
   - `jmmaloney4/garden` `flake.nix:381`: same `mkForce`, with a comment
@@ -34,12 +37,15 @@ Proposed
   currently depends on the distinction. Without it, checks silently resolve
   against a runtime-only env and fail with `pytest: command not found` (or
   worse, run against an env missing dev-only stubs).
+
 - One per-check escape hatch already exists and works:
   `checks.python.numpydoc.package` (`checks.nix:177-195`, resolution at
   `checks.nix:617-620`). It is the precedent this ADR generalizes.
+
 - `pythonVersion` (and thus `PYTHONPATH`) is derived once from the shared
   env (`checks.nix:570-576`). This is a latent bug the moment any two
   checks resolve against environments with different interpreters.
+
 - Downstream motivation (zeus): checks should run against tightly-scoped
   environments so that operator-facing environments (research/notebook
   tooling) can grow without fattening the CI check closure or gaining the
