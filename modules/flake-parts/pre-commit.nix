@@ -13,7 +13,6 @@
   jackpkgsPythonCfg = config.jackpkgs.python or {};
   checksOptionsDefined = lib.hasAttrByPath ["jackpkgs" "checks"] options;
   checksCfg = lib.attrByPath ["jackpkgs" "checks"] {} config;
-  mypyDeprecationWarning = ''echo 'WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = "ty"' >&2'';
 in {
   imports = [
     jackpkgsInputs.pre-commit-hooks.flakeModule
@@ -56,35 +55,40 @@ in {
         };
 
         python = {
-          mypy = {
-            package = mkOption {
+          ty = {
+            environment = mkOption {
               type = types.package;
-              default = config.jackpkgs.pkgs.mypy;
+              default = config.jackpkgs.pkgs.python3;
               defaultText = ''
                 Dev-tools Python env (same precedence as `checks.nix`):
-                1. `jackpkgs.python.environments.dev` if non-editable and `includeGroups = true`
-                2. Any non-editable `jackpkgs.python.environments.*` with `includeGroups = true`
-                3. Auto-created env with `includeGroups = true` (via `pythonWorkspace`)
-                4. `config.jackpkgs.outputs.pythonDefaultEnv` (when defined)
-                5. `config.jackpkgs.pkgs.mypy`
+                1. `jackpkgs.checks.python.environment` (the global override), when set
+                2. `jackpkgs.python.environments.dev` if non-editable and `includeGroups = true`
+                3. Any non-editable `jackpkgs.python.environments.*` with `includeGroups = true`
+                4. Auto-created env with `includeGroups = true` (via `pythonWorkspace`)
+                5. `config.jackpkgs.outputs.pythonDefaultEnv` (when defined)
+                6. `config.jackpkgs.pkgs.python3` (a bare interpreter — a valid
+                   `ty --python` target for repos with no configured Python env)
               '';
               description = ''
-                mypy package (or Python environment containing mypy) to use for
-                the pre-commit mypy hook.
+                Shared dev-tools Python environment for the pre-commit Python
+                hooks. It is ty's `--python` resolution target and the default
+                environment inherited by the ruff/pytest/numpydoc hooks.
 
                 Defaults to the same dev-tools environment selection used by
-                `checks.nix` CI checks, preferring a non-editable environment
-                with dependency groups enabled.
+                `checks.nix` CI checks (preferring
+                `jackpkgs.checks.python.environment` when set), so one
+                declaration keeps CI, pre-commit, and just in sync.
               '';
             };
 
-            tyPackage = mkOption {
+            package = mkOption {
               type = types.package;
               default = config.jackpkgs.pkgs.ty;
               defaultText = "config.jackpkgs.pkgs.ty";
               description = ''
-                `ty` binary package to use when `jackpkgs.checks.python.mypy.typeChecker = "ty"`.
-                Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs).
+                `ty` binary package for the pre-commit ty hook. Defaults to
+                `config.jackpkgs.pkgs.ty` (nixpkgs). Distinct from
+                `ty.environment`, which is the interpreter tree ty analyses.
               '';
             };
           };
@@ -92,14 +96,14 @@ in {
           ruff = {
             package = mkOption {
               type = types.package;
-              default = config.jackpkgs.pre-commit.python.mypy.package;
+              default = config.jackpkgs.pre-commit.python.ty.environment;
               defaultText = ''
-                Follows the resolved `mypy` hook package (shared dev-tools env or
+                Follows the resolved `ty.environment` (shared dev-tools env or
                 custom override), except it substitutes the standalone
-                `config.jackpkgs.pkgs.ruff` whenever `mypy` resolves to the bare
-                `config.jackpkgs.pkgs.mypy` (which has no `ruff` executable) —
-                whether via fallback or an explicit pin. Set this option directly
-                to override.
+                `config.jackpkgs.pkgs.ruff` whenever `ty.environment` resolves
+                to the bare `config.jackpkgs.pkgs.ty` (which has no `ruff`
+                executable) — whether via fallback or an explicit pin. Set this
+                option directly to override.
               '';
               description = "ruff package (or Python environment containing ruff) to use.";
             };
@@ -108,8 +112,8 @@ in {
           pytest = {
             package = mkOption {
               type = types.package;
-              default = config.jackpkgs.pre-commit.python.mypy.package;
-              defaultText = "config.jackpkgs.pre-commit.python.mypy.package";
+              default = config.jackpkgs.pre-commit.python.ty.environment;
+              defaultText = "config.jackpkgs.pre-commit.python.ty.environment";
               description = "pytest package (or Python environment containing pytest) to use.";
             };
           };
@@ -117,8 +121,8 @@ in {
           numpydoc = {
             package = mkOption {
               type = types.package;
-              default = config.jackpkgs.pre-commit.python.mypy.package;
-              defaultText = "config.jackpkgs.pre-commit.python.mypy.package";
+              default = config.jackpkgs.pre-commit.python.ty.environment;
+              defaultText = "config.jackpkgs.pre-commit.python.ty.environment";
               description = ''
                 Python package (or environment) that provides
                 `python -m numpydoc.hooks.validate_docstrings`.
@@ -495,7 +499,7 @@ in {
               vitestPackages}
           '';
         });
-        preCommitMypyPackageDefault = pythonEnvHelpers.selectDevToolsPackage {
+        preCommitTyEnvironmentDefault = pythonEnvHelpers.selectDevToolsPackage {
           pythonCfg = jackpkgsPythonCfg;
           pythonWorkspace = config._module.args.pythonWorkspace or null;
           pythonEnvOutputs = let
@@ -503,6 +507,9 @@ in {
             fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonEnvironments"] {} config;
           in
             fromFlake // fromSystem;
+          # ADR 045 §6: the global `checks.python.environment` wins first, so
+          # a single declaration steers checks, pre-commit, and just alike.
+          globalEnvironment = lib.attrByPath ["python" "environment"] null checksCfg;
           pythonDefaultEnv = let
             fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
             fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null moduleTop.config;
@@ -510,28 +517,30 @@ in {
             if fromSystem != null
             then fromSystem
             else fromFlake;
-          fallbackPackage = config.jackpkgs.pkgs.mypy;
+          # A bare interpreter — for repos with no configured Python env this is
+          # still a valid `ty --python` target (unlike the ty binary package).
+          fallbackPackage = config.jackpkgs.pkgs.python3;
         };
-        # ruff inherits the RESOLVED mypy package — a shared dev-tools env or a
-        # custom `mypy.package` override — so the shared-env behavior is
+        # ruff inherits the RESOLVED ty environment — a shared dev-tools env or a
+        # custom `ty.environment` override — so the shared-env behavior is
         # preserved for any env that actually contains ruff. The one substitution
-        # is when mypy resolves to the bare `pkgs.mypy`: that package has no
-        # `ruff` executable (which broke the hook with "Executable ... not
-        # found"), so ruff uses the standalone `pkgs.ruff` instead (mirrors
-        # just.nix). This triggers whether the bare mypy arrived via the fallback
-        # OR an explicit `mypy.package = pkgs.mypy` pin — correct either way,
-        # since running ruff from a ruff-less package cannot work; pin
+        # is when it resolves to the bare `python3` fallback: that interpreter has
+        # no `ruff` executable (which would break the hook with "Executable ...
+        # not found"), so ruff uses the standalone `pkgs.ruff` instead (mirrors
+        # just.nix). This triggers whether the bare interpreter arrived via the
+        # fallback OR an explicit `ty.environment = pkgs.python3` pin — correct
+        # either way, since running ruff from a ruff-less package cannot work; pin
         # `ruff.package` directly to override. pytest/numpydoc keep inheriting
-        # mypy.package unchanged (no standalone nixpkgs package; both off by
+        # ty.environment unchanged (no standalone nixpkgs package; both off by
         # default).
         preCommitRuffPackageDefault = let
-          mypyPkg = config.jackpkgs.pre-commit.python.mypy.package;
+          tyEnv = config.jackpkgs.pre-commit.python.ty.environment;
         in
-          if mypyPkg == config.jackpkgs.pkgs.mypy
+          if tyEnv == config.jackpkgs.pkgs.python3
           then config.jackpkgs.pkgs.ruff
-          else mypyPkg;
+          else tyEnv;
       in {
-        jackpkgs.pre-commit.python.mypy.package = lib.mkDefault preCommitMypyPackageDefault;
+        jackpkgs.pre-commit.python.ty.environment = lib.mkDefault preCommitTyEnvironmentDefault;
         jackpkgs.pre-commit.python.ruff.package = lib.mkDefault preCommitRuffPackageDefault;
         pre-commit = {
           check.enable = true;
@@ -569,49 +578,25 @@ in {
             pass_filenames = true;
           };
 
-          settings.hooks.mypy = {
-            enable = checksCfg.python.mypy.enable;
-            package =
-              if checksCfg.python.mypy.typeChecker == "ty"
-              then sysCfg.python.mypy.tyPackage
-              else sysCfg.python.mypy.package;
-            # Run the type checker on the whole workspace (same scope as
-            # `just lint` / CI checks) instead of per-staged-file.  When
-            # pass_filenames is true (the default) pre-commit passes only
-            # the staged file paths, and per-file analysis can't resolve the
-            # full type graph.
+          settings.hooks.ty = {
+            enable = checksCfg.python.ty.enable;
+            package = sysCfg.python.ty.package;
+            # Run ty on the whole workspace (same scope as `just lint` / CI
+            # checks) instead of per-staged-file.  When pass_filenames is true
+            # (the default) pre-commit passes only the staged file paths, and
+            # per-file analysis can't resolve the full type graph.
             pass_filenames = false;
-            entry =
-              if checksCfg.python.mypy.typeChecker == "ty"
-              then let
-                mypyPkg = sysCfg.python.mypy.package;
-                tyBin = lib.getExe sysCfg.python.mypy.tyPackage;
-              in
-                lib.getExe (pkgs.writeShellApplication {
-                  name = "ty-hook";
-                  runtimeInputs = [sysCfg.python.mypy.tyPackage];
-                  text = ''
-                    "${tyBin}" check --python "${mypyPkg}"${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
-                  '';
-                })
-              else let
-                mypyPkg = sysCfg.python.mypy.package;
-                pythonVersion =
-                  if jackpkgsPythonCfg ? pythonPackage && jackpkgsPythonCfg.pythonPackage != null
-                  then jackpkgsPythonCfg.pythonPackage.pythonVersion
-                      or (lib.versions.majorMinor jackpkgsPythonCfg.pythonPackage.version or "3.12")
-                  else "3.12";
-              in
-                lib.getExe (pkgs.writeShellApplication {
-                  name = "mypy-hook";
-                  runtimeInputs = [mypyPkg];
-                  text = ''
-                    ${mypyDeprecationWarning}
-                    export PYTHONPATH="${mypyPkg}/lib/python${pythonVersion}/site-packages"
-                    export MYPY_CACHE_DIR="''${TMPDIR:-/tmp}/.mypy_cache"
-                    "${lib.getExe' mypyPkg "mypy"}"${escapeExtraArgs checksCfg.python.mypy.extraArgs} .
-                  '';
-                });
+            entry = let
+              tyEnv = sysCfg.python.ty.environment;
+              tyBin = lib.getExe sysCfg.python.ty.package;
+            in
+              lib.getExe (pkgs.writeShellApplication {
+                name = "ty-hook";
+                runtimeInputs = [sysCfg.python.ty.package];
+                text = ''
+                  "${tyBin}" check --python "${tyEnv}"${escapeExtraArgs checksCfg.python.ty.extraArgs} .
+                '';
+              });
             files = "\\.py$";
             excludes = defaultExcludes.preCommit;
           };

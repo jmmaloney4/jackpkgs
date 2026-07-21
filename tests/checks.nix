@@ -5,6 +5,9 @@
   system = "x86_64-linux";
   flakeParts = inputs.flake-parts.lib;
   libModule = import ../modules/flake-parts/lib.nix {jackpkgsInputs = inputs;};
+  # pkgsModule provides config.jackpkgs.pkgs (needed by the ty check, which
+  # resolves its binary from config.jackpkgs.pkgs.ty).
+  pkgsModule = import ../modules/flake-parts/pkgs.nix {jackpkgsInputs = inputs;};
   checksModule = import ../modules/flake-parts/checks.nix {jackpkgsInputs = inputs;};
 
   pythonWorkspace = ./fixtures/checks/python-workspace;
@@ -89,13 +92,13 @@
   evalFlake = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = [optionsModule libModule moduleArgs] ++ modules ++ [checksModule];
+      imports = [optionsModule libModule pkgsModule moduleArgs] ++ modules ++ [checksModule];
     };
 
   evalFlakeNoMock = modules:
     flakeParts.evalFlakeModule {inherit inputs;} {
       systems = [system];
-      imports = [optionsModule libModule] ++ modules ++ [checksModule];
+      imports = [optionsModule libModule pkgsModule] ++ modules ++ [checksModule];
     };
 
   getChecks = modules: ((evalFlake modules).config.perSystem system).checks or {};
@@ -137,7 +140,7 @@
           system = system;
           pythonVersion = "3.13";
           builder = "/bin/sh";
-          args = ["-c" "mkdir -p $out/bin && touch $out/bin/pytest $out/bin/mypy $out/bin/ruff $out"];
+          args = ["-c" "mkdir -p $out/bin && touch $out/bin/pytest $out/bin/ruff $out/bin/python $out"];
         }
       else null;
 
@@ -235,7 +238,7 @@ in {
       configModule = mkConfigModule {pythonEnable = true;};
     };
   in {
-    expr = hasChecksNamed checks ["pytest" "mypy" "ruff"];
+    expr = hasChecksNamed checks ["pytest" "ty" "ruff"];
     expected = true;
   };
 
@@ -276,7 +279,7 @@ in {
       projectRoot = noWorkspaceFixture;
     };
   in {
-    expr = missingChecksNamed checks ["pytest" "mypy" "ruff" "numpydoc" "tsc"];
+    expr = missingChecksNamed checks ["pytest" "ty" "ruff" "numpydoc" "tsc"];
     expected = true;
   };
 
@@ -345,69 +348,52 @@ in {
     expected = true;
   };
 
-  testPythonMypyScript = let
-    checks = mkChecks {
-      configModule = mkConfigModule {
-        pythonEnable = true;
-        extraConfig.jackpkgs.checks.python.mypy.extraArgs = ["--strict"];
-      };
-    };
-    script = getBuildCommand checks.mypy;
-  in {
-    expr =
-      hasInfixAll ["PYTHONPATH=" "MYPY_CACHE_DIR=" "/bin/mypy" "--strict"] script;
-    expected = true;
-  };
-
-  testPythonMypyRootInvocation = let
-    checks = mkChecks {
-      configModule = mkConfigModule {pythonEnable = true;};
-    };
-    script = getBuildCommand checks.mypy;
-  in {
-    expr =
-      hasInfixAll ["Running mypy (workspace root)..." ''cd "$src"''] script
-      && !lib.hasInfix "/packages/" script;
-    expected = true;
-  };
-
+  # ADR 046: ty is the sole type checker; the check is named `ty`.
   testPythonTyCheckScript = let
     checks = mkChecks {
       configModule = mkConfigModule {
         pythonEnable = true;
-        extraConfig.jackpkgs.checks.python.mypy.typeChecker = "ty";
+        extraConfig.jackpkgs.checks.python.ty.extraArgs = ["--error-on-warning"];
       };
     };
-    script = getBuildCommand checks.mypy;
+    script = getBuildCommand checks.ty;
   in {
     expr =
-      hasInfixAll ["Running ty check (workspace root)..." ''cd "$src"'' "ty check" "--python"] script
-      && !lib.hasInfix "mypy " script;
+      hasInfixAll ["Running ty check (workspace root)..." ''cd "$src"'' "ty check" "--python" "--error-on-warning"] script
+      && !lib.hasInfix "mypy" script;
     expected = true;
   };
 
+  testPythonTyRootInvocation = let
+    checks = mkChecks {
+      configModule = mkConfigModule {pythonEnable = true;};
+    };
+    script = getBuildCommand checks.ty;
+  in {
+    expr =
+      hasInfixAll ["Running ty check (workspace root)..." ''cd "$src"''] script
+      && !lib.hasInfix "/packages/" script;
+    expected = true;
+  };
+
+  # ty is a standalone Rust binary - it should NOT set PYTHONPATH.
   testPythonTyCheckNoPythonpath = let
     checks = mkChecks {
-      configModule = mkConfigModule {
-        pythonEnable = true;
-        extraConfig.jackpkgs.checks.python.mypy.typeChecker = "ty";
-      };
+      configModule = mkConfigModule {pythonEnable = true;};
     };
-    script = getBuildCommand checks.mypy;
+    script = getBuildCommand checks.ty;
   in {
-    # ty is a standalone Rust binary - it should NOT set PYTHONPATH
     expr = !lib.hasInfix "PYTHONPATH=" script;
     expected = true;
   };
 
-  testPythonMypyDefaultDeprecationWarning = let
+  # ADR 046: no `mypy` check output remains.
+  testPythonMypyCheckRemoved = let
     checks = mkChecks {
       configModule = mkConfigModule {pythonEnable = true;};
     };
-    script = getBuildCommand checks.mypy;
   in {
-    # Default mypy path should emit a deprecation warning
-    expr = lib.hasInfix "mypy is deprecated" script;
+    expr = missingCheck checks "mypy";
     expected = true;
   };
 
@@ -490,9 +476,35 @@ in {
     expected = true;
   };
 
-  testPythonNumpydocPackageOverride = let
+  # ADR 045: `numpydoc.environment` selects the numpydoc env.
+  testPythonNumpydocEnvironmentOverride = let
     fakeEnv = builtins.derivation {
       name = "fake-numpydoc-env";
+      system = system;
+      pythonVersion = "3.13";
+      builder = "/bin/sh";
+      args = ["-c" "mkdir -p $out/bin $out/lib/python3.13/site-packages && touch $out/bin/python $out"];
+    };
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.numpydoc = {
+          enable = true;
+          environment = fakeEnv;
+        };
+      };
+    };
+    script = getBuildCommand checks.numpydoc;
+  in {
+    expr = lib.hasInfix "fake-numpydoc-env" script;
+    expected = true;
+  };
+
+  # ADR 045: `numpydoc.package` is a deprecated alias of `.environment` and is
+  # still honored (with an eval-time warning) when set.
+  testPythonNumpydocPackageDeprecatedAlias = let
+    fakeEnv = builtins.derivation {
+      name = "fake-numpydoc-pkg";
       system = system;
       pythonVersion = "3.13";
       builder = "/bin/sh";
@@ -509,7 +521,7 @@ in {
     };
     script = getBuildCommand checks.numpydoc;
   in {
-    expr = lib.hasInfix "fake-numpydoc-env" script;
+    expr = lib.hasInfix "fake-numpydoc-pkg" script;
     expected = true;
   };
 
@@ -936,7 +948,7 @@ in {
         pythonEnable = true;
         checksEnable = true;
         extraConfig.jackpkgs.checks.python.pytest.enable = false;
-        extraConfig.jackpkgs.checks.python.mypy.enable = false;
+        extraConfig.jackpkgs.checks.python.ty.enable = false;
         extraConfig.jackpkgs.checks.python.ruff.enable = false;
         extraConfig.jackpkgs.checks.python.numpydoc.enable = false;
         extraConfig.jackpkgs.checks.beancount.enable = true;
@@ -965,7 +977,7 @@ in {
         pythonEnable = true;
         checksEnable = true;
         extraConfig.jackpkgs.checks.python.pytest.enable = false;
-        extraConfig.jackpkgs.checks.python.mypy.enable = false;
+        extraConfig.jackpkgs.checks.python.ty.enable = false;
         extraConfig.jackpkgs.checks.python.ruff.enable = false;
         extraConfig.jackpkgs.checks.python.numpydoc.enable = false;
         extraConfig.jackpkgs.checks.beancount.enable = true;
@@ -997,7 +1009,7 @@ in {
         pythonEnable = true;
         checksEnable = true;
         extraConfig.jackpkgs.checks.python.pytest.enable = true;
-        extraConfig.jackpkgs.checks.python.mypy.enable = false;
+        extraConfig.jackpkgs.checks.python.ty.enable = false;
         extraConfig.jackpkgs.checks.python.ruff.enable = false;
       };
       projectRoot = pythonWorkspace;
@@ -1135,5 +1147,100 @@ in {
   in {
     expr = hasInfixAll ["jupytext" "--select=E,F" "--pipe-fmt py:percent"] script;
     expected = true;
+  };
+
+  # ============================================================
+  # ADR 045: explicit check-environment selection
+  # ============================================================
+
+  # The global `checks.python.environment` steers every Python check.
+  testGlobalEnvironmentSteersAllChecks = let
+    fakeGlobalEnv = builtins.derivation {
+      name = "fake-global-env";
+      inherit system;
+      pythonVersion = "3.12";
+      builder = "/bin/sh";
+      args = ["-c" "mkdir -p $out/bin && touch $out/bin/pytest $out/bin/ruff $out/bin/python $out"];
+    };
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.environment = fakeGlobalEnv;
+      };
+    };
+  in {
+    expr =
+      lib.hasInfix "fake-global-env/bin/pytest" (getBuildCommand checks.pytest)
+      && lib.hasInfix "fake-global-env/bin/ruff" (getBuildCommand checks.ruff)
+      && lib.hasInfix "--python /nix/store" (getBuildCommand checks.ty)
+      && lib.hasInfix "fake-global-env" (getBuildCommand checks.ty);
+    expected = true;
+  };
+
+  # A per-check `.environment` overrides the global for that check only.
+  testPerCheckEnvironmentOverride = let
+    fakeGlobalEnv = builtins.derivation {
+      name = "fake-global-env";
+      inherit system;
+      pythonVersion = "3.12";
+      builder = "/bin/sh";
+      args = ["-c" "mkdir -p $out/bin && touch $out/bin/pytest $out/bin/ruff $out"];
+    };
+    fakePytestEnv = builtins.derivation {
+      name = "fake-pytest-env";
+      inherit system;
+      pythonVersion = "3.12";
+      builder = "/bin/sh";
+      args = ["-c" "mkdir -p $out/bin && touch $out/bin/pytest $out"];
+    };
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python.environment = fakeGlobalEnv;
+        extraConfig.jackpkgs.checks.python.pytest.environment = fakePytestEnv;
+      };
+    };
+  in {
+    expr =
+      lib.hasInfix "fake-pytest-env/bin/pytest" (getBuildCommand checks.pytest)
+      && !lib.hasInfix "fake-global-env" (getBuildCommand checks.pytest)
+      && lib.hasInfix "fake-global-env/bin/ruff" (getBuildCommand checks.ruff);
+    expected = true;
+  };
+
+  # ADR 046: setting the removed `mypy.typeChecker` fails eval with migration text.
+  testMypyTypeCheckerTombstoneThrows = {
+    expr =
+      (builtins.tryEval (
+        let
+          checks = mkChecks {
+            configModule = mkConfigModule {
+              pythonEnable = true;
+              extraConfig.jackpkgs.checks.python.mypy.typeChecker = "ty";
+            };
+          };
+        in
+          checks ? pytest
+      ))
+      .success;
+    expected = false;
+  };
+
+  # ADR 046: setting the removed `mypy.tyPackage` fails eval with migration text.
+  testMypyTyPackageTombstoneThrows = {
+    expr =
+      (builtins.tryEval (
+        let
+          checks = mkChecks {
+            configModule = mkConfigModule {
+              pythonEnable = true;
+              extraConfig.jackpkgs.checks.python.mypy.tyPackage = dummyNodeModules;
+            };
+          };
+        in
+          checks ? pytest
+      ))
+      .success;
+    expected = false;
   };
 }

@@ -97,7 +97,7 @@
     cfg = lib.attrByPath ["jackpkgs" "checks"] {} eval.config;
   in {
     ruff = optionsDefined && (cfg.python.ruff.enable or false);
-    mypy = optionsDefined && (cfg.python.mypy.enable or false);
+    ty = optionsDefined && (cfg.python.ty.enable or false);
     tsc = optionsDefined && (cfg.typescript.tsc.enable or false);
     biome = optionsDefined && (lib.attrByPath ["biome" "lint" "enable"] false cfg);
   };
@@ -113,7 +113,7 @@
       {
         python = {
           enable = true;
-          mypy.enable = true;
+          ty.enable = true;
           ruff.enable = true;
         };
       }
@@ -143,7 +143,7 @@ in {
     expr = lintSectionIncluded [(mkConfigModule {})];
     expected = {
       ruff = true;
-      mypy = true;
+      ty = true;
       tsc = false;
       biome = false;
     };
@@ -155,21 +155,21 @@ in {
     ];
     expected = {
       ruff = false;
-      mypy = true;
+      ty = true;
       tsc = false;
       biome = false;
     };
   };
 
-  # --- Lint recipe: mypy section ---
+  # --- Lint recipe: ty section ---
 
-  testLintMypyExcludedWhenDisabled = {
+  testLintTyExcludedWhenDisabled = {
     expr = lintSectionIncluded [
-      (mkConfigModule {extraChecks.python.mypy.enable = false;})
+      (mkConfigModule {extraChecks.python.ty.enable = false;})
     ];
     expected = {
       ruff = true;
-      mypy = false;
+      ty = false;
       tsc = false;
       biome = false;
     };
@@ -181,7 +181,7 @@ in {
     expr = lintSectionIncluded [(mkConfigModule {withNodejs = true;})];
     expected = {
       ruff = true;
-      mypy = true;
+      ty = true;
       tsc = true;
       biome = false;
     };
@@ -191,7 +191,7 @@ in {
     expr = lintSectionIncluded [(mkConfigModule {withNodejs = false;})];
     expected = {
       ruff = true;
-      mypy = true;
+      ty = true;
       tsc = false;
       biome = false;
     };
@@ -206,7 +206,7 @@ in {
     ];
     expected = {
       ruff = true;
-      mypy = true;
+      ty = true;
       tsc = false;
       biome = false;
     };
@@ -236,7 +236,7 @@ in {
     ];
     expected = {
       ruff = true;
-      mypy = true;
+      ty = true;
       tsc = true;
       biome = true;
     };
@@ -249,13 +249,13 @@ in {
       (mkConfigModule {
         extraChecks = {
           python.ruff.enable = false;
-          python.mypy.enable = false;
+          python.ty.enable = false;
         };
       })
     ];
     expected = {
       ruff = false;
-      mypy = false;
+      ty = false;
       tsc = false;
       biome = false;
     };
@@ -269,13 +269,13 @@ in {
         withNodejs = true;
         extraChecks = {
           python.ruff.enable = false;
-          python.mypy.enable = false;
+          python.ty.enable = false;
         };
       })
     ];
     expected = {
       ruff = false;
-      mypy = false;
+      ty = false;
       tsc = true;
       biome = false;
     };
@@ -283,11 +283,11 @@ in {
 
   testLintOnlyRuffEnabled = {
     expr = lintSectionIncluded [
-      (mkConfigModule {extraChecks.python.mypy.enable = false;})
+      (mkConfigModule {extraChecks.python.ty.enable = false;})
     ];
     expected = {
       ruff = true;
-      mypy = false;
+      ty = false;
       tsc = false;
       biome = false;
     };

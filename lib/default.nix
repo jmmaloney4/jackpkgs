@@ -110,10 +110,11 @@ with pkgs.lib; rec {
 
   # Default exclude patterns for code quality tools.
   #
-  # Note: treefmt uses glob patterns, while mypy uses regular expressions.
+  # Note: treefmt uses glob patterns, while pre-commit hooks use regular
+  # expressions.
   # References:
   # - https://treefmt.com/latest/getting-started/configure/ (excludes are glob patterns)
-  # - https://mypy.readthedocs.io/en/stable/config_file.html (exclude is a regex)
+  # - https://pre-commit.com/#regular-expressions (exclude is a regex)
   #
   # Example:
   #

@@ -135,26 +135,26 @@
     lib.hasPrefix "/nix/store/" entry
     && lib.hasInfix ("/bin/" + name) entry;
 in {
-  testMypyEnabledByDefault = let
+  testTyEnabledByDefault = let
     hooks = getHooks [(mkConfigModule {})];
   in {
-    expr = hooks.mypy.enable;
+    expr = hooks.ty.enable;
     expected = true;
   };
 
-  testMypyPassFilenamesFalse = let
+  testTyPassFilenamesFalse = let
     hooks = getHooks [(mkConfigModule {})];
   in {
-    expr = hooks.mypy.pass_filenames or true;
+    expr = hooks.ty.pass_filenames or true;
     expected = false;
   };
 
-  testMypyEntrySetsPythonPath = let
+  testTyEntryIsStoreExe = let
     hooks = getHooks [(mkConfigModule {})];
   in {
     # With writeShellApplication the entry is a store path wrapper;
     # shellcheck validates the script content at build time.
-    expr = isStoreExe "mypy-hook" hooks.mypy.entry;
+    expr = isStoreExe "ty-hook" hooks.ty.entry;
     expected = true;
   };
 
@@ -271,36 +271,37 @@ in {
   };
 
   testPreCommitRequiresChecksModule = {
-    expr = (builtins.tryEval ((getHooksWithoutChecks [(mkConfigModule {})]).mypy.enable)).success;
+    expr = (builtins.tryEval ((getHooksWithoutChecks [(mkConfigModule {})]).ty.enable)).success;
     expected = false;
   };
 
-  # With no dev env and no override, mypy resolves to the bare-mypy fallback,
-  # which has no `ruff` executable. ruff must substitute the standalone ruff
-  # package (the bug that broke the ruff pre-commit hook). pytest/numpydoc keep
-  # inheriting mypy unchanged.
+  # With no dev env and no override, `ty.environment` resolves to the bare
+  # `python3` fallback (a valid `ty --python` target), which has no `ruff`
+  # executable. ruff must substitute the standalone ruff package (the bug that
+  # broke the ruff pre-commit hook). pytest/numpydoc keep inheriting
+  # ty.environment unchanged.
   testRuffFallsBackToStandaloneRuffWhenNoDevEnv = let
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
     pcfg = perSystemCfg.jackpkgs.pre-commit.python;
     pkgs = perSystemCfg.jackpkgs.pkgs;
   in {
     expr =
-      pcfg.mypy.package
-      == pkgs.mypy
+      pcfg.ty.environment
+      == pkgs.python3
       && pcfg.ruff.package == pkgs.ruff
-      && pcfg.ruff.package != pcfg.mypy.package
-      && pcfg.pytest.package == pkgs.mypy
-      && pcfg.numpydoc.package == pkgs.mypy;
+      && pcfg.ruff.package != pcfg.ty.environment
+      && pcfg.pytest.package == pkgs.python3
+      && pcfg.numpydoc.package == pkgs.python3;
     expected = true;
   };
 
-  # Non-regression: an explicit `mypy.package` override (a custom env that also
+  # Non-regression: an explicit `ty.environment` override (a custom env that also
   # contains ruff) is still honored by ruff — the substitution only triggers for
-  # the bare-mypy fallback, not for a real override. pytest/numpydoc follow too.
-  testRuffHonorsMypyPackageOverride = let
+  # the bare-ty fallback, not for a real override. pytest/numpydoc follow too.
+  testRuffHonorsTyEnvironmentOverride = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
-        perSystemConfig.jackpkgs.pre-commit.python.mypy.package = dummyNodeModules;
+        perSystemConfig.jackpkgs.pre-commit.python.ty.environment = dummyNodeModules;
       })
     ];
     pcfg = perSystemCfg.jackpkgs.pre-commit.python;
@@ -314,10 +315,10 @@ in {
   };
 
   # Non-regression: when a non-editable dev-tools env is registered (the blessed
-  # `jackpkgs.python.environments` path), mypy AND ruff resolve to that SAME env
-  # — the shared-dev-env behavior the old `ruff.package = mypy.package` default
-  # provided is preserved.
-  testRuffAndMypyShareRegisteredDevEnv = let
+  # `jackpkgs.python.environments` path), `ty.environment` AND ruff resolve to
+  # that SAME env — the shared-dev-env behavior the old
+  # `ruff.package = ty.environment` default provided is preserved.
+  testRuffAndTyShareRegisteredDevEnv = let
     devEnv = dummyNodeModules;
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
@@ -332,7 +333,22 @@ in {
     ];
     pcfg = perSystemCfg.jackpkgs.pre-commit.python;
   in {
-    expr = pcfg.ruff.package == devEnv && pcfg.mypy.package == devEnv;
+    expr = pcfg.ruff.package == devEnv && pcfg.ty.environment == devEnv;
+    expected = true;
+  };
+
+  # ADR 045 §6: the global `checks.python.environment` wins first for the
+  # pre-commit tool-env selection too.
+  testGlobalCheckEnvironmentSteersPreCommit = let
+    globalEnv = dummyNodeModules;
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        topConfig.jackpkgs.checks.python.environment = globalEnv;
+      })
+    ];
+    pcfg = perSystemCfg.jackpkgs.pre-commit.python;
+  in {
+    expr = pcfg.ty.environment == globalEnv && pcfg.ruff.package == globalEnv;
     expected = true;
   };
 
@@ -386,14 +402,14 @@ in {
     expected = true;
   };
 
-  testDisableMypyHook = let
+  testDisableTyHook = let
     hooks = getHooks [
       (mkConfigModule {
-        topConfig.jackpkgs.checks.python.mypy.enable = false;
+        topConfig.jackpkgs.checks.python.ty.enable = false;
       })
     ];
   in {
-    expr = hooks.mypy.enable;
+    expr = hooks.ty.enable;
     expected = false;
   };
 

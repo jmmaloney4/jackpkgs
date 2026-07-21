@@ -105,19 +105,21 @@ in {
             non-editable environment with dependency groups enabled.
           '';
         };
-        mypyPackage = mkOption {
+        tyEnvironmentPackage = mkOption {
           type = types.package;
           defaultText = ''
             Dev-tools Python env (same precedence as `checks.nix` / `pre-commit.nix`):
-            1. `jackpkgs.python.environments.dev` if non-editable and `includeGroups = true`
-            2. Any non-editable `jackpkgs.python.environments.*` with `includeGroups = true`
-            3. Auto-created env with `includeGroups = true` (via `pythonWorkspace`)
-            4. `config.jackpkgs.outputs.pythonDefaultEnv` (when defined)
-            5. `config.jackpkgs.pkgs.mypy`
+            1. `jackpkgs.checks.python.environment` (the global override), when set
+            2. `jackpkgs.python.environments.dev` if non-editable and `includeGroups = true`
+            3. Any non-editable `jackpkgs.python.environments.*` with `includeGroups = true`
+            4. Auto-created env with `includeGroups = true` (via `pythonWorkspace`)
+            5. `config.jackpkgs.outputs.pythonDefaultEnv` (when defined)
+            6. `config.jackpkgs.pkgs.ty`
           '';
           description = ''
-            mypy package (or Python environment containing mypy) to use for the
-            `just lint` Python type-check step.
+            Python environment ty resolves imports against (passed as
+            `ty check --python <env>`) for the `just lint` type-check step.
+            Distinct from `tyPackage`, which is the ty binary itself.
           '';
         };
         tyPackage = mkOption {
@@ -125,8 +127,7 @@ in {
           default = config.jackpkgs.pkgs.ty;
           defaultText = "config.jackpkgs.pkgs.ty";
           description = ''
-            `ty` binary package to use when
-            `jackpkgs.checks.python.mypy.typeChecker = "ty"`.
+            `ty` binary package for the `just lint` type-check step.
             Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs).
           '';
         };
@@ -204,22 +205,28 @@ in {
         if fromSystem != null
         then fromSystem
         else fromFlake;
-      justMypyPackageDefault = pythonEnvHelpers.selectDevToolsPackage {
+      # ADR 045 §6: the global `checks.python.environment` wins first.
+      justGlobalEnvironment = lib.attrByPath ["jackpkgs" "checks" "python" "environment"] null moduleTop.config;
+      justTyEnvironmentDefault = pythonEnvHelpers.selectDevToolsPackage {
         pythonCfg = pythonCfgForDevTools;
         pythonWorkspace = pythonWorkspaceForDevTools;
         pythonEnvOutputs = pythonEnvOutputsForDevTools;
+        globalEnvironment = justGlobalEnvironment;
         pythonDefaultEnv = pythonDefaultEnvForDevTools;
-        fallbackPackage = config.jackpkgs.pkgs.mypy;
+        # A bare interpreter is a valid `ty --python` target when no Python env
+        # is configured (the ty binary package is not).
+        fallbackPackage = config.jackpkgs.pkgs.python3;
       };
       justRuffPackageDefault = pythonEnvHelpers.selectDevToolsPackage {
         pythonCfg = pythonCfgForDevTools;
         pythonWorkspace = pythonWorkspaceForDevTools;
         pythonEnvOutputs = pythonEnvOutputsForDevTools;
+        globalEnvironment = justGlobalEnvironment;
         pythonDefaultEnv = pythonDefaultEnvForDevTools;
         fallbackPackage = config.jackpkgs.pkgs.ruff;
       };
     in {
-      jackpkgs.just.mypyPackage = lib.mkDefault justMypyPackageDefault;
+      jackpkgs.just.tyEnvironmentPackage = lib.mkDefault justTyEnvironmentDefault;
       jackpkgs.just.ruffPackage = lib.mkDefault justRuffPackageDefault;
       just-flake = {
         features = {
@@ -630,29 +637,17 @@ in {
                     "  fi"
                     "fi"
                   ])
-                  ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.mypy.enable) (
+                  ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.ty.enable) (
                     let
-                      typeChecker = checksCfgForRecipes.python.mypy.typeChecker or "mypy";
-                      extraArgs = lib.escapeShellArgs checksCfgForRecipes.python.mypy.extraArgs;
-                    in
-                      if typeChecker == "ty"
-                      then [
-                        ""
-                        "# ty (Python type checker)"
-                        "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
-                        "  printf '%s\\n' \"==> ty check\""
-                        "  ${lib.getExe sysCfg.tyPackage} check --python ${sysCfg.mypyPackage} ${extraArgs} ."
-                        "fi"
-                      ]
-                      else [
-                        ""
-                        "# mypy (Python type checker) [deprecated: migrate to ty]"
-                        "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
-                        "  printf '%s\\n' \"==> mypy\""
-                        "  echo 'WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = \"ty\"' >&2"
-                        ''${lib.getExe' sysCfg.mypyPackage "mypy"} ${extraArgs} .''
-                        "fi"
-                      ]
+                      extraArgs = lib.escapeShellArgs checksCfgForRecipes.python.ty.extraArgs;
+                    in [
+                      ""
+                      "# ty (Python type checker)"
+                      "if ${lib.getExe sysCfg.fdPackage} -q -e py -e pyi; then"
+                      "  printf '%s\\n' \"==> ty check\""
+                      "  ${lib.getExe sysCfg.tyPackage} check --python ${sysCfg.tyEnvironmentPackage} ${extraArgs} ."
+                      "fi"
+                    ]
                   ))
                   ++ (optionalLines (checksOptionsDefined && lib.attrByPath ["biome" "lint" "enable"] false checksCfgForRecipes) (
                     let

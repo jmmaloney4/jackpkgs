@@ -168,7 +168,7 @@ in {
                 - editable = false: defaults to false (production dependencies only)
 
                 This is the recommended way to include development dependencies like
-                pytest, mypy, type stubs, etc. To add a group ON TOP of an explicit
+                pytest, ty, type stubs, etc. To add a group ON TOP of an explicit
                 `spec` (rather than replacing it), use `groups` instead.
               '';
             };
@@ -198,7 +198,7 @@ in {
               default = null;
               description = ''
                 Advertise this (non-editable) environment as the provider of the
-                quality-gate tools (pytest, mypy, ruff) that the `checks`, `just`,
+                quality-gate tools (pytest, ty, ruff) that the `checks`, `just`,
                 and `pre-commit` modules run against.
 
                 Discovery resolves as:
