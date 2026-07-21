@@ -205,8 +205,9 @@ in {
         if fromSystem != null
         then fromSystem
         else fromFlake;
-      # ADR 045 §6: the global `checks.python.environment` wins first.
-      justGlobalEnvironment = lib.attrByPath ["jackpkgs" "checks" "python" "environment"] null moduleTop.config;
+      # ADR 045 §6: the global `checks.python.environment` wins first. It is a
+      # per-system option, so read it from the per-system `config`.
+      justGlobalEnvironment = lib.attrByPath ["jackpkgs" "checks" "python" "environment"] null config;
       justTyEnvironmentDefault = pythonEnvHelpers.selectDevToolsPackage {
         pythonCfg = pythonCfgForDevTools;
         pythonWorkspace = pythonWorkspaceForDevTools;

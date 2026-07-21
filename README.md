@@ -214,6 +214,7 @@ in {
   - Adds CI checks **and controls quality-gate enables/args** for both CI checks and pre-commit hooks. Setting `jackpkgs.checks.python.ty.enable = false` disables the CI check *and* the pre-commit hook with a single option.
   - **Python CI Environment Selection (ADR 045):**
     - Set `jackpkgs.checks.python.environment` to declare, in one place, the environment all Python checks (and the pre-commit/just tool selection) resolve against. Per-check overrides live at `python.pytest.environment`, `python.ty.environment`, `python.ruff.environment`, and `python.numpydoc.environment` (the notebook-ruff checks follow `ruff.environment`).
+    - **These env options (and `python.ty.package`) are per-system** — set them inside a `perSystem = { config, ... }:` block, which is where `config.jackpkgs.outputs.pythonEnvironments.*` resolves. The scalar `enable`/`extraArgs` knobs stay at the flake top level (mirrors how `jackpkgs.pre-commit.python.*` is structured).
     - Resolution per check: per-check `.environment` → global `checks.python.environment` → legacy fallback chain. Falling through to the legacy chain emits an eval-time warning recommending the explicit option.
     - Legacy fallback chain (unchanged; used only when neither option is set):
       1. `config.jackpkgs.outputs.pythonDefaultEnv` when defined
@@ -224,8 +225,8 @@ in {
   - Options under `jackpkgs.checks`:
     - `enable` (bool, default auto-enabled when `jackpkgs.python.enable` or `jackpkgs.nodejs.enable`)
     - `python.enable` (bool, default `jackpkgs.python.enable`)
-    - `python.environment` (nullable package, default `null`) — global check-environment override (ADR 045)
-    - `python.ty.enable` (bool, default `true`), `python.ty.package` (nullable package, default `pkgs.ty` — the ty binary), `python.ty.environment` (nullable package — ty's `--python` target), `python.ty.extraArgs` (list, default `[]`)
+    - `python.environment` (nullable package, default `null`; **per-system** — set in `perSystem`) — global check-environment override (ADR 045)
+    - `python.ty.enable` (bool, default `true`), `python.ty.package` (nullable package, default `pkgs.ty` — the ty binary; **per-system**), `python.ty.environment` (nullable package — ty's `--python` target; **per-system**), `python.ty.extraArgs` (list, default `[]`)
     - `python.ruff.enable` (bool, default `true`), `python.ruff.environment` (nullable package), `python.ruff.extraArgs` (list, default `["--no-cache"]`)
     - `python.pytest.enable` (bool, default `true`), `python.pytest.environment` (nullable package), `python.pytest.extraArgs` (list, default `["--import-mode=importlib"]`)
     - `python.numpydoc.enable` (bool, **default `false`** - explicit opt-in), `python.numpydoc.environment` (nullable package; `python.numpydoc.package` is a deprecated alias), `python.numpydoc.extraArgs` (list, default `[]`)
@@ -239,8 +240,11 @@ in {
 # Disable the ty type check in both CI checks and pre-commit hook:
 jackpkgs.checks.python.ty.enable = false;
 
-# Select the environment all Python checks resolve against (ADR 045):
-jackpkgs.checks.python.environment = config.jackpkgs.outputs.pythonEnvironments.dev;
+# Select the environment all Python checks resolve against (ADR 045);
+# set inside a perSystem block — it is a per-system option:
+perSystem = { config, ... }: {
+  jackpkgs.checks.python.environment = config.jackpkgs.outputs.pythonEnvironments.dev;
+};
 
 # Enable numpydoc in both surfaces (opt-in):
 jackpkgs.checks.python.numpydoc.enable = true;

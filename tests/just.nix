@@ -97,6 +97,8 @@
     pythonDefaultEnv ? null,
     extraChecks ? {},
     withPythonWorkspace ? true,
+    # ADR 045: checks.python.environment is per-system, so set it in perSystem.
+    checkEnvironment ? null,
   }: {
     _module.check = false;
     jackpkgs.pulumi.secretsProvider = "unused";
@@ -119,6 +121,9 @@
     perSystem = {pkgs, ...}:
       {
         _module.args.jackpkgsProjectRoot = null;
+      }
+      // lib.optionalAttrs (checkEnvironment != null) {
+        jackpkgs.checks.python.environment = checkEnvironment;
       }
       // lib.optionalAttrs withPythonWorkspace {
         _module.args.pythonWorkspace = {
@@ -181,7 +186,7 @@ in {
       (mkConfigModule {
         pythonEnvs.dev = mkTestPackage "python-dev-tools";
         pythonDefaultEnv = mkTestPackage "python-default";
-        extraChecks.python.environment = globalEnv;
+        checkEnvironment = globalEnv;
         extraChecks.python.ruff.enable = false;
       })
       {

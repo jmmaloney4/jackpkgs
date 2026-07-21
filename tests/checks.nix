@@ -225,6 +225,15 @@
   hasCheck = checks: name: lib.hasAttr name checks;
   missingCheck = checks: name: !(lib.hasAttr name checks);
 
+  # ADR 045: the package/env-valued check options are per-system, so they must
+  # be set inside a `perSystem` block. This wraps a base config module with a
+  # perSystem definition of `jackpkgs.checks.python.<...>` (merges with the
+  # perSystem args mkChecks injects).
+  withCheckEnv = base: perSystemChecksPython:
+    lib.recursiveUpdate base {
+      perSystem = {pkgs, ...}: {jackpkgs.checks.python = perSystemChecksPython;};
+    };
+
   # Dummy nodeModules derivation used by script-generation tests
   dummyNodeModules = builtins.derivation {
     name = "dummy-node-modules";
@@ -486,13 +495,13 @@ in {
       args = ["-c" "mkdir -p $out/bin $out/lib/python3.13/site-packages && touch $out/bin/python $out"];
     };
     checks = mkChecks {
-      configModule = mkConfigModule {
-        pythonEnable = true;
-        extraConfig.jackpkgs.checks.python.numpydoc = {
-          enable = true;
-          environment = fakeEnv;
-        };
-      };
+      configModule =
+        withCheckEnv
+        (mkConfigModule {
+          pythonEnable = true;
+          extraConfig.jackpkgs.checks.python.numpydoc.enable = true;
+        })
+        {numpydoc.environment = fakeEnv;};
     };
     script = getBuildCommand checks.numpydoc;
   in {
@@ -511,13 +520,13 @@ in {
       args = ["-c" "mkdir -p $out/bin $out/lib/python3.13/site-packages && touch $out/bin/python $out"];
     };
     checks = mkChecks {
-      configModule = mkConfigModule {
-        pythonEnable = true;
-        extraConfig.jackpkgs.checks.python.numpydoc = {
-          enable = true;
-          package = fakeEnv;
-        };
-      };
+      configModule =
+        withCheckEnv
+        (mkConfigModule {
+          pythonEnable = true;
+          extraConfig.jackpkgs.checks.python.numpydoc.enable = true;
+        })
+        {numpydoc.package = fakeEnv;};
     };
     script = getBuildCommand checks.numpydoc;
   in {
@@ -1163,10 +1172,10 @@ in {
       args = ["-c" "mkdir -p $out/bin && touch $out/bin/pytest $out/bin/ruff $out/bin/python $out"];
     };
     checks = mkChecks {
-      configModule = mkConfigModule {
-        pythonEnable = true;
-        extraConfig.jackpkgs.checks.python.environment = fakeGlobalEnv;
-      };
+      configModule =
+        withCheckEnv
+        (mkConfigModule {pythonEnable = true;})
+        {environment = fakeGlobalEnv;};
     };
   in {
     expr =
@@ -1194,11 +1203,13 @@ in {
       args = ["-c" "mkdir -p $out/bin && touch $out/bin/pytest $out"];
     };
     checks = mkChecks {
-      configModule = mkConfigModule {
-        pythonEnable = true;
-        extraConfig.jackpkgs.checks.python.environment = fakeGlobalEnv;
-        extraConfig.jackpkgs.checks.python.pytest.environment = fakePytestEnv;
-      };
+      configModule =
+        withCheckEnv
+        (mkConfigModule {pythonEnable = true;})
+        {
+          environment = fakeGlobalEnv;
+          pytest.environment = fakePytestEnv;
+        };
     };
   in {
     expr =

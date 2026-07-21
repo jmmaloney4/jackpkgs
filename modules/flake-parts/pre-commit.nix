@@ -509,7 +509,8 @@ in {
             fromFlake // fromSystem;
           # ADR 045 §6: the global `checks.python.environment` wins first, so
           # a single declaration steers checks, pre-commit, and just alike.
-          globalEnvironment = lib.attrByPath ["python" "environment"] null checksCfg;
+          # It is a per-system option, so read it from the per-system `config`.
+          globalEnvironment = lib.attrByPath ["jackpkgs" "checks" "python" "environment"] null config;
           pythonDefaultEnv = let
             fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
             fromFlake = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null moduleTop.config;
