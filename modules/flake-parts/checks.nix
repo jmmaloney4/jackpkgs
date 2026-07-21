@@ -32,17 +32,54 @@ in {
           // {
             default = config.jackpkgs.python.enable or false;
             description = ''
-              Enable Python CI checks (pytest, mypy, ruff). Automatically enabled when the
+              Enable Python CI checks (pytest, ty, ruff). Automatically enabled when the
               Python module is enabled. numpydoc checks are opt-in; enable separately with
               `python.numpydoc.enable = true`.
             '';
           };
+
+        environment = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          defaultText = "null (falls through to the legacy dev-tools env chain)";
+          description = ''
+            Python environment that all Python CI checks (pytest, ty, ruff,
+            numpydoc, notebook-ruff) resolve against when set (ADR 045).
+
+            This is the single declarative source of truth for "which
+            environment carries the quality-gate tools". It also steers the
+            `pre-commit` and `just` tool-environment selection
+            (`selectDevToolsPackage`), so one declaration keeps CI checks,
+            pre-commit hooks, and `just` recipes in sync.
+
+            Resolution per check: the per-check `.environment` (if set) wins,
+            then this global option, then the legacy fallback chain
+            (`config.jackpkgs.outputs.pythonDefaultEnv` → a dev-tools env
+            selected from `jackpkgs.python.environments` → a synthesized
+            all-groups env). Any check that falls through to the legacy chain
+            emits an eval-time warning recommending this option.
+
+            Typical value:
+            `config.jackpkgs.outputs.pythonEnvironments.dev`.
+          '';
+        };
 
         pytest = {
           enable = mkOption {
             type = types.bool;
             default = true;
             description = "Enable pytest checks";
+          };
+
+          environment = mkOption {
+            type = types.nullOr types.package;
+            default = null;
+            defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
+            description = ''
+              Python environment the pytest check runs against, overriding
+              `checks.python.environment` for pytest only. The selected
+              derivation MUST provide a `pytest` executable.
+            '';
           };
 
           extraArgs = mkOption {
@@ -53,45 +90,70 @@ in {
           };
         };
 
-        mypy = {
+        ty = {
           enable = mkOption {
             type = types.bool;
             default = true;
-            description = "Enable Python type checking";
+            description = "Enable Python type checking with ty";
           };
 
-          typeChecker = mkOption {
-            type = types.enum ["mypy" "ty"];
-            default = "mypy";
-            description = ''
-              Python type checker to use.
-
-              - `"mypy"` (default, **deprecated**): Uses mypy. Will be removed in a
-                future release. Migrate to `"ty"` when ready.
-              - `"ty"`: Uses [ty](https://github.com/astral-sh/ty), Astral's fast
-                Rust-based type checker. Drop-in replacement that respects
-                `# type: ignore` comments.
-
-              Migration: set `jackpkgs.checks.python.mypy.typeChecker = "ty"`.
-            '';
-          };
-
-          tyPackage = mkOption {
+          package = mkOption {
             type = types.nullOr types.package;
             default = null;
             defaultText = "null (resolved to config.jackpkgs.pkgs.ty in perSystem)";
             description = ''
-              `ty` binary package to use when `typeChecker = "ty"`.
-              Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs) when null,
-              resolved lazily in perSystem context.
+              [ty](https://github.com/astral-sh/ty) binary package (the type
+              checker itself). Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs)
+              when null, resolved lazily in perSystem context. This is distinct
+              from `ty.environment`, which is the interpreter/site-packages
+              tree ty analyses via `--python`.
+            '';
+          };
+
+          environment = mkOption {
+            type = types.nullOr types.package;
+            default = null;
+            defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
+            description = ''
+              Python environment ty resolves imports against (passed as
+              `ty check --python <env>`), overriding
+              `checks.python.environment` for the type check only.
+
+              Unlike the other checks, this environment is NOT required to
+              provide the checker binary — ty comes from `ty.package`. It only
+              needs to be the interpreter/site-packages tree whose types ty
+              should see.
             '';
           };
 
           extraArgs = mkOption {
             type = types.listOf types.str;
             default = [];
-            description = "Extra arguments to pass to the type checker";
-            example = ["--strict"];
+            description = "Extra arguments to pass to ty";
+            example = ["--error-on-warning"];
+          };
+        };
+
+        # ADR 046 tombstones: mypy was removed and ty is the sole type
+        # checker. These two paths are the only ones consumers were known to
+        # set; they are declared hidden purely so a stale assignment fails
+        # eval with actionable migration text (enforced in perSystem below).
+        # Every other `mypy.*` path fails naturally as an unknown option.
+        mypy = {
+          typeChecker = mkOption {
+            type = types.nullOr types.raw;
+            default = null;
+            visible = false;
+            internal = true;
+            description = "Removed in ADR 046 (tombstone). Use `checks.python.ty`.";
+          };
+
+          tyPackage = mkOption {
+            type = types.nullOr types.raw;
+            default = null;
+            visible = false;
+            internal = true;
+            description = "Removed in ADR 046 (tombstone). Use `checks.python.ty.package`.";
           };
         };
 
@@ -100,6 +162,18 @@ in {
             type = types.bool;
             default = true;
             description = "Enable ruff linting";
+          };
+
+          environment = mkOption {
+            type = types.nullOr types.package;
+            default = null;
+            defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
+            description = ''
+              Python environment whose `ruff` binary is used for the ruff check
+              and the notebook-ruff (nbqa / jupytext) checks, overriding
+              `checks.python.environment` for linting only. Only the `ruff`
+              executable is consulted from this environment.
+            '';
           };
 
           extraArgs = mkOption {
@@ -174,23 +248,31 @@ in {
             '';
           };
 
+          environment = mkOption {
+            type = types.nullOr types.package;
+            default = null;
+            defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
+            description = ''
+              Python environment to run numpydoc from, overriding
+              `checks.python.environment` for the numpydoc check only.
+
+              The selected derivation must provide a `python` executable that
+              can import `numpydoc.hooks.validate_docstrings`. Set this when
+              numpydoc lives in a dependency group deliberately excluded from
+              the lean CI check env (e.g. a `research` or `docs` group), so the
+              check can use a richer environment without pulling the extra deps
+              into pytest/ty/ruff.
+            '';
+          };
+
           package = mkOption {
             type = types.nullOr types.package;
             default = null;
-            defaultText = "config.jackpkgs.outputs.pythonEnvironments.dev or the shared check env";
+            visible = false;
             description = ''
-              Python environment to run numpydoc from.
-
-              The selected derivation must provide a `python` executable that can
-              import `numpydoc.hooks.validate_docstrings`.
-
-              When null, the numpydoc check prefers `jackpkgs.outputs.pythonEnvironments.dev`
-              when available, and otherwise falls back to the shared `pythonEnvForChecks`
-              selected for the other Python checks. Override this when numpydoc lives
-              in a dependency group that is deliberately excluded from the lean
-              CI check env (for example a `research` or `docs` group), so the
-              check can use a richer environment that includes numpydoc without
-              pulling the extra deps into pytest/mypy/ruff.
+              Deprecated alias of `checks.python.numpydoc.environment` (ADR
+              045). Still honored when set — with an eval-time warning — but
+              prefer `.environment`. When both are set, `.environment` wins.
             '';
           };
 
@@ -551,7 +633,7 @@ in {
       };
 
       # Prefer the consumer project's configured default Python env when available.
-      # This typically includes dev tools (pytest/mypy/ruff) via the workspace spec.
+      # This typically includes dev tools (pytest/ty/ruff) via the workspace spec.
       jackpkgsOutputs = config.jackpkgs.outputs or {};
       pythonDefaultEnv = let
         fromSystem = lib.attrByPath ["jackpkgs" "outputs" "pythonDefaultEnv"] null config;
@@ -560,20 +642,56 @@ in {
         if fromSystem != null
         then fromSystem
         else fromFlake;
-      pythonEnvForChecks =
+
+      # ADR 045 legacy fallback chain (unchanged ordering): the historical
+      # selection used when neither a per-check `.environment` nor the global
+      # `checks.python.environment` is set.
+      legacyEnvForChecks =
         if pythonDefaultEnv != null
         then pythonDefaultEnv
         else pythonEnvWithDevTools;
 
-      # Extract Python version from the selected check environment itself,
-      # so PYTHONPATH always matches the interpreter that runs the tools.
-      pythonVersion =
-        if pythonEnvForChecks != null && (pythonEnvForChecks ? pythonVersion)
-        then pythonEnvForChecks.pythonVersion
+      # Env used solely to decide whether Python checks can be emitted at all.
+      # No warning here — the noisy legacy-fallback warning is reserved for the
+      # per-check resolver so it fires once per check that actually builds.
+      baseCheckEnv =
+        if cfg.python.environment != null
+        then cfg.python.environment
+        else legacyEnvForChecks;
+
+      # ADR 045 §3: resolve one check's environment.
+      #   per-check `.environment` → global `checks.python.environment` → legacy chain.
+      # Falling through to the legacy chain warns, recommending the explicit option.
+      resolveCheckEnv = checkName: perCheckEnv:
+        if perCheckEnv != null
+        then perCheckEnv
+        else if cfg.python.environment != null
+        then cfg.python.environment
+        else
+          lib.warn ''
+            jackpkgs: the '${checkName}' Python check is resolving its environment via the legacy fallback chain (pythonDefaultEnv → dev-tools env → synthesized all-groups env). Set `jackpkgs.checks.python.environment` (or `checks.python.${checkName}.environment`) to select it explicitly; the legacy chain is deprecated.
+          ''
+          legacyEnvForChecks;
+
+      # ADR 045 §9: derive the Python X.Y from a specific environment so
+      # PYTHONPATH matches the interpreter that runs that check's tool.
+      pythonVersionOf = env:
+        if env != null && (env ? pythonVersion)
+        then env.pythonVersion
         else if pythonPerSystemCfg ? pythonPackage && pythonPerSystemCfg.pythonPackage != null
         then pythonPerSystemCfg.pythonPackage.pythonVersion
-            or (lib.version.majorMinor (pythonPerSystemCfg.pythonPackage.version or "3.12"))
+            or (lib.versions.majorMinor (pythonPerSystemCfg.pythonPackage.version or "3.12"))
         else "3.12";
+
+      # ADR 046 tombstone enforcement: fail eval (with migration text) if a
+      # removed mypy option is still set. Forced via `builtins.seq` at the
+      # bottom of this perSystem so the throw always fires.
+      mypyRemovalError =
+        if cfg.python.mypy.typeChecker != null
+        then throw "jackpkgs: `jackpkgs.checks.python.mypy.typeChecker` was removed in ADR 046 — mypy support is gone and ty is the only type checker. Delete this option (a prior `\"ty\"` value is now the default) and move any `checks.python.mypy.extraArgs` to `checks.python.ty.extraArgs`."
+        else if cfg.python.mypy.tyPackage != null
+        then throw "jackpkgs: `jackpkgs.checks.python.mypy.tyPackage` was renamed to `jackpkgs.checks.python.ty.package` in ADR 046. Move your ty binary package there."
+        else null;
 
       # ============================================================
       # TypeScript Workspace Discovery
@@ -606,29 +724,68 @@ in {
       # ============================================================
 
       pythonChecks = let
-        mypyDeprecationWarning = ''echo 'WARNING: mypy is deprecated. Migrate to ty: jackpkgs.checks.python.mypy.typeChecker = "ty"' >&2'';
-        tyPackage =
-          if cfg.python.mypy.tyPackage != null
-          then cfg.python.mypy.tyPackage
+        # Per-check resolved environments (ADR 045 §3).
+        pytestEnv = resolveCheckEnv "pytest" cfg.python.pytest.environment;
+        tyEnv = resolveCheckEnv "ty" cfg.python.ty.environment;
+        ruffEnv = resolveCheckEnv "ruff" cfg.python.ruff.environment;
+        # ADR 045 §4: notebook-ruff (nbqa / jupytext) follows ruff.environment.
+        notebookEnv = ruffEnv;
+        # ADR 045 §5: numpydoc.environment → deprecated numpydoc.package (warn)
+        # → global → legacy `pythonEnvironments.dev` preference → legacy chain.
+        numpydocEnv =
+          if cfg.python.numpydoc.environment != null
+          then cfg.python.numpydoc.environment
+          else if cfg.python.numpydoc.package != null
+          then lib.warn "jackpkgs: `checks.python.numpydoc.package` is a deprecated alias of `checks.python.numpydoc.environment` (ADR 045); rename it." cfg.python.numpydoc.package
+          else if cfg.python.environment != null
+          then cfg.python.environment
+          else jackpkgsOutputs.pythonEnvironments.dev
+            or (lib.warn "jackpkgs: the 'numpydoc' Python check is resolving its environment via the legacy fallback chain. Set `jackpkgs.checks.python.environment` or `checks.python.numpydoc.environment`." legacyEnvForChecks);
+
+        # ty binary (distinct from tyEnv, the `--python` resolution target).
+        tyBin =
+          if cfg.python.ty.package != null
+          then cfg.python.ty.package
           else config.jackpkgs.pkgs.ty;
-        nbqaRuffExe = lib.getExe' pythonEnvForChecks "ruff";
+
+        # ruff binary comes from the resolved ruff env.
+        nbqaRuffExe = lib.getExe' ruffEnv "ruff";
         nbqaPackage = pkgs.nbqa;
         jupytextPackage = pkgs.python313Packages.jupytext;
-        numpydocPackage =
-          if cfg.python.numpydoc.package != null
-          then cfg.python.numpydoc.package
-          else (jackpkgsOutputs.pythonEnvironments.dev or pythonEnvForChecks);
+
+        # ADR 045 §8: fail fast with an actionable message when the resolved
+        # environment is missing the executable a check needs.
+        mkToolGuard = {
+          env,
+          tool,
+          checkName,
+          hint,
+        }: ''
+          if [ ! -x "${env}/bin/${tool}" ]; then
+            printf '%s\n' \
+              "ERROR: jackpkgs '${checkName}' check: '${tool}' not found in the resolved Python environment." \
+              "  environment: ${env}" \
+              "  ${hint}" >&2
+            exit 1
+          fi
+        '';
       in
-        lib.optionalAttrs (cfg.enable && cfg.python.enable && pythonEnvForChecks != null && pythonWorkspaceMembers != [])
+        lib.optionalAttrs (cfg.enable && cfg.python.enable && baseCheckEnv != null && pythonWorkspaceMembers != [])
         (
           lib.optionalAttrs cfg.python.pytest.enable {
             # pytest check (workspace root)
             pytest = mkCheck {
               name = "pytest";
               src = pythonCfg.workspaceRoot;
-              nativeBuildInputs = [pythonEnvForChecks];
+              nativeBuildInputs = [pytestEnv];
               setupCommands = ''
-                export PYTHONPATH="${pythonEnvForChecks}/lib/python${pythonVersion}/site-packages"
+                ${mkToolGuard {
+                  env = pytestEnv;
+                  tool = "pytest";
+                  checkName = "pytest";
+                  hint = "Add pytest to that environment's dependency groups, or set `checks.python.pytest.environment` (or `checks.python.environment`) to an env that provides it.";
+                }}
+                export PYTHONPATH="${pytestEnv}/lib/python${pythonVersionOf pytestEnv}/site-packages"
                 export COVERAGE_FILE=$TMPDIR/.coverage
                 export PYTEST_CACHE_DIR=$TMPDIR/.pytest_cache
                 # Unset SSL_CERT_FILE so httpx/langfuse/litellm don't try to
@@ -638,53 +795,50 @@ in {
               '';
               checkCommands = ''
                 echo "Running pytest (workspace root)..."
-                "${lib.getExe' pythonEnvForChecks "pytest"}" ${lib.escapeShellArgs cfg.python.pytest.extraArgs}
+                "${lib.getExe' pytestEnv "pytest"}" ${lib.escapeShellArgs cfg.python.pytest.extraArgs}
               '';
             };
           }
-          // lib.optionalAttrs cfg.python.mypy.enable {
-            # Python type-check (workspace root)
-            mypy =
-              if cfg.python.mypy.typeChecker == "ty"
-              then
-                mkCheck {
-                  name = "mypy";
-                  src = pythonCfg.workspaceRoot;
-                  buildInputs = [tyPackage];
-                  nativeBuildInputs = [pythonEnvForChecks];
-                  checkCommands = ''
-                    echo "Running ty check (workspace root)..."
-                    ty check --python ${pythonEnvForChecks} ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
-                  '';
-                }
-              else
-                mkCheck {
-                  name = "mypy";
-                  src = pythonCfg.workspaceRoot;
-                  nativeBuildInputs = [pythonEnvForChecks];
-                  setupCommands = ''
-                    export PYTHONPATH="${pythonEnvForChecks}/lib/python${pythonVersion}/site-packages"
-                    export MYPY_CACHE_DIR=$TMPDIR/.mypy_cache
-                  '';
-                  checkCommands = ''
-                    ${mypyDeprecationWarning}
-                    echo "Running mypy (workspace root)..."
-                    "${lib.getExe' pythonEnvForChecks "mypy"}" ${lib.escapeShellArgs cfg.python.mypy.extraArgs} .
-                  '';
-                };
+          // lib.optionalAttrs cfg.python.ty.enable {
+            # Python type-check with ty (workspace root)
+            ty = mkCheck {
+              name = "ty";
+              src = pythonCfg.workspaceRoot;
+              buildInputs = [tyBin];
+              nativeBuildInputs = [tyEnv];
+              setupCommands = mkToolGuard {
+                # The ty binary comes from `ty.package`; the resolved
+                # environment is only ty's `--python` target and is NOT
+                # required to provide ty itself (ADR 045 §8).
+                env = tyBin;
+                tool = "ty";
+                checkName = "ty";
+                hint = "Set `checks.python.ty.package` to a package that provides the ty binary.";
+              };
+              checkCommands = ''
+                echo "Running ty check (workspace root)..."
+                ty check --python ${tyEnv} ${lib.escapeShellArgs cfg.python.ty.extraArgs} .
+              '';
+            };
           }
           // lib.optionalAttrs cfg.python.ruff.enable {
             # ruff check (workspace root)
             ruff = mkCheck {
               name = "ruff";
               src = pythonCfg.workspaceRoot;
-              nativeBuildInputs = [pythonEnvForChecks];
+              nativeBuildInputs = [ruffEnv];
               setupCommands = ''
+                ${mkToolGuard {
+                  env = ruffEnv;
+                  tool = "ruff";
+                  checkName = "ruff";
+                  hint = "Add ruff to that environment's dependency groups, or set `checks.python.ruff.environment` (or `checks.python.environment`) to an env that provides it.";
+                }}
                 export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
               '';
               checkCommands = ''
                 echo "Running ruff check (workspace root)..."
-                "${lib.getExe' pythonEnvForChecks "ruff"}" check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .
+                "${lib.getExe' ruffEnv "ruff"}" check ${lib.escapeShellArgs cfg.python.ruff.extraArgs} .
               '';
             };
           }
@@ -692,8 +846,14 @@ in {
             python-notebook-ipynb-ruff = mkCheck {
               name = "python-notebook-ipynb-ruff";
               src = pythonCfg.workspaceRoot;
-              nativeBuildInputs = [pythonEnvForChecks pkgs.fd nbqaPackage];
+              nativeBuildInputs = [notebookEnv pkgs.fd nbqaPackage];
               setupCommands = ''
+                ${mkToolGuard {
+                  env = notebookEnv;
+                  tool = "ruff";
+                  checkName = "python-notebook-ipynb-ruff";
+                  hint = "The notebook-ruff check follows `checks.python.ruff.environment`; add ruff there.";
+                }}
                 export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
               '';
               checkCommands = ''
@@ -713,8 +873,14 @@ in {
             python-notebook-myst-ruff = mkCheck {
               name = "python-notebook-myst-ruff";
               src = pythonCfg.workspaceRoot;
-              nativeBuildInputs = [pythonEnvForChecks pkgs.fd jupytextPackage];
+              nativeBuildInputs = [notebookEnv pkgs.fd jupytextPackage];
               setupCommands = ''
+                ${mkToolGuard {
+                  env = notebookEnv;
+                  tool = "ruff";
+                  checkName = "python-notebook-myst-ruff";
+                  hint = "The notebook-ruff check follows `checks.python.ruff.environment`; add ruff there.";
+                }}
                 export RUFF_CACHE_DIR=$TMPDIR/.ruff_cache
               '';
               checkCommands = ''
@@ -735,9 +901,15 @@ in {
             numpydoc = mkCheck {
               name = "numpydoc";
               src = pythonCfg.workspaceRoot;
-              nativeBuildInputs = [numpydocPackage];
+              nativeBuildInputs = [numpydocEnv];
               setupCommands = ''
-                export PYTHONPATH="${numpydocPackage}/lib/python${pythonVersion}/site-packages"
+                ${mkToolGuard {
+                  env = numpydocEnv;
+                  tool = "python";
+                  checkName = "numpydoc";
+                  hint = "The resolved env must provide a python that can import numpydoc; set `checks.python.numpydoc.environment` to an env that includes numpydoc.";
+                }}
+                export PYTHONPATH="${numpydocEnv}/lib/python${pythonVersionOf numpydocEnv}/site-packages"
               '';
               checkCommands = ''
                 echo "Running numpydoc (workspace root)..."
@@ -976,14 +1148,18 @@ in {
         }
       );
     in
+      # `builtins.seq mypyRemovalError` forces the ADR 046 tombstone guard so a
+      # stale `checks.python.mypy.typeChecker`/`tyPackage` fails eval whenever
+      # this perSystem config is evaluated (e.g. `nix flake check`).
+      builtins.seq mypyRemovalError
       # Merge all checks into the checks attribute
-      lib.mkMerge [
+      (lib.mkMerge [
         {checks = pythonChecks;}
         {checks = typescriptChecks;}
         {checks = vitestChecks;}
         {checks = biomeChecks;}
         {checks = beancountChecks;}
         {checks = shellChecks;}
-      ];
+      ]);
   };
 }

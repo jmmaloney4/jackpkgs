@@ -107,7 +107,7 @@
         python = {
           enable = true;
           pytest.enable = true;
-          mypy.enable = true;
+          ty.enable = true;
           ruff.enable = true;
         };
       }

@@ -89,7 +89,7 @@
     builtins.derivation {
       inherit name system;
       builder = "/bin/sh";
-      args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\" \"$out/bin/mypy\" \"$out/bin/ruff\""];
+      args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\" \"$out/bin/ty\" \"$out/bin/ruff\""];
     };
 
   mkConfigModule = {
@@ -105,7 +105,7 @@
       {
         python = {
           enable = true;
-          mypy.enable = true;
+          ty.enable = true;
         };
       }
       extraChecks;
@@ -139,7 +139,7 @@
       };
   };
 in {
-  testJustMypyPackagePrefersDevToolsEnv = let
+  testJustTyEnvironmentPackagePrefersDevToolsEnv = let
     devToolsEnv = mkTestPackage "python-dev-tools";
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
@@ -155,11 +155,11 @@ in {
       }
     ];
   in {
-    expr = perSystemCfg.jackpkgs.just.mypyPackage == devToolsEnv;
+    expr = perSystemCfg.jackpkgs.just.tyEnvironmentPackage == devToolsEnv;
     expected = true;
   };
 
-  testJustMypyPackageFallsBackToPythonDefaultEnv = let
+  testJustTyEnvironmentPackageFallsBackToPythonDefaultEnv = let
     defaultEnv = mkTestPackage "python-default";
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
@@ -169,7 +169,30 @@ in {
       })
     ];
   in {
-    expr = perSystemCfg.jackpkgs.just.mypyPackage == defaultEnv;
+    expr = perSystemCfg.jackpkgs.just.tyEnvironmentPackage == defaultEnv;
+    expected = true;
+  };
+
+  # ADR 045 §6: the global `checks.python.environment` wins first for the
+  # `just lint` tool-env selection too.
+  testJustTyEnvironmentPackageHonorsGlobalEnvironment = let
+    globalEnv = mkTestPackage "python-global";
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        pythonEnvs.dev = mkTestPackage "python-dev-tools";
+        pythonDefaultEnv = mkTestPackage "python-default";
+        extraChecks.python.environment = globalEnv;
+        extraChecks.python.ruff.enable = false;
+      })
+      {
+        jackpkgs.python.environments.dev = {
+          editable = false;
+          includeGroups = true;
+        };
+      }
+    ];
+  in {
+    expr = perSystemCfg.jackpkgs.just.tyEnvironmentPackage == globalEnv;
     expected = true;
   };
 
@@ -179,7 +202,7 @@ in {
       (mkConfigModule {
         pythonEnvs.dev = devToolsEnv;
         pythonDefaultEnv = mkTestPackage "python-default";
-        extraChecks.python.mypy.enable = false;
+        extraChecks.python.ty.enable = false;
       })
       {
         jackpkgs.python.environments.dev = {
@@ -198,7 +221,7 @@ in {
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
         pythonDefaultEnv = defaultEnv;
-        extraChecks.python.mypy.enable = false;
+        extraChecks.python.ty.enable = false;
         withPythonWorkspace = false;
       })
     ];

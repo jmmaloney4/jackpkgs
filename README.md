@@ -73,7 +73,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix, nodejs).
 - `pre-commit` — pre-commit hooks (treefmt, nbstripout, ADR checks, Python/TS/JS quality gates). Requires `flakeModules.checks`; hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`.
 - `shell` — shared dev shell output to include via `inputsFrom`.
-- `checks` — CI checks and quality-gate controls for Python (pytest/mypy/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
+- `checks` — CI checks and quality-gate controls for Python (pytest/ty/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
 - `nodejs` — builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`, plus generated `preview`/`deploy` just recipes.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
@@ -161,17 +161,17 @@ in {
     - nix: `just build-all`, `just build-all-verbose` (flake-iter)
     - nodejs: `just update-pnpm-hash` (refresh `pnpm-lock.yaml` and rewrite `pnpmDepsHash` in `flake.nix`), `just update-pnpm-deps` (alias)
   - Options under `jackpkgs.just` to replace tool packages used by generated `just` recipes:
-    - `biomePackage`, `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `mypyPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`, `ruffPackage`, `tyPackage`
-    - `mypyPackage` defaults to the dev-tools Python environment used by `checks` / `pre-commit`
-    - `tyPackage` defaults to `pkgs.ty` (nixpkgs); used when `typeChecker = "ty"`
-    - `ruffPackage` defaults to the same dev-tools Python environment as `mypyPackage`
+    - `biomePackage`, `direnvPackage`, `fdPackage`, `flakeIterPackage`, `googleCloudSdkPackage`, `jqPackage`, `tyEnvironmentPackage`, `nbstripoutPackage`, `preCommitPackage`, `pulumiPackage`, `ruffPackage`, `tyPackage`
+    - `tyEnvironmentPackage` defaults to the dev-tools Python environment used by `checks` / `pre-commit` (ty's `--python` target for `just lint`)
+    - `tyPackage` defaults to `pkgs.ty` (nixpkgs); the ty binary itself
+    - `ruffPackage` defaults to the same dev-tools Python environment as `tyEnvironmentPackage`
     - `pulumiBackendUrl` (nullable string)
   - Options under `jackpkgs.gcp`:
     - `iamOrg` (nullable string, default `null`) - GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
 
-  - Enables pre-commit with `treefmt`, `nbstripout` (`.ipynb`), ADR checks, Python hooks (`mypy`, `ruff`, `pytest`; opt-in: `numpydoc`), and `tsc`/`vitest` (at `pre-push` stage).
+  - Enables pre-commit with `treefmt`, `nbstripout` (`.ipynb`), ADR checks, Python hooks (`ty`, `ruff`, `pytest`; opt-in: `numpydoc`), and `tsc`/`vitest` (at `pre-push` stage).
 
   - `numpydoc` is **opt-in** via `jackpkgs.checks.python.numpydoc.enable = true;`.
 
@@ -181,7 +181,7 @@ in {
 
   - Hook enables and `extraArgs` are controlled by `jackpkgs.checks` (see below). `jackpkgs.pre-commit` controls only **package** and **nodeModules** overrides.
 
-  - Python package defaults are chained: set `python.mypy.package` once, and `python.ruff.package`, `python.pytest.package`, and `python.numpydoc.package` inherit it by default.
+  - Python package defaults are chained: set `python.ty.environment` once, and `python.ruff.package`, `python.pytest.package`, and `python.numpydoc.package` inherit it by default.
 
   - Minimal imports when enabling pre-commit directly:
 
@@ -201,9 +201,9 @@ in {
     - `adr.directory` (default `docs/internal/decisions`)
     - `adr.package` (default `config.packages."adr-conflict-check"`)
     - `adr.allowSkipped` (list of 3-digit strings, default `[]`; legacy ADR gaps to suppress, e.g. `["017" "018"]`)
-    - `python.mypy.package` (dev-tools env selection: prefers non-editable env with `includeGroups = true`; falls back to `pythonDefaultEnv`, then `pkgs.mypy`)
-    - `python.mypy.tyPackage` (defaults to `pkgs.ty`; used when `typeChecker = "ty"`)
-    - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package` (each defaults to `python.mypy.package`)
+    - `python.ty.environment` (dev-tools env selection: prefers `jackpkgs.checks.python.environment` when set, then a non-editable env with `includeGroups = true`; falls back to `pythonDefaultEnv`, then `pkgs.ty`) — ty's `--python` target, inherited by the ruff/pytest/numpydoc hooks
+    - `python.ty.package` (defaults to `pkgs.ty`; the ty binary)
+    - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package` (each defaults to `python.ty.environment`)
     - `typescript.tsc.package` (defaults to `pkgs.nodePackages.typescript`)
     - `typescript.tsc.nodeModules` (nullable package, default `null` -> falls back to `jackpkgs.outputs.nodeModules`)
     - `javascript.vitest.package` (defaults to `pkgs.nodejs`)
@@ -211,22 +211,24 @@ in {
 
 - checks (`modules/flake-parts/checks.nix`)
 
-  - Adds CI checks **and controls quality-gate enables/args** for both CI checks and pre-commit hooks. Setting `jackpkgs.checks.python.mypy.enable = false` disables the CI check *and* the pre-commit hook with a single option.
-  - **Python CI Environment Selection:**
-    - Automatically selects a suitable environment for Python checks (non-editable with dependency groups).
-    - Pre-commit Python tooling hooks use the same selection logic.
-    - Priority order:
-      1. Use `dev` environment if it's non-editable and has `includeGroups = true`
-      2. Use any non-editable environment with `includeGroups = true`
-      3. Auto-create a temporary CI environment with all dependency groups enabled
+  - Adds CI checks **and controls quality-gate enables/args** for both CI checks and pre-commit hooks. Setting `jackpkgs.checks.python.ty.enable = false` disables the CI check *and* the pre-commit hook with a single option.
+  - **Python CI Environment Selection (ADR 045):**
+    - Set `jackpkgs.checks.python.environment` to declare, in one place, the environment all Python checks (and the pre-commit/just tool selection) resolve against. Per-check overrides live at `python.pytest.environment`, `python.ty.environment`, `python.ruff.environment`, and `python.numpydoc.environment` (the notebook-ruff checks follow `ruff.environment`).
+    - Resolution per check: per-check `.environment` → global `checks.python.environment` → legacy fallback chain. Falling through to the legacy chain emits an eval-time warning recommending the explicit option.
+    - Legacy fallback chain (unchanged; used only when neither option is set):
+      1. `config.jackpkgs.outputs.pythonDefaultEnv` when defined
+      2. `dev` environment if it's non-editable and has `includeGroups = true`
+      3. Any non-editable environment with `includeGroups = true`
+      4. Auto-create a temporary CI environment with all dependency groups enabled
     - Editable environments are never used for CI (they can't be used in pure Nix builds).
   - Options under `jackpkgs.checks`:
     - `enable` (bool, default auto-enabled when `jackpkgs.python.enable` or `jackpkgs.nodejs.enable`)
     - `python.enable` (bool, default `jackpkgs.python.enable`)
-    - `python.mypy.enable` (bool, default `true`), `python.mypy.typeChecker` (enum `"mypy"` (default, deprecated) | `"ty"`), `python.mypy.extraArgs` (list, default `[]`)
-    - `python.ruff.enable` (bool, default `true`), `python.ruff.extraArgs` (list, default `["--no-cache"]`)
-    - `python.pytest.enable` (bool, default `true`), `python.pytest.extraArgs` (list, default `["--import-mode=importlib"]`)
-    - `python.numpydoc.enable` (bool, **default `false`** - explicit opt-in), `python.numpydoc.extraArgs` (list, default `[]`)
+    - `python.environment` (nullable package, default `null`) — global check-environment override (ADR 045)
+    - `python.ty.enable` (bool, default `true`), `python.ty.package` (nullable package, default `pkgs.ty` — the ty binary), `python.ty.environment` (nullable package — ty's `--python` target), `python.ty.extraArgs` (list, default `[]`)
+    - `python.ruff.enable` (bool, default `true`), `python.ruff.environment` (nullable package), `python.ruff.extraArgs` (list, default `["--no-cache"]`)
+    - `python.pytest.enable` (bool, default `true`), `python.pytest.environment` (nullable package), `python.pytest.extraArgs` (list, default `["--import-mode=importlib"]`)
+    - `python.numpydoc.enable` (bool, **default `false`** - explicit opt-in), `python.numpydoc.environment` (nullable package; `python.numpydoc.package` is a deprecated alias), `python.numpydoc.extraArgs` (list, default `[]`)
     - `typescript.tsc.enable` (bool, default `jackpkgs.nodejs.enable`), `typescript.tsc.packages`, `typescript.tsc.nodeModules`, `typescript.tsc.extraArgs`
     - `vitest.enable` (bool, default `jackpkgs.nodejs.enable`), `vitest.packages`, `vitest.nodeModules`, `vitest.extraArgs`
     - `beancount.enable` (bool, default `false`), `beancount.ledgerFile` (nullable path, default `null`), `beancount.extraArgs` (list, default `[]`)
@@ -234,11 +236,11 @@ in {
 **Quality-gate controls (single switch across CI + pre-commit):**
 
 ```nix
-# Disable mypy in both CI checks and pre-commit hook:
-jackpkgs.checks.python.mypy.enable = false;
+# Disable the ty type check in both CI checks and pre-commit hook:
+jackpkgs.checks.python.ty.enable = false;
 
-# Migrate from mypy to ty (Astral's fast Rust-based type checker):
-jackpkgs.checks.python.mypy.typeChecker = "ty";
+# Select the environment all Python checks resolve against (ADR 045):
+jackpkgs.checks.python.environment = config.jackpkgs.outputs.pythonEnvironments.dev;
 
 # Enable numpydoc in both surfaces (opt-in):
 jackpkgs.checks.python.numpydoc.enable = true;
@@ -253,15 +255,15 @@ jackpkgs.checks.beancount = {
   extraArgs = ["--verbose"];
 };
 
-# Override the mypy package used only by the pre-commit hook:
-jackpkgs.pre-commit.python.mypy.package = myCustomPythonEnv;
+# Override the ty environment used only by the pre-commit hook:
+jackpkgs.pre-commit.python.ty.environment = myCustomPythonEnv;
 ```
 
 **Quality-gate surface matrix:**
 
 | Tool       | CI check derivation | Pre-commit hook | Stage        | Default                             |
 | ---------- | ------------------- | --------------- | ------------ | ----------------------------------- |
-| `mypy`     | `mypy`              | `mypy`          | commit       | enabled                             |
+| `ty`       | `ty`                | `ty`            | commit       | enabled                             |
 | `ruff`     | `ruff`              | `ruff`          | commit       | enabled                             |
 | `pytest`   | `pytest`            | `pytest`        | **pre-push** | enabled (`--import-mode=importlib`) |
 | `numpydoc` | `numpydoc`          | `numpydoc`      | commit       | **disabled**                        |
@@ -482,19 +484,19 @@ See `docs/internal/investigations/2026-04-03-typescript-first-esm-node24.md` for
   - Supports both standard projects (with `[project]`) and workspace-only repos (with `[tool.uv.workspace]` only).
   - **Environment Types:**
     - **Development (editable)**: `editable = true` - Used in devshells for local development. Source code changes are immediately reflected. Automatically includes dependency groups by default (`includeGroups` defaults to `true`). Only one editable environment is allowed per flake.
-    - **CI (non-editable with groups)**: `editable = false`, `includeGroups = true` - Used for hermetic CI checks (pytest, mypy, ruff). Non-editable ensures reproducible builds. Includes all dependency groups (dev tools, type stubs, etc.). The `checks` module automatically selects or creates a CI environment.
+    - **CI (non-editable with groups)**: `editable = false`, `includeGroups = true` - Used for hermetic CI checks (pytest, ruff, and ty's `--python` target). Non-editable ensures reproducible builds. Includes all dependency groups (dev tools, type stubs, etc.). The `checks` module automatically selects or creates a CI environment.
     - **Production (non-editable without groups)**: `editable = false`, `includeGroups = false` (or `null`) - Minimal environment with only production dependencies. Suitable for deployment. Published as `packages.<env.name>`.
   - **Dependency Groups (PEP 735):**
     - This module supports **PEP 735 dependency groups only** (not PEP 621 optional-dependencies).
     - Dependency groups are **aggregated across all workspace members**: `workspace.deps.groups` includes all `[dependency-groups]` and `[tool.uv.dev-dependencies]` from the workspace root and all local member projects.
-    - Define shared dev dependencies (pytest, mypy, ruff, type stubs) at the workspace root for all members to use.
+    - Define shared dev dependencies (pytest, ruff, type stubs) at the workspace root for all members to use. (ty is provided as a nixpkgs binary, not a Python dependency; it analyses whichever env is its `--python` target.)
     - Example `pyproject.toml` structure:
       ```toml
       [tool.uv.workspace]
       members = ["packages/*", "tools/*"]
 
       [dependency-groups]
-      dev = ["pytest>=8.0", "mypy>=1.11", "ruff>=0.1.0"]
+      dev = ["pytest>=8.0", "ruff>=0.1.0"]
       test = ["pytest-cov", "types-requests"]
       ```
   - Options under `jackpkgs.python` (selected):
@@ -556,7 +558,7 @@ See `docs/internal/investigations/2026-04-03-typescript-first-esm-node24.md` for
         ci = {
           name = "python-ci";
           editable = false;  # Non-editable for reproducible CI
-          includeGroups = true;  # Explicitly include dev tools (pytest, mypy, ruff)
+          includeGroups = true;  # Explicitly include dev tools (pytest, ruff)
         };
       };
     };
@@ -577,7 +579,7 @@ See `docs/internal/investigations/2026-04-03-typescript-first-esm-node24.md` for
 
 #### Common Patterns: Dev Tools with Pre-commit
 
-When using the pre-commit module with Python projects, Python tooling hooks require the corresponding dev tools in the selected Python environment (`mypy`, `ruff`, `pytest`, and optionally `numpydoc`).
+When using the pre-commit module with Python projects, Python tooling hooks require the corresponding dev tools in the selected Python environment (`ruff`, `pytest`, and optionally `numpydoc`). The `ty` type check runs against this environment via `--python` but ships as a nixpkgs binary, so it need not be a Python dependency.
 
 **Step 1: Add dev tools to your `pyproject.toml`**
 
@@ -586,10 +588,9 @@ Define development dependencies using PEP 735 dependency groups:
 ```toml
 [dependency-groups]
 dev = [
-    "mypy>=1.11",
     "pytest>=8.0",
     "ruff>=0.1.0",
-    "types-requests",  # type stubs for better mypy coverage
+    "types-requests",  # type stubs for better ty coverage
     "numpydoc>=1.7",   # optional: only needed if enabling numpydoc checks/hooks
 ]
 ```
@@ -653,7 +654,7 @@ jackpkgs.checks.python.numpydoc = {
 
 | Pattern                    | `editable` | `includeGroups`   | Checks + pre-commit Python hooks |
 | -------------------------- | ---------- | ----------------- | -------------------------------- |
-| Production-only default    | `false`    | `false` (default) | No (no mypy/ruff/pytest tooling) |
+| Production-only default    | `false`    | `false` (default) | No (no ruff/pytest tooling)      |
 | CI/pre-commit-ready        | `false`    | `true`            | Yes                              |
 | Separate prod + dev envs   | mixed      | dev env: `true`   | Yes (dev env is selected)        |
 | No matching configured env | -          | -                 | Yes (auto-created fallback env)  |

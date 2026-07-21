@@ -39,7 +39,7 @@
 
   This is the single source of truth for "which directories are
   Python workspace packages" and should replace hand-maintained
-  member lists in pytest, mypy, and ty configuration (ADR-041).
+  member lists in pytest and ty configuration (ADR-041).
 
   Parameters
   ----------
@@ -138,9 +138,8 @@
 
   Combines `discoverPythonWorkspaceMembers` and `memberSrcPath` into
   a single call.  The returned list is the input for pytest
-  `pythonpath`, mypy `mypy_path`, and ty `extra-paths` — eliminating
-  the drift that occurs when these lists are maintained separately
-  (ADR-041).
+  `pythonpath` and ty `extra-paths` — eliminating the drift that
+  occurs when these lists are maintained separately (ADR-041).
 
   Parameters
   ----------
