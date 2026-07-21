@@ -66,40 +66,60 @@ Accepted
 1. `jackpkgs.checks.python` MUST gain a new option `environment`
    (`nullOr package`, default `null`): the environment all Python checks
    resolve against when set.
+
 2. Each Python check MUST gain a per-check `environment` option
    (`checks.python.pytest.environment`, `checks.python.ty.environment`
    (see ADR 046), `checks.python.ruff.environment`,
    `checks.python.numpydoc.environment`), default `null`.
+
+   **Placement (amended during implementation):** these package/derivation-valued
+   options — the global `environment`, every per-check `.environment`, plus
+   `ty.package` and the deprecated `numpydoc.package` — MUST be declared
+   **per-system** (a `perSystem` `mkDeferredModuleOption`), because a Python
+   environment is per-system and can only be referenced where
+   `config.jackpkgs.outputs.pythonEnvironments.*` resolves. The scalar knobs
+   (`enable`, `extraArgs`) stay at the flake top level. This mirrors how
+   `jackpkgs.pre-commit.python.*` and `jackpkgs.just.*Package` are already
+   declared. (Originally these were mistakenly declared top-level, which made
+   them unsettable to a per-system env by the very consumers this ADR targets.)
+
 3. Resolution order per check MUST be:
    **per-check `environment` → global `checks.python.environment` →
    legacy chain** (`pythonDefaultEnv` → `provideDevTools` helper →
    synthesized all-groups env). The legacy chain is unchanged in ordering
    — consumers migrate by declaring, not by being migrated.
+
 4. The notebook-ruff (nbqa) check MUST follow `ruff.environment`
    resolution; it does not get its own option.
+
 5. `numpydoc.package` MUST become a deprecated alias of
    `numpydoc.environment`: when set it is honored, with an eval-time
    `lib.warn` naming the rename. Its legacy `pythonEnvironments.dev`
    fallback slots *below* the new global option.
+
 6. `selectDevToolsPackage` (pre-commit, just) MUST honor the global
    option first: `checks.python.environment` → devtools env →
    `pythonDefaultEnv` → fallback. Per-check overrides MUST NOT apply to
    pre-commit/just — they configure "the tools env", not a per-check
    split. Existing per-hook `package` options remain as consumer-side
    overrides.
+
 7. Any Python check falling through to the legacy chain MUST emit an
    eval-time `lib.warn` recommending `checks.python.environment`. This is
    deliberately noisy from day one; both known consumers migrate promptly
    (see Migration).
+
 8. Each check's `setupCommands` MUST guard tool presence with a fail-fast
    check (`test -x <env>/bin/<tool>`) that names the check, the
    environment, and the fix ("add <tool> to the env's dependency
    groups"). Contract per tool:
+
    - pytest / ruff / numpydoc environments MUST provide their binary
      (ruff's env is consulted *only* for its binary);
    - the type-check environment (ADR 046: `ty.environment`) is the
      `--python` resolution target and MUST NOT be required to provide
      the checker binary (that comes from `ty.package`).
+
 9. `pythonVersion` / `PYTHONPATH` MUST be derived per check from that
    check's resolved environment, fixing the shared-derivation latent bug.
 
@@ -147,10 +167,10 @@ Cons:
 ## Migration
 
 1. jackpkgs: implement + release (implementation issue tracks this ADR).
-2. zeus: set
-   `jackpkgs.checks.python.environment = config.jackpkgs.outputs.pythonEnvironments.dev;`,
-   delete the `mkForce` (`flake.nix:394`) and the per-hook pre-commit pins
-   (`flake.nix:373-384`).
+2. zeus: inside the `perSystem = { config, ... }:` block, set
+   `jackpkgs.checks.python.environment = config.jackpkgs.outputs.pythonEnvironments.dev;`
+   (the option is per-system, per Decision §2), delete the `mkForce`
+   (`flake.nix:394`) and the per-hook pre-commit pins (`flake.nix:373-384`).
 3. garden: same substitution for its `flake.nix:381` `mkForce`.
 
 ## Future work

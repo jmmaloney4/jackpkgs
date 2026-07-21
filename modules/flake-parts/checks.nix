@@ -10,7 +10,9 @@
   cfg = config.jackpkgs.checks;
   pythonCfg = config.jackpkgs.python or {};
 in {
-  options = {
+  options = let
+    inherit (jackpkgsInputs.flake-parts.lib) mkDeferredModuleOption;
+  in {
     jackpkgs.checks = {
       enable =
         mkEnableOption "jackpkgs CI checks"
@@ -38,48 +40,19 @@ in {
             '';
           };
 
-        environment = mkOption {
-          type = types.nullOr types.package;
-          default = null;
-          defaultText = "null (falls through to the legacy dev-tools env chain)";
-          description = ''
-            Python environment that all Python CI checks (pytest, ty, ruff,
-            numpydoc, notebook-ruff) resolve against when set (ADR 045).
-
-            This is the single declarative source of truth for "which
-            environment carries the quality-gate tools". It also steers the
-            `pre-commit` and `just` tool-environment selection
-            (`selectDevToolsPackage`), so one declaration keeps CI checks,
-            pre-commit hooks, and `just` recipes in sync.
-
-            Resolution per check: the per-check `.environment` (if set) wins,
-            then this global option, then the legacy fallback chain
-            (`config.jackpkgs.outputs.pythonDefaultEnv` → a dev-tools env
-            selected from `jackpkgs.python.environments` → a synthesized
-            all-groups env). Any check that falls through to the legacy chain
-            emits an eval-time warning recommending this option.
-
-            Typical value:
-            `config.jackpkgs.outputs.pythonEnvironments.dev`.
-          '';
-        };
+        # NOTE: package/derivation-valued options for Python checks
+        # (`environment`, per-check `.environment`, `ty.package`,
+        # `numpydoc.package`) are declared per-system in the `perSystem`
+        # option block below — a Python env is per-system, so it can only be
+        # referenced where `config.jackpkgs.outputs.pythonEnvironments.*`
+        # resolves. Scalar knobs (`enable`, `extraArgs`) stay here at the flake
+        # top level.
 
         pytest = {
           enable = mkOption {
             type = types.bool;
             default = true;
             description = "Enable pytest checks";
-          };
-
-          environment = mkOption {
-            type = types.nullOr types.package;
-            default = null;
-            defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
-            description = ''
-              Python environment the pytest check runs against, overriding
-              `checks.python.environment` for pytest only. The selected
-              derivation MUST provide a `pytest` executable.
-            '';
           };
 
           extraArgs = mkOption {
@@ -95,35 +68,6 @@ in {
             type = types.bool;
             default = true;
             description = "Enable Python type checking with ty";
-          };
-
-          package = mkOption {
-            type = types.nullOr types.package;
-            default = null;
-            defaultText = "null (resolved to config.jackpkgs.pkgs.ty in perSystem)";
-            description = ''
-              [ty](https://github.com/astral-sh/ty) binary package (the type
-              checker itself). Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs)
-              when null, resolved lazily in perSystem context. This is distinct
-              from `ty.environment`, which is the interpreter/site-packages
-              tree ty analyses via `--python`.
-            '';
-          };
-
-          environment = mkOption {
-            type = types.nullOr types.package;
-            default = null;
-            defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
-            description = ''
-              Python environment ty resolves imports against (passed as
-              `ty check --python <env>`), overriding
-              `checks.python.environment` for the type check only.
-
-              Unlike the other checks, this environment is NOT required to
-              provide the checker binary — ty comes from `ty.package`. It only
-              needs to be the interpreter/site-packages tree whose types ty
-              should see.
-            '';
           };
 
           extraArgs = mkOption {
@@ -162,18 +106,6 @@ in {
             type = types.bool;
             default = true;
             description = "Enable ruff linting";
-          };
-
-          environment = mkOption {
-            type = types.nullOr types.package;
-            default = null;
-            defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
-            description = ''
-              Python environment whose `ruff` binary is used for the ruff check
-              and the notebook-ruff (nbqa / jupytext) checks, overriding
-              `checks.python.environment` for linting only. Only the `ruff`
-              executable is consulted from this environment.
-            '';
           };
 
           extraArgs = mkOption {
@@ -245,34 +177,6 @@ in {
 
               Requires `numpydoc` to be available in the selected Python check
               environment.
-            '';
-          };
-
-          environment = mkOption {
-            type = types.nullOr types.package;
-            default = null;
-            defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
-            description = ''
-              Python environment to run numpydoc from, overriding
-              `checks.python.environment` for the numpydoc check only.
-
-              The selected derivation must provide a `python` executable that
-              can import `numpydoc.hooks.validate_docstrings`. Set this when
-              numpydoc lives in a dependency group deliberately excluded from
-              the lean CI check env (e.g. a `research` or `docs` group), so the
-              check can use a richer environment without pulling the extra deps
-              into pytest/ty/ruff.
-            '';
-          };
-
-          package = mkOption {
-            type = types.nullOr types.package;
-            default = null;
-            visible = false;
-            description = ''
-              Deprecated alias of `checks.python.numpydoc.environment` (ADR
-              045). Still honored when set — with an eval-time warning — but
-              prefer `.environment`. When both are set, `.environment` wins.
             '';
           };
 
@@ -522,6 +426,130 @@ in {
 
       # Future: golang, rust, etc. can be added here
     };
+
+    # Per-system, package/derivation-valued options for the Python checks
+    # (ADR 045). A Python environment is per-system, so these must be declared
+    # in `perSystem` — that is the only scope where
+    # `config.jackpkgs.outputs.pythonEnvironments.*` resolves. Consumers set
+    # them inside their own `perSystem = { ... }:` block (mirroring how
+    # `jackpkgs.pre-commit.python.*` and `jackpkgs.just.*Package` are set).
+    # Scalar knobs (`enable`, `extraArgs`) remain under the flake-top-level
+    # `jackpkgs.checks.python.*` above.
+    perSystem = mkDeferredModuleOption ({
+      config,
+      lib,
+      pkgs,
+      ...
+    }: let
+      inherit (lib) mkOption types;
+    in {
+      options.jackpkgs.checks.python = {
+        environment = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          defaultText = "null (falls through to the legacy dev-tools env chain)";
+          description = ''
+            Python environment that all Python CI checks (pytest, ty, ruff,
+            numpydoc, notebook-ruff) resolve against when set (ADR 045).
+
+            This is the single declarative source of truth for "which
+            environment carries the quality-gate tools". It also steers the
+            `pre-commit` and `just` tool-environment selection
+            (`selectDevToolsPackage`), so one declaration keeps CI checks,
+            pre-commit hooks, and `just` recipes in sync.
+
+            Set it inside a `perSystem = { config, ... }:` block, typically to
+            `config.jackpkgs.outputs.pythonEnvironments.dev`.
+
+            Resolution per check: the per-check `.environment` (if set) wins,
+            then this global option, then the legacy fallback chain
+            (`config.jackpkgs.outputs.pythonDefaultEnv` → a dev-tools env
+            selected from `jackpkgs.python.environments` → a synthesized
+            all-groups env). Any check that falls through to the legacy chain
+            emits an eval-time warning recommending this option.
+          '';
+        };
+
+        pytest.environment = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
+          description = ''
+            Python environment the pytest check runs against, overriding
+            `checks.python.environment` for pytest only. The selected
+            derivation MUST provide a `pytest` executable.
+          '';
+        };
+
+        ty.package = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          defaultText = "null (resolved to config.jackpkgs.pkgs.ty in perSystem)";
+          description = ''
+            [ty](https://github.com/astral-sh/ty) binary package (the type
+            checker itself). Defaults to `config.jackpkgs.pkgs.ty` (nixpkgs)
+            when null. This is distinct from `ty.environment`, which is the
+            interpreter/site-packages tree ty analyses via `--python`.
+          '';
+        };
+
+        ty.environment = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
+          description = ''
+            Python environment ty resolves imports against (passed as
+            `ty check --python <env>`), overriding
+            `checks.python.environment` for the type check only.
+
+            Unlike the other checks, this environment is NOT required to
+            provide the checker binary — ty comes from `ty.package`. It only
+            needs to be the interpreter/site-packages tree whose types ty
+            should see.
+          '';
+        };
+
+        ruff.environment = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
+          description = ''
+            Python environment whose `ruff` binary is used for the ruff check
+            and the notebook-ruff (nbqa / jupytext) checks, overriding
+            `checks.python.environment` for linting only. Only the `ruff`
+            executable is consulted from this environment.
+          '';
+        };
+
+        numpydoc.environment = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          defaultText = "null (uses `checks.python.environment`, then the legacy chain)";
+          description = ''
+            Python environment to run numpydoc from, overriding
+            `checks.python.environment` for the numpydoc check only.
+
+            The selected derivation must provide a `python` executable that can
+            import `numpydoc.hooks.validate_docstrings`. Set this when numpydoc
+            lives in a dependency group deliberately excluded from the lean CI
+            check env (e.g. a `research` or `docs` group), so the check can use
+            a richer environment without pulling the extra deps into
+            pytest/ty/ruff.
+          '';
+        };
+
+        numpydoc.package = mkOption {
+          type = types.nullOr types.package;
+          default = null;
+          visible = false;
+          description = ''
+            Deprecated alias of `checks.python.numpydoc.environment` (ADR 045).
+            Still honored when set — with an eval-time warning — but prefer
+            `.environment`. When both are set, `.environment` wins.
+          '';
+        };
+      };
+    });
   };
 
   config = {
@@ -651,12 +679,19 @@ in {
         then pythonDefaultEnv
         else pythonEnvWithDevTools;
 
+      # ADR 045: the package/derivation-valued check options (global
+      # `environment`, per-check `.environment`, `ty.package`,
+      # `numpydoc.package`) are declared per-system, so read them from the
+      # per-system `config` (not the top-level `cfg`). Scalars (enable /
+      # extraArgs) still come from `cfg`.
+      psCheckEnvs = config.jackpkgs.checks.python;
+
       # Env used solely to decide whether Python checks can be emitted at all.
       # No warning here — the noisy legacy-fallback warning is reserved for the
       # per-check resolver so it fires once per check that actually builds.
       baseCheckEnv =
-        if cfg.python.environment != null
-        then cfg.python.environment
+        if psCheckEnvs.environment != null
+        then psCheckEnvs.environment
         else legacyEnvForChecks;
 
       # ADR 045 §3: resolve one check's environment.
@@ -665,8 +700,8 @@ in {
       resolveCheckEnv = checkName: perCheckEnv:
         if perCheckEnv != null
         then perCheckEnv
-        else if cfg.python.environment != null
-        then cfg.python.environment
+        else if psCheckEnvs.environment != null
+        then psCheckEnvs.environment
         else
           lib.warn ''
             jackpkgs: the '${checkName}' Python check is resolving its environment via the legacy fallback chain (pythonDefaultEnv → dev-tools env → synthesized all-groups env). Set `jackpkgs.checks.python.environment` (or `checks.python.${checkName}.environment`) to select it explicitly; the legacy chain is deprecated.
@@ -724,28 +759,29 @@ in {
       # ============================================================
 
       pythonChecks = let
-        # Per-check resolved environments (ADR 045 §3).
-        pytestEnv = resolveCheckEnv "pytest" cfg.python.pytest.environment;
-        tyEnv = resolveCheckEnv "ty" cfg.python.ty.environment;
-        ruffEnv = resolveCheckEnv "ruff" cfg.python.ruff.environment;
+        # Per-check resolved environments (ADR 045 §3). The `.environment`
+        # options are per-system (see `psCheckEnvs`).
+        pytestEnv = resolveCheckEnv "pytest" psCheckEnvs.pytest.environment;
+        tyEnv = resolveCheckEnv "ty" psCheckEnvs.ty.environment;
+        ruffEnv = resolveCheckEnv "ruff" psCheckEnvs.ruff.environment;
         # ADR 045 §4: notebook-ruff (nbqa / jupytext) follows ruff.environment.
         notebookEnv = ruffEnv;
         # ADR 045 §5: numpydoc.environment → deprecated numpydoc.package (warn)
         # → global → legacy `pythonEnvironments.dev` preference → legacy chain.
         numpydocEnv =
-          if cfg.python.numpydoc.environment != null
-          then cfg.python.numpydoc.environment
-          else if cfg.python.numpydoc.package != null
-          then lib.warn "jackpkgs: `checks.python.numpydoc.package` is a deprecated alias of `checks.python.numpydoc.environment` (ADR 045); rename it." cfg.python.numpydoc.package
-          else if cfg.python.environment != null
-          then cfg.python.environment
+          if psCheckEnvs.numpydoc.environment != null
+          then psCheckEnvs.numpydoc.environment
+          else if psCheckEnvs.numpydoc.package != null
+          then lib.warn "jackpkgs: `checks.python.numpydoc.package` is a deprecated alias of `checks.python.numpydoc.environment` (ADR 045); rename it." psCheckEnvs.numpydoc.package
+          else if psCheckEnvs.environment != null
+          then psCheckEnvs.environment
           else jackpkgsOutputs.pythonEnvironments.dev
             or (lib.warn "jackpkgs: the 'numpydoc' Python check is resolving its environment via the legacy fallback chain. Set `jackpkgs.checks.python.environment` or `checks.python.numpydoc.environment`." legacyEnvForChecks);
 
         # ty binary (distinct from tyEnv, the `--python` resolution target).
         tyBin =
-          if cfg.python.ty.package != null
-          then cfg.python.ty.package
+          if psCheckEnvs.ty.package != null
+          then psCheckEnvs.ty.package
           else config.jackpkgs.pkgs.ty;
 
         # ruff binary comes from the resolved ruff env.

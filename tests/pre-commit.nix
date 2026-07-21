@@ -338,12 +338,13 @@ in {
   };
 
   # ADR 045 §6: the global `checks.python.environment` wins first for the
-  # pre-commit tool-env selection too.
+  # pre-commit tool-env selection too. It is a per-system option, so it is set
+  # (and read) in perSystem.
   testGlobalCheckEnvironmentSteersPreCommit = let
     globalEnv = dummyNodeModules;
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {
-        topConfig.jackpkgs.checks.python.environment = globalEnv;
+        perSystemConfig.jackpkgs.checks.python.environment = globalEnv;
       })
     ];
     pcfg = perSystemCfg.jackpkgs.pre-commit.python;
