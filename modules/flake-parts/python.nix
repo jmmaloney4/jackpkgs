@@ -51,6 +51,24 @@ in {
         description = "Additional overlays to apply to the Python package set.";
       };
 
+      deterministicBytecode = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Recompile installed Python bytecode deterministically after wheel
+          installation (PYTHONHASHSEED=0 + PEP 552 unchecked-hash pycs).
+
+          uv's default bytecode compilation is timestamp-invalidated and
+          inherits the sandbox's random PYTHONHASHSEED, so .pyc files with
+          frozenset constants are not bit-reproducible across builders. The
+          divergent realizations poison binary caches and break nix2container
+          image pushes, whose recorded layer digests must match the pushing
+          machine's store bytes (jackpkgs#355).
+
+          Disabling this restores upstream pyproject-nix behavior.
+        '';
+      };
+
       # Darwin-specific
       darwin.sdkVersion = mkOption {
         type = types.str;
@@ -402,6 +420,10 @@ in {
           setuptoolsPackages = cfg.setuptools.packages;
         };
 
+        deterministicBytecodeOverlay = import ../../lib/python-deterministic-bytecode.nix {
+          inherit lib;
+        };
+
         # Build system overlay should match sourcePreference (wheel OR sdist, not both)
         # Per uv2nix docs: "The build system overlay has the same sdist/wheel distinction as mkPyprojectOverlay"
         overlayList =
@@ -411,6 +433,7 @@ in {
             then [jackpkgsInputs.pyproject-build-systems.overlays.wheel]
             else [jackpkgsInputs.pyproject-build-systems.overlays.sdist]
           )
+          ++ lib.optional cfg.deterministicBytecode deterministicBytecodeOverlay
           ++ [packageFixOverlay]
           ++ cfg.extraOverlays;
 
