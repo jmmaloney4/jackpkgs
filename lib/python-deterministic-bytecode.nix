@@ -18,12 +18,14 @@
 {lib}: final: prev: let
   pythonOnBuild = final.python.pythonOnBuildForHost or final.python.pythonForBuild;
 in {
-  pyprojectInstallHook = final.pkgs.makeSetupHook {
-    name = "jackpkgs-deterministic-bytecode-install-hook";
-    propagatedBuildInputs = [prev.pyprojectInstallHook];
-    substitutions = {
-      pythonInterpreter = pythonOnBuild.interpreter;
-      pythonSitePackages = final.python.sitePackages;
-    };
-  } ./deterministic-bytecode-hook.sh;
+  pyprojectInstallHook =
+    final.pkgs.makeSetupHook {
+      name = "jackpkgs-deterministic-bytecode-install-hook";
+      propagatedBuildInputs = [prev.pyprojectInstallHook];
+      substitutions = {
+        pythonInterpreter = pythonOnBuild.interpreter;
+        pythonSitePackages = final.python.sitePackages;
+      };
+    }
+    ./deterministic-bytecode-hook.sh;
 }

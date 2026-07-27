@@ -177,6 +177,11 @@
         moduleJustfileTests = import ./tests/module-justfiles.nix {
           inherit lib pkgs testHelpers;
         };
+        # Behavioural tests for the Node workspace runtime: these execute the
+        # generated linking script instead of asserting on its text.
+        nodejsRuntimeTests = import ./tests/nodejs-runtime.nix {
+          inherit lib pkgs;
+        };
 
         integrationFixturesRoot = ./tests/fixtures/integration;
         fixtureSimplePnpm = integrationFixturesRoot + "/simple-pnpm";
@@ -360,11 +365,13 @@
         };
 
         # Combined set of fixture-style tests (justfile parser validation, module
-        # recipe patterns, and pnpm integration fixtures). Each value is a derivation;
+        # recipe patterns, Node workspace runtime behaviour, and pnpm integration
+        # fixtures). Each value is a derivation;
         # the keys preserve the old check names for debugging via `passthru`.
         fixtureTests =
           lib.mapAttrs' (name: test: lib.nameValuePair "justfile-${name}" test) justfileValidationTests
           // lib.mapAttrs' (name: test: lib.nameValuePair "module-${name}" test) moduleJustfileTests
+          // lib.mapAttrs' (name: test: lib.nameValuePair "nodejs-runtime-${name}" test) nodejsRuntimeTests
           // pnpmFixtureChecks;
 
         # A single aggregate check that depends on every fixture test, collapsing what
@@ -373,7 +380,7 @@
         # remain reachable for debugging, e.g.
         #   nix build .#checks.<system>.fixture-tests.justfile-testSingleRecipe
         fixtureTestsCheck = pkgs.runCommand "fixture-tests" {passthru = fixtureTests;} ''
-          echo "Aggregated fixture tests (justfile + module + pnpm):"
+          echo "Aggregated fixture tests (justfile + module + nodejs-runtime + pnpm):"
           ${lib.concatMapStringsSep "\n" (name: "echo '  ✅ ${name}: ${fixtureTests.${name}}'") (builtins.attrNames fixtureTests)}
           touch "$out"
         '';
@@ -487,7 +494,8 @@
           };
         };
 
-        # All justfile, module, and pnpm fixture tests collapse into one CI check.
+        # All justfile, module, nodejs-runtime, and pnpm fixture tests collapse into
+        # one CI check.
         # See `fixtureTests` / `fixtureTestsCheck` above for the aggregation.
         checks =
           {

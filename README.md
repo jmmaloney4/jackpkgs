@@ -274,6 +274,12 @@ jackpkgs.pre-commit.python.ty.environment = myCustomPythonEnv;
 | `tsc`      | `tsc`               | `tsc`           | commit       | enabled when `nodejs.enable`        |
 | `vitest`   | `vitest`            | `vitest`        | **pre-push** | enabled when `nodejs.enable`        |
 
+The Node hooks (`tsc`, `vitest`, `biome`) run against the pinned `nodeModules`
+derivation, so they replace the working copy's root and per-package
+`node_modules` with symlinks into `/nix/store` (printing a notice when they
+replace a real directory). Run `pnpm install` to get a writable local install
+back.
+
 - shell (`modules/flake-parts/devshell.nix`)
 
   - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
