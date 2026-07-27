@@ -789,19 +789,22 @@ in {
     expr =
       hasInfixAll [
         "Linking node_modules from"
-        ''mkdir -p node_modules''
+        ''jackpkgs_ensure_dir node_modules''
         ''shopt -s dotglob''
         ''for entry in "$nm_root"/*/; do''
         ''if [ -d "$nm_store"/''
-        ''ln -sfn "$nm_store"/''
+        ''jackpkgs_link "$nm_store"/''
         ''elif [ -d "$nm_root"/''
-        ''ln -sfn "$nm_root"/''
+        ''jackpkgs_link "$nm_root"/''
         "packages/app/node_modules"
         "tools/cli/node_modules"
         ''if [ ! -d "node_modules" ] && [ ! -d ''
       ]
       script
-      && !lib.hasInfix "$PWD/node_modules/.bin" script;
+      && !lib.hasInfix "$PWD/node_modules/.bin" script
+      # `ln -sfn` nests into an existing real directory instead of replacing
+      # it, which silently drops the pinned tree (issue #358).
+      && !lib.hasInfix "ln -sfn" script;
     expected = true;
   };
 
@@ -911,17 +914,18 @@ in {
     expr =
       hasInfixAll [
         "Linking node_modules"
-        ''mkdir -p node_modules''
+        ''jackpkgs_ensure_dir node_modules''
         ''shopt -s dotglob''
         ''for entry in "$nm_root"/*/; do''
         ''if [ -d "$nm_store"/''
-        ''ln -sfn "$nm_store"/''
+        ''jackpkgs_link "$nm_store"/''
         ''elif [ -d "$nm_root"/''
-        ''ln -sfn "$nm_root"/''
+        ''jackpkgs_link "$nm_root"/''
         "packages/app/node_modules"
         "cp -R"
       ]
-      script;
+      script
+      && !lib.hasInfix "ln -sfn" script;
     expected = true;
   };
 

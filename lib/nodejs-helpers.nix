@@ -18,12 +18,25 @@
         if lib.hasPrefix "/" p
         then throw "Invalid workspace path '${path}': absolute paths not allowed"
         else p)
+      # The generated shell removes link destinations before creating them, so
+      # an empty segment would turn `rm -rf <pkg>/node_modules` into an
+      # absolute `/node_modules`.  Reject it at evaluation time instead.
+      (p:
+        if p == ""
+        then throw "Invalid workspace path: empty string"
+        else p)
     ];
 
   validatePackageName = name:
     lib.pipe name [
       (assertNotContains ".." "Invalid package name '${name}': contains '..' (path traversal not allowed)")
       (assertNotContains "\n" "Invalid package name '${name}': contains newline")
+      # Same reasoning as validateWorkspacePath: an empty name would make the
+      # destination `node_modules/` itself.
+      (n:
+        if n == ""
+        then throw "Invalid package name: empty string"
+        else n)
     ];
 
   # ---------------------------------------------------------------------------
@@ -62,6 +75,50 @@
     else [validatedGlob];
 
   # ---------------------------------------------------------------------------
+  # Shell link primitives
+  # ---------------------------------------------------------------------------
+
+  # `ln -sfn <target> <dest>` does not replace <dest> when <dest> is a real
+  # directory: ln resolves it as a destination *directory* and creates
+  # <dest>/<basename target> instead.  In a workspace where someone has run
+  # `pnpm install` — which materializes real per-package node_modules
+  # directories — that produced `<pkg>/node_modules/node_modules -> /nix/store/...`,
+  # so the pinned dependency tree was silently ignored and tools resolved
+  # whatever local pnpm state happened to be on disk.
+  #
+  # GNU coreutils has `ln -sfnT` for exactly this, but these scripts also run on
+  # darwin, so the destination is removed explicitly instead.
+  #
+  # jackpkgs_link intentionally clobbers a real directory: the whole point of
+  # the runtime is that dependency resolution comes from the pinned tree, and a
+  # loud-but-fatal alternative would break every working copy that has run
+  # `pnpm install`.  It prints a notice when it does, since the developer loses
+  # their local install and needs `pnpm install` to get it back.  The notice is
+  # self-limiting — after the first run the destination is a symlink.
+  #
+  # Emitted by both mkWorkspaceSymlinks and mkWorkspaceRuntime; redefining the
+  # functions when both are used in one script is harmless.
+  linkHelpers = ''
+    jackpkgs_link() {
+      if [ -d "$2" ] && [ ! -L "$2" ]; then
+        echo "jackpkgs: replacing real directory $2 with a link into the pinned dependency tree (re-run 'pnpm install' to restore a local install)" >&2
+      fi
+      rm -rf "$2"
+      ln -s "$1" "$2"
+    }
+
+    # Scope directories (node_modules/@foo) must be real directories we can
+    # write into.  A leftover symlink from a previous layout would point at a
+    # read-only store path, so replace it rather than link into it.
+    jackpkgs_ensure_dir() {
+      if [ -L "$1" ]; then
+        rm -f "$1"
+      fi
+      mkdir -p "$1"
+    }
+  '';
+
+  # ---------------------------------------------------------------------------
   # Workspace symlink generation
   # ---------------------------------------------------------------------------
 
@@ -72,8 +129,8 @@
   # For each package in `packages`:
   #   1. Read package.json from workspaceRoot/<pkg>/package.json to get the
   #      package name (supports @scope/name scoped packages).
-  #   2. Emit `mkdir -p node_modules/@scope` when scoped.
-  #   3. Emit `ln -sfn $(pwd)/<pkg> node_modules/<name>`.
+  #   2. Emit `jackpkgs_ensure_dir node_modules/@scope` when scoped.
+  #   3. Emit `jackpkgs_link $(pwd)/<pkg> node_modules/<name>`.
   #
   # NOTE: workspaceRoot must be a Nix store path (e.g. inputs.self.outPath).
   # builtins.readFile is called at evaluation time against the store copy,
@@ -81,7 +138,8 @@
   # added to the store via `self` before evaluation, so the read is pure
   # within a given evaluation.
   mkWorkspaceSymlinks = workspaceRoot: packages:
-    lib.concatMapStringsSep "\n" (pkg: let
+    linkHelpers
+    + lib.concatMapStringsSep "\n" (pkg: let
       pkgJsonPath = workspaceRoot + "/${pkg}/package.json";
       rawPkgName =
         if builtins.pathExists pkgJsonPath
@@ -98,8 +156,8 @@
       if pkgName == null
       then "# Skipping workspace symlink for ${pkg}: package.json not found"
       else
-        lib.optionalString isScoped "mkdir -p node_modules/${lib.escapeShellArg scope}\n"
-        + "ln -sfn \"\$(pwd)/${lib.escapeShellArg pkg}\" node_modules/${lib.escapeShellArg pkgName}")
+        lib.optionalString isScoped "jackpkgs_ensure_dir node_modules/${lib.escapeShellArg scope}\n"
+        + "jackpkgs_link \"\$(pwd)/${lib.escapeShellArg (validateWorkspacePath pkg)}\" node_modules/${lib.escapeShellArg pkgName}")
     packages;
 
   # ---------------------------------------------------------------------------
@@ -172,6 +230,7 @@ in {
       workspaceRoot,
       packages,
     }: ''
+      ${linkHelpers}
       nm_store="${nodeModules}"
       nm_root="$nm_store/node_modules"
       if [ ! -d "$nm_root" ]; then
@@ -180,27 +239,29 @@ in {
         exit 1
       fi
 
-      mkdir -p node_modules
+      jackpkgs_ensure_dir node_modules
       shopt -s dotglob nullglob
       for entry in "$nm_root"/*/; do
         entry_name="$(basename "$entry")"
         if [[ "$entry_name" == @* ]]; then
-          mkdir -p "node_modules/$entry_name"
+          jackpkgs_ensure_dir "node_modules/$entry_name"
           for scoped_pkg in "$entry"*/; do
-            ln -sfn "$scoped_pkg" "node_modules/$entry_name/$(basename "$scoped_pkg")"
+            jackpkgs_link "''${scoped_pkg%/}" "node_modules/$entry_name/$(basename "$scoped_pkg")"
           done
         else
-          ln -sfn "$entry" "node_modules/$entry_name"
+          jackpkgs_link "''${entry%/}" "node_modules/$entry_name"
         fi
       done
       shopt -u dotglob nullglob
 
-      ${lib.concatMapStringsSep "\n" (pkg: ''
-          mkdir -p ${lib.escapeShellArg pkg}
-          if [ -d "$nm_store"/${lib.escapeShellArg pkg}/node_modules ]; then
-            ln -sfn "$nm_store"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
-          elif [ -d "$nm_root"/${lib.escapeShellArg pkg}/node_modules ]; then
-            ln -sfn "$nm_root"/${lib.escapeShellArg pkg}/node_modules ${lib.escapeShellArg pkg}/node_modules
+      ${lib.concatMapStringsSep "\n" (rawPkg: let
+          pkg = lib.escapeShellArg (validateWorkspacePath rawPkg);
+        in ''
+          mkdir -p ${pkg}
+          if [ -d "$nm_store"/${pkg}/node_modules ]; then
+            jackpkgs_link "$nm_store"/${pkg}/node_modules ${pkg}/node_modules
+          elif [ -d "$nm_root"/${pkg}/node_modules ]; then
+            jackpkgs_link "$nm_root"/${pkg}/node_modules ${pkg}/node_modules
           fi
         '')
         packages}
