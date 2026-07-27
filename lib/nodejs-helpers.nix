@@ -98,13 +98,17 @@
   #
   # Emitted by both mkWorkspaceSymlinks and mkWorkspaceRuntime; redefining the
   # functions when both are used in one script is harmless.
+  # Every path argument is passed after `--` so a destination that begins with
+  # `-` (a package directory named `-foo`, say) is treated as an operand rather
+  # than as an option bundle.  The eval-time validators do not reject a leading
+  # hyphen, so this is the layer that makes it harmless.
   linkHelpers = ''
     jackpkgs_link() {
       if [ -d "$2" ] && [ ! -L "$2" ]; then
         echo "jackpkgs: replacing real directory $2 with a link into the pinned dependency tree (re-run 'pnpm install' to restore a local install)" >&2
       fi
-      rm -rf "$2"
-      ln -s "$1" "$2"
+      rm -rf -- "$2"
+      ln -s -- "$1" "$2"
     }
 
     # Scope directories (node_modules/@foo) must be real directories we can
@@ -112,9 +116,9 @@
     # read-only store path, so replace it rather than link into it.
     jackpkgs_ensure_dir() {
       if [ -L "$1" ]; then
-        rm -f "$1"
+        rm -f -- "$1"
       fi
-      mkdir -p "$1"
+      mkdir -p -- "$1"
     }
   '';
 
@@ -257,7 +261,7 @@ in {
       ${lib.concatMapStringsSep "\n" (rawPkg: let
           pkg = lib.escapeShellArg (validateWorkspacePath rawPkg);
         in ''
-          mkdir -p ${pkg}
+          mkdir -p -- ${pkg}
           if [ -d "$nm_store"/${pkg}/node_modules ]; then
             jackpkgs_link "$nm_store"/${pkg}/node_modules ${pkg}/node_modules
           elif [ -d "$nm_root"/${pkg}/node_modules ]; then
