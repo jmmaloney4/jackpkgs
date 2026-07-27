@@ -12,7 +12,12 @@
   helpers = import ../lib/nodejs-helpers.nix {inherit lib;};
 
   workspaceRoot = ./fixtures/nodejs-runtime/workspace;
-  packages = ["packages/app" "packages/lib"];
+  # "packages/needs quoting" is load-bearing, not decoration: lib.escapeShellArg
+  # returns a path unquoted when it matches [[:alnum:],._+:@%/-] and
+  # single-quoted otherwise, so only a package path outside that class exercises
+  # the quoting of the emitted link target.  With "packages/app" alone, a target
+  # built as "$(pwd)/<esc>" and one built as "$(pwd)"/<esc> are byte-identical.
+  packages = ["packages/app" "packages/lib" "packages/needs quoting"];
 
   # Stands in for the derivation built by jackpkgs.nodejs: root dependencies
   # under $out/node_modules plus a package-local tree under
@@ -74,6 +79,22 @@
     test -f node_modules/@test/app/package.json
     test -L node_modules/lib
     test -f node_modules/lib/package.json
+
+    # Assert the *target itself*, not merely that it resolves.  A target that
+    # picked up literal quote characters from interpolating lib.escapeShellArg
+    # inside a double-quoted string would be a dangling symlink, which the
+    # `test -f` above catches only because these paths happen to need no
+    # escaping.  Pinning the exact target keeps the guard honest.
+    test "$(readlink node_modules/@test/app)" = "$PWD/packages/app"
+    test "$(readlink node_modules/lib)" = "$PWD/packages/lib"
+
+    # The case that actually distinguishes the two quoting forms.  Against the
+    # old form, which interpolated the escaped path inside the double quotes,
+    # this target was the literal $PWD/'packages/needs quoting' (quotes and
+    # all) and the link dangled.
+    test -L "node_modules/@test/needs-quoting"
+    test -f "node_modules/@test/needs-quoting/package.json"
+    test "$(readlink "node_modules/@test/needs-quoting")" = "$PWD/packages/needs quoting"
   '';
 in {
   # The issue #358 regression: `pnpm install` leaves real per-package

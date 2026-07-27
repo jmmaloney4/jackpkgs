@@ -161,7 +161,17 @@
       then "# Skipping workspace symlink for ${pkg}: package.json not found"
       else
         lib.optionalString isScoped "jackpkgs_ensure_dir node_modules/${lib.escapeShellArg scope}\n"
-        + "jackpkgs_link \"\$(pwd)/${lib.escapeShellArg (validateWorkspacePath pkg)}\" node_modules/${lib.escapeShellArg pkgName}")
+        # `$(pwd)` is quoted on its own and the escaped package path is
+        # concatenated outside those quotes.  escapeShellArg only omits its
+        # single quotes for the `[[:alnum:],._+:@%/-]` character class, so a
+        # workspace path containing anything else (a space, most obviously)
+        # comes back as `'my pkg'` — and interpolating that *inside* a
+        # double-quoted string would make the quotes literal characters in the
+        # symlink target.  Concatenating instead keeps them as shell quoting,
+        # which is also correct under the pre-24.05 escapeShellArg that quoted
+        # unconditionally (this is library code; consumers pin their own
+        # nixpkgs).
+        + "jackpkgs_link \"\$(pwd)\"/${lib.escapeShellArg (validateWorkspacePath pkg)} node_modules/${lib.escapeShellArg pkgName}")
     packages;
 
   # ---------------------------------------------------------------------------
