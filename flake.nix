@@ -507,6 +507,14 @@
               inherit pkgs;
               adr-conflict-check = allPackages.adr-conflict-check;
             }
+          )
+          # mdformat `$`-escaping behaviour, pinned because MyST dollarmath
+          # downstream depends on it and nothing else covers it (#361).
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "mdformat-${name}" drv) (
+            import ./tests/mdformat-escaping.nix {
+              inherit pkgs;
+              mdformatFormatter = config.treefmt.settings.formatter.mdformat;
+            }
           );
       };
 
