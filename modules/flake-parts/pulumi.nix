@@ -274,7 +274,7 @@ in {
           lib.concatMapStringsSep "\n" (pl: ''
             _jackpkgs_plugin_dir="''${PULUMI_HOME:-$HOME/.pulumi}/plugins/${pl.kind}-${pl.name}-v${pl.version}"
             mkdir -p "$_jackpkgs_plugin_dir"
-            ln -sfn ${lib.getExe pl.package} "$_jackpkgs_plugin_dir/pulumi-${pl.kind}-${pl.name}"
+            ln -sfn ${lib.getExe' pl.package "pulumi-${pl.kind}-${pl.name}"} "$_jackpkgs_plugin_dir/pulumi-${pl.kind}-${pl.name}"
             rm -f "$_jackpkgs_plugin_dir.partial"
             unset _jackpkgs_plugin_dir
           '')
