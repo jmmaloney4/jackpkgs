@@ -94,6 +94,48 @@ in {
         description = "Pulumi devShell fragment to include in `inputsFrom`.";
       };
 
+      options.jackpkgs.pulumi.plugins = mkOption {
+        type = with types;
+          listOf (submodule {
+            options = {
+              name = mkOption {
+                type = str;
+                description = "Plugin package name, e.g. \"sector7\".";
+              };
+              kind = mkOption {
+                type = str;
+                default = "resource";
+                description = "Plugin kind. Pulumi supports resource, analyzer and converter.";
+              };
+              version = mkOption {
+                type = str;
+                description = "Plugin version WITHOUT a leading v, e.g. \"0.21.0\".";
+              };
+              package = mkOption {
+                type = package;
+                description = ''
+                  Derivation providing bin/pulumi-<kind>-<name>. Must be a native
+                  plugin binary; language-hosted plugins additionally need a
+                  PulumiPlugin.yaml, which this hook does not write.
+                '';
+              };
+            };
+          });
+        default = [];
+        description = ''
+          Pulumi plugins to link into $PULUMI_HOME/plugins for both the dev and
+          CI shells, so local and CI resolve byte-identical binaries.
+
+          Why linking rather than $PATH: pulumiBaseEnv sets
+          PULUMI_IGNORE_AMBIENT_PLUGINS = "1" (asserted by checks.pulumi-ci-env)
+          precisely so a stray pulumi-resource-* on PATH can never shadow a
+          pinned plugin. Ambient resolution also ignores the version entirely,
+          so a version-pinned SDK would silently bind to whatever binary came
+          first. Populating the versioned plugin directory keeps that guarantee
+          while still sourcing the binary from the Nix store.
+        '';
+      };
+
       options.jackpkgs.pulumi.ci.packages = mkOption {
         type = with types; listOf package;
         default = let
@@ -209,6 +251,34 @@ in {
           export GOOGLE_APPLICATION_CREDENTIALS="$HOME/$_jackpkgs_pulumi_adc_rel_path"
           unset _jackpkgs_pulumi_adc_rel_path
         '';
+        # Links every declared plugin into $PULUMI_HOME/plugins/<kind>-<name>-v<ver>/.
+        #
+        # Layout verified against a natively-installed plugin: the versioned
+        # directory contains the executable named pulumi-<kind>-<name>, and
+        # nothing else is required. There is deliberately no PulumiPlugin.yaml —
+        # that file is only for language-hosted plugins (nodejs/python/dotnet),
+        # to tell the CLI which runtime to exec. Native binaries are exec'd
+        # directly.
+        #
+        # `ln -sfn` makes this idempotent and self-healing: a version bump or a
+        # store-path change relinks on the next shell entry. The `.partial`
+        # marker is removed because Pulumi reads <dir>.partial as "install did
+        # not finish" and will refuse the plugin. The `.lock` file is NOT
+        # pre-created — Pulumi creates it itself and has write access.
+        # Rendered into each shell's shellHook rather than a setup hook: setup
+        # hooks are sourced during derivation *builds*, where HOME is
+        # /homeless-shelter and unwritable, so linking there fails the build.
+        # shellHook runs only on `nix develop` entry, which is when a plugin
+        # directory is actually wanted.
+        pluginLinkShellHook =
+          lib.concatMapStringsSep "\n" (pl: ''
+            _jackpkgs_plugin_dir="''${PULUMI_HOME:-$HOME/.pulumi}/plugins/${pl.kind}-${pl.name}-v${pl.version}"
+            mkdir -p "$_jackpkgs_plugin_dir"
+            ln -sfn ${lib.getExe pl.package} "$_jackpkgs_plugin_dir/pulumi-${pl.kind}-${pl.name}"
+            rm -f "$_jackpkgs_plugin_dir.partial"
+            unset _jackpkgs_plugin_dir
+          '')
+          config.jackpkgs.pulumi.plugins;
       in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
           packages =
@@ -224,7 +294,7 @@ in {
           # Literal env vars are carried by pulumiEnvHook (setup hook).
           # ADC path uses $HOME and must be set via shellHook for expansion.
           # Force ADC profile assertion to evaluate at shell build time.
-          shellHook = builtins.seq assertAdcProfile adcShellHook;
+          shellHook = builtins.seq assertAdcProfile (adcShellHook + pluginLinkShellHook);
         };
 
         devShells.ci-pulumi = pkgs.mkShell {
@@ -237,7 +307,11 @@ in {
           #     the profile ADC file; requires jackpkgs.gcp.profile to be non-null.
           # Literal env vars are carried by ciPulumiEnvHook (setup hook).
           # ADC path (when enabled) uses $HOME and is set via shellHook.
-          shellHook = lib.optionalString (cfg.ci.authMode == "application-default-credentials") adcShellHook;
+          # Plugin linking matches the dev shell, so a plugin resolved locally
+          # and one resolved on a self-hosted runner are the same store path.
+          shellHook =
+            lib.optionalString (cfg.ci.authMode == "application-default-credentials") adcShellHook
+            + pluginLinkShellHook;
         };
 
         jackpkgs.shell.inputsFrom = [
