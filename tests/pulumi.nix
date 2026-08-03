@@ -130,6 +130,25 @@ in {
     expected = true;
   };
 
+  # just does not pass recipe parameters as positional args to shebang recipes
+  # unless `set positional-arguments` is declared, so a body reading
+  # `env="${1:-dev}"` always saw the default and `just deploy prod` silently
+  # rolled dev. The recipes must interpolate the parameter via just instead.
+  testPulumiJustfileInterpolatesEnvParameter = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        stacks = defaultStacks;
+      })
+    ];
+    justfile = perSystemCfg.jackpkgs.outputs.pulumiJustfile;
+  in {
+    expr =
+      lib.count (lib.hasInfix "env={{quote(env)}}") (lib.splitString "\n" justfile)
+      == 2 # once in preview, once in deploy
+      && !(lib.hasInfix "\${1:-" justfile);
+    expected = true;
+  };
+
   testPulumiPreviewHasSummaryFunctionAndOutput = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {

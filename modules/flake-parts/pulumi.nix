@@ -376,7 +376,12 @@ in {
             ([
                 "#!/usr/bin/env bash"
                 "set -euo pipefail"
-                "env=\"\${1:-${defaultStack}}\""
+                # just does not pass recipe parameters as positional args to
+                # shebang recipes (that needs `set positional-arguments`), so
+                # $1 is always unset here and the old `env="${1:-default}"`
+                # silently deployed the default stack no matter what the caller
+                # asked for. Interpolate the parameter via just instead.
+                "env={{quote(env)}}"
                 "preview_summaries=()"
                 ""
                 "# run_preview captures pulumi preview output, prints it in full, then"
@@ -466,7 +471,9 @@ in {
             ([
                 "#!/usr/bin/env bash"
                 "set -euo pipefail"
-                "env=\"\${1:-${defaultStack}}\""
+                # See previewRecipe: $1 is never set in shebang recipes, so the
+                # parameter must be interpolated by just.
+                "env={{quote(env)}}"
                 ""
               ]
               ++ validationLogic
