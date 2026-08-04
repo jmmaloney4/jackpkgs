@@ -199,6 +199,55 @@ in {
     expected = true;
   };
 
+  # Previously, run_preview's non-zero return (project preview failure) was
+  # called as a bare statement, so `set -euo pipefail` aborted the whole
+  # recipe on the first failing project — every project after it in the
+  # list was silently never previewed. deploy already guards its per-project
+  # command with `if ! ...; then failed_stacks+=(...); fi`; preview must do
+  # the same with run_preview so one broken project doesn't hide the rest.
+  testPulumiPreviewContinuesPastFailedProject = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        stacks = defaultStacks;
+      })
+    ];
+    justfile = perSystemCfg.jackpkgs.outputs.pulumiJustfile;
+    previewSection = lib.head (lib.splitString "\ndeploy " justfile);
+  in {
+    expr =
+      hasInfixAll [
+        "failed_previews=()"
+        "if ! run_preview"
+        "failed_previews+=("
+        "❌ Failed previews:"
+      ]
+      previewSection
+      # run_preview's return value must never be called as a bare statement
+      # (unguarded), or `set -e` aborts the recipe on the first failure.
+      && !(lib.hasInfix "    run_preview \"\$project_path\" \"\$_effective_stack\"" previewSection)
+      && !(lib.hasInfix "    run_preview \"\$project_path\" \"\$env\"" previewSection);
+    expected = true;
+  };
+
+  testPulumiPreviewExitsNonZeroOnlyWhenAProjectFailed = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        stacks = defaultStacks;
+      })
+    ];
+    justfile = perSystemCfg.jackpkgs.outputs.pulumiJustfile;
+    previewSection = lib.head (lib.splitString "\ndeploy " justfile);
+  in {
+    expr =
+      hasInfixAll [
+        "if [ \${#failed_previews[@]} -eq 0 ]; then"
+        "exit 0"
+        "exit 1"
+      ]
+      previewSection;
+    expected = true;
+  };
+
   testPulumiShellHookEscapesValuesWithSpecialChars = let
     scaryUrl = "s3://bucket/path?query=1&flag=true";
     scarySecret = "passphrase's complex value";

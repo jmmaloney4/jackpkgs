@@ -383,6 +383,7 @@ in {
                 # asked for. Interpolate the parameter via just instead.
                 "env={{quote(env)}}"
                 "preview_summaries=()"
+                "failed_previews=()"
                 ""
                 "# run_preview captures pulumi preview output, prints it in full, then"
                 "# parses the 'Resources:' summary for create/replace/update/delete counts."
@@ -441,14 +442,18 @@ in {
                   "    _effective_stack=${fallbackStack}"
                   "fi"
                   "printf '📦 Previewing %s (stack: %s, alwaysDeploy)...\\n' \"\$project_path\" \"\$_effective_stack\""
-                  "run_preview \"\$project_path\" \"\$_effective_stack\""
+                  "if ! run_preview \"\$project_path\" \"\$_effective_stack\"; then"
+                  "    failed_previews+=(\"\$project_path (\$_effective_stack)\")"
+                  "fi"
                 ]
                 else [
                   "echo \"\""
                   "project_path=${escapedPath}"
                   "if ${projectStackChecks}; then"
                   "    printf '📦 Previewing %s (stack: %s)...\\n' \"\$project_path\" \"\$env\""
-                  "    run_preview \"\$project_path\" \"\$env\""
+                  "    if ! run_preview \"\$project_path\" \"\$env\"; then"
+                  "        failed_previews+=(\"\$project_path (\$env)\")"
+                  "    fi"
                   "else"
                   "    printf '⏭️  Skipping %s (stack %s not configured for this project)\\n' \"\$project_path\" \"\$env\""
                   "fi"
@@ -462,7 +467,18 @@ in {
                 "    printf '%s\\n' \"\$summary\""
                 "done"
                 "echo \"\""
-                "echo \"✅ Preview complete! Run 'just deploy' to apply changes.\""
+                "if [ \${#failed_previews[@]} -eq 0 ]; then"
+                "    echo \"✅ Preview complete! Run 'just deploy' to apply changes.\""
+                "    exit 0"
+                "else"
+                "    echo \"⚠️  Preview completed with failures\""
+                "    echo \"\""
+                "    echo \"❌ Failed previews:\""
+                "    for stack in \"\${failed_previews[@]}\"; do"
+                "        echo \"   - \$stack\""
+                "    done"
+                "    exit 1"
+                "fi"
               ])
             false;
 
