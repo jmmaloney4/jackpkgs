@@ -390,15 +390,18 @@
             src = fixtureNonhoistedDep;
             depsHash = "sha256-cnrJCL+ZkGR2kcjSzFdOwmUExhX2F/JDtLzG/NwAiH4=";
             checkCommand = ''
+              # Capture outside the source tree: nodejs.nix captures into a
+              # store path, and a capture directory under $PWD would be seen by
+              # the helper's own node_modules sweep of the checkout.
               (
-                out="$PWD/captured"
+                out="$NIX_BUILD_TOP/captured"
                 ${nodejsHelpers.nodejs.captureNodeModules}
               )
 
               rm -rf node_modules packages/app/node_modules packages/lib/node_modules
 
               ${nodejsHelpers.nodejs.mkWorkspaceRuntime {
-                nodeModules = "$PWD/captured";
+                nodeModules = "$NIX_BUILD_TOP/captured";
                 workspaceRoot = fixtureNonhoistedDep;
                 packages = ["packages/app" "packages/lib"];
               }}

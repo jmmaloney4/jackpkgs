@@ -254,16 +254,21 @@ in {
     # per-package links into the root .pnpm store) and removes everything
     # else.  `[ ! -e "$link" ]` also catches symlink loops, so readlink -f
     # only ever runs on resolvable links.
+    # The copy find prunes at every node_modules it meets: the root tree is
+    # skipped outright (already copied above), and each package-local tree is
+    # copied whole by cp -a, so descending into any of them would only re-find
+    # subtrees the copy already carries.  Pruning also keeps find from walking
+    # the (potentially huge) root tree just to discard its paths afterwards.
     captureNodeModules = ''
       mkdir -p "$out"
       cp -a node_modules "$out/"
-      find . -mindepth 2 -name 'node_modules' -type d \
-        -not -path './node_modules/*' | while read -r dir; do
+      find . -path ./node_modules -prune \
+        -o -name 'node_modules' -type d -prune -print | while IFS= read -r dir; do
         mkdir -p "$out/$(dirname "$dir")"
         cp -a "$dir" "$out/$dir"
       done
 
-      find "$out" -type l | while read -r link; do
+      find "$out" -type l | while IFS= read -r link; do
         if [ ! -e "$link" ]; then
           rm -- "$link"
           continue

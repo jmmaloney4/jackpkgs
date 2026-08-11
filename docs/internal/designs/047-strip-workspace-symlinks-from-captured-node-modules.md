@@ -160,8 +160,8 @@ Out of scope:
    `pnpm-nonhoisted-output-layout` consume the helper and assert the new
    invariants (workspace links stripped, dependency links kept, zero dangling
    links); drop their `dontCheckForBrokenSymlinks` attrs.
-4. Add `pnpm-workspace-glob-captured-runtime`: end-to-end regression test that
-   captures the glob fixture, links it into a live copy via
+4. Add `pnpm-captured-workspace-runtime`: end-to-end regression test that
+   captures the nonhoisted fixture, links it into a live copy via
    `mkWorkspaceRuntime`, and asserts Node resolves the `workspace:*` import —
    the exact garden failure mode.
 5. Devshell hook warning for store-linked `node_modules/.pnpm` with the
@@ -185,4 +185,4 @@ ______________________________________________________________________
 
 Author: Jack Maloney
 Date: 2026-08-10
-PR: <pending>
+PR: jackpkgs#367
