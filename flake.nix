@@ -183,6 +183,11 @@
           inherit lib pkgs;
         };
 
+        # The capture + workspace-runtime helpers under test in the pnpm
+        # fixture checks below (same import the modules consume as
+        # jackpkgsLib, see modules/flake-parts/lib.nix).
+        nodejsHelpers = import ./lib/nodejs-helpers.nix {inherit lib;};
+
         integrationFixturesRoot = ./tests/fixtures/integration;
         fixtureSimplePnpm = integrationFixturesRoot + "/simple-pnpm";
         fixtureWorkspaceBasic = integrationFixturesRoot + "/pnpm-workspace-basic";
@@ -318,15 +323,19 @@
             src = fixtureWorkspaceBasic;
             depsHash = "sha256-B1iBXUev+REvZpPF2djpVc10Wvd4K5r/LdngvN8V29Q=";
             checkCommand = ''
-              mkdir -p "$out"
-              cp -a node_modules "$out/"
+              ${nodejsHelpers.nodejs.captureNodeModules}
               test -d "$out/node_modules"
-              test -L "$out/node_modules/.pnpm/node_modules/@test/lib"
-              test ! -e "$out/node_modules/.pnpm/node_modules/@test/lib"
+
+              # Workspace links are stripped from the captured tree (ADR-047):
+              # the .pnpm peer-resolution link that used to dangle (#160) and
+              # the per-package workspace link that poisoned live checkouts.
+              test ! -L "$out/node_modules/.pnpm/node_modules/@test/lib"
+              test ! -L "$out/app/node_modules/@test/lib"
+
+              # Nothing in the capture dangles — the invariant that lets the
+              # noBrokenSymlinks fixup check stay enabled on nodeModules.
+              test -z "$(find "$out" -xtype l -print -quit)"
             '';
-            extraAttrs = {
-              dontCheckForBrokenSymlinks = true;
-            };
           };
 
           pnpm-nonhoisted-runtime = mkPnpmFixtureCheck {
@@ -339,28 +348,74 @@
             '';
           };
 
-          # Mirrors nodejs.nix:125-129 installPhase; keep in sync.
+          # Consumes the same capture script as nodejs.nix's installPhase
+          # (jackpkgsLib.nodejs.captureNodeModules, ADR-047).
           pnpm-nonhoisted-output-layout = mkPnpmFixtureCheck {
             name = "nonhoisted-output-layout";
             src = fixtureNonhoistedDep;
             depsHash = "sha256-cnrJCL+ZkGR2kcjSzFdOwmUExhX2F/JDtLzG/NwAiH4=";
             checkCommand = ''
-              mkdir -p "$out"
-              cp -a node_modules "$out/"
-              find . -mindepth 2 -name 'node_modules' -type d \
-                -not -path './node_modules/*' | while read -r dir; do
-                mkdir -p "$out/$(dirname "$dir")"
-                cp -a "$dir" "$out/$dir"
-              done
+              ${nodejsHelpers.nodejs.captureNodeModules}
 
               test -d "$out/node_modules"
               test ! -e "$out/node_modules/is-odd"
-              test -L "$out/packages/app/node_modules/is-odd"
               test -z "$(find "$out/node_modules/.pnpm" -path '*/node_modules/node_modules' -print -quit)"
+
+              # Dependency-store links survive the ADR-047 strip: per-package
+              # links resolve into the root .pnpm store.
+              test -L "$out/packages/app/node_modules/is-odd"
+              test -L "$out/packages/lib/node_modules/is-number"
+
+              # The workspace link does not: in $out it resolves to
+              # $out/packages/lib, a skeleton holding only a nested
+              # node_modules copy — the exact link that sent Node's resolver
+              # to a package with no sources (garden, 2026-08-10).
+              test ! -L "$out/packages/app/node_modules/@test/lib"
+
+              # And nothing in the capture dangles.
+              test -z "$(find "$out" -xtype l -print -quit)"
             '';
-            extraAttrs = {
-              dontCheckForBrokenSymlinks = true;
-            };
+          };
+
+          # End-to-end regression test for the garden failure mode (ADR-047):
+          # capture the tree the way nodejs.nix does, consume it the way
+          # checks/pre-commit do (mkWorkspaceRuntime against a checkout whose
+          # real pnpm install is gone), then require Node to resolve the
+          # workspace: import. Before the strip, the captured per-package link
+          # @test/lib resolved to the skeleton directory and Node failed with
+          # ERR_MODULE_NOT_FOUND before ever reaching the correct root-level
+          # workspace symlink.
+          pnpm-captured-workspace-runtime = mkPnpmFixtureCheck {
+            name = "captured-workspace-runtime";
+            src = fixtureNonhoistedDep;
+            depsHash = "sha256-cnrJCL+ZkGR2kcjSzFdOwmUExhX2F/JDtLzG/NwAiH4=";
+            checkCommand = ''
+              # Capture outside the source tree: nodejs.nix captures into a
+              # store path, and a capture directory under $PWD would be seen by
+              # the helper's own node_modules sweep of the checkout.
+              (
+                out="$NIX_BUILD_TOP/captured"
+                ${nodejsHelpers.nodejs.captureNodeModules}
+              )
+
+              rm -rf node_modules packages/app/node_modules packages/lib/node_modules
+
+              ${nodejsHelpers.nodejs.mkWorkspaceRuntime {
+                nodeModules = "$NIX_BUILD_TOP/captured";
+                workspaceRoot = fixtureNonhoistedDep;
+                packages = ["packages/app" "packages/lib"];
+              }}
+
+              # The runtime linked package-local trees at the captured store…
+              test -L packages/app/node_modules
+              test -L packages/lib/node_modules
+              # …which no longer carry the poisoned workspace link…
+              test ! -e packages/app/node_modules/@test/lib
+              # …so resolution goes through the root-level link to the live
+              # tree, and both the workspace import and the per-package
+              # external deps resolve.
+              node packages/app/index.js | grep -qx "pass"
+            '';
           };
         };
 

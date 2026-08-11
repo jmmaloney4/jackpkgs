@@ -2,6 +2,9 @@
 	"name": "@test/lib",
 	"version": "1.0.0",
 	"type": "module",
+	"dependencies": {
+		"is-number": "6.0.0"
+	},
 	"exports": {
 		".": "./index.js"
 	}
