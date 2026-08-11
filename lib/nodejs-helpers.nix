@@ -235,6 +235,47 @@ in {
       ${pathVar}="${storePath}/node_modules/.bin"
     '';
 
+    # Capture the pnpm-installed node_modules trees from the current directory
+    # into "$out" — the output contract from ADR-028: root dependencies at
+    # $out/node_modules, package-local trees at $out/<workspace>/node_modules.
+    #
+    # pnpm materializes workspace packages as relative symlinks (root
+    # node_modules/<name>, .pnpm/node_modules/<name>, and per-package
+    # <pkg>/node_modules/<name> for workspace: deps).  Only node_modules
+    # subtrees are copied, so inside $out those links either dangle or resolve
+    # to a skeleton directory holding nothing but a nested node_modules copy.
+    # Every consumer re-links workspace packages against a live source tree
+    # (mkWorkspaceRuntime / mkWorkspaceSymlinks), so the captured links are
+    # stripped rather than shipped broken (ADR-047) — which is also what lets
+    # the noBrokenSymlinks fixup check stay enabled as the regression guard.
+    #
+    # The strip keeps exactly the links that resolve to a real path inside a
+    # node_modules subtree of $out (dependency-store links, .bin entries,
+    # per-package links into the root .pnpm store) and removes everything
+    # else.  `[ ! -e "$link" ]` also catches symlink loops, so readlink -f
+    # only ever runs on resolvable links.
+    captureNodeModules = ''
+      mkdir -p "$out"
+      cp -a node_modules "$out/"
+      find . -mindepth 2 -name 'node_modules' -type d \
+        -not -path './node_modules/*' | while read -r dir; do
+        mkdir -p "$out/$(dirname "$dir")"
+        cp -a "$dir" "$out/$dir"
+      done
+
+      find "$out" -type l | while read -r link; do
+        if [ ! -e "$link" ]; then
+          rm -- "$link"
+          continue
+        fi
+        target=$(readlink -f -- "$link")
+        case "$target" in
+          "$out"/node_modules/* | "$out"/*/node_modules/*) ;;
+          *) rm -- "$link" ;;
+        esac
+      done
+    '';
+
     findNodeModulesRoot = rootVar: storePath: ''
       ${rootVar}="${storePath}/node_modules"
     '';

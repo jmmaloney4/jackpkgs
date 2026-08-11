@@ -148,17 +148,12 @@ in {
         CI = true;
 
         dontBuild = true;
-        dontCheckForBrokenSymlinks = true;
 
-        installPhase = ''
-          mkdir -p "$out"
-          cp -a node_modules "$out/"
-          find . -mindepth 2 -name 'node_modules' -type d \
-            -not -path './node_modules/*' | while read -r dir; do
-            mkdir -p "$out/$(dirname "$dir")"
-            cp -a "$dir" "$out/$dir"
-          done
-        '';
+        # captureNodeModules strips the pnpm workspace symlinks that would
+        # dangle (or resolve to skeleton directories) inside $out, so the
+        # noBrokenSymlinks fixup check stays enabled as the regression guard
+        # (ADR-047; previously silenced via dontCheckForBrokenSymlinks, #160).
+        installPhase = jackpkgsLib.nodejs.captureNodeModules;
       };
     in {
       jackpkgs.outputs.nodeModules = nodeModules;
@@ -183,6 +178,17 @@ in {
             export PATH="$node_modules_bin:$PATH"
           else
             export PATH="$PWD/node_modules/.bin:$PATH"
+          fi
+
+          # A checks/pre-commit run of mkWorkspaceRuntime against this
+          # checkout replaces node_modules entries with read-only links into
+          # the captured store tree.  pnpm's up-to-date check does not notice,
+          # so `pnpm install` silently no-ops against that state (ADR-047);
+          # point at the exit instead of leaving it to be rediscovered.
+          if [ -L "$PWD/node_modules/.pnpm" ]; then
+            echo "jackpkgs: node_modules is linked into the Nix store (left by a jackpkgs check or pre-commit hook run)." >&2
+            echo "jackpkgs: pnpm install will silently no-op against it. To restore a local install:" >&2
+            echo "jackpkgs:   rm -rf node_modules && find . -name node_modules -type l -delete && pnpm install" >&2
           fi
         '';
       };
