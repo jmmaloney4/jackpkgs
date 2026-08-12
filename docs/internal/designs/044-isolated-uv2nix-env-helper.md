@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -196,6 +196,12 @@ jackpkgs.python.isolatedEnvironments.dbt = {
 
 - Zeus and Garden migrate in separate follow-up PRs after this helper lands.
 - No backward compatibility concern — this is purely additive.
+
+**Shipped:** Zeus migrated in `cavinsresearch/zeus#1445` (merged), hardened
+for per-system `config.jackpkgs.lib` consumption in `#342` +
+`cavinsresearch/zeus#1470`. Garden migrated in `jmmaloney4/garden#1393`
+(merged), replacing `nix/dbt.nix`. Both pin the isolated env to Python 3.13
+and are live-validated. Tracked in `ergodicsystems/hq#230`.
 
 ## Related
 
