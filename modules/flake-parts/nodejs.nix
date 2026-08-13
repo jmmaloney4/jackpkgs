@@ -119,6 +119,7 @@ in {
       ...
     }: let
       sysCfg = config.jackpkgs.nodejs;
+      jackpkgsLibFull = jackpkgsLib // (import ../../lib {inherit pkgs;});
 
       # Installs with --frozen-lockfile. pnpm 11.4.0+ (pnpmPackage defaults to
       # pkgs.pnpm_11) fails closed on GitHub-release `.tgz` deps whose lockfile
@@ -149,11 +150,13 @@ in {
 
         dontBuild = true;
 
-        # captureNodeModules strips the pnpm workspace symlinks that would
+        # capture-node-modules strips the pnpm workspace symlinks that would
         # dangle (or resolve to skeleton directories) inside $out, so the
         # noBrokenSymlinks fixup check stays enabled as the regression guard
         # (ADR-047; previously silenced via dontCheckForBrokenSymlinks, #160).
-        installPhase = jackpkgsLib.nodejs.captureNodeModules;
+        installPhase = ''
+          ${jackpkgsLibFull.nodejs.mkCaptureNodeModulesCli}/bin/capture-node-modules "$out"
+        '';
       };
     in {
       jackpkgs.outputs.nodeModules = nodeModules;

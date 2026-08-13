@@ -159,4 +159,43 @@ with pkgs.lib; rec {
     treefmt = treefmtExcludesFromDirs defaultExcludeDirs;
     preCommit = preCommitExcludesFromDirs defaultExcludeDirs;
   };
+
+  /**
+  A standalone `capture-node-modules <out-dir>` CLI wrapping
+  `jackpkgsLib.nodejs.captureNodeModules` (lib/nodejs-helpers.nix).
+
+  `captureNodeModules` is a `lines`-typed shell fragment that every caller
+  previously had to splice into its own script, relying on an ambient `$out`
+  env var — four separate bugs in that cluster (quoting, `--` separators,
+  `ln -sfn` nesting semantics, dangling symlinks) were all instances of the
+  same failure mode: correctness depended on how each caller's Nix-string
+  concatenation interacted with shell quoting, not on domain logic.
+
+  This wrapper turns the boundary into a real subprocess with typed argv (an
+  explicit `<out-dir>` argument, not an ambient env var) instead of text a
+  caller must correctly concatenate. It changes only the entry point — the
+  capture logic itself (`captureNodeModules`) is unchanged, so ADR-047's
+  invariants and the fixture-check coverage for it still apply verbatim.
+
+  Example:
+
+  ```nix
+  installPhase = "${jackpkgsLib.nodejs.mkCaptureNodeModulesCli}/bin/capture-node-modules \"$out\"";
+  ```
+  */
+  nodejs.mkCaptureNodeModulesCli = let
+    nodejsHelpers = import ./nodejs-helpers.nix {inherit lib;};
+  in
+    pkgs.writeShellApplication {
+      name = "capture-node-modules";
+      runtimeInputs = [pkgs.coreutils pkgs.findutils];
+      text = ''
+        if [ "$#" -ne 1 ]; then
+          echo "usage: capture-node-modules <out-dir>" >&2
+          exit 1
+        fi
+        out="$1"
+        ${nodejsHelpers.nodejs.captureNodeModules}
+      '';
+    };
 }
