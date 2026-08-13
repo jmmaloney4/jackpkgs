@@ -3,6 +3,7 @@
   config,
   lib,
   options,
+  jackpkgsLib,
   ...
 } @ moduleTop: let
   inherit (lib) mkIf;
@@ -191,6 +192,34 @@ in {
       sysCfg = config.jackpkgs.just; # per-system config scope
       sysCfgQuarto = config.jackpkgs.quarto;
       checksCfgForRecipes = lib.attrByPath ["jackpkgs" "checks"] {} moduleTop.config;
+
+      # Mirror checks.nix/pre-commit.nix's package-set resolution so `just
+      # lint`/`just test` agree with `nix flake check` and the pre-commit
+      # hooks on which packages get tsc/vitest, instead of just.nix reading
+      # the raw `.packages` option and silently skipping when it's null
+      # (ADR-040). Read jackpkgsProjectRoot the same defensive way this file
+      # already reads pythonWorkspace below (config._module.args.* or
+      # default) rather than as a named perSystem parameter: unlike a plain
+      # Nix function default, the module system requires _module.args.<name>
+      # to be defined by *some* module whenever <name> is a declared
+      # parameter, even one with `? null` — and not every consumer of this
+      # module (e.g. test harnesses) loads project-root.nix, which is what
+      # normally sets it.
+      jackpkgsLibFull = jackpkgsLib // (import ../../lib {inherit pkgs;});
+      recipesFromYAML =
+        if checksCfgForRecipes.fromYAML or null != null
+        then checksCfgForRecipes.fromYAML
+        else jackpkgsLibFull.mkFromYAML {jsonSidecar = true;};
+      recipesProjectRoot =
+        if (config._module.args.jackpkgsProjectRoot or null) != null
+        then config._module.args.jackpkgsProjectRoot
+        else config.jackpkgs.projectRoot or inputs.self.outPath;
+      resolveRecipePackages = explicit:
+        jackpkgsLib.resolvePackages {
+          inherit explicit;
+          workspaceRoot = recipesProjectRoot;
+          fromYAML = recipesFromYAML;
+        };
       pythonCfgForDevTools = cfg.python or {};
       pythonWorkspaceForDevTools = config._module.args.pythonWorkspace or null;
       pythonEnvOutputsForDevTools = let
@@ -683,7 +712,7 @@ in {
                   ))
                   ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.typescript.tsc.enable) (
                     let
-                      tscPackages = checksCfgForRecipes.typescript.tsc.packages;
+                      tscPackages = resolveRecipePackages checksCfgForRecipes.typescript.tsc.packages;
                       extraArgs = lib.escapeShellArgs checksCfgForRecipes.typescript.tsc.extraArgs;
                     in
                       # Converge with pre-commit tsc hook: always iterate per-package with
@@ -713,7 +742,7 @@ in {
                   let
                     pytestExtraArgs = lib.escapeShellArgs checksCfgForRecipes.python.pytest.extraArgs;
                     vitestExtraArgs = lib.escapeShellArgs checksCfgForRecipes.vitest.extraArgs;
-                    vitestPackages = checksCfgForRecipes.vitest.packages;
+                    vitestPackages = resolveRecipePackages checksCfgForRecipes.vitest.packages;
                   in
                     [
                       "#!/usr/bin/env bash"

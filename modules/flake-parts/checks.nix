@@ -579,11 +579,6 @@ in {
         then cfg.fromYAML
         else jackpkgsLibFull.mkFromYAML {jsonSidecar = true;};
 
-      discoverPnpmPackages = workspaceRoot:
-        jackpkgsLib.discoverPnpmPackages {
-          inherit workspaceRoot fromYAML;
-        };
-
       # Node.js runtime with safe fallback: prefer jackpkgs.nodejs.package,
       # then jackpkgs.pkgs.nodejs_24 (respects overlays), then pkgs.nodejs_24.
       nodejsPackage =
@@ -740,14 +735,18 @@ in {
       # Lazy package discovery - only compute when actually needed
       # This avoids IFD during module evaluation when checks aren't generated
       getTsPackages = cfg':
-        if cfg'.typescript.tsc.packages != null
-        then map jackpkgsLib.validateWorkspacePath cfg'.typescript.tsc.packages
-        else discoverPnpmPackages projectRoot;
+        jackpkgsLib.resolvePackages {
+          explicit = cfg'.typescript.tsc.packages;
+          workspaceRoot = projectRoot;
+          inherit fromYAML;
+        };
 
       getVitestPackages = cfg':
-        if cfg'.vitest.packages != null
-        then map jackpkgsLib.validateWorkspacePath cfg'.vitest.packages
-        else discoverPnpmPackages projectRoot;
+        jackpkgsLib.resolvePackages {
+          explicit = cfg'.vitest.packages;
+          workspaceRoot = projectRoot;
+          inherit fromYAML;
+        };
 
       # NOTE: We cannot use builtins.pathExists on nodeModules paths at Nix evaluation
       # time because the derivation doesn't exist yet (it's built later). The path
@@ -1068,9 +1067,11 @@ in {
         else config.jackpkgs.outputs.nodeModules or null;
 
       getBiomePackages = cfg':
-        if cfg'.biome.lint.packages != null
-        then map jackpkgsLib.validateWorkspacePath cfg'.biome.lint.packages
-        else discoverPnpmPackages projectRoot;
+        jackpkgsLib.resolvePackages {
+          explicit = cfg'.biome.lint.packages;
+          workspaceRoot = projectRoot;
+          inherit fromYAML;
+        };
 
       biomeChecks = let
         biomePackages = getBiomePackages cfg;
