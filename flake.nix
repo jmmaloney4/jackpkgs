@@ -187,6 +187,8 @@
         # fixture checks below (same import the modules consume as
         # jackpkgsLib, see modules/flake-parts/lib.nix).
         nodejsHelpers = import ./lib/nodejs-helpers.nix {inherit lib;};
+        nodejsLibFull = import ./lib {inherit pkgs;};
+        captureNodeModulesCli = nodejsLibFull.nodejs.mkCaptureNodeModulesCli;
 
         integrationFixturesRoot = ./tests/fixtures/integration;
         fixtureSimplePnpm = integrationFixturesRoot + "/simple-pnpm";
@@ -323,7 +325,7 @@
             src = fixtureWorkspaceBasic;
             depsHash = "sha256-B1iBXUev+REvZpPF2djpVc10Wvd4K5r/LdngvN8V29Q=";
             checkCommand = ''
-              ${nodejsHelpers.nodejs.captureNodeModules}
+              ${captureNodeModulesCli}/bin/capture-node-modules "$out"
               test -d "$out/node_modules"
 
               # Workspace links are stripped from the captured tree (ADR-047):
@@ -355,7 +357,7 @@
             src = fixtureNonhoistedDep;
             depsHash = "sha256-cnrJCL+ZkGR2kcjSzFdOwmUExhX2F/JDtLzG/NwAiH4=";
             checkCommand = ''
-              ${nodejsHelpers.nodejs.captureNodeModules}
+              ${captureNodeModulesCli}/bin/capture-node-modules "$out"
 
               test -d "$out/node_modules"
               test ! -e "$out/node_modules/is-odd"
@@ -392,11 +394,11 @@
             checkCommand = ''
               # Capture outside the source tree: nodejs.nix captures into a
               # store path, and a capture directory under $PWD would be seen by
-              # the helper's own node_modules sweep of the checkout.
-              (
-                out="$NIX_BUILD_TOP/captured"
-                ${nodejsHelpers.nodejs.captureNodeModules}
-              )
+              # the helper's own node_modules sweep of the checkout. The CLI
+              # takes the output dir as an explicit argument rather than an
+              # ambient $out, so no subshell is needed to keep this capture's
+              # destination from clobbering the derivation's real $out.
+              ${captureNodeModulesCli}/bin/capture-node-modules "$NIX_BUILD_TOP/captured"
 
               rm -rf node_modules packages/app/node_modules packages/lib/node_modules
 

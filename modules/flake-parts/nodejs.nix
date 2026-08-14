@@ -119,6 +119,13 @@ in {
       ...
     }: let
       sysCfg = config.jackpkgs.nodejs;
+      # Kept separate from jackpkgsLib (import ../../lib/nodejs-helpers.nix,
+      # see modules/flake-parts/lib.nix) rather than merged with `//`: the
+      # `nodejs` attrsets in the two libs are disjoint (this one only has
+      # mkCaptureNodeModulesCli), and a shallow `//` merge would silently
+      # replace jackpkgsLib.nodejs.* (captureNodeModules, findNodeModulesBin,
+      # mkWorkspaceRuntime, ...) instead of adding to it.
+      captureNodeModulesCli = (import ../../lib {inherit pkgs;}).nodejs.mkCaptureNodeModulesCli;
 
       # Installs with --frozen-lockfile. pnpm 11.4.0+ (pnpmPackage defaults to
       # pkgs.pnpm_11) fails closed on GitHub-release `.tgz` deps whose lockfile
@@ -149,11 +156,13 @@ in {
 
         dontBuild = true;
 
-        # captureNodeModules strips the pnpm workspace symlinks that would
+        # capture-node-modules strips the pnpm workspace symlinks that would
         # dangle (or resolve to skeleton directories) inside $out, so the
         # noBrokenSymlinks fixup check stays enabled as the regression guard
         # (ADR-047; previously silenced via dontCheckForBrokenSymlinks, #160).
-        installPhase = jackpkgsLib.nodejs.captureNodeModules;
+        installPhase = ''
+          ${captureNodeModulesCli}/bin/capture-node-modules "$out"
+        '';
       };
     in {
       jackpkgs.outputs.nodeModules = nodeModules;
