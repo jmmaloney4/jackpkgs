@@ -221,6 +221,24 @@
     if yamlExists
     then lib.filter hasPackageJson allPackages
     else [];
+
+  # Resolve the package list a check/hook/recipe should run against: an
+  # explicit `packages` option wins if set, otherwise fall back to
+  # pnpm-workspace.yaml auto-discovery. `checks.nix`, `pre-commit.nix`, and
+  # `just.nix` each need this same "explicit-or-discover" decision for
+  # tsc/vitest/biome, and previously reimplemented it independently — one
+  # copy (`just.nix`) never called `discoverPnpmPackages` at all, so the
+  # default (`packages = null`) silently produced an empty package list
+  # instead of discovering the workspace. Centralizing here means the three
+  # call sites agree by construction (ADR-040).
+  resolvePackages = {
+    explicit, # list of workspace-relative paths, or null to auto-discover
+    workspaceRoot,
+    fromYAML,
+  }:
+    if explicit != null
+    then map validateWorkspacePath explicit
+    else discoverPnpmPackages {inherit workspaceRoot fromYAML;};
 in {
   inherit
     validateWorkspacePath
@@ -228,6 +246,7 @@ in {
     expandWorkspaceGlob
     mkWorkspaceSymlinks
     discoverPnpmPackages
+    resolvePackages
     ;
 
   nodejs = {

@@ -372,37 +372,40 @@ in {
         # silently diverged from the CI path.
         preCommitFromYAML = jackpkgsLibFull.mkFromYAML {jsonSidecar = true;};
 
-        discoverPnpmPackages = workspaceRoot:
-          jackpkgsLib.discoverPnpmPackages {
-            inherit workspaceRoot;
-            fromYAML = preCommitFromYAML;
-          };
+        # Explicit config wins if either the pre-commit-local option or the
+        # checks-module option sets it; otherwise resolvePackages falls back
+        # to pnpm-workspace.yaml auto-discovery (ADR-040).
+        tscPackages = jackpkgsLib.resolvePackages {
+          explicit =
+            if sysCfg.typescript.tsc.packages != null
+            then sysCfg.typescript.tsc.packages
+            else lib.attrByPath ["typescript" "tsc" "packages"] null checksCfg;
+          workspaceRoot = projectRoot;
+          fromYAML = preCommitFromYAML;
+        };
 
-        tscPackages =
-          if sysCfg.typescript.tsc.packages != null
-          then map jackpkgsLib.validateWorkspacePath sysCfg.typescript.tsc.packages
-          else if (lib.attrByPath ["typescript" "tsc" "packages"] null checksCfg) != null
-          then map jackpkgsLib.validateWorkspacePath checksCfg.typescript.tsc.packages
-          else discoverPnpmPackages projectRoot;
-
-        vitestPackages =
-          if sysCfg.javascript.vitest.packages != null
-          then map jackpkgsLib.validateWorkspacePath sysCfg.javascript.vitest.packages
-          else if (lib.attrByPath ["vitest" "packages"] null checksCfg) != null
-          then map jackpkgsLib.validateWorkspacePath checksCfg.vitest.packages
-          else discoverPnpmPackages projectRoot;
+        vitestPackages = jackpkgsLib.resolvePackages {
+          explicit =
+            if sysCfg.javascript.vitest.packages != null
+            then sysCfg.javascript.vitest.packages
+            else lib.attrByPath ["vitest" "packages"] null checksCfg;
+          workspaceRoot = projectRoot;
+          fromYAML = preCommitFromYAML;
+        };
 
         biomeNodeModules =
           if sysCfg.biome.lint.nodeModules != null
           then sysCfg.biome.lint.nodeModules
           else defaultNodeModules;
 
-        biomePackages =
-          if sysCfg.biome.lint.packages != null
-          then map jackpkgsLib.validateWorkspacePath sysCfg.biome.lint.packages
-          else if (lib.attrByPath ["biome" "lint" "packages"] null checksCfg) != null
-          then map jackpkgsLib.validateWorkspacePath checksCfg.biome.lint.packages
-          else discoverPnpmPackages projectRoot;
+        biomePackages = jackpkgsLib.resolvePackages {
+          explicit =
+            if sysCfg.biome.lint.packages != null
+            then sysCfg.biome.lint.packages
+            else lib.attrByPath ["biome" "lint" "packages"] null checksCfg;
+          workspaceRoot = projectRoot;
+          fromYAML = preCommitFromYAML;
+        };
 
         biomeLintEntry = lib.getExe (pkgs.writeShellApplication {
           name = "biome-lint-hook";

@@ -9,6 +9,15 @@
   checksModule = import ../modules/flake-parts/checks.nix {jackpkgsInputs = inputs;};
   justModule = import ../modules/flake-parts/just.nix {jackpkgsInputs = inputs;};
 
+  pnpmWorkspace = ./fixtures/checks/pnpm-workspace;
+
+  # Same test double as tests/checks.nix: avoids real yq-go IFD while
+  # exercising the actual auto-discovery decision (packages = null).
+  mockFromYAML = yamlFile:
+    if builtins.baseNameOf yamlFile == "pnpm-workspace.yaml"
+    then {packages = ["packages/*" "tools/*"];}
+    else {};
+
   optionsModule = {lib, ...}: let
     inherit (lib) mkOption types;
   in {
@@ -99,6 +108,7 @@
     withPythonWorkspace ? true,
     # ADR 045: checks.python.environment is per-system, so set it in perSystem.
     checkEnvironment ? null,
+    projectRoot ? null,
   }: {
     _module.check = false;
     jackpkgs.pulumi.secretsProvider = "unused";
@@ -120,27 +130,33 @@
 
     perSystem = {pkgs, ...}:
       {
-        _module.args.jackpkgsProjectRoot = null;
+        # NOTE: `_module.args` is combined here as ONE attrset before being
+        # assigned. `{_module.args.a = ...;} // {_module.args.b = ...;}` is a
+        # trap: `//` only merges the outer `_module` key, so the second
+        # attrset's `args` value replaces (not extends) the first — `a` is
+        # silently dropped, not merged with `b`.
+        _module.args =
+          {jackpkgsProjectRoot = projectRoot;}
+          // lib.optionalAttrs withPythonWorkspace {
+            pythonWorkspace = {
+              computeSpec = {includeGroups ? false}:
+                if includeGroups
+                then {_groups = true;}
+                else {};
+              mkEnv = {
+                name,
+                spec,
+              }:
+                builtins.derivation {
+                  inherit system name;
+                  builder = "/bin/sh";
+                  args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\""];
+                };
+            };
+          };
       }
       // lib.optionalAttrs (checkEnvironment != null) {
         jackpkgs.checks.python.environment = checkEnvironment;
-      }
-      // lib.optionalAttrs withPythonWorkspace {
-        _module.args.pythonWorkspace = {
-          computeSpec = {includeGroups ? false}:
-            if includeGroups
-            then {_groups = true;}
-            else {};
-          mkEnv = {
-            name,
-            spec,
-          }:
-            builtins.derivation {
-              inherit system name;
-              builder = "/bin/sh";
-              args = ["-c" "mkdir -p \"$out/bin\" && touch \"$out/bin/${name}\""];
-            };
-        };
       };
   };
 in {
@@ -232,6 +248,68 @@ in {
     ];
   in {
     expr = perSystemCfg.jackpkgs.just.ruffPackage == defaultEnv;
+    expected = true;
+  };
+
+  # Regression test for the just.nix package-resolution gap: with
+  # `typescript.tsc.packages` at its default (null, meaning "auto-discover
+  # from pnpm-workspace.yaml"), `just lint` used to read the raw null and
+  # silently skip tsc entirely instead of resolving the workspace like
+  # checks.nix/pre-commit.nix do.
+  testJustLintRunsTscWhenPackagesAutoDiscovered = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        extraChecks = {
+          typescript.tsc.enable = true;
+          # Keep the recipe body to just tsc: these tools' python-env
+          # resolution is unrelated to this regression and pulls in
+          # derivations this test isn't set up to build.
+          python.ty.enable = false;
+          python.ruff.enable = false;
+          python.pytest.enable = false;
+        };
+        projectRoot = pnpmWorkspace;
+      })
+      {jackpkgs.checks.fromYAML = mockFromYAML;}
+    ];
+    # `just-flake.features.nix.justfile` is a writeText derivation, not a
+    # plain string — `.text` reads the content pkgs.writeText was given
+    # directly (a plain derivation attribute, available without a build),
+    # avoiding a full realize of every package referenced anywhere in the
+    # combined "nix" recipe group (flake-iter, jq, ...) just to assert on
+    # the tsc section.
+    lintJustfile = perSystemCfg.just-flake.features.nix.justfile.text;
+  in {
+    expr =
+      lib.hasInfix "# tsc (TypeScript type checker)" lintJustfile
+      && lib.hasInfix "packages/app" lintJustfile
+      && lib.hasInfix "tools/cli" lintJustfile;
+    expected = true;
+  };
+
+  # Same gap, vitest side: `just test` used to read the raw
+  # `vitest.packages` null and silently skip, so a workspace with no
+  # explicit `packages` list got zero test coverage from `just test` while
+  # `nix flake check` ran vitest against the discovered packages.
+  testJustTestRunsVitestWhenPackagesAutoDiscovered = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {
+        extraChecks = {
+          vitest.enable = true;
+          python.ty.enable = false;
+          python.ruff.enable = false;
+          python.pytest.enable = false;
+        };
+        projectRoot = pnpmWorkspace;
+      })
+      {jackpkgs.checks.fromYAML = mockFromYAML;}
+    ];
+    testJustfile = perSystemCfg.just-flake.features.nix.justfile.text;
+  in {
+    expr =
+      lib.hasInfix "# vitest (JS/TS tests)" testJustfile
+      && lib.hasInfix "packages/app" testJustfile
+      && lib.hasInfix "tools/cli" testJustfile;
     expected = true;
   };
 }
