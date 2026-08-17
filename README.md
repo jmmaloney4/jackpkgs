@@ -525,11 +525,12 @@ See `docs/internal/investigations/2026-04-03-typescript-first-esm-node24.md` for
         - When `true`: explicitly include all dependency groups (dev tools, type stubs, etc.)
         - When `false`: explicitly exclude dependency groups (production-only)
       - **`editable`**: bool (default `false`) - create editable install with workspace members. At most one environment may have `editable = true`; automatically included in devshell.
+    - `extraWorkspaces` (attrset of secondary uv workspaces, ADR 048): each entry has `workspaceRoot` (path; must contain its own `pyproject.toml` + `uv.lock`), `sourcePreference` (defaults to the primary's), `extraOverlays` (list, default `[]`), and `environments` (`{ name, spec, includeGroups, groups, ignoreCollisions }` — same semantics as primary envs, always non-editable). Secondary envs are published via `jackpkgs.outputs.pythonEnvironments` and `packages.<env.name>`; env attribute keys and names share one collision-checked namespace with primary envs. Editable installs, checks/dev-tools participation, and devshell wiring stay primary-only.
   - Outputs:
-    - Packages: non-editable envs appear under `packages.<env.name>`
+    - Packages: non-editable envs appear under `packages.<env.name>` (including all `extraWorkspaces` envs)
     - Module args: `_module.args.pythonWorkspace` (always exposed)
     - DevShell: editable environment automatically included when defined
-    - `jackpkgs.outputs.pythonEnvironments`: attrset of built env derivations keyed by `jackpkgs.python.environments`
+    - `jackpkgs.outputs.pythonEnvironments`: attrset of built env derivations keyed by `jackpkgs.python.environments` and `jackpkgs.python.extraWorkspaces.<name>.environments` entries (flat, collision-checked)
     - `jackpkgs.outputs.pythonDefaultEnv`: derivation for `jackpkgs.python.environments.default` when present
   - Examples:
     ```nix
