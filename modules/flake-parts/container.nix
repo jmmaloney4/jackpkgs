@@ -172,6 +172,22 @@ in {
                 description = "Working directory inside the container. null omits it (inherit from a fromImage base).";
               };
 
+              user = mkOption {
+                type = types.nullOr types.str;
+                default = null;
+                example = "1000:1000";
+                description = ''
+                  OCI user (config.User) — the uid[:gid] the container runs as.
+                  null (default) omits it, so a from-scratch image runs as root
+                  and a fromImage build inherits the base's own user.
+
+                  Prefer a NUMERIC "uid:gid". Kubernetes resolves this field
+                  itself to enforce `runAsNonRoot: true`, and it has no passwd
+                  database to consult at admission time — a username it cannot
+                  prove is non-zero fails the pod exactly like root would.
+                '';
+              };
+
               tag = mkOption {
                 type = types.str;
                 default = "latest";
@@ -437,6 +453,7 @@ in {
           // (lib.optionalAttrs (imageCfg.cmd != null) {Cmd = imageCfg.cmd;})
           // (lib.optionalAttrs (imageEnv != []) {Env = imageEnv;})
           // (lib.optionalAttrs (imageCfg.workingDir != null) {WorkingDir = imageCfg.workingDir;})
+          // (lib.optionalAttrs (imageCfg.user != null) {User = imageCfg.user;})
           // (lib.optionalAttrs (mergedLabels != {}) {Labels = mergedLabels;});
       in
         nix2container.buildImage ({
