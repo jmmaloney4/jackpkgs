@@ -539,6 +539,9 @@
             python-isolated-env = import ./tests/python-isolated-env.nix {
               inherit lib pkgs inputs;
             };
+            python-extra-workspaces = import ./tests/python-extra-workspaces.nix {
+              inherit lib pkgs inputs;
+            };
             lsp = import ./tests/lsp.nix {
               inherit lib inputs;
             };
