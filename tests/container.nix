@@ -402,4 +402,41 @@ in {
       keptHasCommon = true;
     };
   };
+
+  # user populates config.User when set, and the key is omitted entirely when
+  # left at the default — so a fromImage base's own user is not clobbered, and
+  # existing from-scratch images keep their (rootful) config byte-for-byte.
+  testUser = let
+    base = mkTestDerivation "base-image";
+    images = getFlakeImages [
+      {
+        jackpkgs.images.enable = true;
+        jackpkgs.images.registry = "ghcr.io/example/jackpkgs";
+
+        perSystem = {...}: {
+          jackpkgs.images.commonPackages = [];
+          jackpkgs.images.images.nonroot = {
+            packages = [];
+            user = "1000:1000";
+          };
+          jackpkgs.images.images.unset.packages = [];
+          jackpkgs.images.images.layered = {
+            packages = [];
+            fromImage = base;
+          };
+        };
+      }
+    ];
+  in {
+    expr = {
+      setsUser = images.nonroot.config.User or null;
+      omitsWhenUnset = !(images.unset.config ? User);
+      layeredInherits = !(images.layered.config ? User);
+    };
+    expected = {
+      setsUser = "1000:1000";
+      omitsWhenUnset = true;
+      layeredInherits = true;
+    };
+  };
 }
