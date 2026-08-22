@@ -273,6 +273,115 @@ in {
           };
         };
       };
+
+      # Secondary uv workspaces (ADR 048)
+      extraWorkspaces = mkOption {
+        type = types.attrsOf (types.submodule {
+          options = {
+            workspaceRoot = mkOption {
+              type = types.path;
+              description = ''
+                Root of the secondary uv workspace as a Nix path. Must contain
+                pyproject.toml and uv.lock (run `uv lock` there to generate it).
+              '';
+            };
+
+            sourcePreference = mkOption {
+              type = types.nullOr (types.enum ["wheel" "sdist"]);
+              default = null;
+              description = ''
+                Prefer wheels or source distributions for this workspace.
+                When null (default), follows jackpkgs.python.sourcePreference.
+              '';
+            };
+
+            extraOverlays = mkOption {
+              type = types.listOf types.unspecified;
+              default = [];
+              description = "Additional overlays to apply to this workspace's Python package set.";
+            };
+
+            environments = mkOption {
+              type = types.attrsOf (types.submodule {
+                options = {
+                  name = mkOption {
+                    type = types.str;
+                    description = "Name of the virtual environment and package output.";
+                  };
+
+                  spec = mkOption {
+                    type = types.nullOr types.unspecified;
+                    default = null;
+                    description = ''
+                      Custom dependency spec (same semantics as
+                      jackpkgs.python.environments.<name>.spec). When null, the
+                      spec is computed from includeGroups.
+                    '';
+                  };
+
+                  includeGroups = mkOption {
+                    type = types.nullOr (types.either types.bool (types.listOf types.str));
+                    default = null;
+                    description = ''
+                      Which PEP 735 dependency groups to include when the spec is
+                      computed (same semantics as
+                      jackpkgs.python.environments.<name>.includeGroups). When
+                      null (default), production dependencies only — secondary
+                      environments are always non-editable.
+                    '';
+                  };
+
+                  groups = mkOption {
+                    type = types.attrsOf (types.listOf types.str);
+                    default = {};
+                    description = ''
+                      Per-member dependency groups to add ON TOP of the final
+                      spec (same semantics as
+                      jackpkgs.python.environments.<name>.groups).
+                    '';
+                  };
+
+                  ignoreCollisions = mkOption {
+                    type = types.listOf types.str;
+                    default = [];
+                    description = ''
+                      fnmatch glob patterns for files to ignore during venv
+                      creation (same semantics as
+                      jackpkgs.python.environments.<name>.ignoreCollisions).
+                    '';
+                  };
+                };
+              });
+              default = {};
+              description = ''
+                Plain (non-editable) virtual environments to build from this
+                workspace. Environment attribute keys and package names share a
+                single namespace with jackpkgs.python.environments and all
+                other extraWorkspaces; collisions fail evaluation.
+              '';
+            };
+          };
+        });
+        default = {};
+        description = ''
+          Secondary uv workspaces (own workspaceRoot + uv.lock) built alongside
+          the primary workspace (ADR 048). Each produces plain virtual
+          environments published via jackpkgs.outputs.pythonEnvironments and
+          packages.<name>, exactly like primary non-editable environments.
+
+          Deliberately out of scope for secondary workspaces (the submodule
+          declares no such options, so setting them fails evaluation): editable
+          environments, provideDevTools/checks participation, and devshell hook
+          wiring. Those remain exclusive to the primary workspace. Per-workspace
+          buildFixes are also out of scope; the global
+          jackpkgs.python.buildFixes / setuptools.packages fixes and the
+          deterministicBytecode setting apply to every workspace.
+
+          First consumer: a standalone uv project pinned to a different major of
+          a dependency, needing a nix-built env with a package override via
+          extraOverlays (zeus ADR 265 Decision 4).
+        '';
+      };
     };
 
     perSystem = mkDeferredModuleOption ({
@@ -291,7 +400,7 @@ in {
       options.jackpkgs.outputs.pythonEnvironments = mkOption {
         type = types.attrsOf types.package;
         readOnly = true;
-        description = "Built Python environments keyed by jackpkgs.python.environments entries.";
+        description = "Built Python environments keyed by jackpkgs.python.environments and jackpkgs.python.extraWorkspaces.<name>.environments entries (flat, collision-checked).";
       };
 
       options.jackpkgs.outputs.pythonDefaultEnv = mkOption {
@@ -372,211 +481,114 @@ in {
         # Force evaluation so a non-path cannot leak into uv2nix
         __forceWsRootPathAssert = wsRootPathAssert;
 
-        # Validate pyproject.toml exists and has either [project] or [tool.uv.workspace]
-        pyproject =
-          if builtins.pathExists pyprojectPath
-          then builtins.fromTOML (builtins.readFile pyprojectPath)
-          else {};
+        # The whole uv2nix workspace → pythonSet → env-builder chain lives in
+        # lib/python-workspace-scope.nix (ADR 048); the module instantiates one
+        # scope for the primary workspace and one per extraWorkspaces entry.
+        mkWorkspaceScope = import ../../lib/python-workspace-scope.nix {
+          inherit lib;
+          inherit (jackpkgsInputs) uv2nix pyproject-nix pyproject-build-systems;
+        };
 
-        # Light validation: ensure either [project] or [tool.uv.workspace] exists
-        _ =
-          if !(pyproject ? project || (pyproject ? tool && pyproject.tool ? uv && pyproject.tool.uv ? workspace))
-          then throw "jackpkgs.python: pyproject.toml must contain [project] or [tool.uv.workspace]"
-          else null;
-
-        # uv2nix workspace and python set
-        workspace =
-          if builtins.pathExists uvLockPath
-          then jackpkgsInputs.uv2nix.lib.workspace.loadWorkspace {inherit workspaceRoot;}
-          else throw ("jackpkgs.python: uv.lock not found at " + builtins.toString uvLockPath + " — run 'uv lock' in the project to generate it.");
-
-        # Extension: Darwin SDK version handling for macOS compatibility
-        # Not documented in uv2nix, but necessary for real-world macOS builds
-        # Nixpkgs lacks knowledge of target macOS version, so we explicitly set SDK version
-        stdenvForPython =
-          if pkgs.stdenv.isDarwin
-          then
-            pkgs.stdenv.override {
-              targetPlatform =
-                pkgs.stdenv.targetPlatform
-                // {
-                  darwinSdkVersion = cfg.darwin.sdkVersion;
-                };
-            }
-          else pkgs.stdenv;
-
-        pythonBase = pkgs.callPackage jackpkgsInputs.pyproject-nix.build.packages {
+        primaryScope = mkWorkspaceScope {
+          inherit pkgs workspaceRoot pyprojectPath uvLockPath;
           python = sysCfg.pythonPackage;
-          stdenv = stdenvForPython;
-        };
-
-        baseOverlay = workspace.mkPyprojectOverlay {
           sourcePreference = cfg.sourcePreference;
-        };
-
-        packageFixOverlay = import ../../lib/python-package-fixes.nix {
-          inherit lib;
-          packageFixes = cfg.buildFixes;
+          extraOverlays = cfg.extraOverlays;
+          buildFixes = cfg.buildFixes;
           setuptoolsPackages = cfg.setuptools.packages;
-        };
-
-        deterministicBytecodeOverlay = import ../../lib/python-deterministic-bytecode.nix {
-          inherit lib;
-        };
-
-        # Build system overlay should match sourcePreference (wheel OR sdist, not both)
-        # Per uv2nix docs: "The build system overlay has the same sdist/wheel distinction as mkPyprojectOverlay"
-        overlayList =
-          [baseOverlay]
-          ++ (
-            if cfg.sourcePreference == "wheel"
-            then [jackpkgsInputs.pyproject-build-systems.overlays.wheel]
-            else [jackpkgsInputs.pyproject-build-systems.overlays.sdist]
-          )
-          ++ lib.optional cfg.deterministicBytecode deterministicBytecodeOverlay
-          ++ [packageFixOverlay]
-          ++ cfg.extraOverlays;
-
-        pythonSet = pythonBase.overrideScope (lib.composeManyExtensions overlayList);
-
-        defaultSpec = workspace.deps.default;
-
-        # Group-selection combinators (pure; unit-tested in
-        # tests/python-group-spec.nix). uv2nix provides the two inputs:
-        # - workspace.deps.default: each member's default-groups (production)
-        # - workspace.deps.groups:  each member's full set of dependency-groups
-        #   (PEP 735); the attr VALUE per member is that member's defined groups.
-        #
-        # Note: PEP 621 optional-dependencies are not supported.
-        # Use PEP 735 dependency-groups for development dependencies.
-        groupSpec = import ../../lib/python-group-spec.nix {inherit lib;};
-
-        # Stable API kept for lib/python-env-selection.nix and any consumer that
-        # calls computeSpec directly. includeGroups is bool | [str].
-        computeSpec = {includeGroups ? false}:
-          groupSpec.resolveSpec {
-            depsDefault = workspace.deps.default;
-            depsGroups = workspace.deps.groups;
-            inherit includeGroups;
-          };
-
-        # Extension: Virtual environment post-processing for better UX
-        # Not documented in uv2nix, but provides:
-        # - mainProgram metadata for better `nix run` experience
-        # - PowerShell script removal (appears in output, likely upstream bug)
-        # - Activation script permissions fix (should be executable by default)
-        addMainProgram = drv:
-          drv.overrideAttrs (old: {
-            meta = (old.meta or {}) // {mainProgram = "python";};
-            postFixup =
-              (lib.optionalString (old ? postFixup) old.postFixup)
-              + ''
-                if [ -f "$out/bin/Activate.ps1" ]; then
-                  rm -f "$out/bin/Activate.ps1"
-                fi
-                if [ -d "$out/bin" ]; then
-                  chmod +x "$out/bin"/activate* 2>/dev/null || true
-                fi
-              '';
-          });
-
-        mkEnvForSpec = {
-          name,
-          spec,
-          ignoreCollisions ? [],
-        }: let
-          env = addMainProgram (pythonSet.mkVirtualEnv name spec);
-        in
-          if ignoreCollisions != []
-          then env.overrideAttrs (_: {venvIgnoreCollisions = ignoreCollisions;})
-          else env;
-
-        mkEnv = {
-          name,
-          spec ? null,
-          ignoreCollisions ? [],
-        }: let
-          finalSpec =
-            if spec == null
-            then defaultSpec
-            else spec;
-        in
-          mkEnvForSpec {
-            inherit name;
-            spec = finalSpec;
-            inherit ignoreCollisions;
-          };
-
-        mkEditableEnv = {
-          name,
-          spec ? null,
-          members ? null,
-          root ? null,
-          ignoreCollisions ? [],
-        }: let
-          finalSpec =
-            if spec == null
-            then defaultSpec
-            else spec;
+          deterministicBytecode = cfg.deterministicBytecode;
+          darwinSdkVersion = cfg.darwin.sdkVersion;
           # Use flake-root by default, or accept an explicit runtime path string.
           # The overlay expects a runtime-resolvable string, not a Nix store path.
-          defaultRoot = "$(${lib.getExe config.flake-root.package})";
-          finalRoot =
-            if root != null
-            then root
-            else defaultRoot;
-          overlayArgs = {root = finalRoot;} // lib.optionalAttrs (members != null) {inherit members;};
-          editableSet = pythonSet.overrideScope (workspace.mkEditablePyprojectOverlay overlayArgs);
-          env = addMainProgram (editableSet.mkVirtualEnv name finalSpec);
+          defaultEditableRoot = "$(${lib.getExe config.flake-root.package})";
+          label = "jackpkgs.python";
+        };
+
+        inherit (primaryScope) workspace;
+
+        # Secondary workspaces: same chain, per-workspace root / preference /
+        # overlays; global buildFixes, setuptools and deterministicBytecode
+        # settings apply to every workspace. Error labels carry the workspace
+        # key so fail-fast asserts identify the offending entry.
+        extraWorkspaceScopes =
+          lib.mapAttrs (
+            wsKey: wsCfg:
+              mkWorkspaceScope {
+                inherit pkgs;
+                inherit (wsCfg) workspaceRoot extraOverlays;
+                python = sysCfg.pythonPackage;
+                sourcePreference =
+                  if wsCfg.sourcePreference != null
+                  then wsCfg.sourcePreference
+                  else cfg.sourcePreference;
+                buildFixes = cfg.buildFixes;
+                setuptoolsPackages = cfg.setuptools.packages;
+                deterministicBytecode = cfg.deterministicBytecode;
+                darwinSdkVersion = cfg.darwin.sdkVersion;
+                label = "jackpkgs.python.extraWorkspaces.${wsKey}";
+              }
+          )
+          cfg.extraWorkspaces;
+
+        # Group-selection combinators (pure; unit-tested in
+        # tests/python-group-spec.nix). See lib/python-group-spec.nix.
+        groupSpec = import ../../lib/python-group-spec.nix {inherit lib;};
+
+        # Resolve an environment's final dependency spec against a workspace
+        # scope (shared by primary and secondary environments):
+        # 1. If an explicit spec is provided, use it verbatim; otherwise
+        #    compute it from includeGroups (defaulting per environment intent).
+        # 2. Validate requested group names (list-form includeGroups is only
+        #    meaningful when the spec is computed) and the per-member `groups`,
+        #    then compose `groups` onto the base spec. validateGroupSelection
+        #    throws on unknown names; on success it returns the composed spec.
+        resolveEnvSpec = {
+          scope,
+          envCfg,
+          label,
+          includeGroupsDefault ? false,
+        }: let
+          effectiveIncludeGroups =
+            if envCfg.includeGroups != null
+            then envCfg.includeGroups
+            else includeGroupsDefault;
+          baseSpec =
+            if envCfg.spec != null
+            then envCfg.spec
+            else
+              scope.computeSpec {
+                includeGroups = effectiveIncludeGroups;
+              };
         in
-          if ignoreCollisions != []
-          then env.overrideAttrs (_: {venvIgnoreCollisions = ignoreCollisions;})
-          else env;
+          groupSpec.validateGroupSelection {
+            depsGroups = scope.workspace.deps.groups;
+            includeGroups =
+              if envCfg.spec == null
+              then effectiveIncludeGroups
+              else null;
+            inherit (envCfg) groups;
+            inherit label;
+            payload = groupSpec.composeGroups {
+              spec = baseSpec;
+              inherit (envCfg) groups;
+            };
+          };
 
         pythonWorkspace = {
-          inherit workspace pythonSet defaultSpec computeSpec;
-          inherit mkEnv mkEditableEnv mkEnvForSpec;
+          inherit (primaryScope) workspace pythonSet defaultSpec computeSpec;
+          inherit (primaryScope) mkEnv mkEditableEnv mkEnvForSpec;
         };
 
         pythonEnvs =
           lib.mapAttrs (
             envKey: envCfg: let
-              # Compute effectiveIncludeGroups:
-              # - If includeGroups is explicitly set (non-null), use that value
-              # - Otherwise, default to true for editable envs, false for non-editable
-              effectiveIncludeGroups =
-                if envCfg.includeGroups != null
-                then envCfg.includeGroups
-                else envCfg.editable;
-
-              # Compute the base spec:
-              # 1. If explicit spec is provided, use it verbatim.
-              # 2. Otherwise, compute it from effectiveIncludeGroups.
-              baseSpec =
-                if envCfg.spec != null
-                then envCfg.spec
-                else
-                  computeSpec {
-                    includeGroups = effectiveIncludeGroups;
-                  };
-
-              # Validate any requested group names (list-form includeGroups is
-              # only meaningful when the spec is computed, i.e. spec == null) and
-              # the per-member `groups`, then compose `groups` onto the base spec.
-              # validateGroupSelection throws on unknown names; on success it
-              # returns `payload` (the composed spec) unchanged.
-              finalSpec = groupSpec.validateGroupSelection {
-                depsGroups = workspace.deps.groups;
-                includeGroups =
-                  if envCfg.spec == null
-                  then effectiveIncludeGroups
-                  else null;
-                inherit (envCfg) groups;
+              finalSpec = resolveEnvSpec {
+                scope = primaryScope;
+                inherit envCfg;
                 label = "jackpkgs.python.environments.${envKey}";
-                payload = groupSpec.composeGroups {
-                  spec = baseSpec;
-                  inherit (envCfg) groups;
-                };
+                # includeGroups defaults to true for editable envs, false for
+                # non-editable (when not explicitly set).
+                includeGroupsDefault = envCfg.editable;
               };
             in
               if envCfg.editable
@@ -597,12 +609,59 @@ in {
           )
           cfg.environments;
 
-        envNames = map (e: e.name) (lib.attrValues cfg.environments);
+        # Secondary environments: always plain (non-editable) envs built from
+        # their workspace's scope.
+        extraPythonEnvs =
+          lib.mapAttrs (
+            wsKey: wsCfg: let
+              scope = extraWorkspaceScopes.${wsKey};
+            in
+              lib.mapAttrs (
+                envKey: envCfg:
+                  scope.mkEnv {
+                    name = envCfg.name;
+                    spec = resolveEnvSpec {
+                      inherit scope envCfg;
+                      label = "jackpkgs.python.extraWorkspaces.${wsKey}.environments.${envKey}";
+                    };
+                    inherit (envCfg) ignoreCollisions;
+                  }
+              )
+              wsCfg.environments
+          )
+          cfg.extraWorkspaces;
+
+        # Environment package names and attribute keys share one namespace
+        # across the primary workspace and every extraWorkspaces entry: the
+        # flat jackpkgs.outputs.pythonEnvironments attrset is keyed by env
+        # attribute key, and packages.<name> by env name. Duplicates in either
+        # namespace fail evaluation (forced via allPythonEnvs below).
+        envNames =
+          map (e: e.name) (lib.attrValues cfg.environments)
+          ++ lib.concatMap (wsCfg: map (e: e.name) (lib.attrValues wsCfg.environments)) (lib.attrValues cfg.extraWorkspaces);
         uniqueEnvNames = lib.unique envNames;
         _envNamesCheck =
           if envNames != uniqueEnvNames
-          then throw ("jackpkgs.python: duplicate environment package names detected: " + builtins.toString envNames)
+          then throw ("jackpkgs.python: duplicate environment package names detected (across environments and extraWorkspaces): " + builtins.toString envNames)
           else null;
+
+        envKeys =
+          lib.attrNames cfg.environments
+          ++ lib.concatMap (wsCfg: lib.attrNames wsCfg.environments) (lib.attrValues cfg.extraWorkspaces);
+        uniqueEnvKeys = lib.unique envKeys;
+        _envKeysCheck =
+          if envKeys != uniqueEnvKeys
+          then throw ("jackpkgs.python: duplicate environment attribute keys detected (across environments and extraWorkspaces): " + builtins.toString envKeys)
+          else null;
+
+        # Flat, collision-checked map of every environment (primary +
+        # secondary), keyed by environment attribute key.
+        allPythonEnvs = lib.seq _envNamesCheck (
+          lib.seq _envKeysCheck (
+            pythonEnvs
+            // lib.foldl' (acc: envs: acc // envs) {} (lib.attrValues extraPythonEnvs)
+          )
+        );
 
         # Validate at most one editable environment
         editableKeys = lib.attrNames (lib.filterAttrs (_: envCfg: envCfg.editable) cfg.environments);
@@ -695,7 +754,7 @@ in {
           config.jackpkgs.outputs.pythonEditableHook
         ];
 
-        jackpkgs.outputs.pythonEnvironments = pythonEnvs;
+        jackpkgs.outputs.pythonEnvironments = allPythonEnvs;
         # Override pythonDefaultEnv when default environment exists
         jackpkgs.outputs.pythonDefaultEnv =
           if cfg.environments ? default
@@ -708,18 +767,33 @@ in {
         # Always expose pythonWorkspace as module arg
         _module.args.pythonWorkspace = pythonWorkspace;
 
-        # Publish only non-editable envs as packages.<name>
-        packages = lib.listToAttrs (
-          builtins.filter (x: x != null) (
-            lib.mapAttrsToList (
-              envKey: envCfg:
-                if envCfg.editable
-                then null
-                else lib.nameValuePair envCfg.name (pythonEnvs.${envKey})
+        # Publish only non-editable envs as packages.<name>. Secondary
+        # environments are always non-editable, so all of them are published.
+        packages =
+          lib.listToAttrs (
+            builtins.filter (x: x != null) (
+              lib.mapAttrsToList (
+                envKey: envCfg:
+                  if envCfg.editable
+                  then null
+                  else lib.nameValuePair envCfg.name (allPythonEnvs.${envKey})
+              )
+              cfg.environments
             )
-            cfg.environments
           )
-        );
+          // lib.listToAttrs (
+            lib.concatLists (
+              lib.mapAttrsToList (
+                wsKey: wsCfg:
+                  lib.mapAttrsToList (
+                    envKey: envCfg:
+                      lib.nameValuePair envCfg.name (allPythonEnvs.${envKey})
+                  )
+                  wsCfg.environments
+              )
+              cfg.extraWorkspaces
+            )
+          );
       });
   };
 }
