@@ -57,6 +57,12 @@
 
   hasInfixAll = needles: haystack:
     lib.all (needle: lib.hasInfix needle haystack) needles;
+
+  mkPluginsModule = plugins: {
+    perSystem = {pkgs, ...}: {
+      jackpkgs.pulumi.plugins = map (pl: pl // {package = pkgs.hello;}) plugins;
+    };
+  };
 in {
   testPulumiDevShellSetsPulumiCliDefaults = let
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
@@ -245,6 +251,116 @@ in {
         "exit 1"
       ]
       previewSection;
+    expected = true;
+  };
+
+  # jackpkgs#380: a bare `ln -sfn` into $PULUMI_HOME/plugins is invisible to
+  # the Nix garbage collector, so a GC that runs between shell entries can
+  # collect a still-pinned plugin's store path and leave Pulumi with a
+  # dangling symlink. The shellHook must register a GC root before linking.
+  testPulumiDevShellRegistersPluginGcRoot = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "nix-store"
+        "--realise"
+        "--add-root"
+        "--indirect"
+        "resource-sector7-v0.20.14"
+      ]
+      shellHook;
+    expected = true;
+  };
+
+  testCiPulumiDevShellRegistersPluginGcRoot = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.devShells.ci-pulumi.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "nix-store"
+        "--realise"
+        "--add-root"
+        "--indirect"
+        "resource-sector7-v0.20.14"
+      ]
+      shellHook;
+    expected = true;
+  };
+
+  # The gcroot symlink must live *outside* the versioned plugin directory
+  # (as a `<dir>.gcroot` sibling), not inside it — Pulumi treats the
+  # directory's own contents as the plugin's installed fingerprint, and an
+  # extra file there is exactly the kind of thing that "unrecognized files
+  # in plugin dir" style checks and `<dir>.partial` handling exist to guard
+  # against.
+  testPulumiPluginGcRootLivesOutsidePluginDir = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    # Sibling form: "$_jackpkgs_plugin_dir.gcroot", not a file nested inside
+    # "$_jackpkgs_plugin_dir/...".
+    expr =
+      lib.hasInfix ''"$_jackpkgs_plugin_dir.gcroot"'' shellHook
+      && !(lib.hasInfix ''$_jackpkgs_plugin_dir/pulumi-resource-sector7.gcroot'' shellHook);
+    expected = true;
+  };
+
+  # A failed `--realise --add-root` must not be swallowed: only stdout is
+  # redirected to /dev/null, so the command's own stderr already surfaces —
+  # but this shellHook has no `set -e`, so a non-zero exit falls through to
+  # the unconditional `ln -sfn` below it unless explicitly checked. The
+  # shellHook must check the exit code itself and emit its own warning,
+  # rather than relying on the plain `nix-store` invocation's stderr (which a
+  # user could easily miss among other shell-entry output) as the only
+  # signal that GC-root registration — the entire point of this fix — failed.
+  testPulumiDevShellWarnsOnGcRootRegistrationFailure = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "if !"
+        "--realise"
+        "--add-root"
+        "warning"
+        ">&2"
+      ]
+      shellHook;
     expected = true;
   };
 

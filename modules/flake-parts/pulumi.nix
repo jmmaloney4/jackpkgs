@@ -270,10 +270,38 @@ in {
         # /homeless-shelter and unwritable, so linking there fails the build.
         # shellHook runs only on `nix develop` entry, which is when a plugin
         # directory is actually wanted.
+        #
+        # The `ln -sfn` target is a plain symlink into the store — invisible
+        # to the garbage collector on its own. Without a registered root, a
+        # `nix-collect-garbage` that runs *between* shell entries (direnv only
+        # reruns this hook when flake.nix/flake.lock change, not on GC) can
+        # collect the store path out from under an already-linked plugin,
+        # leaving Pulumi with a dangling symlink and an opaque
+        # "loading PulumiPlugin.yaml: no such file or directory" error even
+        # though the plugin is still the live pin (jackpkgs#380). `nix-store
+        # --add-root --indirect` registers `<dir>.gcroot` (kept outside the
+        # versioned plugin dir so it doesn't show up as part of the plugin's
+        # own contents) as an indirect GC root pointing at the plugin
+        # derivation, so the currently-linked version survives GC regardless
+        # of when it runs. This is deliberately per-version and
+        # non-self-pruning: re-linking a version bump adds a new root next to
+        # the old one rather than removing it, so a stale, no-longer-pinned
+        # version is still free to be collected once nothing else roots it —
+        # only the version a shellHook actively links is ever protected.
+        #
+        # `--realise` failure (e.g. a substituter is unreachable) is not fatal
+        # to shell entry — this shellHook has no `set -e`, and the existing
+        # `ln -sfn` below is left to its established self-healing behavior —
+        # but it must not fail *silently*: a warning goes to stderr so a
+        # broken GC root doesn't masquerade as a successful one.
         pluginLinkShellHook =
           lib.concatMapStringsSep "\n" (pl: ''
             _jackpkgs_plugin_dir="''${PULUMI_HOME:-$HOME/.pulumi}/plugins/${pl.kind}-${pl.name}-v${pl.version}"
             mkdir -p "$_jackpkgs_plugin_dir"
+            if ! ${lib.getExe' pkgs.nix "nix-store"} --realise ${pl.package} \
+                --add-root "$_jackpkgs_plugin_dir.gcroot" --indirect >/dev/null; then
+              echo "jackpkgs: warning: failed to register a GC root for ${pl.kind}-${pl.name}-v${pl.version}; the linked plugin may be collected by a future nix-collect-garbage" >&2
+            fi
             ln -sfn ${lib.getExe' pl.package "pulumi-${pl.kind}-${pl.name}"} "$_jackpkgs_plugin_dir/pulumi-${pl.kind}-${pl.name}"
             rm -f "$_jackpkgs_plugin_dir.partial"
             unset _jackpkgs_plugin_dir
