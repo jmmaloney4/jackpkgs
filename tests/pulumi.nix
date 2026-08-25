@@ -332,6 +332,38 @@ in {
     expected = true;
   };
 
+  # A failed `--realise --add-root` must not be swallowed: only stdout is
+  # redirected to /dev/null, so the command's own stderr already surfaces —
+  # but this shellHook has no `set -e`, so a non-zero exit falls through to
+  # the unconditional `ln -sfn` below it unless explicitly checked. The
+  # shellHook must check the exit code itself and emit its own warning,
+  # rather than relying on the plain `nix-store` invocation's stderr (which a
+  # user could easily miss among other shell-entry output) as the only
+  # signal that GC-root registration — the entire point of this fix — failed.
+  testPulumiDevShellWarnsOnGcRootRegistrationFailure = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "if !"
+        "--realise"
+        "--add-root"
+        "warning"
+        ">&2"
+      ]
+      shellHook;
+    expected = true;
+  };
+
   testPulumiShellHookEscapesValuesWithSpecialChars = let
     scaryUrl = "s3://bucket/path?query=1&flag=true";
     scarySecret = "passphrase's complex value";
