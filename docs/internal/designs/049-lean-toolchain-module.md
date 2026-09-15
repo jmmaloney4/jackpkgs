@@ -79,11 +79,19 @@ instantiation rather than take a `pkgs` argument.
 ### Constraint 4 — a name already occupies `lean`
 
 `pkgs/lean` in this repo is **QuantConnect LEAN**, the algorithmic trading
-engine, currently `broken = true`. It is live in `flake.nix` and `overlay.nix`
-and commented out of `overlays/default.nix`. Since lean4-nix's overlay replaces
-`pkgs.lean`, leaving both in place makes `pkgs.lean` resolve by
-last-overlay-wins — silently, at eval time, to either a theorem prover or a
-broken trading engine.
+engine, `broken = true` and no longer used. lean4-nix delivers toolchains as an
+overlay that replaces `pkgs.lean`, so the two cannot coexist.
+
+The exposure is narrower than it first looks, and worth stating precisely.
+`flake.nix` filters `meta.broken` out of the `packages` output, so
+`packages.<system>.lean` is already absent on every system. But `overlay.nix` —
+exposed as `overlays.default` — applies only `filterByPlatforms`, with no
+`broken` filter, so `pkgs.lean` *is* live through the overlay path. Any consumer
+applying both that overlay and lean4-nix's would get whichever ran last,
+silently, at eval time.
+
+README.md compounded it by documenting the attribute as "Lean theorem prover",
+which it has never been.
 
 ### Constraint 5 — the Garnix cache will miss
 
@@ -139,8 +147,11 @@ derived from files the checkout already commits.
    blueprint genres — to HTML and PDF as Nix outputs. Verso is an ordinary Lake
    dependency, so this layers on `mkLeanEnv` with no new toolchain machinery.
 
-7. **`pkgs/lean` MUST be renamed to `quantconnect-lean`** before the lean4-nix
-   overlay is introduced anywhere in this repo.
+7. **`pkgs/lean` MUST be deleted** before the lean4-nix overlay is introduced
+   anywhere in this repo. It is unused and broken, so removal is preferable to
+   renaming: a rename relocates the hazard and keeps a dead derivation alive,
+   whereas deletion means there is no `lean` attribute for either overlay to
+   contend over.
 
 ### Out of scope
 
@@ -164,7 +175,7 @@ derived from files the checkout already commits.
   in.
 - One Mathlib build per `(toolchain, rev)` pair, served from attic to every
   machine and to CI.
-- `pkgs.lean` stops being ambiguous.
+- `pkgs.lean` stops being ambiguous — there is no such attribute to contend over.
 
 ### Trade-offs
 
@@ -244,9 +255,11 @@ manifest is missing.
 
 ## Implementation Plan
 
-1. **Rename `pkgs/lean` → `quantconnect-lean`.** Separate scoped PR, landed
-   first. Free while it is `broken = true` and already commented out of
-   `overlays/default.nix`.
+1. **Delete `pkgs/lean`.** Separate scoped PR, landed first. Removes the
+   package directory and its four references (`flake.nix`, `overlay.nix`, the
+   commented line in `overlays/default.nix`, and the incorrect README entry).
+   The `packages` output is unchanged by this, since the `meta.broken` filter
+   already suppressed it.
 2. **Add the `lean4-nix` flake input** and `pkgs/lean4-toolchains/` with a
    `just lean-toolchain-fetch <version>` recipe. Seed `v4.34.0` and
    `v4.34.0-rc2`.
