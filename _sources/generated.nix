@@ -93,6 +93,41 @@
     };
     date = "2026-04-19";
   };
+  tauceti = {
+    pname = "tauceti";
+    version = "68662114b91417cac3a2c72ed9e52a9e16c3aee6";
+    src = fetchFromGitHub {
+      owner = "kim-em";
+      repo = "TauCetiWorker";
+      rev = "68662114b91417cac3a2c72ed9e52a9e16c3aee6";
+      fetchSubmodules = false;
+      sha256 = "sha256-ay8N/4/GRLE1H/GyZ8HMJllmwYxhmn5H8+wSuN2Ze6E=";
+    };
+    date = "2026-09-14";
+  };
+  tauceti-progress = {
+    pname = "tauceti-progress";
+    version = "e4cfa57193bd43827411e48f21226cc1c1b3b117";
+    src = fetchFromGitHub {
+      owner = "TauCetiProject";
+      repo = "TauCetiProgress";
+      rev = "e4cfa57193bd43827411e48f21226cc1c1b3b117";
+      fetchSubmodules = false;
+      sha256 = "sha256-0JwXkpSRrldMugEwtNu+wAygwU5S3UMw3LOX/EMILqI=";
+    };
+  };
+  tauceti-review = {
+    pname = "tauceti-review";
+    version = "afb424eda89e8ac96d9eb69f6a88972055a4cd1b";
+    src = fetchFromGitHub {
+      owner = "TauCetiProject";
+      repo = "TauCetiReview";
+      rev = "afb424eda89e8ac96d9eb69f6a88972055a4cd1b";
+      fetchSubmodules = false;
+      sha256 = "sha256-cgqOR5YGcboIrhkK6H31wt68fxyR8GJeUgmjggWEx3s=";
+    };
+    date = "2026-09-03";
+  };
   tod = {
     pname = "tod";
     version = "v0.12.1";

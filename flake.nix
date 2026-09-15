@@ -160,6 +160,16 @@
           spooktacular = pkgs.callPackage ./pkgs/spooktacular {
             inherit (nvfetcherSources.spooktacular) src date;
           };
+          tauceti = pkgs.callPackage ./pkgs/tauceti {
+            inherit (nvfetcherSources.tauceti) src date;
+            inherit (allPackages) tauceti-review tauceti-progress;
+          };
+          tauceti-progress = pkgs.callPackage ./pkgs/tauceti-progress {
+            inherit (nvfetcherSources.tauceti-progress) src version;
+          };
+          tauceti-review = pkgs.callPackage ./pkgs/tauceti-review {
+            inherit (nvfetcherSources.tauceti-review) src version;
+          };
           tod = pkgs.callPackage ./pkgs/tod {
             inherit (nvfetcherSources.tod) src version;
             nvCargoLock = nvfetcherSources.tod.cargoLock;

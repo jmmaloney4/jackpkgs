@@ -31,3 +31,22 @@ fetch.github = "jmmaloney4/mcp-ynab"
 [codex-proxy-rs]
 src.git = "https://github.com/jmmaloney4/codex-proxy-rs"
 fetch.github = "jmmaloney4/codex-proxy-rs"
+
+# Tau Ceti: the worker CLI and the two engines it shells out to. The worker is packaged
+# hermetically (see pkgs/tauceti), so the engines are real inputs rather than things `uvx`
+# fetches at runtime.
+[tauceti]
+src.git = "https://github.com/kim-em/TauCetiWorker"
+fetch.github = "kim-em/TauCetiWorker"
+
+[tauceti-review]
+src.git = "https://github.com/TauCetiProject/TauCetiReview"
+fetch.github = "TauCetiProject/TauCetiReview"
+
+# Pinned, not tracked: the worker nominates an exact TauCetiProgress revision in
+# `tauceti_worker/constants.py:PROGRESS_REF`, and running any other revision would silently
+# diverge from what every other worker runs. pkgs/tauceti asserts these two agree at build
+# time, so bumping `tauceti` without bumping this fails the build instead of drifting.
+[tauceti-progress]
+src.manual = "e4cfa57193bd43827411e48f21226cc1c1b3b117"
+fetch.github = "TauCetiProject/TauCetiProgress"
