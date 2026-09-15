@@ -93,7 +93,27 @@ silently, at eval time.
 README.md compounded it by documenting the attribute as "Lean theorem prover",
 which it has never been.
 
-### Constraint 5 — the Garnix cache will miss
+### Constraint 5 — lean4-nix is broken on aarch64-darwin
+
+Measured 2026-09-14 on macOS 26.6.2, Lean v4.33.1. Two failures:
+
+1. `readToolchain { toolchain = "..."; }` fails with `attribute 'binary' missing`.
+   The README documents `binary ? true`; the default is not applied.
+2. With `binary = true`, `fixupPhase` dies:
+   `install_name_tool: ... can't be redone for ... libleanshared_1.dylib ... because larger updated load commands do not fit`.
+
+Removing `fixDarwinDylibNames` alone makes it *worse*: the build succeeds and
+dyld then refuses a **different** library at run time
+(`libInit_shared.dylib ... load commands do not fit in __TEXT segment filesize`), which reads like an unrelated fault.
+
+Root cause, established with a control rather than inferred: the raw upstream
+tarball, unpacked and run untouched, works perfectly. Upstream's arm64 binaries
+are already signed and already use `@rpath`; any rewrite — `install_name_tool`
+from `fixDarwinDylibNames`, or `strip` — both invalidates the signature and
+overflows the Mach-O header pad. nixpkgs' darwin `fixupPhase` is the corruptor,
+not Lean.
+
+### Constraint 6 — the Garnix cache will miss
 
 lean4-nix publishes to `cache.garnix.io`, but its README requires the
 downstream project's `flake.lock` nixpkgs to match, and only the newest version
@@ -133,7 +153,25 @@ derived from files the checkout already commits.
    is absent rather than generating one. Dependencies are then built with
    `lake2nix.buildDeps`, which reads exactly that file.
 
-5. **The module exposes three things per project**, in increasing cost:
+5. **Mathlib MUST arrive via a fixed-output derivation, not a source build.**
+   `lake exe cache get` fetches Mathlib CI's prebuilt artifacts for a pinned
+   revision — immutable blobs, not a fresh computation — which is exactly what
+   an FOD is for. Measured 2026-09-15 at Mathlib `0df444a3` on aarch64-darwin:
+   two independent runs with *deliberately different imports* produced
+   **byte-identical** trees — 8,322 `.olean` + 8,322 `.ilean`, identical file
+   sets, identical content hashes. Of ~125,000 files, 58 differed, and **every
+   one was `Cache/*`**: `bin/cache.{rsp,trace}`, `ir/Cache/*`,
+   `lib/lean/Cache/*` — build artifacts of the `cache` CLI itself, which
+   `lake exe cache get` must compile before it can run. The `installPhase` MUST
+   therefore exclude the `Cache` module's own outputs and keep Mathlib's.
+
+   This takes Mathlib from a multi-hour source build to roughly a minute, keeps
+   the result pure at the Nix level and cacheable in attic, and removes the
+   dependency on Mathlib's CDN retaining old revisions once the output is in
+   attic. Source building via `lake2nix.buildDeps` remains available for
+   revisions with no upstream cache, but is no longer the default path.
+
+6. **The module exposes three things per project**, in increasing cost:
 
    - `devShells.<name>` — `lean`, `lake`, and `LEAN_PATH` preset to the
      Nix-built dependency tree. This is what fills the `lake`-on-PATH hole that
@@ -143,11 +181,11 @@ derived from files the checkout already commits.
    - `packages.<name>` — the project's own Lake target built via
      `lake2nix.mkPackage`, for CI gating.
 
-6. **`mkVersoSite` builds Verso documents** — manual, textbook, blog, and
+7. **`mkVersoSite` builds Verso documents** — manual, textbook, blog, and
    blueprint genres — to HTML and PDF as Nix outputs. Verso is an ordinary Lake
    dependency, so this layers on `mkLeanEnv` with no new toolchain machinery.
 
-7. **`pkgs/lean` MUST be deleted** before the lean4-nix overlay is introduced
+8. **`pkgs/lean` MUST be deleted** before the lean4-nix overlay is introduced
    anywhere in this repo. It is unused and broken, so removal is preferable to
    renaming: a rename relocates the hazard and keeps a dead derivation alive,
    whereas deletion means there is no `lean` attribute for either overlay to
@@ -226,14 +264,31 @@ jackpkgs declares environments (`lean4-33-1`, `tauceti-4-34-rc2`) as
 
 ### Alternative B — devShell only, `lake exe cache get` for Mathlib
 
-Nix supplies `elan`/`lean`/`lake`; Mathlib comes from Mathlib's own CI cache.
+Nix supplies `elan`/`lean`/`lake`; Mathlib comes from Mathlib's own CI cache,
+run by hand inside the shell.
 
 - Pros: minutes instead of hours; byte-identical to what upstream and Prove2me's
   server build; nothing to vendor.
-- Cons: impure; nothing cacheable in attic; unusable for CI gating; still leaves
+- Cons: impure; nothing cacheable in attic; unusable for CI gating; leaves
   `~/.cache/mathlib` as mutable state.
-- Why not chosen: explicitly rejected in favour of the Nix-built path. Retained
-  as a supported mode inside the devShell rather than as the design.
+- Why not chosen: **superseded rather than rejected.** The FOD in decision 5
+  keeps every one of this alternative's benefits — it runs the same
+  `cache get` — while making the result a pure, attic-cacheable derivation. The
+  measurement that made this possible (byte-identical trees across independent
+  runs) was not available when the choice was first framed as
+  "fast and impure" versus "slow and pure"; it turns out not to be a trade-off.
+
+### Alternative E — build Mathlib from source with `lake2nix.buildDeps`
+
+The originally chosen path: `lake build` every dependency inside a derivation.
+
+- Pros: no FOD hash to maintain; works for revisions with no upstream cache;
+  no dependency on Mathlib CI's artifact retention.
+- Cons: multi-hour per `(toolchain, rev)` pair, re-paid on every bump; large
+  disk footprint; a second implementation of a build that Prove2me verifies
+  against server-side, free to diverge.
+- Why not chosen: the FOD is ~100× faster for an identical result. Retained as
+  the fallback for revisions the upstream cache does not cover.
 
 ### Alternative C — `readRev`/`readFromGit` for unsupported toolchains
 
