@@ -16,5 +16,6 @@
     (import ./container.nix {inherit jackpkgsInputs;})
     (import ./kubeconfig.nix {inherit jackpkgsInputs;})
     (import ./lsp.nix {inherit jackpkgsInputs;})
+    (import ./lean.nix {inherit jackpkgsInputs;})
   ];
 }
