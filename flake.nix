@@ -135,7 +135,6 @@
           };
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           imessage-bridge = pkgs.callPackage ./pkgs/imessage-bridge {};
-          lean = pkgs.callPackage ./pkgs/lean {};
           mcp-ynab = pkgs.callPackage ./pkgs/mcp-ynab {
             inherit (nvfetcherSources.mcp-ynab) src version;
           };
