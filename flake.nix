@@ -579,6 +579,9 @@
             lean = import ./tests/lean.nix {
               inherit lib;
             };
+            lib-default = import ./tests/lib-default.nix {
+              inherit lib pkgs;
+            };
           };
         };
 
