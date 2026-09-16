@@ -1,0 +1,6 @@
+# Companion to example.json. mkFromYAML derives the .json sidecar path from
+# this filename and reads that instead, so this file's contents are never
+# parsed by the test -- but referencing a path that does not exist reads as a
+# bug and rests on `toString` never touching the file. Keep the two in sync.
+greeting: hello
+count: 2
