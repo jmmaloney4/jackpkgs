@@ -250,11 +250,19 @@ derived from files the checkout already commits.
 
 ### Out of scope
 
-- Building or vendoring Mathlib's own CI cache (`lake exe cache get`). It is an
-  impure CDN fetch and cannot run inside a derivation. Callers who want it can
-  run it inside the devShell; the module does not wrap it.
+- Building or vendoring Mathlib's CI cache ourselves — running the artifact
+  *service*, or mirroring its contents. The module **consumes** that cache
+  (Decision 5 runs `lake exe cache get` inside a fixed-output derivation, which
+  is exactly the escape hatch FODs exist to provide for a network fetch with a
+  known-content result); it does not reproduce or host it.
+
+  An earlier revision of this section claimed `cache get` "cannot run inside a
+  derivation". That was written before Decision 5 and is wrong — corrected on
+  review, since left standing it contradicted the decision it sits beside.
+
 - Pinning agent CLIs (`claude`, `codex`, `kiro-cli`). `pkgs/tauceti` already
   settled that question and this ADR does not reopen it.
+
 - `elan`. Nothing here installs or requires it. A caller who wants it can still
   use `pkgs.elan`; the module simply never depends on it.
 
