@@ -13,6 +13,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.fenix.follows = "fenix";
     };
+    # Lean 4 toolchains and lake2nix. Its manifests supply BINARY toolchains;
+    # without one, lean4-nix source-builds the compiler. See ADR-049.
+    lean4-nix = {
+      url = "github:lenianiva/lean4-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
@@ -560,6 +567,9 @@
             };
             fmt = import ./tests/fmt.nix {
               inherit inputs lib;
+            };
+            lean = import ./tests/lean.nix {
+              inherit lib;
             };
           };
         };
