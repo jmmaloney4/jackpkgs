@@ -5,20 +5,14 @@
 # second place to restate a pin and nothing that can drift from the project.
 {lib}: rec {
   # Strip surrounding whitespace, including the trailing newline every
-  # `lean-toolchain` carries. `lib.trim` is too new to rely on across the
-  # nixpkgs revisions consumers pin.
-  trim = let
-    isSpace = c: c == " " || c == "\t" || c == "\n" || c == "\r";
-    dropWhile = s: let
-      chars = lib.stringToCharacters s;
-      keep = lib.lists.findFirstIndex (c: !(isSpace c)) null chars;
-    in
-      if keep == null
-      then ""
-      else lib.concatStrings (lib.drop keep chars);
-    reverse = s: lib.concatStrings (lib.reverseList (lib.stringToCharacters s));
+  # `lean-toolchain` carries.
+  trim = s: let
+    m = builtins.match "[[:space:]]*(.*[^[:space:]])?[[:space:]]*" s;
+    v = builtins.head m;
   in
-    s: reverse (dropWhile (reverse (dropWhile s)));
+    if m == null || v == null
+    then ""
+    else v;
 
   # A `lean-toolchain` pin -> the bare version tag.
   #
@@ -31,16 +25,36 @@
   parseToolchain = text: let
     pinned = trim text;
     prefix = "leanprover/lean4:";
+    tag = lib.removePrefix prefix pinned;
+    # Guard the interpolation into a manifest path below: a pin like
+    # `leanprover/lean4:../../etc/passwd` would otherwise be a traversal that
+    # `pathExists`/`import` would honour.
+    wellFormed = builtins.match "[A-Za-z0-9._-]+" tag != null;
   in
-    if lib.hasPrefix prefix pinned
-    then lib.removePrefix prefix pinned
-    else
+    if !(lib.hasPrefix prefix pinned)
+    then
       throw ''
         jackpkgs.lean: unsupported lean-toolchain pin ${builtins.toJSON pinned}.
         Only `leanprover/lean4:<tag>` pins resolve to a binary toolchain.
-      '';
+      ''
+    else if !wellFormed
+    then
+      throw ''
+        jackpkgs.lean: malformed toolchain tag ${builtins.toJSON tag}.
+        Expected characters in [A-Za-z0-9._-] only.
+      ''
+    else tag;
 
-  readToolchainTag = src: parseToolchain (builtins.readFile "${src}/lean-toolchain");
+  readToolchainTag = src: let
+    p = "${toString src}/lean-toolchain";
+  in
+    if builtins.pathExists p
+    then parseToolchain (builtins.readFile p)
+    else
+      throw ''
+        jackpkgs.lean: ${toString src} has no `lean-toolchain`.
+        Every supported project pins its toolchain in that file.
+      '';
 
   # Resolve a version tag to a toolchain manifest, preferring jackpkgs' own
   # vendored manifests over upstream lean4-nix's.
@@ -73,7 +87,7 @@
         candidates and anything newer than its latest tag will be missing.
         Vendor one:
 
-            just lean-toolchain-fetch ${tag}
+            just lean-toolchain-fetch ${lib.removePrefix "v" tag}
 
         which writes pkgs/lean4-toolchains/${tag}.nix. Refusing rather than
         falling back to a source build of the Lean compiler.
@@ -87,38 +101,95 @@
   # this repo cannot resolve those, so ours are FUNCTIONS taking the upstream
   # manifests directory and inheriting from it explicitly. Both are supported,
   # and which one a tag uses is invisible to callers.
+  #
+  # Two invariants are checked here rather than trusted, because both failures
+  # are silent and permanent: a manifest whose `tag` disagrees with the file it
+  # is named after would build the wrong compiler for every project pinning
+  # that version, forever, since vendored shadows upstream by design; and a
+  # manifest with no `toolchain` attribute (upstream's v4.20.1 is one) would
+  # otherwise surface as a bare `attribute 'toolchain' missing`.
   loadManifest = {
     path,
     upstreamDir,
+    tag,
   }: let
     loaded = import path;
+    m =
+      if lib.isFunction loaded
+      then loaded {upstream = toString upstreamDir;}
+      else loaded;
   in
-    if lib.isFunction loaded
-    then loaded {upstream = toString upstreamDir;}
-    else loaded;
+    if !(m ? toolchain)
+    then
+      throw ''
+        jackpkgs.lean: manifest for ${tag} has no `toolchain` attribute, so it
+        cannot supply a binary Lean. Vendor one instead:
 
-  # Every path under a Lean project's dependency tree that `lake exe cache get`
-  # does NOT reproduce byte-for-byte between runs.
+            just lean-toolchain-fetch ${lib.removePrefix "v" tag}
+      ''
+    else if (m.tag or null) != tag
+    then
+      throw ''
+        jackpkgs.lean: manifest at ${toString path} declares tag
+        ${builtins.toJSON (m.tag or null)} but was resolved for ${builtins.toJSON tag}.
+        A vendored manifest must agree with its filename.
+      ''
+    else m;
+
+  # Read a project's committed `lake-manifest.json`.
   #
-  # Measured 2026-09-15 at Mathlib 0df444a3: of ~125,000 files, exactly 58
-  # differed across two independent fetches, and all 58 belong to the `cache`
-  # CLI that Mathlib ships and that `lake exe cache get` must compile before it
-  # can run. Its build artifacts embed absolute paths, so they cannot appear in
-  # a fixed-output derivation. Mathlib's own artifacts — 8,322 `.olean` and
-  # 8,322 `.ilean` — were identical, and the fetched set did not vary with the
-  # importing file.
-  cacheToolArtifacts = [
-    "bin/cache.rsp"
-    "bin/cache.trace"
-    "ir/Cache"
-    "lib/lean/Cache"
-  ];
+  # It is the output of `lake update`, which reaches the network and so cannot
+  # run inside a derivation. Refusing here is the difference between a pinned
+  # dependency set and lake resolving `require`s from the network at build time
+  # — which, inside a fixed-output derivation, would freeze whatever the CDN
+  # happened to serve into an artifact that then reproduces faithfully forever.
+  readLakeManifest = src: let
+    p = "${toString src}/lake-manifest.json";
+  in
+    if builtins.pathExists p
+    then builtins.fromJSON (builtins.readFile p)
+    else
+      throw ''
+        jackpkgs.lean: ${toString src} has no committed `lake-manifest.json`.
 
-  # Shell fragment that removes the above from a package's `.lake/build`.
-  pruneCacheToolArtifacts = buildDir:
-    lib.concatMapStringsSep "\n"
-    (p: "rm -rf -- ${lib.escapeShellArg "${buildDir}/${p}"}")
-    cacheToolArtifacts;
+        Generate one with `lake update` in the checkout and commit it. It is not
+        generated here on purpose: that would be an unpinned network fetch
+        wearing a pinned interface.
+      '';
+
+  lakeManifestPackages = m: map (p: p.name or "") (m.packages or []);
+
+  # Mathlib is the only Lean package with a public artifact cache.
+  #
+  # `cache` is an executable Mathlib itself ships, hash-rooted at `Mathlib`;
+  # `lake exe cache get` in a project without it fails with
+  # `error: unknown executable cache`, and every Reservoir build-cache probe for
+  # non-Mathlib packages 404s today. So dependency acquisition genuinely has two
+  # regimes, and pretending otherwise would make the module Mathlib-only while
+  # claiming to be general.
+  hasMathlib = m: builtins.elem "mathlib" (lakeManifestPackages m);
+
+  # Everything `lake exe cache get` leaves behind that differs between runs.
+  #
+  # Measured 2026-09-15: a fixed-output derivation over a raw `.lake/packages`
+  # is NOT reproducible — two cold builds gave different hashes. The carriers
+  # are each dependency's `.git` (reflogs embed wall-clock time and committer
+  # identity; pack filenames differ per clone; `.git/index` caches mtimes) and
+  # the build provenance of the `cache` tool itself.
+  #
+  # This is deliberately a RULE, not the enumeration it replaces: that list was
+  # derived from one diff and missed `bin/cache` (~104 MB), `bin/cache.hash`,
+  # and a stray `batteries` trace.
+  #
+  # `$out` must reach the shell unquoted-by-Nix and quoted-by-shell.
+  # `lib.escapeShellArg` single-quotes it, which yields `rm -rf -- '$out/…'` —
+  # a no-op that exits 0, silently disabling the only thing making the hash
+  # stable.
+  pruneNondeterministic = packagesDir: ''
+    find ${packagesDir} -maxdepth 2 -name .git -type d -exec rm -rf {} +
+    find ${packagesDir} \( -name '*.trace' -o -name '*.setup.json' -o -name '*.rsp' \) -delete
+    rm -rf ${packagesDir}/*/.lake/build/bin
+  '';
 
   # lean4-nix's binary toolchain is unusable on aarch64-darwin without this.
   #

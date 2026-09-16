@@ -568,6 +568,9 @@
             fmt = import ./tests/fmt.nix {
               inherit inputs lib;
             };
+            lean = import ./tests/lean.nix {
+              inherit lib;
+            };
           };
         };
 

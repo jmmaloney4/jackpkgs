@@ -35,6 +35,13 @@ with pkgs.lib; rec {
   # Python workspace path derivation helpers (ADR-041)
   pythonWorkspacePaths = import ./python-workspace-paths.nix {inherit lib;};
 
+  # Lean toolchain/manifest resolution helpers behind `jackpkgs.lean` (see
+  # docs/internal/designs/049-lean-toolchain-module.md). Pass `pkgs.lib`
+  # explicitly (as `justfile` above does) rather than `inherit lib;` -- there
+  # is no `lib` binding in this file's own scope (`with pkgs.lib;` brings in
+  # pkgs.lib's *attributes*, not a name `lib` itself).
+  lean = import ./lean.nix {lib = pkgs.lib;};
+
   /**
   Build a YAML-to-Nix parser backed by yq-go IFD with an optional JSON
   sidecar optimisation.
