@@ -132,9 +132,14 @@ in {
     expected = true;
   };
 
-  # Regression: `backend = "tsgo"` must resolve to the nixpkgs `typescript-go`
-  # package. This previously guarded on a `tsgo` attr that nixpkgs never
-  # defines, so the backend silently produced no TypeScript LSP at all.
+  # Regression: `backend = "tsgo"` must resolve to a working nixpkgs
+  # `typescript` package. This previously guarded on a `tsgo` attr that
+  # nixpkgs never defines, so the backend silently produced no TypeScript
+  # LSP at all. As of nixpkgs 2026-09-08, the Go-rewritten compiler that
+  # used to be the separate `typescript-go` package is `typescript` itself
+  # — so there is no longer a distinctly-named package to assert on here;
+  # `testLspTsgoBackendExcludesTypescriptLanguageServer` below is what
+  # actually distinguishes this backend's package set.
   testLspAddsTsgoWhenBackendIsTsgo = let
     perSystem = getPerSystem [
       pkgsModule
@@ -150,7 +155,7 @@ in {
     ];
     packages = perSystem.jackpkgs.shell.packages;
   in {
-    expr = hasPackageNamed "typescript-go" packages;
+    expr = hasPackageNamed "typescript" packages;
     expected = true;
   };
 
@@ -174,11 +179,11 @@ in {
     expected = true;
   };
 
-  # When the tsgo backend is selected but the consumer's nixpkgs lacks
-  # `typescript-go`, eval must fail loudly rather than silently drop the LSP.
-  # Silent-empty was the original bug; this guarantees we never regress to it,
-  # even in the missing-attr case.
-  testLspTsgoBackendThrowsWhenTypescriptGoAbsent = let
+  # When the tsgo backend is selected but the consumer's nixpkgs lacks a
+  # working `typescript`, eval must fail loudly rather than silently drop the
+  # LSP. Silent-empty was the original bug; this guarantees we never regress
+  # to it, even in the missing-attr case.
+  testLspTsgoBackendThrowsWhenTypescriptAbsent = let
     perSystem = getPerSystem [
       pkgsModule
       shellModule
@@ -197,7 +202,7 @@ in {
           ...
         }: {
           jackpkgs.pkgs =
-            lib.mkForce (removeAttrs inputs.nixpkgs.legacyPackages.${system} ["typescript-go"]);
+            lib.mkForce (removeAttrs inputs.nixpkgs.legacyPackages.${system} ["typescript"]);
         };
       }
     ];

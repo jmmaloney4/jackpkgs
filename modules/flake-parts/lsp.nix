@@ -31,14 +31,15 @@ in {
           TypeScript/JavaScript LSP backend.
 
           `tsgo` is the native Go compiler from TypeScript 7 — far lighter
-          than tsserver. It comes from the nixpkgs `typescript-go` package
-          and serves LSP via `tsgo --lsp --stdio`.
+          than tsserver. As of nixpkgs 2026-09-08, it ships as the nixpkgs
+          `typescript` package itself (folded in from the formerly-separate
+          `typescript-go` package) and serves LSP via `tsc --lsp`.
 
-          Note that `typescript-go` also provides `tsc` as a symlink to the
-          same binary, so selecting `"tsgo"` puts the TypeScript 7 compiler
-          on PATH in place of nixpkgs `typescript`. Repos pinned to
-          TypeScript 6 should keep that in mind when invoking bare `tsc`
-          from the devshell.
+          Note that nixpkgs `typescript` is therefore now the TypeScript 7
+          (Go) compiler regardless of backend choice — the
+          `"typescript-language-server"` backend below also puts this `tsc`
+          on PATH. Repos pinned to TypeScript 6 should keep that in mind
+          when invoking bare `tsc` from the devshell.
 
           Defaults to `"typescript-language-server"` (the current
           tsserver-based LSP) for broad compatibility.
@@ -107,19 +108,39 @@ in {
       tsPackages =
         if cfg.typescript.backend == "tsgo"
         then
-          # Fail loudly and actionably if the consumer's nixpkgs predates
-          # `typescript-go` (added ~2025-11), rather than a bare
-          # "attribute 'typescript-go' missing" — and never silently drop
-          # the LSP, which is the bug this backend previously had.
-          if jpkgs ? typescript-go
-          then [jpkgs.typescript-go]
-          else
-            throw ''
-              jackpkgs.lsp: typescript.backend = "tsgo" requires a nixpkgs that
-              provides the `typescript-go` package (added to nixpkgs ~2025-11).
-              The nixpkgs behind `jackpkgs.pkgs` does not have it. Advance that
-              nixpkgs pin, or set typescript.backend = "typescript-language-server".
-            ''
+          # Fail loudly and actionably if the consumer's nixpkgs lacks a
+          # working `typescript` package, rather than a bare eval error —
+          # and never silently drop the LSP, which is the bug this backend
+          # previously had. Need BOTH `?` and tryEval, for two distinct
+          # failure modes neither catches alone:
+          #   - `?` (hasAttr) alone missed the actual 2026-09-08 regression:
+          #     nixpkgs deprecates/renames packages by aliasing the attribute
+          #     to a `throw`, and hasAttr only checks that the key exists,
+          #     not that the value forces without throwing — so
+          #     `jpkgs ? typescript-go` kept returning true while forcing
+          #     `jpkgs.typescript-go` threw.
+          #   - tryEval alone can't replace `?`: a genuinely absent attribute
+          #     raises via Nix's `.` ("attribute missing") path, which
+          #     tryEval does NOT catch (only throw/abort/assert) — confirmed
+          #     directly: `builtins.tryEval {}.x` re-raises uncaught rather
+          #     than returning `{success = false;}`.
+          # `?` short-circuits the missing case before `.` is ever forced, so
+          # tryEval only has to handle the "present but throws" case.
+          let
+            attempt = jpkgs ? typescript && (builtins.tryEval jpkgs.typescript).success;
+          in
+            if attempt
+            then [jpkgs.typescript]
+            else
+              throw ''
+                jackpkgs.lsp: typescript.backend = "tsgo" requires a nixpkgs
+                that provides a working `typescript` package (the Go-rewritten
+                compiler, folded into `typescript` as of nixpkgs 2026-09-08;
+                formerly published as the separate `typescript-go` package).
+                The nixpkgs behind `jackpkgs.pkgs` does not have one. Advance
+                that nixpkgs pin, or set
+                typescript.backend = "typescript-language-server".
+              ''
         else [jpkgs.typescript-language-server jpkgs.typescript];
 
       pyWanted = cfg.python.backend != "none" && pythonEnabled;
