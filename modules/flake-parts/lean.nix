@@ -23,7 +23,21 @@ in {
     inherit (jackpkgsInputs.flake-parts.lib) mkDeferredModuleOption;
   in {
     jackpkgs.lean = {
-      enable = mkEnableOption "jackpkgs-lean (Nix-built Lean 4 toolchains and dependency closures)";
+      # Defaults TRUE, gated in practice by `projects` being empty.
+      #
+      # It used to default false, which made a populated `projects` with no
+      # `enable` a SILENT no-op -- no packages, no devShells, no error, no
+      # warning. Nobody enumerates Lean checkouts in order to have them
+      # ignored, so that was a contradiction the user could not have meant, and
+      # it cost real debugging time before being caught.
+      #
+      # Defaulting true costs nothing when unused: with no projects, the
+      # `mapAttrs` below never calls `mkLeanEnv`, so no nixpkgs instance is
+      # ever created. The flag remains as a deliberate escape hatch rather than
+      # a tripwire. Matches `jackpkgs.just`/`jackpkgs.quarto`.
+      enable =
+        mkEnableOption "jackpkgs-lean (Nix-built Lean 4 toolchains and dependency closures)"
+        // {default = true;};
     };
 
     perSystem = mkDeferredModuleOption ({...}: {
