@@ -1,0 +1,3 @@
+# Deliberately empty: this directory has no lake-manifest.json, so
+# tests/lean.nix can assert readLakeManifest throws when the file is
+# missing.

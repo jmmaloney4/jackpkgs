@@ -20,6 +20,7 @@
       container = import ./container.nix {jackpkgsInputs = inputs;};
       kubeconfig = import ./kubeconfig.nix {jackpkgsInputs = inputs;};
       lsp = import ./lsp.nix {jackpkgsInputs = inputs;};
+      lean = import ./lean.nix {jackpkgsInputs = inputs;};
     };
   };
 }
