@@ -30,10 +30,13 @@ with pkgs.lib; rec {
   justfile = import ./justfile-helpers.nix {lib = pkgs.lib;};
 
   # Helm chart packaging from GitHub source repos
-  helmChart = import ./helm-chart.nix {inherit lib pkgs;};
+  helmChart = import ./helm-chart.nix {
+    lib = pkgs.lib;
+    inherit pkgs;
+  };
 
   # Python workspace path derivation helpers (ADR-041)
-  pythonWorkspacePaths = import ./python-workspace-paths.nix {inherit lib;};
+  pythonWorkspacePaths = import ./python-workspace-paths.nix {lib = pkgs.lib;};
 
   # Lean toolchain/manifest resolution helpers behind `jackpkgs.lean` (see
   # docs/internal/designs/049-lean-toolchain-module.md). Pass `pkgs.lib`
@@ -191,7 +194,7 @@ with pkgs.lib; rec {
   ```
   */
   nodejs.mkCaptureNodeModulesCli = let
-    nodejsHelpers = import ./nodejs-helpers.nix {inherit lib;};
+    nodejsHelpers = import ./nodejs-helpers.nix {lib = pkgs.lib;};
   in
     pkgs.writeShellApplication {
       name = "capture-node-modules";
