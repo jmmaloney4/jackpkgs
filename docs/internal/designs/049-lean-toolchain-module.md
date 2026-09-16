@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed
+Proposed — **revised 2026-09-16** after a HARDEN pass (jmmaloney4/jackpkgs#388)
+falsified the original Decision 5. Corrections are recorded inline rather than
+silently applied; see Decision 5 and Constraints 5–6.
 
 ## Context
 
@@ -51,7 +53,7 @@ toolchains: `readToolchainFile` resolves a stable `leanprover/lean4:{tag}` pin
 against it, and `binary` defaults to `true`, so the Lean compiler itself is
 *not* rebuilt.
 
-As of 2026-09-14 its newest manifest is **`v4.33.1`, cut 2026-08-27** — 31
+As of 2026-09-14 its newest manifest is **`v4.33.1`, cut 2026-08-27** — 28
 manifests, stopping three weeks short of current. So of the four projects
 above, only Prove2me is covered. For anything else the README directs you to
 `readRev`/`readFromGit`, which build **the compiler from source** in addition
@@ -95,11 +97,15 @@ which it has never been.
 
 ### Constraint 5 — lean4-nix is broken on aarch64-darwin
 
-Measured 2026-09-14 on macOS 26.6.2, Lean v4.33.1. Two failures:
+Measured 2026-09-14 on macOS 26.6.2, Lean v4.33.1.
 
-1. `readToolchain { toolchain = "..."; }` fails with `attribute 'binary' missing`.
-   The README documents `binary ? true`; the default is not applied.
-2. With `binary = true`, `fixupPhase` dies:
+An earlier revision of this ADR claimed `readToolchain` ignores its documented
+`binary ? true` default. **That was wrong** — corrected on review. `readToolchain`
+does default `binary = true` for the *string* form, and `readToolchainFile` for
+the *path* form; only the attrset form requires it explicitly, which is the shape
+that produced the original `attribute 'binary' missing`. The real bug is:
+
+1. With `binary = true`, `fixupPhase` dies:
    `install_name_tool: ... can't be redone for ... libleanshared_1.dylib ... because larger updated load commands do not fit`.
 
 Removing `fixDarwinDylibNames` alone makes it *worse*: the build succeeds and
@@ -113,13 +119,28 @@ from `fixDarwinDylibNames`, or `strip` — both invalidates the signature and
 overflows the Mach-O header pad. nixpkgs' darwin `fixupPhase` is the corruptor,
 not Lean.
 
-### Constraint 6 — the Garnix cache will miss
+### Constraint 6 — `lake exe cache get` is Mathlib-only
 
-lean4-nix publishes to `cache.garnix.io`, but its README requires the
-downstream project's `flake.lock` nixpkgs to match, and only the newest version
-is cached. jackpkgs pins its own nixpkgs and will not match. Mathlib builds are
-therefore genuinely from source, and the only cache that will serve them is our
-own attic.
+`cache` is an executable **Mathlib itself ships**, hash-rooted at `Mathlib`. A
+project without Mathlib in its `lake-manifest.json` fails with
+`error: unknown executable cache` — measured on a `batteries`-only project, which
+also fetched **zero** prebuilt artifacts. Every Reservoir build-cache probe for a
+non-Mathlib package returned 404 on 2026-09-15.
+
+Verso, one of the projects motivating this work, has no Mathlib: its dependencies
+are `Cli`, `illuminate`, `plausible`, `MD4Lean`, `subverso`. Dependency
+acquisition therefore has two genuine regimes, and a design assuming one is
+Mathlib-only while claiming to be general.
+
+### Constraint 7 — the Garnix cache will miss (minor)
+
+lean4-nix publishes to `cache.garnix.io`, but its README requires the downstream
+project's `flake.lock` nixpkgs to match, and only the newest version is cached.
+jackpkgs pins its own nixpkgs and will not match.
+
+Recorded for completeness rather than as a driver. It mattered while a from-source
+Mathlib build was the plan; under Decision 5 that build is the fallback, so a
+missed third-party cache costs little.
 
 ## Decision
 
@@ -150,46 +171,82 @@ derived from files the checkout already commits.
 4. **`lake-manifest.json` MUST be committed in the checkout.** It is the output
    of `lake update`, which is an impure, network-reaching operation that has no
    place inside a derivation. `mkLeanEnv` MUST fail with a clear message when it
-   is absent rather than generating one. Dependencies are then built with
-   `lake2nix.buildDeps`, which reads exactly that file.
+   is absent rather than generating one. Generating it here would be an unpinned
+   network fetch wearing a pinned interface — and inside a fixed-output
+   derivation it would freeze whatever the CDN happened to serve into an artifact
+   that then reproduces faithfully forever.
 
-5. **Mathlib MUST arrive via a fixed-output derivation, not a source build.**
+5. **Mathlib MUST arrive via a fixed-output derivation, not a source build —
+   and that FOD MUST be keyed on content and pruned of everything
+   nondeterministic.**
+
    `lake exe cache get` fetches Mathlib CI's prebuilt artifacts for a pinned
-   revision — immutable blobs, not a fresh computation — which is exactly what
-   an FOD is for. Measured 2026-09-15 at Mathlib `0df444a3` on aarch64-darwin:
-   two independent runs with *deliberately different imports* produced
-   **byte-identical** trees — 8,322 `.olean` + 8,322 `.ilean`, identical file
-   sets, identical content hashes. Of ~125,000 files, 58 differed, and **every
-   one was `Cache/*`**: `bin/cache.{rsp,trace}`, `ir/Cache/*`,
-   `lib/lean/Cache/*` — build artifacts of the `cache` CLI itself, which
-   `lake exe cache get` must compile before it can run. The `installPhase` MUST
-   therefore exclude the `Cache` module's own outputs and keep Mathlib's.
+   revision — immutable blobs, not a fresh computation — which is what an FOD is
+   for. Roughly a minute instead of hours.
 
-   This takes Mathlib from a multi-hour source build to roughly a minute, keeps
-   the result pure at the Nix level and cacheable in attic, and removes the
-   dependency on Mathlib's CDN retaining old revisions once the output is in
-   attic. Source building via `lake2nix.buildDeps` remains available for
-   revisions with no upstream cache, but is no longer the default path.
+   **A naive FOD over `.lake/packages` does not work.** Measured 2026-09-15: two
+   cold builds produced *different* hashes, because `cp -R` copies each
+   dependency's `.git`, whose reflogs embed wall-clock time and committer
+   identity and whose pack filenames differ per clone. Across the whole tree, 104
+   files differed, 42 under `.git/`.
 
-6. **The module exposes three things per project**, in increasing cost:
+   An earlier revision asserted the opposite, on evidence that failed twice over;
+   the correction is recorded rather than quietly dropped. The measurement was
+   **scoped to `packages/mathlib/.lake/build`**, a subset of what the derivation
+   captures. And it varied **imports**, which provably cannot affect the result,
+   since bare `lake exe cache get` always roots at `Mathlib` and ignores the
+   calling project's imports. The variable that matters — a fresh clone — was
+   never varied.
 
-   - `devShells.<name>` — `lean`, `lake`, and `LEAN_PATH` preset to the
-     Nix-built dependency tree. This is what fills the `lake`-on-PATH hole that
-     `pkgs/tauceti` documents.
-   - `packages.<name>-env` — the dependency closure as a pure, attic-cacheable
-     derivation.
-   - `packages.<name>` — the project's own Lake target built via
-     `lake2nix.mkPackage`, for CI gating.
+   The `installPhase` MUST prune by **rule**, not enumeration: `.git`, `*.trace`,
+   `*.setup.json`, `*.rsp`, and each package's `build/bin`. The enumeration it
+   replaces came from one diff and missed `bin/cache` (~104 MB),
+   `bin/cache.hash`, and a `batteries` trace. The fragment MUST let the shell
+   expand `$out`: `lib.escapeShellArg` single-quotes it, yielding
+   `rm -rf -- '$out/…'`, which removes nothing and exits 0 — silently disabling
+   the only mechanism keeping the hash stable.
 
-7. **`mkVersoSite` builds Verso documents** — manual, textbook, blog, and
-   blueprint genres — to HTML and PDF as Nix outputs. Verso is an ordinary Lake
-   dependency, so this layers on `mkLeanEnv` with no new toolchain machinery.
+   Re-measured with that prune, two independent cold builds agree:
+   `sha256-sxi8QdloT+Zvv3HSD4rd8D0m03k47625d6sR9VDdXpY=`.
 
-8. **`pkgs/lean` MUST be deleted** before the lean4-nix overlay is introduced
-   anywhere in this repo. It is unused and broken, so removal is preferable to
+   **The derivation name MUST carry a digest of `lake-manifest.json`.** A
+   fixed-output path is `f(name, hash)` — independent of `src` and of the
+   manifest — so bumping a dependency while keeping `artifactHash` silently
+   reuses the previous closure, and a stale Mathlib produces *successful* builds
+   against the wrong library. The digest also makes Decision 1's sharing claim
+   true rather than aspirational.
+
+   **Projects without Mathlib MUST take the source-build path**
+   (`lake2nix.buildDeps`), per Constraint 6. That path is cheap — those
+   dependency sets are small.
+
+6. **The module exposes two things per project:**
+
+   - `devShells.<name>` — `lean`, `lake`, and `LEAN_PATH` set to the Nix-built
+     dependency tree. This fills the `lake`-on-PATH hole `pkgs/tauceti`
+     documents. It MUST set the environment rather than print an instruction to
+     symlink a store path into `.lake/packages`: that errors on a fresh checkout
+     and silently creates `.lake/packages/packages` on a used one, after which
+     lake re-resolves over the network — the exact outcome this module exists to
+     prevent, reported as success.
+   - `packages.<name>-lean-deps` — the dependency closure as a pure derivation.
+
+   A project's own Lake target is **not** exposed. `lake2nix.mkPackage` builds
+   one derivation per dependency while the FOD produces a single opaque tree;
+   those models were never reconciled, and a declared-but-dead option is worse
+   than an absent one.
+
+7. **A missing `artifactHash` MUST fail at build, not at instantiation.**
+   Reaching that refusal through `shellHook` breaks `nix flake show`/`check` for
+   an entire consuming repo over one unset hash, and makes the bootstrap circular
+   — the shell needed to mint a hash cannot be entered without one.
+
+8. **`pkgs/lean` MUST be deleted.** It is unused and broken, so removal beats
    renaming: a rename relocates the hazard and keeps a dead derivation alive,
-   whereas deletion means there is no `lean` attribute for either overlay to
-   contend over.
+   whereas deletion leaves no `lean` attribute for either overlay to contend
+   over. This is hygiene, **not** a prerequisite: `mkLeanEnv` instantiates its
+   own nixpkgs carrying only lean4-nix's overlay, so jackpkgs' overlay and
+   lean4-nix's never meet.
 
 ### Out of scope
 
@@ -209,42 +266,59 @@ derived from files the checkout already commits.
 - Toolchain availability stops depending on upstream lean4-nix's release
   cadence, which is the difference between TauCeti being supported and not.
 - The expensive failure mode (source-building the compiler) becomes an eval
-  error with a fix in the message, rather than something discovered four hours
-  in.
-- One Mathlib build per `(toolchain, rev)` pair, served from attic to every
-  machine and to CI.
+  error with a fix in the message, rather than something discovered hours in.
+- Mathlib arrives in about a minute per `(toolchain, rev, system)`, pure at the
+  Nix level.
 - `pkgs.lean` stops being ambiguous — there is no such attribute to contend over.
 
 ### Trade-offs
 
-- Mathlib is built from source. With no revision sharing across projects in
-  practice, that is roughly one multi-hour build per project, re-paid whenever
-  a project bumps its toolchain or Mathlib pin. For a single workstation,
-  `lake exe cache get` inside a plain devShell would be faster; this design is
-  only ahead once the artifact is shared across machines or CI.
-- Vendored manifests are a maintenance surface. They are small and generated,
-  but they are ours to regenerate.
+- **One FOD hash per `(revision, system)`**, recorded by hand. `.olean` files are
+  compiled, so a hash minted on darwin does not serve linux.
+- Vendored manifests are a maintenance surface. Small and generated, but ours to
+  regenerate.
 - Each environment instantiates its own nixpkgs, so eval cost scales with the
-  number of distinct toolchains in a flake.
+  number of distinct toolchains in a flake — not with the number of projects,
+  but memoising on the tag is an available optimisation if it ever bites.
+- Two dependency-acquisition regimes to maintain instead of one. This reflects a
+  real asymmetry in the ecosystem (Constraint 6) rather than a design choice.
 
 ### Risks & Mitigations
 
-- **Nix-built ≠ upstream-built.** Building Mathlib ourselves is a second
-  implementation of a build that Prove2me, in particular, verifies against
-  server-side. *Mitigation:* the devShell remains a supported mode, so a
-  divergence can always be checked against stock `lake` + `cache get`. Any
-  project that verifies against a remote oracle SHOULD use the devShell for
-  submission-bound work.
-- **`cadical`.** lean4-nix's README warns that source-built overlays pin a
-  `cadical` version that must be present as a `nativeBuildInputs`, or
-  `bv_decide` fails at run time. *Mitigation:* binary toolchains should avoid
-  it; verify explicitly on the Mathlib seed project rather than assuming.
-- **Release-candidate churn.** TauCeti's `v4.34.0-rc2` will move.
-  *Mitigation:* the `just` recipe makes regeneration a one-liner; the eval-time
-  error makes a stale manifest loud.
-- **Attic flakiness.** `nix flake check` already needs `--fallback` in this repo
-  when attic 504s. A cancelled Mathlib substitution reads as a real failure.
-  *Mitigation:* documented in the module's README section.
+- **Cross-machine reproducibility is unproven.** Both reproducibility runs were
+  on one aarch64-darwin host, where `sandbox = false` — so a build can read host
+  state. The prune removes the identified carriers of hostname and timestamp, but
+  sufficiency across hosts is inferred, not measured. *Mitigation:* treat recorded
+  hashes as machine-attested until a linux build confirms one; `export HOME="$TMPDIR"`
+  in the builder is load-bearing, since without it the build consumes
+  `~/.cache/mathlib` and mints a hash nobody else can reproduce.
+- **Mathlib CDN retention.** With no binary cache of our own, an FOD pinned to an
+  old revision becomes unbuildable if Mathlib CI rotates its artifacts away.
+  *Mitigation:* none taken deliberately — the risk is unquantified, and hedging it
+  would cost ~6.8 GB per `(rev, system)`. Revisit if a `cache get` is ever
+  observed failing on an old revision.
+- **`cadical`.** lean4-nix's manifests carry a pinned `cadical` in the manifest's
+  own `overlay`, which upstream's `readBinaryToolchain` applies and a hand-rolled
+  overlay can silently drop; the symptom is
+  `could not execute external process 'cadical'` inside a `bv_decide` proof, far
+  from the cause. *Mitigation:* the module applies `manifest.overlay`; verify on
+  the TauCeti seed.
+- **Release-candidate churn.** TauCeti's `v4.34.0-rc2` will move. *Mitigation:*
+  `just lean-toolchain-fetch` makes regeneration a one-liner, and the eval-time
+  refusal makes a stale manifest loud.
+
+### Accepted risks
+
+- **`lib.fakeHash` + a partial first fetch.** The fixed output hash is a total
+  completeness check only *after* a hash exists. The first time one is minted, a
+  partial fetch would bake in a wrong hash that then reproduces faithfully; the
+  eventual mismatch reads as nondeterminism rather than as a bad recorded hash.
+  Accepted deliberately: a separate assertion would restate a mechanism the
+  system already enforces.
+- **Upstream `v4.20.1.nix` has no `toolchain` attribute**, so "a manifest file
+  exists" does not imply "a binary toolchain is available", and the raw failure is
+  not `tryEval`-catchable. Refused explicitly by `loadManifest`, but it falsifies
+  the invariant Decision 2 rests on. One of 28.
 
 ## Alternatives Considered
 
@@ -269,14 +343,14 @@ run by hand inside the shell.
 
 - Pros: minutes instead of hours; byte-identical to what upstream and Prove2me's
   server build; nothing to vendor.
-- Cons: impure; nothing cacheable in attic; unusable for CI gating; leaves
-  `~/.cache/mathlib` as mutable state.
-- Why not chosen: **superseded rather than rejected.** The FOD in decision 5
-  keeps every one of this alternative's benefits — it runs the same
-  `cache get` — while making the result a pure, attic-cacheable derivation. The
-  measurement that made this possible (byte-identical trees across independent
-  runs) was not available when the choice was first framed as
-  "fast and impure" versus "slow and pure"; it turns out not to be a trade-off.
+- Cons: impure; nothing Nix can cache or substitute; unusable for CI gating;
+  leaves `~/.cache/mathlib` as mutable state.
+- Why not chosen: **superseded rather than rejected.** Decision 5's FOD keeps
+  every one of this alternative's benefits — it runs the same `cache get` — while
+  making the result a pure derivation. Framing the choice as "fast and impure"
+  versus "slow and pure" was the error; it is not a trade-off. Note the
+  reproducibility that makes it work had to be *engineered* (the prune), not
+  merely observed — the first measurement claiming it came for free was wrong.
 
 ### Alternative E — build Mathlib from source with `lake2nix.buildDeps`
 
@@ -310,27 +384,21 @@ manifest is missing.
 
 ## Implementation Plan
 
-1. **Delete `pkgs/lean`.** Separate scoped PR, landed first. Removes the
-   package directory and its four references (`flake.nix`, `overlay.nix`, the
-   commented line in `overlays/default.nix`, and the incorrect README entry).
-   The `packages` output is unchanged by this, since the `meta.broken` filter
-   already suppressed it.
-2. **Add the `lean4-nix` flake input** and `pkgs/lean4-toolchains/` with a
-   `just lean-toolchain-fetch <version>` recipe. Seed `v4.34.0` and
-   `v4.34.0-rc2`.
-3. **`modules/flake-parts/lean.nix`** implementing `mkLeanEnv` plus the three
-   outputs. Register in `modules/flake-parts/default.nix` (`flakeModules`) and
-   `modules/flake-parts/all.nix` (`imports`).
-4. **Prove it on four checkouts, in this order:** a scratch Mathlib-only project
-   (fastest loop, and where `cadical` and the attic story get verified), the
-   Prove2me workspace (upstream manifest, happy path), Verso (`v4.34.0`,
-   vendored manifest), TauCeti (`v4.34.0-rc2`, vendored manifest, nine deps).
-5. **`mkVersoSite`** once the base module is proven.
-6. **Bump garden's jackpkgs pin.** Garden is at `d7fb6c39`, which predates the
-   tauceti merge at `c8276fe`.
+The executable plan lives on **jmmaloney4/jackpkgs#388**, with one spec sub-issue
+per PR and an `implementation-plan v1` block. It is the single source of
+sequencing truth; this section deliberately does not restate it.
 
-Mathlib builds should run on `itachi` and land in attic before the seed
-projects are declared working.
+Summary only: delete `pkgs/lean` (#389, merged as #386) · this ADR (#390) · the
+module (#391) · a Mathlib-free CI fixture (#392) · garden pin bump (#393) ·
+TauCeti seed (#394) · Prove2me as a consumer (#395).
+
+Two nodes from the original sketch are gone. A **`mkVersoSite` genre builder** is
+deferred until garden#1997 — *is verso-blueprint the project model?* — closes;
+Verso remains usable as an ordinary lake dependency in the devShell, and the
+lattice map (garden#1988) records verso-blueprint as single-author and
+per-commit unstable, pinned by SHA not version string. **attic seeding on
+itachi** is dropped: its justification was amortising a multi-hour source build,
+and Decision 5 removed that cost.
 
 ## Related
 
