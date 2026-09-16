@@ -1,0 +1,26 @@
+# Mathlib-free Lean project fixture for jackpkgs.lean (tests/lean-project.nix).
+#
+# `rev` is a toolchain-matching TAG, not a branch: `lake update` adopts the
+# dependency's own `lean-toolchain` and rewrites this project's, so requiring
+# `main` here silently repins the fixture off v4.34.0 -- which is the one
+# version that must stay, since it is the vendored manifest this fixture
+# exists to exercise.
+#
+# Regenerating lake-manifest.json -- the module refuses without a committed
+# one, and `lake update` reaches the network so it cannot run in a derivation:
+#
+#     nix develop --impure .#checks.<system>.lean-project-env.passthru.devShell
+#     cd tests/fixtures/lean/project && lake update
+#     git diff lean-toolchain   # MUST be empty; see the tag note above
+#     nix fmt                   # treefmt reformats the manifest lake writes
+name = "leanfixture"
+version = "0.1.0"
+defaultTargets = ["LeanFixture"]
+
+[[require]]
+name = "batteries"
+git = "https://github.com/leanprover-community/batteries"
+rev = "v4.34.0"
+
+[[lean_lib]]
+name = "LeanFixture"

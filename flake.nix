@@ -199,6 +199,15 @@
           inherit lib pkgs;
         };
 
+        # End-to-end checks for jackpkgs.lean against a real Lean checkout
+        # (tests/fixtures/lean/project). Deliberately NOT folded into
+        # `fixtureTests` below: it is the only check in this flake that builds
+        # a ~3.9 GiB Lean toolchain closure, and putting it in the aggregate
+        # would make every unrelated justfile assertion drag Lean in.
+        leanProjectTests = import ./tests/lean-project.nix {
+          inherit inputs lib pkgs system;
+        };
+
         # The capture + workspace-runtime helpers under test in the pnpm
         # fixture checks below (same import the modules consume as
         # jackpkgsLib, see modules/flake-parts/lib.nix).
@@ -594,7 +603,11 @@
               inherit pkgs;
               mdformatFormatter = config.treefmt.settings.formatter.mdformat;
             }
-          );
+          )
+          # jackpkgs.lean end-to-end against tests/fixtures/lean/project (#392).
+          # Individual rather than aggregated so a Lean failure is legible
+          # without building Lean to read it.
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "lean-project-${name}" drv) leanProjectTests;
       };
 
       flake = {
