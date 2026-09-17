@@ -22,7 +22,16 @@ else let
     value = v;
   };
   nvfetcherSources = super.callPackage ./_sources/generated.nix {};
-  superWithBun2nix = super // (bun2nixOverlay self super);
+  # `super.extend`, not `super // (bun2nixOverlay self super)`: the plain `//`
+  # merged bun2nix's attributes onto `super` but left `callPackage` bound to
+  # `super`'s own scope, so `pkgs/gemini-proxy`'s `bun2nix` argument was
+  # unresolvable and any access to `gemini-proxy` through this overlay aborted
+  # with "Function called without required argument". That was invisible while
+  # #384 made the whole overlay recurse first. `extend` rebuilds the fixpoint so
+  # `callPackage` resolves against a scope that actually contains bun2nix --
+  # the same thing `flake.nix` does with `pkgs.extend`. It also stops threading
+  # this overlay's `self` into another overlay's construction.
+  superWithBun2nix = super.extend bun2nixOverlay;
   # Define packages inline instead of importing default.nix
   allPackages = {
     csharpier = super.callPackage ./pkgs/csharpier {};
@@ -73,7 +82,23 @@ else let
       darwinModules = import ./modules/nix-darwin;
       overlays = import ./overlays;
     }
-    // jackLib.filterByPlatforms super.system allPackages;
+    # NOTE: deliberately NOT platform-filtered. Deciding which attribute
+    # *names* this overlay exports by inspecting each package's
+    # `meta.platforms` forces derivations built by `callPackage` against the
+    # *final* package set -- the very fixpoint this overlay participates in --
+    # so the overlay's attribute names would depend on evaluating packages
+    # that depend on the completed overlay. That is an infinite recursion
+    # (#384), and no amount of extra laziness fixes it: a name-level filter
+    # driven by values is inherently recursive here.
+    #
+    # This matches nixpkgs' own posture -- overlays do not platform-filter.
+    # `meta.platforms` is still enforced at build time by `checkMeta`, which
+    # yields a better error ("not available on ...") than an attribute
+    # silently vanishing. `flake.nix` keeps its `platformFilteredPackages`
+    # because `packages.<system>` genuinely must not contain unbuildable
+    # attrs (for `nix flake show` / CI); it computes the filter against an
+    # already-complete `pkgs`, outside any overlay, so it is not recursive.
+    // allPackages;
 in
   builtins.listToAttrs
   (map (n: nameValuePair n nurAttrs.${n})
