@@ -607,6 +607,14 @@
               mdformatFormatter = config.treefmt.settings.formatter.mdformat;
             }
           )
+          # Both non-flake registration points (overlay.nix, overlays/default.nix)
+          # applied as real nixpkgs overlays. Individual rather than aggregated
+          # so it is obvious which of the two broke (#384).
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "overlay-${name}" drv) (
+            import ./tests/overlays.nix {
+              inherit inputs lib pkgs system;
+            }
+          )
           # jackpkgs.lean end-to-end against tests/fixtures/lean/project (#392).
           # Individual rather than aggregated so a Lean failure is legible
           # without building Lean to read it.

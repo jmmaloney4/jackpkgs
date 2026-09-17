@@ -1,7 +1,12 @@
 {
   # Default overlay with all packages from jackpkgs
+  #
+  # NOTE: deliberately NOT platform-filtered -- see the matching note in
+  # ../overlay.nix. Filtering the exported attribute *names* by each
+  # package's `meta.platforms` forces `callPackage` results from the final
+  # package set this overlay is part of, which is an infinite recursion
+  # (#384). `meta.platforms` is still enforced at build time by `checkMeta`.
   default = self: super: let
-    jackLib = import ../lib {pkgs = super;};
     nvfetcherSources = super.callPackage ../_sources/generated.nix {};
     packages = {
       csharpier = super.callPackage ../pkgs/csharpier {};
@@ -30,5 +35,5 @@
       };
     };
   in
-    jackLib.filterByPlatforms super.system packages;
+    packages;
 }
