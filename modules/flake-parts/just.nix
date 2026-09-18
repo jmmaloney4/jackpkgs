@@ -19,6 +19,17 @@
 in {
   imports = [
     jackpkgsInputs.just-flake.flakeModule
+    # Declares `jackpkgs.justFeatures`, the indirection through which other
+    # jackpkgs modules contribute recipes without importing just-flake.
+    ./just-features.nix
+    # ...and drains it into `just-flake.features`. Kept as its own module so
+    # the big `features` literal below stays untouched: the justfiles in it are
+    # indented-string literals whose column positions are load-bearing.
+    {
+      perSystem = {config, ...}: {
+        just-flake.features = config.jackpkgs.justFeatures;
+      };
+    }
     (import ./gcp.nix {inherit jackpkgsInputs;})
   ];
 

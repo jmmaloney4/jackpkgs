@@ -28,15 +28,10 @@
 # jackpkgs.lean.enable = true, so gating on that flag would make the recipe
 # unreachable in the one place it is meant to run.
 {jackpkgsInputs}: {
-  # just-flake's flake module defines `just-flake.features`, which the recipe
-  # below declares. Importing it here rather than relying on the caller is what
-  # makes `flakeModules.lean` usable a la carte: without it, a consumer that
-  # imports only `flakeModules.{pkgs,lean}` fails to evaluate with
-  # `The option `perSystem.<system>.just-flake' does not exist`.
-  #
-  # Importing it twice -- here and in modules/flake-parts/just.nix, both of
-  # which reach `all.nix` -- is safe; the module system dedupes by identity.
-  imports = [jackpkgsInputs.just-flake.flakeModule];
+  # Registers the recipe through `jackpkgs.justFeatures` rather than writing
+  # `just-flake.features` directly, so this module never imports just-flake.
+  # See just-features.nix for why importing it here breaks consumers.
+  imports = [./just-features.nix];
 
   perSystem = {
     pkgs,
@@ -123,7 +118,7 @@
       ]
       false;
   in {
-    just-flake.features.lean-toolchain-fetch = {
+    jackpkgs.justFeatures.lean-toolchain-fetch = {
       enable = true;
       justfile = leanToolchainFetchRecipe;
     };
