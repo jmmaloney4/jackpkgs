@@ -56,7 +56,7 @@ in
       python_.pkgs.packaging
     ];
 
-    buildInputs = lib.optionals stdenv.isLinux [
+    buildInputs = lib.optionals stdenv.hostPlatform.isLinux [
       python_
     ];
 
@@ -79,7 +79,7 @@ in
           then "true"
           else "false";
       }
-      // lib.optionalAttrs stdenv.isLinux {
+      // lib.optionalAttrs stdenv.hostPlatform.isLinux {
         PYTHON_LIB_DIR = "${python_}/lib";
       }
       // lib.optionalAttrs (cargoBuildTarget != null) {
@@ -97,11 +97,11 @@ in
         export CC="${clang}/bin/clang"
         export CXX="${clang}/bin/clang++"
       ''
-      + lib.optionalString stdenv.isLinux ''
+      + lib.optionalString stdenv.hostPlatform.isLinux ''
         export LDSHARED="${clang}/bin/clang -shared"
         export LD_LIBRARY_PATH="${python_}/lib:''${LD_LIBRARY_PATH:-}"
       ''
-      + lib.optionalString stdenv.isDarwin ''
+      + lib.optionalString stdenv.hostPlatform.isDarwin ''
         export RUSTFLAGS="''${RUSTFLAGS:+$RUSTFLAGS }-C link-arg=-undefined -C link-arg=dynamic_lookup"
         export LIBRARY_PATH="${python_}/lib:''${LIBRARY_PATH:-}"
         export LD_LIBRARY_PATH="${python_}/lib:''${LD_LIBRARY_PATH:-}"
