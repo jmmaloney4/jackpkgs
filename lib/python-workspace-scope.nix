@@ -74,7 +74,7 @@
   # Not documented in uv2nix, but necessary for real-world macOS builds
   # Nixpkgs lacks knowledge of target macOS version, so we explicitly set SDK version
   stdenvForPython =
-    if pkgs.stdenv.isDarwin
+    if pkgs.stdenv.hostPlatform.isDarwin
     then
       pkgs.stdenv.override {
         targetPlatform =

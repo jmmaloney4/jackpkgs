@@ -66,7 +66,7 @@ args @ {
   # nixpkgs has no way to infer it. jackpkgs.python handles this
   # internally for the main workspace; isolated envs need their own copy.
   stdenv' =
-    if pkgs.stdenv.isDarwin
+    if pkgs.stdenv.hostPlatform.isDarwin
     then
       pkgs.stdenv.override {
         targetPlatform =
