@@ -1,243 +1,243 @@
 {
-	"codex-proxy": {
-		"cargoLock": null,
-		"date": "2026-06-02",
-		"extract": null,
-		"name": "codex-proxy",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "jmmaloney4",
-			"repo": "codex-proxy",
-			"rev": "aa8d9032ff92ae984482f44818b509f72cd0d7b2",
-			"sha256": "sha256-q1UE3cCFsGqOdd4aljVX1QBw4zmVMEJnKcACigfHy64=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "aa8d9032ff92ae984482f44818b509f72cd0d7b2"
-	},
-	"codex-proxy-rs": {
-		"cargoLock": null,
-		"date": "2026-07-26",
-		"extract": null,
-		"name": "codex-proxy-rs",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "jmmaloney4",
-			"repo": "codex-proxy-rs",
-			"rev": "9678bf66cdbf8da8913adee4261f5d8bb715bc49",
-			"sha256": "sha256-QNiD6b1BSwHDQEh1p0XPNXqxfTSKJecRdnXgbGjIhwY=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "9678bf66cdbf8da8913adee4261f5d8bb715bc49"
-	},
-	"dbn-cli": {
-		"cargoLock": null,
-		"date": null,
-		"extract": null,
-		"name": "dbn-cli",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "databento",
-			"repo": "dbn",
-			"rev": "v0.61.0",
-			"sha256": "sha256-PMfTgyfLg0O61CypAN+l3porXuOE+bK777J9i4QE+W8=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "v0.61.0"
-	},
-	"gemini-proxy": {
-		"cargoLock": null,
-		"date": "2026-03-09",
-		"extract": null,
-		"name": "gemini-proxy",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "KashifKhn",
-			"repo": "gemini-proxy",
-			"rev": "5f701a244ed3c4699e6c1b0550bd50e961601ebe",
-			"sha256": "sha256-RYDeVd66AXHHbm7TzX8et8QUspvfjxpkq8o4VXh76Cw=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "5f701a244ed3c4699e6c1b0550bd50e961601ebe"
-	},
-	"mcp-ynab": {
-		"cargoLock": null,
-		"date": "2026-03-07",
-		"extract": null,
-		"name": "mcp-ynab",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "jmmaloney4",
-			"repo": "mcp-ynab",
-			"rev": "b7b21e4990fa824b24bb86f2f2d8fd053817f047",
-			"sha256": "sha256-Ukh5FvBmk5A4ol2IRpBvrWp1K6fcWDfxssiw0gJ9l84=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "b7b21e4990fa824b24bb86f2f2d8fd053817f047"
-	},
-	"nautilus-trader": {
-		"cargoLock": {
-			"Cargo.lock": [
-				"sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock",
-				{}
-			]
-		},
-		"date": "2026-05-29",
-		"extract": null,
-		"name": "nautilus-trader",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "nautechsystems",
-			"repo": "nautilus_trader",
-			"rev": "1408bec68bb01ba1c3166e1f3803f1536fc9c950",
-			"sha256": "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "1408bec68bb01ba1c3166e1f3803f1536fc9c950"
-	},
-	"spooktacular": {
-		"cargoLock": null,
-		"date": "2026-04-19",
-		"extract": null,
-		"name": "spooktacular",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "Spooky-Labs",
-			"repo": "spooktacular",
-			"rev": "f36634b84e1d38d81bd282b0f88a497557e4a520",
-			"sha256": "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "f36634b84e1d38d81bd282b0f88a497557e4a520"
-	},
-	"tauceti": {
-		"cargoLock": null,
-		"date": "2026-09-14",
-		"extract": null,
-		"name": "tauceti",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "kim-em",
-			"repo": "TauCetiWorker",
-			"rev": "68662114b91417cac3a2c72ed9e52a9e16c3aee6",
-			"sha256": "sha256-ay8N/4/GRLE1H/GyZ8HMJllmwYxhmn5H8+wSuN2Ze6E=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "68662114b91417cac3a2c72ed9e52a9e16c3aee6"
-	},
-	"tauceti-progress": {
-		"cargoLock": null,
-		"date": null,
-		"extract": null,
-		"name": "tauceti-progress",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "TauCetiProject",
-			"repo": "TauCetiProgress",
-			"rev": "e4cfa57193bd43827411e48f21226cc1c1b3b117",
-			"sha256": "sha256-0JwXkpSRrldMugEwtNu+wAygwU5S3UMw3LOX/EMILqI=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "e4cfa57193bd43827411e48f21226cc1c1b3b117"
-	},
-	"tauceti-review": {
-		"cargoLock": null,
-		"date": "2026-09-03",
-		"extract": null,
-		"name": "tauceti-review",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "TauCetiProject",
-			"repo": "TauCetiReview",
-			"rev": "afb424eda89e8ac96d9eb69f6a88972055a4cd1b",
-			"sha256": "sha256-cgqOR5YGcboIrhkK6H31wt68fxyR8GJeUgmjggWEx3s=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "afb424eda89e8ac96d9eb69f6a88972055a4cd1b"
-	},
-	"tod": {
-		"cargoLock": {
-			"Cargo.lock": [
-				"sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock",
-				{}
-			]
-		},
-		"date": null,
-		"extract": null,
-		"name": "tod",
-		"passthru": null,
-		"pinned": false,
-		"src": {
-			"deepClone": false,
-			"fetchSubmodules": false,
-			"leaveDotGit": false,
-			"name": null,
-			"owner": "alanvardy",
-			"repo": "tod",
-			"rev": "v0.12.1",
-			"sha256": "sha256-091/1go/dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=",
-			"sparseCheckout": [],
-			"type": "github"
-		},
-		"version": "v0.12.1"
-	}
+    "codex-proxy": {
+        "cargoLock": null,
+        "date": "2026-06-02",
+        "extract": null,
+        "name": "codex-proxy",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "jmmaloney4",
+            "repo": "codex-proxy",
+            "rev": "aa8d9032ff92ae984482f44818b509f72cd0d7b2",
+            "sha256": "sha256-q1UE3cCFsGqOdd4aljVX1QBw4zmVMEJnKcACigfHy64=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "aa8d9032ff92ae984482f44818b509f72cd0d7b2"
+    },
+    "codex-proxy-rs": {
+        "cargoLock": null,
+        "date": "2026-09-18",
+        "extract": null,
+        "name": "codex-proxy-rs",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "jmmaloney4",
+            "repo": "codex-proxy-rs",
+            "rev": "0781b7f32bec84b876ada9fccc8bc4ebde3a81b3",
+            "sha256": "sha256-ed1Be46NNWyXkI+WMdNVHXnUUcYsSdR5s2x/ZlOqcBM=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "0781b7f32bec84b876ada9fccc8bc4ebde3a81b3"
+    },
+    "dbn-cli": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "dbn-cli",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "databento",
+            "repo": "dbn",
+            "rev": "v0.61.0",
+            "sha256": "sha256-PMfTgyfLg0O61CypAN+l3porXuOE+bK777J9i4QE+W8=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "v0.61.0"
+    },
+    "gemini-proxy": {
+        "cargoLock": null,
+        "date": "2026-03-09",
+        "extract": null,
+        "name": "gemini-proxy",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "KashifKhn",
+            "repo": "gemini-proxy",
+            "rev": "5f701a244ed3c4699e6c1b0550bd50e961601ebe",
+            "sha256": "sha256-RYDeVd66AXHHbm7TzX8et8QUspvfjxpkq8o4VXh76Cw=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "5f701a244ed3c4699e6c1b0550bd50e961601ebe"
+    },
+    "mcp-ynab": {
+        "cargoLock": null,
+        "date": "2026-03-07",
+        "extract": null,
+        "name": "mcp-ynab",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "jmmaloney4",
+            "repo": "mcp-ynab",
+            "rev": "b7b21e4990fa824b24bb86f2f2d8fd053817f047",
+            "sha256": "sha256-Ukh5FvBmk5A4ol2IRpBvrWp1K6fcWDfxssiw0gJ9l84=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "b7b21e4990fa824b24bb86f2f2d8fd053817f047"
+    },
+    "nautilus-trader": {
+        "cargoLock": {
+            "Cargo.lock": [
+                "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock",
+                {}
+            ]
+        },
+        "date": "2026-05-29",
+        "extract": null,
+        "name": "nautilus-trader",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "nautechsystems",
+            "repo": "nautilus_trader",
+            "rev": "1408bec68bb01ba1c3166e1f3803f1536fc9c950",
+            "sha256": "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "1408bec68bb01ba1c3166e1f3803f1536fc9c950"
+    },
+    "spooktacular": {
+        "cargoLock": null,
+        "date": "2026-04-19",
+        "extract": null,
+        "name": "spooktacular",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "Spooky-Labs",
+            "repo": "spooktacular",
+            "rev": "f36634b84e1d38d81bd282b0f88a497557e4a520",
+            "sha256": "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "f36634b84e1d38d81bd282b0f88a497557e4a520"
+    },
+    "tauceti": {
+        "cargoLock": null,
+        "date": "2026-09-14",
+        "extract": null,
+        "name": "tauceti",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "kim-em",
+            "repo": "TauCetiWorker",
+            "rev": "68662114b91417cac3a2c72ed9e52a9e16c3aee6",
+            "sha256": "sha256-ay8N/4/GRLE1H/GyZ8HMJllmwYxhmn5H8+wSuN2Ze6E=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "68662114b91417cac3a2c72ed9e52a9e16c3aee6"
+    },
+    "tauceti-progress": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "tauceti-progress",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "TauCetiProject",
+            "repo": "TauCetiProgress",
+            "rev": "e4cfa57193bd43827411e48f21226cc1c1b3b117",
+            "sha256": "sha256-0JwXkpSRrldMugEwtNu+wAygwU5S3UMw3LOX/EMILqI=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "e4cfa57193bd43827411e48f21226cc1c1b3b117"
+    },
+    "tauceti-review": {
+        "cargoLock": null,
+        "date": "2026-09-03",
+        "extract": null,
+        "name": "tauceti-review",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "TauCetiProject",
+            "repo": "TauCetiReview",
+            "rev": "afb424eda89e8ac96d9eb69f6a88972055a4cd1b",
+            "sha256": "sha256-cgqOR5YGcboIrhkK6H31wt68fxyR8GJeUgmjggWEx3s=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "afb424eda89e8ac96d9eb69f6a88972055a4cd1b"
+    },
+    "tod": {
+        "cargoLock": {
+            "Cargo.lock": [
+                "sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock",
+                {}
+            ]
+        },
+        "date": null,
+        "extract": null,
+        "name": "tod",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "alanvardy",
+            "repo": "tod",
+            "rev": "v0.12.1",
+            "sha256": "sha256-091/1go/dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "v0.12.1"
+    }
 }
