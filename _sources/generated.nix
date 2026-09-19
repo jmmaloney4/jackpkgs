@@ -4,7 +4,8 @@
   fetchurl,
   fetchFromGitHub,
   dockerTools,
-}: {
+}:
+{
   codex-proxy = {
     pname = "codex-proxy";
     version = "aa8d9032ff92ae984482f44818b509f72cd0d7b2";
@@ -19,15 +20,15 @@
   };
   codex-proxy-rs = {
     pname = "codex-proxy-rs";
-    version = "9678bf66cdbf8da8913adee4261f5d8bb715bc49";
+    version = "0781b7f32bec84b876ada9fccc8bc4ebde3a81b3";
     src = fetchFromGitHub {
       owner = "jmmaloney4";
       repo = "codex-proxy-rs";
-      rev = "9678bf66cdbf8da8913adee4261f5d8bb715bc49";
+      rev = "0781b7f32bec84b876ada9fccc8bc4ebde3a81b3";
       fetchSubmodules = false;
-      sha256 = "sha256-QNiD6b1BSwHDQEh1p0XPNXqxfTSKJecRdnXgbGjIhwY=";
+      sha256 = "sha256-ed1Be46NNWyXkI+WMdNVHXnUUcYsSdR5s2x/ZlOqcBM=";
     };
-    date = "2026-07-26";
+    date = "2026-09-18";
   };
   dbn-cli = {
     pname = "dbn-cli";
@@ -77,6 +78,7 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock";
       outputHashes = {
+        
       };
     };
     date = "2026-05-29";
@@ -141,6 +143,7 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock";
       outputHashes = {
+        
       };
     };
   };
