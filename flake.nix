@@ -709,8 +709,25 @@
         # the moment upstream lands. See ADR 050.
         overlays.llvm-darwin-codesign-test = import ./overlays/llvm-darwin-codesign-test.nix;
 
-        # Expose nix-darwin modules
-        darwinModules.imessage-bridge = import ./modules/nix-darwin/imessage-bridge.nix;
+        # Expose nix-darwin modules. `default` is the tree aggregator; named
+        # modules stay individually addressable (ADR-051).
+        darwinModules = {
+          default = import ./modules/nix-darwin;
+          imessage-bridge = import ./modules/nix-darwin/imessage-bridge.nix;
+        };
+
+        # Expose NixOS modules (ADR-051). The aggregator is un-stubbed but
+        # empty: the shared fleet module set promoted from garden's nixfiles/
+        # (garden#2074 Part B) lands in the follow-up PRs.
+        nixosModules.default = import ./modules/nixos;
+
+        # Expose Home Manager modules under the modern `homeModules` output
+        # name (ADR-051). The legacy `pkgs.homeManagerModules` overlay path
+        # is unchanged; no `homeManagerModules` flake output is minted.
+        homeModules = {
+          default = import ./modules/home-manager;
+          tod = import ./modules/home-manager/programs/tod.nix;
+        };
 
         # Expose lib for backward compatibility
         lib = inputs.nixpkgs.lib.extend (

@@ -51,18 +51,24 @@ If an ADR is superseded, add cross-links in both directions.
 
 ## Index
 
-| #   | Title                                                                                                               | Status   |
-| --- | ------------------------------------------------------------------------------------------------------------------- | -------- |
-| 031 | [Notebook Quality Gates via nbqa and jupytext](031-notebook-quality-gates-via-nbqa.md)                              | Accepted |
-| 036 | [Unified `just cut` Release Recipe](036-cut-release-recipe.md)                                                      | Accepted |
-| 037 | [Bump Python Default Interpreter to 3.14](037-python-314-default-interpreter.md)                                    | Accepted |
-| 038 | [mkHelmChartFromGitHub Helper](038-mk-helm-chart-from-github.md)                                                    | Accepted |
-| 039 | [Shellcheck for Generated Pre-commit Hook Scripts](039-shellcheck-pre-commit-hooks.md)                              | Accepted |
-| 040 | [Converge Node Workspace Runtime Setup Across `checks` and `pre-commit`](040-node-workspace-runtime-convergence.md) | Proposed |
-| 041 | [Python Monorepo Type-Check Path Derivation](041-python-monorepo-typecheck-path-derivation.md)                      | Proposed |
-| 042 | [Selective Dependency Groups for Python Environments](042-python-selective-dependency-groups.md)                    | Proposed |
-| 043 | [Standard Lightweight LSP Servers via jackpkgs.lsp](043-standard-lightweight-lsp-servers-via-jackpkgs-lsp.md)       | Proposed |
-| 044 | [Isolated uv2nix Python Environment Helper](044-isolated-uv2nix-env-helper.md)                                      | Accepted |
+| #   | Title                                                                                                                        | Status   |
+| --- | ---------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 031 | [Notebook Quality Gates via nbqa and jupytext](031-notebook-quality-gates-via-nbqa.md)                                       | Accepted |
+| 036 | [Unified `just cut` Release Recipe](036-cut-release-recipe.md)                                                               | Accepted |
+| 037 | [Bump Python Default Interpreter to 3.14](037-python-314-default-interpreter.md)                                             | Accepted |
+| 038 | [mkHelmChartFromGitHub Helper](038-mk-helm-chart-from-github.md)                                                             | Accepted |
+| 039 | [Shellcheck for Generated Pre-commit Hook Scripts](039-shellcheck-pre-commit-hooks.md)                                       | Accepted |
+| 040 | [Converge Node Workspace Runtime Setup Across `checks` and `pre-commit`](040-node-workspace-runtime-convergence.md)          | Proposed |
+| 041 | [Python Monorepo Type-Check Path Derivation](041-python-monorepo-typecheck-path-derivation.md)                               | Proposed |
+| 042 | [Selective Dependency Groups for Python Environments](042-python-selective-dependency-groups.md)                             | Proposed |
+| 043 | [Standard Lightweight LSP Servers via jackpkgs.lsp](043-standard-lightweight-lsp-servers-via-jackpkgs-lsp.md)                | Proposed |
+| 044 | [Isolated uv2nix Python Environment Helper](044-isolated-uv2nix-env-helper.md)                                               | Accepted |
+| 045 | [Explicit check-environment selection for Python checks](045-explicit-check-environment-selection.md)                        | Accepted |
+| 046 | [Remove mypy; ty becomes the sole type checker](046-remove-mypy-ty-sole-typechecker.md)                                      | Accepted |
+| 047 | [Strip workspace symlinks from the captured `node_modules` tree](047-strip-workspace-symlinks-from-captured-node-modules.md) | Proposed |
+| 048 | [Secondary uv Workspaces via `jackpkgs.python.extraWorkspaces`](048-python-extra-workspaces.md)                              | Proposed |
+| 049 | [`jackpkgs.lean` — Nix-built Lean 4 environments for multiple checkouts](049-lean-toolchain-module.md)                       | Proposed |
+| 050 | [Shared NixOS / nix-darwin / Home Manager Module Conventions](050-shared-nixos-darwin-home-manager-module-conventions.md)    | Accepted |
 
 ## Template
 
