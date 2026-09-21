@@ -63,6 +63,23 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## NixOS / nix-darwin / Home Manager modules
+
+Module outputs under `inputs.jackpkgs.{nixosModules,darwinModules,homeModules}` (conventions: ADR-050):
+
+```nix
+# NixOS host (nixosConfigurations):
+modules = [ inputs.jackpkgs.nixosModules.default ];        # aggregator (populated by the shared-module PRs)
+# nix-darwin host:
+modules = [ inputs.jackpkgs.darwinModules.default ];       # or darwinModules.imessage-bridge alone
+# Home Manager:
+modules = [ inputs.jackpkgs.homeModules.tod ];             # or homeModules.default for the whole tree
+```
+
+Today the populated modules are `darwinModules.imessage-bridge` and `homeModules.tod`; the shared fleet module set lands per ADR-050's PR sequence. `pkgs.homeManagerModules` (via the overlay) remains the legacy path.
+
+______________________________________________________________________
+
 ## Flake-parts modules
 
 This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModules` sourced from `modules/flake-parts/`:
