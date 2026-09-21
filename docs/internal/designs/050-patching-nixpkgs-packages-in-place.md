@@ -191,6 +191,9 @@ anything intended to be permanent.
 - [x] `tests/llvm-darwin-codesign.nix` — assert that invariant as a flake check,
   and confirm it *fails* when the platform condition is removed.
 - [x] Build the patched derivation on real aarch64-darwin hardware.
+- [x] Use `rm`, not `rm -f`, so the overlay fails loudly once upstream removes
+  the test itself — the removal condition enforces itself rather than relying on
+  someone noticing. (Raised in review on PR #407.)
 - [ ] Consumer side: garden adds the overlay to `nixfiles/default.nix`.
 - [ ] Remove when the pinned nixpkgs carries #552246.
 
@@ -200,12 +203,12 @@ Evaluated against `nixpkgs c7def046b`, `llvmPackages_23.libllvm.drvPath`:
 
 | System           | Baseline                           | With overlay                       |               |
 | ---------------- | ---------------------------------- | ---------------------------------- | ------------- |
-| `aarch64-darwin` | `c64rvn1m2vq3w5y15k00hp6vxjv441xr` | `5vzipw0g4fz15wn2hma2spryi7iv37gj` | changed       |
+| `aarch64-darwin` | `c64rvn1m2vq3w5y15k00hp6vxjv441xr` | `k3jaypfgiw28qbhqq2kzmmw3sbxklgyq` | changed       |
 | `x86_64-linux`   | `l2ky695v1a9sm5pnidk5srjcmdl5dasb` | `l2ky695v1a9sm5pnidk5srjcmdl5dasb` | **identical** |
 
 The darwin baseline is the exact derivation observed failing on the affected
 host. Scope propagation confirmed separately:
-`llvmPackages_23.lld.drvPath` moves `032gfx5a…` → `f6m9ag8g…`, so dependents
+`llvmPackages_23.lld.drvPath` moves `032gfx5a…` → `h91z97kl…`, so dependents
 follow the patched `libllvm` instead of a second llvm being introduced.
 
 `llvmPackages_23` is **not** the darwin stdenv's llvm — that is

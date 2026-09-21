@@ -18,8 +18,13 @@
 # cache.nixos.org -- the missing cache and the build failure are one bug, and
 # it is why a consumer faces "N derivations to build, 0 to fetch".
 #
-# REMOVAL CONDITION: delete this file, its flake.nix export, and the consumer's
-# overlay entry once the pinned nixpkgs contains #552246. Detect with:
+# REMOVAL CONDITION -- deliberately self-enforcing. `rm`, NOT `rm -f`: when
+# #552246 lands, upstream deletes this same test in its own postPatch, so `-f`
+# would make this overlay a silent no-op that lingers indefinitely. Plain `rm`
+# fails the build the moment the overlay is obsolete (or LLVM moves the test),
+# which turns "remember to delete this" from a comment into a mechanical
+# signal. Delete this file, its flake.nix export, and the consumer's overlay
+# entry when that happens. Detect ahead of time with:
 #     nix eval --raw <nixpkgs>#legacyPackages.aarch64-darwin.llvmPackages_23.libllvm.drvPath
 # and confirm the derivation builds without this overlay.
 #
@@ -53,7 +58,7 @@ final: prev: {
             postPatch =
               (old.postPatch or "")
               + ''
-                rm -f test/tools/dsymutil/codesign.test
+                rm test/tools/dsymutil/codesign.test
               '';
           })
         else llvmPrev.libllvm;
