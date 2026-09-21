@@ -615,6 +615,16 @@
               inherit inputs lib pkgs system;
             }
           )
+          # The darwin-only-hash-change invariant for the llvm codesign patch
+          # overlay (ADR 050). Separate from the overlay checks above because
+          # those assert package-export shape, which a patch overlay does not
+          # have -- and because the failure worth catching here is a silent
+          # Linux rebuild, not a resolution error.
+          // {
+            llvm-darwin-codesign-overlay = import ./tests/llvm-darwin-codesign.nix {
+              inherit inputs lib pkgs;
+            };
+          }
           # jackpkgs.lean end-to-end against tests/fixtures/lean/project (#392).
           # Individual rather than aggregated so a Lean failure is legible
           # without building Lean to read it.
@@ -624,6 +634,12 @@
       flake = {
         # Expose overlays for backward compatibility
         overlays.default = import ./overlay.nix inputs;
+
+        # Targeted nixpkgs patch, deliberately NOT folded into `overlays.default`.
+        # `default` is the NUR-style package overlay; this one mutates an existing
+        # nixpkgs attribute, so consumers should opt into it knowingly and drop it
+        # the moment upstream lands. See ADR 050.
+        overlays.llvm-darwin-codesign-test = import ./overlays/llvm-darwin-codesign-test.nix;
 
         # Expose nix-darwin modules
         darwinModules.imessage-bridge = import ./modules/nix-darwin/imessage-bridge.nix;
