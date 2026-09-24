@@ -387,6 +387,30 @@ in {
         "resource-sector7-v*.gcroot"
         ''case " 0.20.14 "''
         "rm -f"
+        "_jackpkgs_gcroot_failed"
+        ''*" resource-sector7 "*''
+      ]
+      shellHook;
+    expected = true;
+  };
+
+  # A failed realise must not prune the previous version's still-valid root.
+  testPulumiDevShellSkipsPruneWhenGcRootRegistrationFails = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "_jackpkgs_gcroot_failed=\"$_jackpkgs_gcroot_failed resource-sector7\""
+        ''*" resource-sector7 "*''
       ]
       shellHook;
     expected = true;

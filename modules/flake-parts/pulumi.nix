@@ -291,6 +291,10 @@ in {
         # versions' roots would permanently pin stale plugins. Declaring two
         # versions of the same plugin keeps both roots — pruning happens once
         # against the declared set, not inside each per-plugin iteration.
+        # Prune is skipped for a kind+name when any declared version of that
+        # plugin failed to register: otherwise a substituter outage on a
+        # version bump would delete the previous version's still-valid root
+        # and leave nothing protected.
         #
         # `--realise` failure (e.g. a substituter is unreachable) is not fatal
         # to shell entry — this shellHook has no `set -e`, and the existing
@@ -307,6 +311,7 @@ in {
               if ! ${lib.getExe' pkgs.nix "nix-store"} --realise ${pl.package} \
                   --add-root "$_jackpkgs_plugin_dir.gcroot" --indirect >/dev/null; then
                 echo "jackpkgs: warning: failed to register a GC root for ${pl.kind}-${pl.name}-v${pl.version}; the linked plugin may be collected by a future nix-collect-garbage" >&2
+                _jackpkgs_gcroot_failed="$_jackpkgs_gcroot_failed ${pl.kind}-${pl.name}"
               fi
               ln -sfn ${lib.getExe' pl.package "pulumi-${pl.kind}-${pl.name}"} "$_jackpkgs_plugin_dir/pulumi-${pl.kind}-${pl.name}"
               rm -f "$_jackpkgs_plugin_dir.partial"
@@ -317,23 +322,29 @@ in {
             key: let
               keepVersions = lib.concatStringsSep " " (lib.unique (map (p: p.version) byKindName.${key}));
             in ''
-              for _jackpkgs_stale_gcroot in "$_jackpkgs_plugins_dir"/${key}-v*.gcroot; do
-                [ -e "$_jackpkgs_stale_gcroot" ] || [ -L "$_jackpkgs_stale_gcroot" ] || continue
-                _jackpkgs_stale_ver="''${_jackpkgs_stale_gcroot##*-v}"
-                _jackpkgs_stale_ver="''${_jackpkgs_stale_ver%.gcroot}"
-                case " ${keepVersions} " in
-                  *" $_jackpkgs_stale_ver "*) continue ;;
-                esac
-                rm -f "$_jackpkgs_stale_gcroot"
-              done
+              case " $_jackpkgs_gcroot_failed " in
+                *" ${key} "*) ;;
+                *)
+                  for _jackpkgs_stale_gcroot in "$_jackpkgs_plugins_dir"/${key}-v*.gcroot; do
+                    [ -e "$_jackpkgs_stale_gcroot" ] || [ -L "$_jackpkgs_stale_gcroot" ] || continue
+                    _jackpkgs_stale_ver="''${_jackpkgs_stale_gcroot##*-v}"
+                    _jackpkgs_stale_ver="''${_jackpkgs_stale_ver%.gcroot}"
+                    case " ${keepVersions} " in
+                      *" $_jackpkgs_stale_ver "*) continue ;;
+                    esac
+                    rm -f "$_jackpkgs_stale_gcroot"
+                  done
+                  ;;
+              esac
             ''
           ) (lib.attrNames byKindName);
         in
           lib.optionalString (plugins != []) ''
             _jackpkgs_plugins_dir="''${PULUMI_HOME:-$HOME/.pulumi}/plugins"
+            _jackpkgs_gcroot_failed=
             ${registerHooks}
             ${pruneStaleGcRoots}
-            unset _jackpkgs_plugins_dir _jackpkgs_stale_gcroot _jackpkgs_stale_ver
+            unset _jackpkgs_plugins_dir _jackpkgs_stale_gcroot _jackpkgs_stale_ver _jackpkgs_gcroot_failed
           '';
       in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
