@@ -383,12 +383,41 @@ in {
   in {
     expr =
       hasInfixAll [
-        "else"
         "for _jackpkgs_stale_gcroot"
         "resource-sector7-v*.gcroot"
+        ''case " 0.20.14 "''
         "rm -f"
       ]
       shellHook;
+    expected = true;
+  };
+
+  # Two declared versions of the same plugin must both keep GC roots. Pruning
+  # inside each per-plugin iteration would delete the other version's root.
+  testPulumiDevShellKeepsDeclaredMultiVersionGcRoots = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+        {
+          name = "sector7";
+          version = "0.21.0";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "resource-sector7-v0.20.14"
+        "resource-sector7-v0.21.0"
+        ''case " 0.20.14 0.21.0 "''
+      ]
+      shellHook
+      && !(lib.hasInfix ''case " 0.20.14 "'' shellHook);
     expected = true;
   };
 

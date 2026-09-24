@@ -284,37 +284,57 @@ in {
         # own contents) as an indirect GC root pointing at the plugin
         # derivation, so the currently-linked version survives GC regardless
         # of when it runs. Roots are per-version (the symlink lives next to
-        # the versioned plugin dir) but sibling roots for *other* versions of
-        # the same plugin are pruned after a successful register: an indirect
-        # root stays live for as long as its `.gcroot` symlink exists, so
-        # leaving old versions' roots would permanently pin stale plugins.
-        # Only the version a shellHook actively links remains protected.
+        # the versioned plugin dir). After every declared plugin is registered,
+        # sibling `.gcroot` files for the same kind+name whose version is *not*
+        # in the current configuration are removed: an indirect root stays live
+        # for as long as its `.gcroot` symlink exists, so leaving undeclared
+        # versions' roots would permanently pin stale plugins. Declaring two
+        # versions of the same plugin keeps both roots — pruning happens once
+        # against the declared set, not inside each per-plugin iteration.
         #
         # `--realise` failure (e.g. a substituter is unreachable) is not fatal
         # to shell entry — this shellHook has no `set -e`, and the existing
         # `ln -sfn` below is left to its established self-healing behavior —
         # but it must not fail *silently*: a warning goes to stderr so a
         # broken GC root doesn't masquerade as a successful one.
-        pluginLinkShellHook =
-          lib.concatMapStringsSep "\n" (pl: ''
-            _jackpkgs_plugin_dir="''${PULUMI_HOME:-$HOME/.pulumi}/plugins/${pl.kind}-${pl.name}-v${pl.version}"
-            mkdir -p "$_jackpkgs_plugin_dir"
-            if ! ${lib.getExe' pkgs.nix "nix-store"} --realise ${pl.package} \
-                --add-root "$_jackpkgs_plugin_dir.gcroot" --indirect >/dev/null; then
-              echo "jackpkgs: warning: failed to register a GC root for ${pl.kind}-${pl.name}-v${pl.version}; the linked plugin may be collected by a future nix-collect-garbage" >&2
-            else
-              for _jackpkgs_stale_gcroot in "$(dirname "$_jackpkgs_plugin_dir")"/${pl.kind}-${pl.name}-v*.gcroot; do
+        pluginLinkShellHook = let
+          plugins = config.jackpkgs.pulumi.plugins;
+          byKindName = lib.groupBy (pl: "${pl.kind}-${pl.name}") plugins;
+          registerHooks =
+            lib.concatMapStringsSep "\n" (pl: ''
+              _jackpkgs_plugin_dir="$_jackpkgs_plugins_dir/${pl.kind}-${pl.name}-v${pl.version}"
+              mkdir -p "$_jackpkgs_plugin_dir"
+              if ! ${lib.getExe' pkgs.nix "nix-store"} --realise ${pl.package} \
+                  --add-root "$_jackpkgs_plugin_dir.gcroot" --indirect >/dev/null; then
+                echo "jackpkgs: warning: failed to register a GC root for ${pl.kind}-${pl.name}-v${pl.version}; the linked plugin may be collected by a future nix-collect-garbage" >&2
+              fi
+              ln -sfn ${lib.getExe' pl.package "pulumi-${pl.kind}-${pl.name}"} "$_jackpkgs_plugin_dir/pulumi-${pl.kind}-${pl.name}"
+              rm -f "$_jackpkgs_plugin_dir.partial"
+              unset _jackpkgs_plugin_dir
+            '')
+            plugins;
+          pruneStaleGcRoots = lib.concatMapStringsSep "\n" (
+            key: let
+              keepVersions = lib.concatStringsSep " " (lib.unique (map (p: p.version) byKindName.${key}));
+            in ''
+              for _jackpkgs_stale_gcroot in "$_jackpkgs_plugins_dir"/${key}-v*.gcroot; do
                 [ -e "$_jackpkgs_stale_gcroot" ] || [ -L "$_jackpkgs_stale_gcroot" ] || continue
-                [ "$_jackpkgs_stale_gcroot" = "$_jackpkgs_plugin_dir.gcroot" ] && continue
+                _jackpkgs_stale_ver="''${_jackpkgs_stale_gcroot##*-v}"
+                _jackpkgs_stale_ver="''${_jackpkgs_stale_ver%.gcroot}"
+                case " ${keepVersions} " in
+                  *" $_jackpkgs_stale_ver "*) continue ;;
+                esac
                 rm -f "$_jackpkgs_stale_gcroot"
               done
-              unset _jackpkgs_stale_gcroot
-            fi
-            ln -sfn ${lib.getExe' pl.package "pulumi-${pl.kind}-${pl.name}"} "$_jackpkgs_plugin_dir/pulumi-${pl.kind}-${pl.name}"
-            rm -f "$_jackpkgs_plugin_dir.partial"
-            unset _jackpkgs_plugin_dir
-          '')
-          config.jackpkgs.pulumi.plugins;
+            ''
+          ) (lib.attrNames byKindName);
+        in
+          lib.optionalString (plugins != []) ''
+            _jackpkgs_plugins_dir="''${PULUMI_HOME:-$HOME/.pulumi}/plugins"
+            ${registerHooks}
+            ${pruneStaleGcRoots}
+            unset _jackpkgs_plugins_dir _jackpkgs_stale_gcroot _jackpkgs_stale_ver
+          '';
       in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
           packages =
