@@ -364,6 +364,34 @@ in {
     expected = true;
   };
 
+  # After a successful register, sibling gcroots for other versions of the
+  # same plugin must be removed. Indirect roots remain live while the
+  # `.gcroot` symlink exists, so leaving them would permanently pin stale
+  # plugin store paths (contradicting the "only the live pin is protected"
+  # design).
+  testPulumiDevShellPrunesStalePluginGcRoots = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "else"
+        "for _jackpkgs_stale_gcroot"
+        "resource-sector7-v*.gcroot"
+        "rm -f"
+      ]
+      shellHook;
+    expected = true;
+  };
+
   testPulumiShellHookEscapesValuesWithSpecialChars = let
     scaryUrl = "s3://bucket/path?query=1&flag=true";
     scarySecret = "passphrase's complex value";

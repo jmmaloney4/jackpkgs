@@ -283,11 +283,12 @@ in {
         # versioned plugin dir so it doesn't show up as part of the plugin's
         # own contents) as an indirect GC root pointing at the plugin
         # derivation, so the currently-linked version survives GC regardless
-        # of when it runs. This is deliberately per-version and
-        # non-self-pruning: re-linking a version bump adds a new root next to
-        # the old one rather than removing it, so a stale, no-longer-pinned
-        # version is still free to be collected once nothing else roots it —
-        # only the version a shellHook actively links is ever protected.
+        # of when it runs. Roots are per-version (the symlink lives next to
+        # the versioned plugin dir) but sibling roots for *other* versions of
+        # the same plugin are pruned after a successful register: an indirect
+        # root stays live for as long as its `.gcroot` symlink exists, so
+        # leaving old versions' roots would permanently pin stale plugins.
+        # Only the version a shellHook actively links remains protected.
         #
         # `--realise` failure (e.g. a substituter is unreachable) is not fatal
         # to shell entry — this shellHook has no `set -e`, and the existing
@@ -301,6 +302,13 @@ in {
             if ! ${lib.getExe' pkgs.nix "nix-store"} --realise ${pl.package} \
                 --add-root "$_jackpkgs_plugin_dir.gcroot" --indirect >/dev/null; then
               echo "jackpkgs: warning: failed to register a GC root for ${pl.kind}-${pl.name}-v${pl.version}; the linked plugin may be collected by a future nix-collect-garbage" >&2
+            else
+              for _jackpkgs_stale_gcroot in "$(dirname "$_jackpkgs_plugin_dir")"/${pl.kind}-${pl.name}-v*.gcroot; do
+                [ -e "$_jackpkgs_stale_gcroot" ] || [ -L "$_jackpkgs_stale_gcroot" ] || continue
+                [ "$_jackpkgs_stale_gcroot" = "$_jackpkgs_plugin_dir.gcroot" ] && continue
+                rm -f "$_jackpkgs_stale_gcroot"
+              done
+              unset _jackpkgs_stale_gcroot
             fi
             ln -sfn ${lib.getExe' pl.package "pulumi-${pl.kind}-${pl.name}"} "$_jackpkgs_plugin_dir/pulumi-${pl.kind}-${pl.name}"
             rm -f "$_jackpkgs_plugin_dir.partial"

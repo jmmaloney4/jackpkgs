@@ -58,7 +58,7 @@
 
             cat > justfile <<'EOF'
       fix-tarball-integrity:
-          #!/usr/bin/env bash
+          #!${pkgs.runtimeShell}
           set -euo pipefail
           lockfile="pnpm-lock.yaml"
           fixed=0
