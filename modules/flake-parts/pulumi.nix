@@ -11,6 +11,9 @@
   justfileHelpers = import ../../lib/justfile-helpers.nix {inherit lib;};
   inherit (justfileHelpers) mkRecipe mkRecipeWithParams optionalLines;
 in {
+  imports = [
+    jackpkgsInputs.flake-root.flakeModule
+  ];
   options = let
     inherit (lib) types mkOption mkEnableOption;
     inherit (jackpkgsInputs.flake-parts.lib) mkDeferredModuleOption;
@@ -133,6 +136,12 @@ in {
           so a version-pinned SDK would silently bind to whatever binary came
           first. Populating the versioned plugin directory keeps that guarantee
           while still sourcing the binary from the Nix store.
+
+          Each declared plugin also gets a *checkout-local* indirect Nix GC
+          root at `$PRJ_ROOT/.direnv/pulumi-gcroots/<kind>-<name>-v<ver>`
+          (see shellHook). Roots are per-worktree so two checkouts pinning
+          different versions cannot prune each other. `.direnv/` is already
+          gitignored by jackpkgs' default template and `defaultExcludes`.
         '';
       };
 
@@ -278,74 +287,102 @@ in {
         # collect the store path out from under an already-linked plugin,
         # leaving Pulumi with a dangling symlink and an opaque
         # "loading PulumiPlugin.yaml: no such file or directory" error even
-        # though the plugin is still the live pin (jackpkgs#380). `nix-store
-        # --add-root --indirect` registers `<dir>.gcroot` (kept outside the
-        # versioned plugin dir so it doesn't show up as part of the plugin's
-        # own contents) as an indirect GC root pointing at the plugin
-        # derivation, so the currently-linked version survives GC regardless
-        # of when it runs. Roots are per-version (the symlink lives next to
-        # the versioned plugin dir). After every declared plugin is registered,
-        # sibling `.gcroot` files for the same kind+name whose version is *not*
-        # in the current configuration are removed: an indirect root stays live
-        # for as long as its `.gcroot` symlink exists, so leaving undeclared
-        # versions' roots would permanently pin stale plugins. Declaring two
-        # versions of the same plugin keeps both roots — pruning happens once
-        # against the declared set, not inside each per-plugin iteration.
-        # Prune is skipped for a kind+name when any declared version of that
-        # plugin failed to register: otherwise a substituter outage on a
-        # version bump would delete the previous version's still-valid root
-        # and leave nothing protected.
+        # though the plugin is still the live pin (jackpkgs#380).
         #
-        # `--realise` failure (e.g. a substituter is unreachable) is not fatal
-        # to shell entry — this shellHook has no `set -e`, and the existing
-        # `ln -sfn` below is left to its established self-healing behavior —
-        # but it must not fail *silently*: a warning goes to stderr so a
-        # broken GC root doesn't masquerade as a successful one.
+        # Indirect roots live in the *checkout*, not under $PULUMI_HOME:
+        #   $PRJ_ROOT/.direnv/pulumi-gcroots/<kind>-<name>-v<ver>
+        # Two git worktrees pinning different versions share ~/.pulumi/plugins
+        # but each has its own .direnv/; entering B cannot drop A's root.
+        # Deleting the worktree removes the symlink, so the root stops
+        # counting and the store path is free to GC. Within one checkout the
+        # gcroot dir is reconciled to exactly this flake's declared plugin
+        # set (multiple declared versions are kept). Prune of that private
+        # dir is skipped for a kind+name when any declared version of that
+        # plugin failed to realise — otherwise a substituter outage on a
+        # bump would delete the previous version's still-valid root.
+        #
+        # Project-root detection (runtime, ADR-004): prefer `PRJ_ROOT` (direnv),
+        # then `FLAKE_ROOT` (srid/flake-root, already injected by the composed
+        # jackpkgs shell), then the flake-root executable (same as
+        # kubeconfig/python hooks), then `git rev-parse --show-toplevel`.
+        # If none yield a directory, warn and skip root registration; the
+        # Pulumi plugin symlink is still created.
+        #
+        # `--realise` failure is not fatal to shell entry (no `set -e`);
+        # `ln -sfn` keeps its self-healing behavior, but a missing root is
+        # reported on stderr.
         pluginLinkShellHook = let
           plugins = config.jackpkgs.pulumi.plugins;
-          byKindName = lib.groupBy (pl: "${pl.kind}-${pl.name}") plugins;
+          flakeRootExe = lib.getExe config.flake-root.package;
+          gitExe = lib.getExe pkgs.git;
+          nixStore = lib.getExe' pkgs.nix "nix-store";
+          keepNames = lib.concatMapStringsSep " " (pl: "${pl.kind}-${pl.name}-v${pl.version}") plugins;
           registerHooks =
             lib.concatMapStringsSep "\n" (pl: ''
               _jackpkgs_plugin_dir="$_jackpkgs_plugins_dir/${pl.kind}-${pl.name}-v${pl.version}"
               mkdir -p "$_jackpkgs_plugin_dir"
-              if ! ${lib.getExe' pkgs.nix "nix-store"} --realise ${pl.package} \
-                  --add-root "$_jackpkgs_plugin_dir.gcroot" --indirect >/dev/null; then
-                echo "jackpkgs: warning: failed to register a GC root for ${pl.kind}-${pl.name}-v${pl.version}; the linked plugin may be collected by a future nix-collect-garbage" >&2
-                _jackpkgs_gcroot_failed="$_jackpkgs_gcroot_failed ${pl.kind}-${pl.name}"
+              if [ -n "$_jackpkgs_gcroot_dir" ]; then
+                if ! ${nixStore} --realise ${pl.package} \
+                    --add-root "$_jackpkgs_gcroot_dir/${pl.kind}-${pl.name}-v${pl.version}" --indirect >/dev/null; then
+                  echo "jackpkgs: warning: failed to register a GC root for ${pl.kind}-${pl.name}-v${pl.version}; the linked plugin may be collected by a future nix-collect-garbage" >&2
+                  _jackpkgs_gcroot_failed="$_jackpkgs_gcroot_failed ${pl.kind}-${pl.name}"
+                fi
               fi
               ln -sfn ${lib.getExe' pl.package "pulumi-${pl.kind}-${pl.name}"} "$_jackpkgs_plugin_dir/pulumi-${pl.kind}-${pl.name}"
               rm -f "$_jackpkgs_plugin_dir.partial"
               unset _jackpkgs_plugin_dir
             '')
             plugins;
-          pruneStaleGcRoots = lib.concatMapStringsSep "\n" (
-            key: let
-              keepVersions = lib.concatStringsSep " " (lib.unique (map (p: p.version) byKindName.${key}));
-            in ''
-              case " $_jackpkgs_gcroot_failed " in
-                *" ${key} "*) ;;
-                *)
-                  for _jackpkgs_stale_gcroot in "$_jackpkgs_plugins_dir"/${key}-v*.gcroot; do
-                    [ -e "$_jackpkgs_stale_gcroot" ] || [ -L "$_jackpkgs_stale_gcroot" ] || continue
-                    _jackpkgs_stale_ver="''${_jackpkgs_stale_gcroot##*-v}"
-                    _jackpkgs_stale_ver="''${_jackpkgs_stale_ver%.gcroot}"
-                    case " ${keepVersions} " in
-                      *" $_jackpkgs_stale_ver "*) continue ;;
-                    esac
-                    rm -f "$_jackpkgs_stale_gcroot"
-                  done
-                  ;;
+        in ''
+          _jackpkgs_plugins_dir="''${PULUMI_HOME:-$HOME/.pulumi}/plugins"
+          mkdir -p "$_jackpkgs_plugins_dir"
+          # Drop leftover sibling roots from earlier #381 revisions that
+          # registered under $PULUMI_HOME/plugins/<kind>-<name>-v*.gcroot
+          # (shared across worktrees; those files must not exist anymore).
+          for _jackpkgs_legacy_gcroot in "$_jackpkgs_plugins_dir"/*.gcroot; do
+            [ -e "$_jackpkgs_legacy_gcroot" ] || [ -L "$_jackpkgs_legacy_gcroot" ] || continue
+            _jackpkgs_legacy_base="''${_jackpkgs_legacy_gcroot##*/}"
+            case "$_jackpkgs_legacy_base" in
+              *-v*.gcroot) rm -f "$_jackpkgs_legacy_gcroot" ;;
+            esac
+          done
+          unset _jackpkgs_legacy_gcroot _jackpkgs_legacy_base
+
+          _jackpkgs_prj_root="''${PRJ_ROOT:-''${FLAKE_ROOT:-}}"
+          if [ -z "$_jackpkgs_prj_root" ]; then
+            _jackpkgs_prj_root="$(${flakeRootExe} 2>/dev/null)" || true
+          fi
+          if [ -z "$_jackpkgs_prj_root" ]; then
+            _jackpkgs_prj_root="$(${gitExe} rev-parse --show-toplevel 2>/dev/null)" || true
+          fi
+          _jackpkgs_gcroot_dir=
+          if [ -n "$_jackpkgs_prj_root" ] && [ -d "$_jackpkgs_prj_root" ]; then
+            _jackpkgs_gcroot_dir="$_jackpkgs_prj_root/.direnv/pulumi-gcroots"
+            mkdir -p "$_jackpkgs_gcroot_dir"
+          else
+            echo "jackpkgs: warning: could not determine project root; skipping Pulumi plugin GC roots (plugin symlinks are still created)" >&2
+          fi
+
+          _jackpkgs_gcroot_failed=
+          ${registerHooks}
+
+          if [ -n "$_jackpkgs_gcroot_dir" ]; then
+            for _jackpkgs_stale_gcroot in "$_jackpkgs_gcroot_dir"/*; do
+              [ -e "$_jackpkgs_stale_gcroot" ] || [ -L "$_jackpkgs_stale_gcroot" ] || continue
+              _jackpkgs_stale_base="''${_jackpkgs_stale_gcroot##*/}"
+              case " ${keepNames} " in
+                *" $_jackpkgs_stale_base "*) continue ;;
               esac
-            ''
-          ) (lib.attrNames byKindName);
-        in
-          lib.optionalString (plugins != []) ''
-            _jackpkgs_plugins_dir="''${PULUMI_HOME:-$HOME/.pulumi}/plugins"
-            _jackpkgs_gcroot_failed=
-            ${registerHooks}
-            ${pruneStaleGcRoots}
-            unset _jackpkgs_plugins_dir _jackpkgs_stale_gcroot _jackpkgs_stale_ver _jackpkgs_gcroot_failed
-          '';
+              _jackpkgs_stale_ver="''${_jackpkgs_stale_base##*-v}"
+              _jackpkgs_stale_key="''${_jackpkgs_stale_base%-v''${_jackpkgs_stale_ver}}"
+              case " $_jackpkgs_gcroot_failed " in
+                *" $_jackpkgs_stale_key "*) continue ;;
+              esac
+              rm -f "$_jackpkgs_stale_gcroot"
+            done
+          fi
+          unset _jackpkgs_plugins_dir _jackpkgs_prj_root _jackpkgs_gcroot_dir _jackpkgs_gcroot_failed _jackpkgs_stale_gcroot _jackpkgs_stale_base _jackpkgs_stale_ver _jackpkgs_stale_key
+        '';
       in {
         jackpkgs.outputs.pulumiDevShell = pkgs.mkShell {
           packages =

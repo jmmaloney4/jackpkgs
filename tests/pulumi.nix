@@ -255,9 +255,8 @@ in {
   };
 
   # jackpkgs#380: a bare `ln -sfn` into $PULUMI_HOME/plugins is invisible to
-  # the Nix garbage collector, so a GC that runs between shell entries can
-  # collect a still-pinned plugin's store path and leave Pulumi with a
-  # dangling symlink. The shellHook must register a GC root before linking.
+  # the Nix garbage collector. Indirect roots are checkout-local under
+  # .direnv/pulumi-gcroots so two worktrees cannot prune each other.
   testPulumiDevShellRegistersPluginGcRoot = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {})
@@ -276,6 +275,7 @@ in {
         "--realise"
         "--add-root"
         "--indirect"
+        ".direnv/pulumi-gcroots"
         "resource-sector7-v0.20.14"
       ]
       shellHook;
@@ -297,22 +297,17 @@ in {
     expr =
       hasInfixAll [
         "nix-store"
-        "--realise"
         "--add-root"
-        "--indirect"
+        ".direnv/pulumi-gcroots"
         "resource-sector7-v0.20.14"
       ]
       shellHook;
     expected = true;
   };
 
-  # The gcroot symlink must live *outside* the versioned plugin directory
-  # (as a `<dir>.gcroot` sibling), not inside it — Pulumi treats the
-  # directory's own contents as the plugin's installed fingerprint, and an
-  # extra file there is exactly the kind of thing that "unrecognized files
-  # in plugin dir" style checks and `<dir>.partial` handling exist to guard
-  # against.
-  testPulumiPluginGcRootLivesOutsidePluginDir = let
+  # Live roots must not be sibling `.gcroot` files under the Pulumi plugin
+  # directory (shared across worktrees, and Pulumi fingerprints that dir).
+  testPulumiPluginGcRootIsCheckoutLocal = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {})
       (mkPluginsModule [
@@ -324,22 +319,13 @@ in {
     ];
     shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
   in {
-    # Sibling form: "$_jackpkgs_plugin_dir.gcroot", not a file nested inside
-    # "$_jackpkgs_plugin_dir/...".
     expr =
-      lib.hasInfix ''"$_jackpkgs_plugin_dir.gcroot"'' shellHook
-      && !(lib.hasInfix ''$_jackpkgs_plugin_dir/pulumi-resource-sector7.gcroot'' shellHook);
+      lib.hasInfix ".direnv/pulumi-gcroots/resource-sector7-v0.20.14" shellHook
+      && !(lib.hasInfix ''"$_jackpkgs_plugin_dir.gcroot"'' shellHook)
+      && !(lib.hasInfix "$_jackpkgs_plugin_dir/pulumi-resource-sector7.gcroot" shellHook);
     expected = true;
   };
 
-  # A failed `--realise --add-root` must not be swallowed: only stdout is
-  # redirected to /dev/null, so the command's own stderr already surfaces —
-  # but this shellHook has no `set -e`, so a non-zero exit falls through to
-  # the unconditional `ln -sfn` below it unless explicitly checked. The
-  # shellHook must check the exit code itself and emit its own warning,
-  # rather than relying on the plain `nix-store` invocation's stderr (which a
-  # user could easily miss among other shell-entry output) as the only
-  # signal that GC-root registration — the entire point of this fix — failed.
   testPulumiDevShellWarnsOnGcRootRegistrationFailure = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {})
@@ -364,12 +350,7 @@ in {
     expected = true;
   };
 
-  # After a successful register, sibling gcroots for other versions of the
-  # same plugin must be removed. Indirect roots remain live while the
-  # `.gcroot` symlink exists, so leaving them would permanently pin stale
-  # plugin store paths (contradicting the "only the live pin is protected"
-  # design).
-  testPulumiDevShellPrunesStalePluginGcRoots = let
+  testPulumiDevShellSkipsGcRootWhenProjectRootMissing = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {})
       (mkPluginsModule [
@@ -383,18 +364,65 @@ in {
   in {
     expr =
       hasInfixAll [
-        "for _jackpkgs_stale_gcroot"
-        "resource-sector7-v*.gcroot"
-        ''case " 0.20.14 "''
-        "rm -f"
-        "_jackpkgs_gcroot_failed"
-        ''*" resource-sector7 "*''
+        "could not determine project root"
+        "skipping Pulumi plugin GC roots"
       ]
       shellHook;
     expected = true;
   };
 
-  # A failed realise must not prune the previous version's still-valid root.
+  # Runtime project root: PRJ_ROOT / FLAKE_ROOT, then flake-root, then git.
+  # jackpkgs.projectRoot is eval-time (inputs.self.outPath) and must not be
+  # used as the live GC-root directory (ADR-004).
+  testPulumiDevShellResolvesRuntimeProjectRoot = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "PRJ_ROOT"
+        "FLAKE_ROOT"
+        "rev-parse --show-toplevel"
+      ]
+      shellHook
+      && !(lib.hasInfix "jackpkgs.projectRoot" shellHook);
+    expected = true;
+  };
+
+  # Undeclared entries in the checkout-private gcroot dir are removed; the
+  # keep-list is exact basenames so two declared versions both survive.
+  testPulumiDevShellPrunesUndeclaredCheckoutGcRoots = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        ".direnv/pulumi-gcroots"
+        ''case " resource-sector7-v0.20.14 "''
+        "rm -f"
+        "_jackpkgs_gcroot_failed"
+      ]
+      shellHook
+      && !(lib.hasInfix ''"$_jackpkgs_plugins_dir"/*-v*.gcroot'' shellHook);
+    expected = true;
+  };
+
   testPulumiDevShellSkipsPruneWhenGcRootRegistrationFails = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {})
@@ -410,14 +438,12 @@ in {
     expr =
       hasInfixAll [
         "_jackpkgs_gcroot_failed=\"$_jackpkgs_gcroot_failed resource-sector7\""
-        ''*" resource-sector7 "*''
+        ''*" $_jackpkgs_stale_key "*''
       ]
       shellHook;
     expected = true;
   };
 
-  # Two declared versions of the same plugin must both keep GC roots. Pruning
-  # inside each per-plugin iteration would delete the other version's root.
   testPulumiDevShellKeepsDeclaredMultiVersionGcRoots = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {})
@@ -436,12 +462,33 @@ in {
   in {
     expr =
       hasInfixAll [
-        "resource-sector7-v0.20.14"
-        "resource-sector7-v0.21.0"
-        ''case " 0.20.14 0.21.0 "''
+        ".direnv/pulumi-gcroots/resource-sector7-v0.20.14"
+        ".direnv/pulumi-gcroots/resource-sector7-v0.21.0"
+        ''case " resource-sector7-v0.20.14 resource-sector7-v0.21.0 "''
       ]
       shellHook
-      && !(lib.hasInfix ''case " 0.20.14 "'' shellHook);
+      && !(lib.hasInfix ''case " resource-sector7-v0.20.14 "'' shellHook);
+    expected = true;
+  };
+
+  # Shared ~/.pulumi/plugins is not used for live roots. One-time cleanup of
+  # the previous #381 sibling `*.gcroot` files is allowed.
+  testPulumiLegacyPulumiHomeGcrootCleanupOnlyMatchesGcrootSuffix = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      lib.hasInfix ''"$_jackpkgs_plugins_dir"/*.gcroot'' shellHook
+      && lib.hasInfix "*-v*.gcroot" shellHook
+      && !(lib.hasInfix "--add-root \"$_jackpkgs_plugin_dir.gcroot\"" shellHook);
     expected = true;
   };
 
