@@ -57,6 +57,12 @@
 
   hasInfixAll = needles: haystack:
     lib.all (needle: lib.hasInfix needle haystack) needles;
+
+  mkPluginsModule = plugins: {
+    perSystem = {pkgs, ...}: {
+      jackpkgs.pulumi.plugins = map (pl: pl // {package = pkgs.hello;}) plugins;
+    };
+  };
 in {
   testPulumiDevShellSetsPulumiCliDefaults = let
     perSystemCfg = getPerSystemCfg [(mkConfigModule {})];
@@ -245,6 +251,247 @@ in {
         "exit 1"
       ]
       previewSection;
+    expected = true;
+  };
+
+  # jackpkgs#380: a bare `ln -sfn` into $PULUMI_HOME/plugins is invisible to
+  # the Nix garbage collector. Indirect roots are checkout-local under
+  # .direnv/pulumi-gcroots so two worktrees cannot prune each other.
+  testPulumiDevShellRegistersPluginGcRoot = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "nix-store"
+        "--realise"
+        "--add-root"
+        "--indirect"
+        ".direnv/pulumi-gcroots"
+        "resource-sector7-v0.20.14"
+      ]
+      shellHook;
+    expected = true;
+  };
+
+  testCiPulumiDevShellRegistersPluginGcRoot = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.devShells.ci-pulumi.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "nix-store"
+        "--add-root"
+        ".direnv/pulumi-gcroots"
+        "resource-sector7-v0.20.14"
+      ]
+      shellHook;
+    expected = true;
+  };
+
+  # Live roots must not be sibling `.gcroot` files under the Pulumi plugin
+  # directory (shared across worktrees, and Pulumi fingerprints that dir).
+  testPulumiPluginGcRootIsCheckoutLocal = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      lib.hasInfix ".direnv/pulumi-gcroots" shellHook
+      && lib.hasInfix ''--add-root "$_jackpkgs_gcroot_dir/resource-sector7-v0.20.14"'' shellHook
+      && !(lib.hasInfix ''"$_jackpkgs_plugin_dir.gcroot"'' shellHook)
+      && !(lib.hasInfix "$_jackpkgs_plugin_dir/pulumi-resource-sector7.gcroot" shellHook)
+      && !(lib.hasInfix "--add-root \"$_jackpkgs_plugin_dir" shellHook);
+    expected = true;
+  };
+
+  testPulumiDevShellWarnsOnGcRootRegistrationFailure = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "if !"
+        "--realise"
+        "--add-root"
+        "warning"
+        ">&2"
+      ]
+      shellHook;
+    expected = true;
+  };
+
+  testPulumiDevShellSkipsGcRootWhenProjectRootMissing = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "could not determine project root"
+        "skipping Pulumi plugin GC roots"
+      ]
+      shellHook;
+    expected = true;
+  };
+
+  # Runtime project root: PRJ_ROOT / FLAKE_ROOT, then flake-root, then git.
+  # jackpkgs.projectRoot is eval-time (inputs.self.outPath) and must not be
+  # used as the live GC-root directory (ADR-004).
+  testPulumiDevShellResolvesRuntimeProjectRoot = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "PRJ_ROOT"
+        "FLAKE_ROOT"
+        "rev-parse --show-toplevel"
+      ]
+      shellHook
+      && !(lib.hasInfix "jackpkgs.projectRoot" shellHook);
+    expected = true;
+  };
+
+  # Undeclared entries in the checkout-private gcroot dir are removed; the
+  # keep-list is exact basenames so two declared versions both survive.
+  testPulumiDevShellPrunesUndeclaredCheckoutGcRoots = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        ".direnv/pulumi-gcroots"
+        ''case " resource-sector7-v0.20.14 "''
+        "rm -f"
+        "_jackpkgs_gcroot_failed"
+      ]
+      shellHook
+      && !(lib.hasInfix ''"$_jackpkgs_plugins_dir"/*-v*.gcroot'' shellHook);
+    expected = true;
+  };
+
+  testPulumiDevShellSkipsPruneWhenGcRootRegistrationFails = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        "_jackpkgs_gcroot_failed=\"$_jackpkgs_gcroot_failed resource-sector7\""
+        ''*" $_jackpkgs_stale_key "*''
+      ]
+      shellHook;
+    expected = true;
+  };
+
+  testPulumiDevShellKeepsDeclaredMultiVersionGcRoots = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+        {
+          name = "sector7";
+          version = "0.21.0";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      hasInfixAll [
+        ''--add-root "$_jackpkgs_gcroot_dir/resource-sector7-v0.20.14"''
+        ''--add-root "$_jackpkgs_gcroot_dir/resource-sector7-v0.21.0"''
+        ''case " resource-sector7-v0.20.14 resource-sector7-v0.21.0 "''
+      ]
+      shellHook
+      && !(lib.hasInfix ''case " resource-sector7-v0.20.14 " in'' shellHook);
+    expected = true;
+  };
+
+  # Shared ~/.pulumi/plugins is not used for live roots. Automatic deletion
+  # of leftover sibling `*.gcroot` files is intentionally omitted (mixed
+  # revisions of this PR would otherwise unroot another checkout).
+  testPulumiDoesNotPrunePulumiHomeGcroots = let
+    perSystemCfg = getPerSystemCfg [
+      (mkConfigModule {})
+      (mkPluginsModule [
+        {
+          name = "sector7";
+          version = "0.20.14";
+        }
+      ])
+    ];
+    shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
+  in {
+    expr =
+      lib.hasInfix ''--add-root "$_jackpkgs_gcroot_dir/resource-sector7-v0.20.14"'' shellHook
+      && !(lib.hasInfix "--add-root \"$_jackpkgs_plugin_dir.gcroot\"" shellHook)
+      && !(lib.hasInfix ''"$_jackpkgs_plugins_dir"/*.gcroot'' shellHook);
     expected = true;
   };
 
