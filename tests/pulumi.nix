@@ -320,9 +320,11 @@ in {
     shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
   in {
     expr =
-      lib.hasInfix ".direnv/pulumi-gcroots/resource-sector7-v0.20.14" shellHook
+      lib.hasInfix ".direnv/pulumi-gcroots" shellHook
+      && lib.hasInfix ''--add-root "$_jackpkgs_gcroot_dir/resource-sector7-v0.20.14"'' shellHook
       && !(lib.hasInfix ''"$_jackpkgs_plugin_dir.gcroot"'' shellHook)
-      && !(lib.hasInfix "$_jackpkgs_plugin_dir/pulumi-resource-sector7.gcroot" shellHook);
+      && !(lib.hasInfix "$_jackpkgs_plugin_dir/pulumi-resource-sector7.gcroot" shellHook)
+      && !(lib.hasInfix "--add-root \"$_jackpkgs_plugin_dir" shellHook);
     expected = true;
   };
 
@@ -462,12 +464,12 @@ in {
   in {
     expr =
       hasInfixAll [
-        ".direnv/pulumi-gcroots/resource-sector7-v0.20.14"
-        ".direnv/pulumi-gcroots/resource-sector7-v0.21.0"
+        ''--add-root "$_jackpkgs_gcroot_dir/resource-sector7-v0.20.14"''
+        ''--add-root "$_jackpkgs_gcroot_dir/resource-sector7-v0.21.0"''
         ''case " resource-sector7-v0.20.14 resource-sector7-v0.21.0 "''
       ]
       shellHook
-      && !(lib.hasInfix ''case " resource-sector7-v0.20.14 "'' shellHook);
+      && !(lib.hasInfix ''case " resource-sector7-v0.20.14 " in'' shellHook);
     expected = true;
   };
 
