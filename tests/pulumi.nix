@@ -473,9 +473,10 @@ in {
     expected = true;
   };
 
-  # Shared ~/.pulumi/plugins is not used for live roots. One-time cleanup of
-  # the previous #381 sibling `*.gcroot` files is allowed.
-  testPulumiLegacyPulumiHomeGcrootCleanupOnlyMatchesGcrootSuffix = let
+  # Shared ~/.pulumi/plugins is not used for live roots. Automatic deletion
+  # of leftover sibling `*.gcroot` files is intentionally omitted (mixed
+  # revisions of this PR would otherwise unroot another checkout).
+  testPulumiDoesNotPrunePulumiHomeGcroots = let
     perSystemCfg = getPerSystemCfg [
       (mkConfigModule {})
       (mkPluginsModule [
@@ -488,9 +489,9 @@ in {
     shellHook = perSystemCfg.jackpkgs.outputs.pulumiDevShell.shellHook;
   in {
     expr =
-      lib.hasInfix ''"$_jackpkgs_plugins_dir"/*.gcroot'' shellHook
-      && lib.hasInfix "*-v*.gcroot" shellHook
-      && !(lib.hasInfix "--add-root \"$_jackpkgs_plugin_dir.gcroot\"" shellHook);
+      lib.hasInfix ''--add-root "$_jackpkgs_gcroot_dir/resource-sector7-v0.20.14"'' shellHook
+      && !(lib.hasInfix "--add-root \"$_jackpkgs_plugin_dir.gcroot\"" shellHook)
+      && !(lib.hasInfix ''"$_jackpkgs_plugins_dir"/*.gcroot'' shellHook);
     expected = true;
   };
 

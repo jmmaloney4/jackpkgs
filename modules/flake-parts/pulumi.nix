@@ -336,17 +336,13 @@ in {
         in ''
           _jackpkgs_plugins_dir="''${PULUMI_HOME:-$HOME/.pulumi}/plugins"
           mkdir -p "$_jackpkgs_plugins_dir"
-          # Drop leftover sibling roots from earlier #381 revisions that
-          # registered under $PULUMI_HOME/plugins/<kind>-<name>-v*.gcroot
-          # (shared across worktrees; those files must not exist anymore).
-          for _jackpkgs_legacy_gcroot in "$_jackpkgs_plugins_dir"/*.gcroot; do
-            [ -e "$_jackpkgs_legacy_gcroot" ] || [ -L "$_jackpkgs_legacy_gcroot" ] || continue
-            _jackpkgs_legacy_base="''${_jackpkgs_legacy_gcroot##*/}"
-            case "$_jackpkgs_legacy_base" in
-              *-v*.gcroot) rm -f "$_jackpkgs_legacy_gcroot" ;;
-            esac
-          done
-          unset _jackpkgs_legacy_gcroot _jackpkgs_legacy_base
+          # Earlier #381 revisions registered sibling
+          # `$PULUMI_HOME/plugins/<kind>-<name>-v*.gcroot` files. This hook
+          # does **not** delete them: another checkout still on that revision
+          # may rely on them, and a shared-dir wipe would reintroduce the
+          # cross-worktree fight. They extra-pin store paths only. Remove once
+          # every checkout is on this revision:
+          #   rm -f "''${PULUMI_HOME:-$HOME/.pulumi}/plugins/"*-v*.gcroot
 
           _jackpkgs_prj_root="''${PRJ_ROOT:-''${FLAKE_ROOT:-}}"
           if [ -z "$_jackpkgs_prj_root" ]; then
