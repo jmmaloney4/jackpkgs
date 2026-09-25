@@ -9,6 +9,9 @@ stdenvNoCC.mkDerivation {
   pname = "gawkbot";
   inherit src version;
 
+  # goreleaser archives unpack to files in `.` (gawkbot, LICENSE, …), not a directory.
+  sourceRoot = ".";
+
   nativeBuildInputs = [versionCheckHook];
 
   dontConfigure = true;
