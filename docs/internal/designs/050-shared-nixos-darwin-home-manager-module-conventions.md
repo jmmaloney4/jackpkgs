@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted (operator decisions final 2026-09-21; three sub-decisions remain open and are recorded, unresolved, under "Open decisions")
+Accepted (operator decisions final 2026-09-21; decision 5/darwin-scope amended 2026-09-25 — see below; OD-B and OD-C remain open and recorded, unresolved, under "Open decisions"; OD-A closed as moot by the 2026-09-25 amendment)
+
+> **Amendment, 2026-09-25 (operator):** Darwin scope (garden#2074 decision 1; ADR-050 Decision 5 below) changes from "whole `modules/darwin` tree promotes in PR 4" to **strict**: garden's `nixfiles/modules/darwin/**` tree stays in garden in its entirety and is not promoted to jackpkgs. "PR 4 (darwin services)" is dropped from the implementation plan; garden#2074 Part B now completes after PR 3. Rationale: no seven host is darwin, and with decision 4's no-hardcoded-identity parameterization requirement, promoting garden-only darwin modules would cost real parameterization work for tidiness alone — there is no second consumer to justify it. All other ADR-050 decisions (plumbing = hybrid, decision 3; personal-ness = middle ground, decision 4; dormant frameworks stay in garden and old PR 0 stays dropped, decision 6) stand unchanged. See the amended Decision 5, the updated Darwin-scope alternative, the closed OD-A, and the renumbered Implementation Plan below.
 
 ## Terms
 
@@ -86,7 +88,16 @@ jackpkgs is a public, NUR-style repository. Identity values hardcoded in garden 
   - `nixfiles/modules/common/default.nix`: the malformed `jmmaloney4.tailscale-domain` option (bare attrset, no `mkOption`) is fixed at promotion as a proper required option — a tailnet domain is topology;
   - attic endpoint/cache names/pubkeys (garden defaults today: `attic.mellori-delta.ts.net`, `jmmaloney4`/`cavinsresearch`) become required options with no garden-side default; garden and seven each set their own.
 
-### Decision 5 — Darwin scope (operator decision, final)
+### Decision 5 — Darwin scope (garden#2074 decision 1) — AMENDED 2026-09-25
+
+**Current decision (strict, operator, 2026-09-25 — supersedes the 2026-09-21 answer below):**
+
+- garden's `nixfiles/modules/darwin/**` tree stays in garden **in its entirety** and is **not** promoted to jackpkgs. jackpkgs' darwin module family remains exactly `darwinModules.imessage-bridge` (plus this PR's `darwinModules.default` aggregator, which was already home to `imessage-bridge.nix` before this ADR — see Consequences/Trade-offs) — no further darwin modules are promoted under this ADR.
+- The planned "PR 4 (darwin services)" is dropped from the implementation plan below. garden#2074 Part B completes after (the renumbered) PR 4, garden final cleanup.
+- Rationale: no seven host is darwin (seven's four cluster hosts are all NixOS per garden ADR 173), and decision 4's no-hardcoded-identity rule means every promoted darwin module needs its identity/topology values parameterized before it can leave garden. Doing that work for modules with no second consumer buys tidiness (one convention set) and nothing else — the cost is real, the benefit isn't.
+- Consequence for OD-A: closed as moot — see "Open decisions" below.
+
+**Original 2026-09-21 answer (superseded by the above):**
 
 - The whole garden `modules/darwin/` tree promotes to jackpkgs in PR 4 — one module tree, matching jackpkgs' existing darwin surface — minus what other decisions exclude: `hermes-skills-sync.nix` and `homebrew.nix` stay garden-side (garden repo/PR semantics and personal taste); `hermes-agent.nix`/`hermes-webhook-filter.nix` ride open decision 2; `macos-vm.nix` stays in garden per decision 7.
 - This PR records the decision only; nothing darwin promotes here.
@@ -106,7 +117,9 @@ jackpkgs is a public, NUR-style repository. Identity values hardcoded in garden 
 
 These gate later PRs and return to the operator with this ADR.
 
-### OD-A — Do the hermes modules move? (garden#2074 open decision 2; gates PR 4 scope)
+### OD-A — Do the hermes modules move? (garden#2074 open decision 2; CLOSED as moot, 2026-09-25)
+
+**Closed as moot, 2026-09-25:** the darwin-scope amendment to Decision 5 makes this question moot rather than answering it — no darwin promotion happens at all under this ADR, so `hermes-agent.nix` and `hermes-webhook-filter.nix` stay in garden along with the rest of `modules/darwin/`, by construction, not by a choice between (a) and (b) below. `hermes-skills-sync.nix` was already staying in garden outright regardless of this decision. The original framing is preserved below for context, in case a future ADR reopens darwin promotion with a real second consumer.
 
 `nixfiles/modules/darwin/hermes-agent.nix` (472-line gateway launchd stack, well-formed options) and `hermes-webhook-filter.nix` (GitHub-webhook @-mention prefilter daemon) are generic in shape but consume garden's `hermes-agent` input/overlay and run on hermione only. `hermes-skills-sync.nix` is garden-specific outright (hardcodes `jmmaloney4/garden.git`, skills/memories layout, PR semantics) and stays in garden under every option.
 
@@ -143,6 +156,7 @@ Interacts with decision 3: the `agenix` *input* is already sanctioned as cheap; 
 - The `jmmaloney4.*` → `jackpkgs.*` rename is consumer churn, absorbed by garden's adoption PRs (which already rewrite those files).
 - Two option-namespace styles coexist by rule (upstream-style for service/program modules, `jackpkgs.*` for fleet glue) — a convention to apply, not an accident to fix later.
 - No-default options make enabled-but-unwired modules fail at eval — loud, correct, but the error surfaces at build time rather than review time; mitigated by requiring the wiring to be documented in the option description.
+- `darwinModules.default` (this PR) keeps shipping even though garden's darwin tree will never promote into it (2026-09-25 amendment): unlike `nixosModules.default`, it is not an empty stub built to receive that promotion — `modules/nix-darwin/default.nix` already aggregated `imessage-bridge.nix` before this ADR, and Decision 1's "every family gets a `default` aggregator" convention applies independent of any garden promotion. `nix eval .#darwinModules --apply builtins.attrNames` is unaffected by the amendment: `["default","imessage-bridge"]` before and after.
 
 ### Risks & Mitigations
 
@@ -172,20 +186,20 @@ Interacts with decision 3: the `agenix` *input* is already sanctioned as cheap; 
 - **Keep `jmmaloney4.*`**: Pros: zero rename churn. Cons: a personal namespace on a public, hypothetically-shared module set; diverges from jackpkgs' own flake-parts namespace. Why not chosen: decision 6's "usable by someone else" makes the personal root incoherent.
 - **All-upstream namespaces** (force everything under `services.*`/`programs.*`): Pros: one style. Cons: fleet glue has no upstream home; inventing fake upstream namespaces (e.g. `services.jackpkgs-user`) is worse than an honest `jackpkgs.*` root. Why not chosen: the two-style rule matches real module shapes.
 
-### Darwin scope (decision 5)
+### Darwin scope (decision 5) — updated 2026-09-25
 
-- **Strict-shared reading** (darwin stays in garden; PR 4 vanishes): Pros: no promotion work without a seven consumer. Cons: two darwin module trees where one convention set was the point; contradicts the operator decision. Why not chosen: operator decided ADR-letter scope (whole tree, PR 4).
-- **ADR-letter (chosen)**: whole tree promotes in PR 4 minus the per-decision exclusions.
+- **Strict-shared reading (chosen, 2026-09-25)**: darwin stays in garden; PR 4 vanishes. Pros: no promotion work without a real second consumer — no seven host is darwin; avoids paying decision 4's no-hardcoded-identity parameterization cost for modules nobody but garden will ever wire. Cons: two darwin module trees (garden's full `modules/darwin/` and jackpkgs' single `imessage-bridge`) where one convention set was the original aspiration.
+- **ADR-letter (original 2026-09-21 choice, superseded 2026-09-25)**: whole tree promotes in PR 4 minus the per-decision exclusions. Why superseded: the "one convention set" benefit doesn't materialize without a second consumer to actually use the promoted modules — it was uniformity for its own sake at real parameterization cost.
 
 ## Implementation Plan
 
-The garden#2074 Part B PR sequence as it now stands (PR 0 dropped per decision 6; lists adjusted):
+The garden#2074 Part B PR sequence as it now stands (PR 0 dropped per decision 6; PR 4 "darwin services" dropped per the 2026-09-25 darwin-scope amendment to Decision 5 — Part B now completes after the renumbered PR 4 below; lists adjusted):
 
 1. **PR 1 (this PR)** — conventions ADR + export scaffolding. `nixosModules.default`, `darwinModules.default`, `homeModules.{default,tod}` outputs; un-stub `modules/nixos/default.nix`; amend `AGENTS.md` and ADR-008; README module-outputs section. No consumer changes; no new inputs.
 2. **PR 2** — seven-critical common/NixOS set + garden adoption PR (the #2075 unblock). Promotes `common/{user,nix,ssh,tailscale,attic,fonts,gnupg-agent,zsh,packages,nixbuild}.nix` and `nixos/{disks,docker,security-wrappers,tailscale}.nix` + aggregators (agenix shape gated by OD-C). `nix-remote-builders.nix` does **not** promote (decision 6). The `agenix` and `determinate-nix` inputs land here with their first consumer. Parameterizations in the same PR: attic endpoint/caches and the tailnet domain become required options; ssh authorizedKeys becomes a required option with the fan-out enable-gated; zsh's secret-env export generalizes to an "export env var from secret path" option with no built-in secret binding; `packages.nix` drops `inputs.deploy` — deploy-rs becomes a consumer-side `nullOr` package option per decision 3. Garden adoption: import `inputs.jackpkgs.nixosModules.*`, set the now-required values, delete the garden copies.
 3. **PR 3** — profiles + home-manager tree + garden adoption. `profiles/{default,nixos,i18n,jack,plato,charles}.nix`, `home/{jack,plato}.nix`, `home/common/`, `home/programs/`. The `gardenSkillsHosts` assertion moves out of `profiles/jack.nix` to garden. **jackpkgs does not gain a `nixvim` input** — the 2026-09-17 plan's "jackpkgs gains nixvim" line is superseded by decision 3's heavy-input rule; the neovim HM module's nixvim wiring arrives consumer-side as no-default options. The `hostname`/`inputs` specialArgs the HM modules expect are documented at promotion.
-4. **PR 4** — darwin services (decision 5). Clean set: `keyboard`, `defaults`, `networking`, `tailscale-accept-routes`, `nix-gc-root-pruner`, `zenith`, `signal-cli`, `ollama`, `remote-builder`, darwin agenix (gated by OD-C). `dobby`/`voicememos-reader` move only together with their packages (crane builds → jackpkgs `pkgs/`), else their `package` options become mandatory per decision 3. `macos-vm.nix` does **not** promote (decision 6); the hermes modules ride OD-A.
-5. **PR 5** — garden final cleanup. Delete all promoted files; `nixfiles/` reduces to `hosts/{cedric,hermione,vernon}`, garden-only darwin modules (`hermes-skills-sync`, `homebrew`, the three dormant modules per decision 6, hermes-agent/webhook-filter pending OD-A), `secrets/`, garden-only overlays/inputs. `modules/rke2/**`, `seventh-floor.nix` (pending OD-B), and the four cluster hosts leave in the #2075 cutover, not here.
+4. ~~**PR 4** — darwin services (decision 5).~~ **Dropped, 2026-09-25** (darwin-scope amendment to Decision 5: no seven host is darwin, so nothing in `modules/darwin/` promotes). Original scope, preserved for context: clean set `keyboard`, `defaults`, `networking`, `tailscale-accept-routes`, `nix-gc-root-pruner`, `zenith`, `signal-cli`, `ollama`, `remote-builder`, darwin agenix (gated by OD-C); `dobby`/`voicememos-reader` moving only together with their packages; `macos-vm.nix` not promoting (decision 6); the hermes modules riding OD-A (now closed as moot).
+5. **PR 4** (renumbered from PR 5; the original PR 4 above is dropped) — garden final cleanup, and the last PR in the Part B sequence. Delete all promoted files; `nixfiles/` reduces to `hosts/{cedric,hermione,vernon}`, the entire garden-only `modules/darwin/` tree (none of it promotes under this ADR — includes `hermes-skills-sync`, `homebrew`, the three dormant modules per decision 6, `hermes-agent`/`hermes-webhook-filter`, and everything that PR 4 above would have promoted), `secrets/`, garden-only overlays/inputs. `modules/rke2/**`, `seventh-floor.nix` (pending OD-B), and the four cluster hosts leave in the #2075 cutover, not here.
 
 Local validation is the merge gate for all of these PRs while the self-hosted CI runners are down (garden#1636, hardware, no ETA — per the #2074 re-ground of 2026-09-21).
 
