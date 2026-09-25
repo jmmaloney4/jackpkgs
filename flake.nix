@@ -503,9 +503,46 @@
             if builtins.isAttrs input && input ? outPath
             then input.outPath
             else input;
+          # Nested `--override-input a/b` paths for every locked transitive
+          # flake input. Top-level overrides are not enough: nix-unit re-evals
+          # this flake in the sandbox (`--flake ${self}`), and accessing
+          # `flake-iter.packages` (the `nix` justfile interpolates it) still
+          # reads flake-iter's own lock and fetches crane / flake-schemas from
+          # FlakeHub unless `flake-iter/crane` etc. are overridden. Same class
+          # of failure as ADR 014's `nix-unit/treefmt-nix` nested overrides.
+          nestedInputOverrides = let
+            # Recurse per *override path*, not per store path. A global `seen`
+            # set would emit `A/crane` and `B/crane` when two inputs share a
+            # flake, but skip `B/crane/<nested>` — nix-unit still reads B's
+            # lock and fetches. Cycles are only possible along one path
+            # (follows aliases), so the ancestor stack is the right brake.
+            go = prefix: input: ancestors:
+              lib.concatMapAttrs (
+                name: child: let
+                  path =
+                    if prefix == null
+                    then name
+                    else "${prefix}/${name}";
+                  id =
+                    if builtins.isAttrs child && child ? outPath
+                    then child.outPath
+                    else path;
+                  selfOverride = lib.optionalAttrs (builtins.isAttrs child && child ? outPath) {
+                    ${path} = child.outPath;
+                  };
+                  rest =
+                    if builtins.elem id ancestors
+                    then {}
+                    else go path child (ancestors ++ [id]);
+                in
+                  selfOverride // rest
+              ) (input.inputs or {});
+          in
+            go null {inputs = builtins.removeAttrs inputs ["self"];} [];
           # Pass all inputs including nix-unit, plus aliases and nested overrides
           nixUnitInputs =
             (builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]))
+            // nestedInputOverrides
             // {
               # nix-unit expects an input named 'treefmt-nix', but we call it 'treefmt'
               treefmt-nix = sanitizeInput inputs.treefmt;
