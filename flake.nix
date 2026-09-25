@@ -503,9 +503,41 @@
             if builtins.isAttrs input && input ? outPath
             then input.outPath
             else input;
+          # Nested `--override-input a/b` paths for every locked transitive
+          # flake input. Top-level overrides are not enough: nix-unit re-evals
+          # this flake in the sandbox (`--flake ${self}`), and accessing
+          # `flake-iter.packages` (the `nix` justfile interpolates it) still
+          # reads flake-iter's own lock and fetches crane / flake-schemas from
+          # FlakeHub unless `flake-iter/crane` etc. are overridden. Same class
+          # of failure as ADR 014's `nix-unit/treefmt-nix` nested overrides.
+          nestedInputOverrides = let
+            go = prefix: input: seen:
+              lib.concatMapAttrs (
+                name: child: let
+                  path =
+                    if prefix == null
+                    then name
+                    else "${prefix}/${name}";
+                  id =
+                    if builtins.isAttrs child && child ? outPath
+                    then child.outPath
+                    else path;
+                  selfOverride = lib.optionalAttrs (builtins.isAttrs child && child ? outPath) {
+                    ${path} = child.outPath;
+                  };
+                  rest =
+                    if builtins.elem id seen
+                    then {}
+                    else go path child (seen ++ [id]);
+                in
+                  selfOverride // rest
+              ) (input.inputs or {});
+          in
+            go null {inputs = builtins.removeAttrs inputs ["self"];} [];
           # Pass all inputs including nix-unit, plus aliases and nested overrides
           nixUnitInputs =
             (builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]))
+            // nestedInputOverrides
             // {
               # nix-unit expects an input named 'treefmt-nix', but we call it 'treefmt'
               treefmt-nix = sanitizeInput inputs.treefmt;

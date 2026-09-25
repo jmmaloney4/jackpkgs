@@ -366,6 +366,39 @@ The aliasing and nested override techniques work together:
 
 The nested syntax `nix-unit/flake-parts` tells Nix: "when evaluating the nix-unit flake, override its `flake-parts` input with this path" rather than using the commit specified in nix-unit's flake.lock.
 
+## Appendix B: Transitive inputs of *other* flakes (flake-iter / FlakeHub)
+
+Top-level `nix-unit.inputs` plus `nix-unit/...` nested overrides still miss
+inputs that are only locked *under another input*. `flake-iter` pins `crane`
+and `flake-schemas` as FlakeHub tarballs (`api.flakehub.com`). Those are not
+jackpkgs root inputs, so they were never passed as `--override-input`.
+
+nix-unit re-evaluates this flake in the sandbox (`--flake ${self}`). Most
+tests never touch `flake-iter.packages`, so the nested lock is not read and
+the suite looks green. Three tests do:
+
+- `just.testJustLintRunsTscWhenPackagesAutoDiscovered`
+- `just.testJustTestRunsVitestWhenPackagesAutoDiscovered`
+- `pulumi.testComposedDevShellExportsPulumiEnv`
+
+They interpolate the `nix` just-flake feature (or the composed `devShell`
+common justfile, which concatenates every feature). That forces
+`jackpkgs.just.flakeIterPackage` → `flake-iter.packages.<system>.default` →
+evaluating flake-iter's flake, which fetches `crane` / `flake-schemas`
+(FlakeHub) and `fenix`'s `rust-analyzer-src` (GitHub) unless overridden.
+
+Those tests could pass on a developer machine whose store already contained
+the tarballs from an unsandboxed `nix flake lock` / prior eval; the sandbox
+has no network and no implicit registry cache, so `nix flake check` fails
+with DNS errors. They were never hermetic; a warm store hid it (including
+when #381 merged).
+
+**Fix:** recursively flatten every `inputs.<name>.inputs...` node with an
+`outPath` into `nix-unit.inputs` under slash-separated override names
+(`flake-iter/crane`, `flake-iter/flake-schemas`, `fenix/rust-analyzer-src`,
+…). Same `--override-input` mechanism as Appendix A, applied to the whole
+locked graph rather than a hand-maintained `nix-unit/...` list.
+
 ### References
 
 - Issue: nix-community/nix-unit#224 (<https://github.com/nix-community/nix-unit/issues/224>)

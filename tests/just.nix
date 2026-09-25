@@ -278,6 +278,10 @@ in {
     # avoiding a full realize of every package referenced anywhere in the
     # combined "nix" recipe group (flake-iter, jq, ...) just to assert on
     # the tsc section.
+    #
+    # Interpolation still *evaluates* `flake-iter.packages` (and its nested
+    # FlakeHub inputs). Hermeticity for that eval is `nix-unit.inputs` nested
+    # overrides in flake.nix, not this `.text` trick.
     lintJustfile = perSystemCfg.just-flake.features.nix.justfile.text;
   in {
     expr =
