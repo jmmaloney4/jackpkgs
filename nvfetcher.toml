@@ -58,8 +58,8 @@ fetch.github = "jmmaloney4/codex-proxy-rs"
 # hermetically (see pkgs/tauceti), so the engines are real inputs rather than things `uvx`
 # fetches at runtime.
 [tauceti]
-src.git = "https://github.com/kim-em/TauCetiWorker"
-fetch.github = "kim-em/TauCetiWorker"
+src.git = "https://github.com/TauCetiProject/TauCetiWorker"
+fetch.github = "TauCetiProject/TauCetiWorker"
 
 [tauceti-review]
 src.git = "https://github.com/TauCetiProject/TauCetiReview"

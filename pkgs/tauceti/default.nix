@@ -59,7 +59,7 @@ python312Packages.buildPythonApplication {
 
   meta = {
     description = "Autonomous worker for the Tau Ceti AI-authored Lean library";
-    homepage = "https://github.com/kim-em/TauCetiWorker";
+    homepage = "https://github.com/TauCetiProject/TauCetiWorker";
     # Placeholder, not upstream's declaration: TauCetiWorker ships no LICENSE file and GitHub
     # reports none, unlike TauCetiReview and TauCetiProgress which are both Apache-2.0. Almost
     # certainly an oversight worth raising upstream. Recorded here rather than as `unfree` so the

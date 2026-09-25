@@ -129,7 +129,7 @@
     pname = "tauceti";
     version = "68662114b91417cac3a2c72ed9e52a9e16c3aee6";
     src = fetchFromGitHub {
-      owner = "kim-em";
+      owner = "TauCetiProject";
       repo = "TauCetiWorker";
       rev = "68662114b91417cac3a2c72ed9e52a9e16c3aee6";
       fetchSubmodules = false;
