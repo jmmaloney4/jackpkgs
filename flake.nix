@@ -511,7 +511,12 @@
           # FlakeHub unless `flake-iter/crane` etc. are overridden. Same class
           # of failure as ADR 014's `nix-unit/treefmt-nix` nested overrides.
           nestedInputOverrides = let
-            go = prefix: input: seen:
+            # Recurse per *override path*, not per store path. A global `seen`
+            # set would emit `A/crane` and `B/crane` when two inputs share a
+            # flake, but skip `B/crane/<nested>` — nix-unit still reads B's
+            # lock and fetches. Cycles are only possible along one path
+            # (follows aliases), so the ancestor stack is the right brake.
+            go = prefix: input: ancestors:
               lib.concatMapAttrs (
                 name: child: let
                   path =
@@ -526,9 +531,9 @@
                     ${path} = child.outPath;
                   };
                   rest =
-                    if builtins.elem id seen
+                    if builtins.elem id ancestors
                     then {}
-                    else go path child (seen ++ [id]);
+                    else go path child (ancestors ++ [id]);
                 in
                   selfOverride // rest
               ) (input.inputs or {});

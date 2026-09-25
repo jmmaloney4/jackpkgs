@@ -399,6 +399,11 @@ when #381 merged).
 …). Same `--override-input` mechanism as Appendix A, applied to the whole
 locked graph rather than a hand-maintained `nix-unit/...` list.
 
+Walk the graph **per override path**. Deduping on store path globally would
+emit `A/crane` and `B/crane` for a shared flake but omit `B/crane/<nested>`,
+so evaluating B would still fetch. Recursion stops only when a store path
+repeats along the current ancestor chain (follows aliases).
+
 ### References
 
 - Issue: nix-community/nix-unit#224 (<https://github.com/nix-community/nix-unit/issues/224>)
