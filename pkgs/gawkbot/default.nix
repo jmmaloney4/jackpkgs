@@ -16,6 +16,8 @@ stdenvNoCC.mkDerivation {
 
   dontConfigure = true;
   dontBuild = true;
+  # Statically linked Go binary; shrink path / patchelf of .dynamic is a no-op.
+  dontPatchELF = true;
 
   installPhase = ''
     runHook preInstall
