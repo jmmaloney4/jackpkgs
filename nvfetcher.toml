@@ -24,6 +24,28 @@ fetch.github = "jmmaloney4/codex-proxy"
 src.git = "https://github.com/KashifKhn/gemini-proxy"
 fetch.github = "KashifKhn/gemini-proxy"
 
+# Prebuilt goreleaser binaries (CGO_ENABLED=0). Tags are vX.Y.Z; assets drop the v.
+# src.prefix strips it so $ver matches gawkbot_$ver_<os>_<arch>.tar.gz.
+[gawkbot-aarch64-darwin]
+src.github = "najmuzzaman-mohammad/gawkbot"
+src.prefix = "v"
+fetch.url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v$ver/gawkbot_$ver_darwin_arm64.tar.gz"
+
+[gawkbot-aarch64-linux]
+src.github = "najmuzzaman-mohammad/gawkbot"
+src.prefix = "v"
+fetch.url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v$ver/gawkbot_$ver_linux_arm64.tar.gz"
+
+[gawkbot-x86_64-darwin]
+src.github = "najmuzzaman-mohammad/gawkbot"
+src.prefix = "v"
+fetch.url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v$ver/gawkbot_$ver_darwin_amd64.tar.gz"
+
+[gawkbot-x86_64-linux]
+src.github = "najmuzzaman-mohammad/gawkbot"
+src.prefix = "v"
+fetch.url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v$ver/gawkbot_$ver_linux_amd64.tar.gz"
+
 [mcp-ynab]
 src.git = "https://github.com/jmmaloney4/mcp-ynab"
 fetch.github = "jmmaloney4/mcp-ynab"

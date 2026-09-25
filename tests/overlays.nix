@@ -28,7 +28,15 @@
   pkgs,
   system,
 }: let
-  base = import inputs.nixpkgs {inherit system;};
+  # gawkbot is Sustainable Use (unfree in nixpkgs). Forcing `.name` on every
+  # overlay attribute evaluates the derivation, which throws without this
+  # predicate. Overlay consumers who want gawkbot need the same (or
+  # allowUnfree); other jackpkgs packages stay free.
+  nixpkgsConfig.allowUnfreePredicate = pkg: lib.getName pkg == "gawkbot";
+  base = import inputs.nixpkgs {
+    inherit system;
+    config = nixpkgsConfig;
+  };
 
   # Sentinels guard against the inverse failure -- an overlay that exports
   # nothing, or from which a package was silently dropped, would otherwise
@@ -41,6 +49,7 @@
   checkOverlay = drvName: label: overlay: let
     overlaid = import inputs.nixpkgs {
       inherit system;
+      config = nixpkgsConfig;
       overlays = [overlay];
     };
 

@@ -62,6 +62,66 @@
         },
         "version": "v0.61.0"
     },
+    "gawkbot-aarch64-darwin": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "gawkbot-aarch64-darwin",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "name": null,
+            "sha256": "sha256-xvX+r2yCYWMP7z4l2serEznFnG9DtYhdGqQR/dPH5FA=",
+            "type": "url",
+            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_darwin_arm64.tar.gz"
+        },
+        "version": "0.239.0"
+    },
+    "gawkbot-aarch64-linux": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "gawkbot-aarch64-linux",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "name": null,
+            "sha256": "sha256-clqcj+0XsgZYqpWi7etSytaiwfGNlpn5RZFKk1RKZKE=",
+            "type": "url",
+            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_linux_arm64.tar.gz"
+        },
+        "version": "0.239.0"
+    },
+    "gawkbot-x86_64-darwin": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "gawkbot-x86_64-darwin",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "name": null,
+            "sha256": "sha256-6rhclbFQWdWdG1Ra1PU9kZG7h5lAi9/HryXGYWWv49A=",
+            "type": "url",
+            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_darwin_amd64.tar.gz"
+        },
+        "version": "0.239.0"
+    },
+    "gawkbot-x86_64-linux": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "gawkbot-x86_64-linux",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "name": null,
+            "sha256": "sha256-0KNhzZ18ja7zIFvsQb6BCeFqrEaBUuaCSanS+dz6JNI=",
+            "type": "url",
+            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_linux_amd64.tar.gz"
+        },
+        "version": "0.239.0"
+    },
     "gemini-proxy": {
         "cargoLock": null,
         "date": "2026-03-09",

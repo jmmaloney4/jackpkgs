@@ -49,6 +49,9 @@ else let
     gemini-proxy = superWithBun2nix.callPackage ./pkgs/gemini-proxy {
       inherit (nvfetcherSources.gemini-proxy) src version;
     };
+    gawkbot = super.callPackage ./pkgs/gawkbot {
+      inherit (nvfetcherSources."gawkbot-${super.system}") src version;
+    };
     epub2tts = super.callPackage ./pkgs/epub2tts {};
     imessage-bridge = super.callPackage ./pkgs/imessage-bridge {};
     mcp-ynab = super.callPackage ./pkgs/mcp-ynab {

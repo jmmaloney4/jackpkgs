@@ -10,6 +10,9 @@
     nvfetcherSources = super.callPackage ../_sources/generated.nix {};
     packages = {
       csharpier = super.callPackage ../pkgs/csharpier {};
+      gawkbot = super.callPackage ../pkgs/gawkbot {
+        inherit (nvfetcherSources."gawkbot-${super.system}") src version;
+      };
       docfx = super.callPackage ../pkgs/docfx {};
       # epub2tts = super.callPackage ../pkgs/epub2tts {};
       seedtool-cli = super.callPackage ../pkgs/seedtool-cli {};

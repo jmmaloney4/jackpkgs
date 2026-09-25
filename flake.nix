@@ -115,6 +115,16 @@
         nvfetcherSources = pkgs.callPackage ./_sources/generated.nix {};
         # Extend pkgs with bun2nix overlay so bun2nix builder functions are available
         pkgsWithBun2nix = pkgs.extend inputs.bun2nix.overlays.default;
+        # gawkbot's Sustainable Use License is `free = false` in nixpkgs
+        # (`lib.licenses.sustainableUse`). Keep the rest of this flake on the
+        # default allowUnfree=false pkgs; only this narrow predicate is
+        # needed so `packages.<system>.gawkbot` and `filterByPlatforms` can
+        # evaluate. Overlay consumers still opt in via their own nixpkgs
+        # config.
+        pkgsAllowGawkbot = import inputs.nixpkgs {
+          inherit system;
+          config.allowUnfreePredicate = pkg: lib.getName pkg == "gawkbot";
+        };
         nautilusRustToolchain = inputs.fenix.packages.${system}.minimal.toolchain;
         nautilusRustPlatform = pkgs.makeRustPlatform {
           cargo = nautilusRustToolchain;
@@ -139,6 +149,9 @@
           docfx = pkgs.callPackage ./pkgs/docfx {};
           gemini-proxy = pkgsWithBun2nix.callPackage ./pkgs/gemini-proxy {
             inherit (nvfetcherSources.gemini-proxy) src version;
+          };
+          gawkbot = pkgsAllowGawkbot.callPackage ./pkgs/gawkbot {
+            inherit (nvfetcherSources."gawkbot-${system}") src version;
           };
           epub2tts = pkgs.callPackage ./pkgs/epub2tts {};
           imessage-bridge = pkgs.callPackage ./pkgs/imessage-bridge {};
@@ -652,6 +665,11 @@
               inherit inputs lib pkgs system;
             }
           )
+          # Build the prebuilt gawkbot binary as part of `nix flake check` on
+          # platforms nvfetcher tracks. Omitted when filterByPlatforms drops it.
+          // lib.optionalAttrs (platformFilteredPackages ? gawkbot) {
+            gawkbot = platformFilteredPackages.gawkbot;
+          }
           # The darwin-only-hash-change invariant for the llvm codesign patch
           # overlay (ADR 050). Separate from the overlay checks above because
           # those assert package-export shape, which a patch overlay does not
