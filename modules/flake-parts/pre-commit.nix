@@ -496,8 +496,12 @@ in {
               exit 1
             fi
 
+            # --configLoader runner: the default ("bundle") writes the bundled
+            # vitest.config.ts to node_modules/.vite-temp, but node_modules here is
+            # a symlink into the read-only Nix store, so startup dies with ENOENT.
+            # "runner" evaluates the config in-process and writes nothing.
             ${lib.concatMapStringsSep "\n" (pkg: ''
-                (cd ${lib.escapeShellArg pkg} && "$VITEST_BIN" run --passWithNoTests${escapeExtraArgs checksCfg.vitest.extraArgs})
+                (cd ${lib.escapeShellArg pkg} && "$VITEST_BIN" run --passWithNoTests --configLoader runner${escapeExtraArgs checksCfg.vitest.extraArgs})
               '')
               vitestPackages}
           '';
