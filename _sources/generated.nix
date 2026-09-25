@@ -4,8 +4,7 @@
   fetchurl,
   fetchFromGitHub,
   dockerTools,
-}:
-{
+}: {
   codex-proxy = {
     pname = "codex-proxy";
     version = "aa8d9032ff92ae984482f44818b509f72cd0d7b2";
@@ -39,6 +38,38 @@
       rev = "v0.61.0";
       fetchSubmodules = false;
       sha256 = "sha256-PMfTgyfLg0O61CypAN+l3porXuOE+bK777J9i4QE+W8=";
+    };
+  };
+  gawkbot-aarch64-darwin = {
+    pname = "gawkbot-aarch64-darwin";
+    version = "0.239.0";
+    src = fetchurl {
+      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_darwin_arm64.tar.gz";
+      sha256 = "sha256-xvX+r2yCYWMP7z4l2serEznFnG9DtYhdGqQR/dPH5FA=";
+    };
+  };
+  gawkbot-aarch64-linux = {
+    pname = "gawkbot-aarch64-linux";
+    version = "0.239.0";
+    src = fetchurl {
+      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_linux_arm64.tar.gz";
+      sha256 = "sha256-clqcj+0XsgZYqpWi7etSytaiwfGNlpn5RZFKk1RKZKE=";
+    };
+  };
+  gawkbot-x86_64-darwin = {
+    pname = "gawkbot-x86_64-darwin";
+    version = "0.239.0";
+    src = fetchurl {
+      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_darwin_amd64.tar.gz";
+      sha256 = "sha256-6rhclbFQWdWdG1Ra1PU9kZG7h5lAi9/HryXGYWWv49A=";
+    };
+  };
+  gawkbot-x86_64-linux = {
+    pname = "gawkbot-x86_64-linux";
+    version = "0.239.0";
+    src = fetchurl {
+      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_linux_amd64.tar.gz";
+      sha256 = "sha256-0KNhzZ18ja7zIFvsQb6BCeFqrEaBUuaCSanS+dz6JNI=";
     };
   };
   gemini-proxy = {
@@ -78,7 +109,6 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock";
       outputHashes = {
-        
       };
     };
     date = "2026-05-29";
@@ -143,7 +173,6 @@
     cargoLock."Cargo.lock" = {
       lockFile = ./. + "/sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock";
       outputHashes = {
-        
       };
     };
   };
