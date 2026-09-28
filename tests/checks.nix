@@ -219,7 +219,13 @@
   in
     perSystemCfg.checks or {};
 
-  hasInfixAll = needles: haystack: lib.all (n: lib.hasInfix n haystack) needles;
+  # nixpkgs lib.hasInfix now implements via builtins.match. Match forbids
+  # strings that still carry store-path context, so discard it before search.
+  hasInfixAll = needles: haystack: let
+    strip = builtins.unsafeDiscardStringContext;
+    hay = strip haystack;
+  in
+    lib.all (n: lib.hasInfix (strip n) hay) needles;
   hasChecksNamed = checks: names: lib.all (name: lib.hasAttr name checks) names;
   missingChecksNamed = checks: names: lib.all (name: !(lib.hasAttr name checks)) names;
   hasCheck = checks: name: lib.hasAttr name checks;
