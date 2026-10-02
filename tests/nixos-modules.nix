@@ -43,7 +43,9 @@ in {
   };
 
   # Importing `default` and a named output together must not double-declare
-  # options: both are paths, so the module system dedups them.
+  # options: both are paths, so the module system dedups them. `eval` (via
+  # `cfgOf`) already imports `default`, so the named outputs listed here are
+  # the second import of the same files.
   testDefaultPlusNamedDedups = {
     expr =
       (cfgOf [
