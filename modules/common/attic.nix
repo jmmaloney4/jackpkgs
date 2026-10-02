@@ -31,7 +31,10 @@
   # `attrsOf` has an emptyValue: left undefined it silently evaluates to `{}`,
   # which would enable the module with zero caches instead of failing. Like
   # nixpkgs' own `nonEmptyListOf`, drop the emptyValue (so an unwired map is
-  # an eval error) and refuse `{}` outright.
+  # an eval error) and refuse `{}` outright. "Drop" means `emptyValue = {}`
+  # with no `value` attribute: that is exactly what `nonEmptyListOf` sets, and
+  # the module system then raises "used but not defined" (pinned by
+  # testAtticPullCachesRequired in tests/nixos-modules.nix).
   nonEmptyAttrsOf = elemType: let
     attrs = types.addCheck (types.attrsOf elemType) (a: a != {});
   in
