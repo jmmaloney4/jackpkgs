@@ -45,7 +45,7 @@
       mkRecipeWithParams "lean-toolchain-fetch" [''version'']
       "Vendor a Lean toolchain manifest into pkgs/lean4-toolchains/ (pass the version WITHOUT a leading v, e.g. 4.34.0)"
       [
-        "#!/usr/bin/env bash"
+        "#!${pkgs.runtimeShell}"
         "set -euo pipefail"
         ""
         "version=\"{{version}}\""
