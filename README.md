@@ -69,14 +69,26 @@ Module outputs under `inputs.jackpkgs.{nixosModules,darwinModules,homeModules}` 
 
 ```nix
 # NixOS host (nixosConfigurations):
-modules = [ inputs.jackpkgs.nixosModules.default ];        # aggregator (populated by the shared-module PRs)
+modules = [ inputs.jackpkgs.nixosModules.default ];        # every module below; each is inert until enabled
 # nix-darwin host:
 modules = [ inputs.jackpkgs.darwinModules.default ];       # or darwinModules.imessage-bridge alone
 # Home Manager:
 modules = [ inputs.jackpkgs.homeModules.tod ];             # or homeModules.default for the whole tree
 ```
 
-Today the populated modules are `darwinModules.imessage-bridge` and `homeModules.tod`; the shared NixOS and Home Manager fleet module sets land per ADR-050's PR sequence. `darwinModules` is not part of that promotion — ADR-050's darwin-scope decision (amended 2026-09-25) keeps garden's `modules/darwin/` tree in garden, so `imessage-bridge` stays the only darwin module for the foreseeable future. `pkgs.homeManagerModules` (via the overlay) remains the legacy path.
+NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enable`): `attic`, `disks`, `docker`, `fonts`, `gnupg-agent`, `nix`, `nixbuild`, `packages`, `ssh`, `tailscale`, `user`, `zenith`, `zsh`. Identity and topology values have no defaults — enabling a module without them fails at eval:
+
+```nix
+{
+  jackpkgs.user = { enable = true; username = "alice"; };
+  jackpkgs.nix = { enable = true; substituters.enable = true; };
+  jackpkgs.ssh = { enable = true; authorizedKeys = [ "ssh-ed25519 AAAA…" ]; authorizedKeysUsers = [ "root" "alice" ]; };
+  jackpkgs.attic = { enable = true; endpoint = "https://attic.example.ts.net"; pullCaches.mycache = "mycache:…="; };
+  jackpkgs.tailscale.enable = true;
+}
+```
+
+The Home Manager fleet module set lands per ADR-050's PR sequence. `darwinModules` is not part of that promotion — ADR-050's darwin-scope decision (amended 2026-09-25) keeps garden's `modules/darwin/` tree in garden, so `imessage-bridge` stays the only darwin module for the foreseeable future. `pkgs.homeManagerModules` (via the overlay) remains the legacy path.
 
 ______________________________________________________________________
 

@@ -1,16 +1,13 @@
-# NixOS module aggregator (ADR-050).
+# NixOS module aggregator (ADR-050), exposed as
+# `inputs.jackpkgs.nixosModules.default`. Imports every module in ./modules.nix;
+# consumers wanting a narrow slice import `nixosModules.<name>` instead.
 #
-# Exposed as `inputs.jackpkgs.nixosModules.default`; consumers wanting a
-# narrow slice import named outputs instead. The shared fleet module set
-# (promoted from garden's nixfiles/, garden#2074 Part B) lands here in the
-# follow-up PRs recorded in ADR-050's implementation plan — PR 2 brings the
-# common/NixOS set, so today this aggregator is intentionally empty.
+# Importing is inert: every module is gated on its own `jackpkgs.<name>.enable`
+# (default false), and required identity/topology options are only read once
+# the module that needs them is enabled.
+#
+# Not here yet (ADR-050 implementation plan): the cheap-input glue
+# (`agenix`, `determinate-nix`) and the profiles/home-manager tree (PR 3).
 {
-  imports = [
-    # ./agenix.nix            # PR 2 (shape gated by ADR-050 OD-C)
-    # ./disks.nix             # PR 2
-    # ./docker.nix            # PR 2
-    # ./security-wrappers.nix # PR 2
-    # ./tailscale.nix         # PR 2
-  ];
+  imports = builtins.attrValues (import ./modules.nix);
 }

@@ -582,6 +582,9 @@
             lib-default = import ./tests/lib-default.nix {
               inherit lib pkgs;
             };
+            nixos-modules = import ./tests/nixos-modules.nix {
+              inherit inputs lib;
+            };
           };
         };
 
@@ -618,7 +621,15 @@
           # jackpkgs.lean end-to-end against tests/fixtures/lean/project (#392).
           # Individual rather than aggregated so a Lean failure is legible
           # without building Lean to read it.
-          // lib.mapAttrs' (name: drv: lib.nameValuePair "lean-project-${name}" drv) leanProjectTests;
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "lean-project-${name}" drv) leanProjectTests
+          # The shared NixOS module set instantiated with every module enabled
+          # (ADR-050, garden#2074 Part B PR 2); value-level behaviour is the
+          # `nixos-modules` nix-unit suite.
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "nixos-modules-${name}" drv) (
+            import ./tests/nixos-modules-instantiate.nix {
+              inherit inputs lib pkgs;
+            }
+          );
       };
 
       flake = {
@@ -632,10 +643,14 @@
           imessage-bridge = import ./modules/nix-darwin/imessage-bridge.nix;
         };
 
-        # Expose NixOS modules (ADR-050). The aggregator is un-stubbed but
-        # empty: the shared fleet module set promoted from garden's nixfiles/
-        # (garden#2074 Part B) lands in the follow-up PRs.
-        nixosModules.default = import ./modules/nixos;
+        # Expose NixOS modules (ADR-050): the shared fleet module set promoted
+        # from garden's nixfiles/ (garden#2074 Part B). Named outputs and the
+        # `default` aggregator both come from modules/nixos/modules.nix. Each
+        # is a path, so a consumer importing `default` and a named output
+        # together gets the file once (the module system dedups by path).
+        nixosModules =
+          {default = ./modules/nixos;}
+          // import ./modules/nixos/modules.nix;
 
         # Expose Home Manager modules under the modern `homeModules` output
         # name (ADR-050). The legacy `pkgs.homeManagerModules` overlay path
