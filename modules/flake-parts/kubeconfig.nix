@@ -73,7 +73,7 @@ in {
           mkRecipe "kubeconfig"
           "Write kubeconfig from Pulumi stack output to $KUBECONFIG"
           [
-            "#!/usr/bin/env bash"
+            "#!${pkgs.runtimeShell}"
             "set -euo pipefail"
             "if [ -z \"\\${KUBECONFIG:-}\" ]; then"
             "  echo \"KUBECONFIG not set — run from the nix devshell\" >&2"

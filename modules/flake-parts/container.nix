@@ -305,7 +305,7 @@ in {
 
       imageDigestRecipe =
         mkRecipeWithParams "image-digest" [''name''] "Show the SHA256 digest of a locally-built image" [
-          "#!/usr/bin/env bash"
+          "#!${pkgs.runtimeShell}"
           "set -euo pipefail"
           "nix build .#images.{{name}}"
           "${lib.getExe skopeoNix2container} inspect nix:./result | ${lib.getExe pkgs.jq} -r '.Digest'"
@@ -315,7 +315,7 @@ in {
       imagePushRecipe =
         mkRecipeWithParams "image-push" [''name'' ''tag="latest"''] "Push a single image to its configured registry" (
           [
-            "#!/usr/bin/env bash"
+            "#!${pkgs.runtimeShell}"
             "set -euo pipefail"
             "nix build .#images.{{name}}"
             "case \"{{name}}\" in"
@@ -344,7 +344,7 @@ in {
       imagePushAllRecipe =
         mkRecipeWithParams "image-push-all" [''tag="latest"''] "Push all images defined in jackpkgs.images.images" (
           [
-            "#!/usr/bin/env bash"
+            "#!${pkgs.runtimeShell}"
             "set -euo pipefail"
           ]
           ++ map (imgName: "just image-push ${imgName} {{tag}}") imageNames

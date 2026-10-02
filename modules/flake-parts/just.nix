@@ -361,7 +361,7 @@ in {
               authRecipe =
                 mkRecipe "auth"
                 "Authenticate with GCP/Pulumi and refresh ADC (set GCP_ACCOUNT_USER to override username)"
-                (["#!/usr/bin/env bash" "set -euo pipefail"] ++ authCommands)
+                (["#!${pkgs.runtimeShell}" "set -euo pipefail"] ++ authCommands)
                 false;
 
               # auth-status recipe - shows current GCP authentication status
@@ -369,7 +369,7 @@ in {
               authStatusRecipe =
                 mkRecipe "auth-status" "Show current GCP authentication status"
                 [
-                  "#!/usr/bin/env bash"
+                  "#!${pkgs.runtimeShell}"
                   "echo \"Profile:  \${CLOUDSDK_CONFIG:-~/.config/gcloud (default)}\""
                   "echo \"Account:  $(${gcloudExe} config get-value account 2>/dev/null || echo 'not set')\""
                   "echo \"Project:  $(${gcloudExe} config get-value project 2>/dev/null || echo 'not set')\""
@@ -400,7 +400,7 @@ in {
             enable = true;
             justfile =
               mkRecipeWithParams "nbstrip" [''notebook=""''] "Strip output from Jupyter notebooks" [
-                "#!/usr/bin/env bash"
+                "#!${pkgs.runtimeShell}"
                 "set -euo pipefail"
                 ''if [ -z "{{notebook}}" ]; then''
                 "    ${lib.getExe sysCfg.fdPackage} -e ipynb -x ${lib.getExe sysCfg.nbstripoutPackage}"
@@ -456,7 +456,7 @@ in {
             # Commands for the cut recipe when files are configured
             cutWithFilesCommands =
               [
-                "#!/usr/bin/env bash"
+                "#!${pkgs.runtimeShell}"
                 "set -euo pipefail"
                 ""
                 "branch=$(git branch --show-current)"
@@ -502,7 +502,7 @@ in {
 
             # Commands for the cut recipe when no files configured (tag-only)
             cutTagOnlyCommands = [
-              "#!/usr/bin/env bash"
+              "#!${pkgs.runtimeShell}"
               "set -euo pipefail"
               "set -x"
               ""
@@ -559,7 +559,7 @@ in {
                 lib.concatStringsSep "\n" [
                   "# New minor release"
                   "release:"
-                  "    #!/usr/bin/env bash"
+                  "    #!${pkgs.runtimeShell}"
                   "    set -euo pipefail"
                   "    set -x"
                   ""
@@ -597,7 +597,7 @@ in {
                   ""
                   "# Bump patch version"
                   "bump:"
-                  "    #!/usr/bin/env bash"
+                  "    #!${pkgs.runtimeShell}"
                   "    set -euo pipefail"
                   "    set -x"
                   ""
@@ -649,7 +649,7 @@ in {
                 false)
               ""
               (mkRecipe "checks" "Run each flake check derivation individually (jj-friendly, no pre-commit)" [
-                  "#!/usr/bin/env bash"
+                  "#!${pkgs.runtimeShell}"
                   "set -euo pipefail"
                   "system=$(nix eval --impure --raw --expr builtins.currentSystem)"
                   "checks_json=$(nix eval --json \".#checks.\${system}\")"
@@ -662,7 +662,7 @@ in {
               ""
               (mkRecipeWithParams "lint" [''dry_run="false"''] "Run lint tools from flake config; fixes in place unless dry_run=true" (
                   [
-                    "#!/usr/bin/env bash"
+                    "#!${pkgs.runtimeShell}"
                     "set -euo pipefail"
                     "dry_run='{{dry_run}}'"
                   ]
@@ -756,7 +756,7 @@ in {
                     vitestPackages = resolveRecipePackages checksCfgForRecipes.vitest.packages;
                   in
                     [
-                      "#!/usr/bin/env bash"
+                      "#!${pkgs.runtimeShell}"
                       "set -euo pipefail"
                     ]
                     ++ (optionalLines (checksOptionsDefined && checksCfgForRecipes.python.pytest.enable) [
@@ -795,7 +795,7 @@ in {
             enable = cfg.nodejs.enable;
             justfile = lib.concatStringsSep "\n" [
               (mkRecipe "fix-tarball-integrity" "Restore sha512 integrity on GitHub tarball resolutions that pnpm strips from pnpm-lock.yaml" [
-                  "#!/usr/bin/env bash"
+                  "#!${pkgs.runtimeShell}"
                   "set -euo pipefail"
                   "lockfile=\"pnpm-lock.yaml\""
                   "fixed=0"
@@ -837,7 +837,7 @@ in {
                 ]
                 false)
               (mkRecipe "update-pnpm-hash" "Refresh pnpm-lock.yaml and update pnpmDepsHash in flake.nix" [
-                  "#!/usr/bin/env bash"
+                  "#!${pkgs.runtimeShell}"
                   "set -euo pipefail"
                   ""
                   "flake=\"flake.nix\""
