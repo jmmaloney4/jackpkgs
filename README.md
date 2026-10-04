@@ -65,7 +65,7 @@ ______________________________________________________________________
 
 ## NixOS / nix-darwin / Home Manager modules
 
-Module outputs under `inputs.jackpkgs.{nixosModules,darwinModules,homeModules}` (conventions: ADR-050):
+Module outputs under `inputs.jackpkgs.{nixosModules,darwinModules,homeModules}` (conventions: ADR-051):
 
 ```nix
 # NixOS host (nixosConfigurations):
@@ -76,7 +76,7 @@ modules = [ inputs.jackpkgs.darwinModules.default ];       # or darwinModules.im
 modules = [ inputs.jackpkgs.homeModules.tod ];             # or homeModules.default for the whole tree
 ```
 
-Today the populated modules are `darwinModules.imessage-bridge` and `homeModules.tod`; the shared NixOS and Home Manager fleet module sets land per ADR-050's PR sequence. `darwinModules` is not part of that promotion — ADR-050's darwin-scope decision (amended 2026-09-25) keeps garden's `modules/darwin/` tree in garden, so `imessage-bridge` stays the only darwin module for the foreseeable future. `pkgs.homeManagerModules` (via the overlay) remains the legacy path.
+Today the populated modules are `darwinModules.imessage-bridge` and `homeModules.tod`; the shared NixOS and Home Manager fleet module sets land per ADR-051's PR sequence. `darwinModules` is not part of that promotion — ADR-051's darwin-scope decision (amended 2026-09-25) keeps garden's `modules/darwin/` tree in garden, so `imessage-bridge` stays the only darwin module for the foreseeable future. `pkgs.homeManagerModules` (via the overlay) remains the legacy path.
 
 ______________________________________________________________________
 

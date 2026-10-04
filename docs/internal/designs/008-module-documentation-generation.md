@@ -46,7 +46,7 @@ We will use **`nixosOptionsDoc` + mdBook** to auto-generate module documentation
 - In-scope: flake-parts modules (`modules/flake-parts/**`)
 - Out-of-scope: package documentation
 - ~~Out-of-scope (for now): NixOS modules (`modules/nixos/`), Home Manager modules (`modules/home-manager/`)~~
-  *Amended 2026-09-21 (ADR-050):* the NixOS (`modules/nixos/`), nix-darwin
+  *Amended 2026-09-21 (ADR-051):* the NixOS (`modules/nixos/`), nix-darwin
   (`modules/nix-darwin/`), and Home Manager (`modules/home-manager/`) trees are
   now **in scope** for generated module documentation. The mechanism below is
   unchanged — `lib.evalModules` + `nixosOptionsDoc` applies to those trees the

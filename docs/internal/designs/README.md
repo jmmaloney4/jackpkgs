@@ -68,7 +68,7 @@ If an ADR is superseded, add cross-links in both directions.
 | 047 | [Strip workspace symlinks from the captured `node_modules` tree](047-strip-workspace-symlinks-from-captured-node-modules.md) | Proposed |
 | 048 | [Secondary uv Workspaces via `jackpkgs.python.extraWorkspaces`](048-python-extra-workspaces.md)                              | Proposed |
 | 049 | [`jackpkgs.lean` — Nix-built Lean 4 environments for multiple checkouts](049-lean-toolchain-module.md)                       | Proposed |
-| 050 | [Shared NixOS / nix-darwin / Home Manager Module Conventions](050-shared-nixos-darwin-home-manager-module-conventions.md)    | Accepted |
+| 051 | [Shared NixOS / nix-darwin / Home Manager Module Conventions](051-shared-nixos-darwin-home-manager-module-conventions.md)    | Accepted |
 
 ## Template
 
