@@ -550,8 +550,21 @@
                 in
                   selfOverride // rest
               ) (input.inputs or {});
+            walked = go null {inputs = builtins.removeAttrs inputs ["self"];} [];
+            # These tests interpolate `flake-iter.packages` / composed
+            # justfiles and will fetch FlakeHub/GitHub in the sandbox if the
+            # walker drops the nested path. Fail eval rather than a warm-store
+            # false green.
+            requiredNested = [
+              "flake-iter/crane"
+              "flake-iter/flake-schemas"
+              "lean4-nix/flake-parts"
+            ];
+            missingNested = lib.filter (k: !(builtins.hasAttr k walked)) requiredNested;
           in
-            go null {inputs = builtins.removeAttrs inputs ["self"];} [];
+            if missingNested != []
+            then throw "nix-unit nested input overrides missing: ${lib.concatStringsSep ", " missingNested}"
+            else walked;
           # Pass all inputs including nix-unit, plus aliases and nested overrides
           nixUnitInputs =
             (builtins.mapAttrs (_: sanitizeInput) (builtins.removeAttrs inputs ["self"]))

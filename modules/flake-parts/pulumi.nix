@@ -474,7 +474,7 @@ in {
           previewRecipe =
             mkRecipeWithParams "preview" [''env="${defaultStack}"''] "Preview changes for all Pulumi projects (run 'just deploy' to apply)"
             ([
-                "#!/usr/bin/env bash"
+                "#!${pkgs.runtimeShell}"
                 "set -euo pipefail"
                 # just does not pass recipe parameters as positional args to
                 # shebang recipes (that needs `set positional-arguments`), so
@@ -585,7 +585,7 @@ in {
           deployRecipe =
             mkRecipeWithParams "deploy" [''env="${defaultStack}"''] "Deploy all Pulumi projects in dependency order"
             ([
-                "#!/usr/bin/env bash"
+                "#!${pkgs.runtimeShell}"
                 "set -euo pipefail"
                 # See previewRecipe: $1 is never set in shebang recipes, so the
                 # parameter must be interpolated by just.

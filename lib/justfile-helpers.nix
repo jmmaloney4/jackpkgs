@@ -11,16 +11,20 @@
   # in bash shebang recipes to make commands print as they execute (useful for
   # debugging and visibility). Default: false
   #
+  # Prefer an absolute store bash (`#!${pkgs.runtimeShell}`) for generated
+  # recipes: `just` execs shebang recipes via the shebang line, and
+  # `#!/usr/bin/env bash` fails in the Nix sandbox (no `/usr/bin/env`).
+  #
   # Example shebang recipe with echoCommands:
   #   mkRecipe "script" "Run script" [
-  #     "#!/usr/bin/env bash"
+  #     "#!${pkgs.runtimeShell}"
   #     "set -euo pipefail"
   #     "echo 'hello'"
   #   ] true
   # Generates:
   #   # Run script
   #   script:
-  #       #!/usr/bin/env bash
+  #       #!/nix/store/...-bash/bin/bash
   #       set -euo pipefail
   #       set -x
   #       echo 'hello'
