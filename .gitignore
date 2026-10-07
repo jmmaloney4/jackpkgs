@@ -7,5 +7,3 @@ just-flake.just
 
 node_modules/
 .worktrees/
-
-_sources/
