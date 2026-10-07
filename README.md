@@ -183,6 +183,7 @@ in {
     - `tyPackage` defaults to `pkgs.ty` (nixpkgs); the ty binary itself
     - `ruffPackage` defaults to the same dev-tools Python environment as `tyEnvironmentPackage`
     - `pulumiBackendUrl` (nullable string)
+  - `just auth` automatically passes `--no-launch-browser` to `gcloud auth login` when `SSH_CONNECTION` or `SSH_TTY` is set (remote sessions can't open a browser), so you paste the printed URL into a local browser instead.
   - Options under `jackpkgs.gcp`:
     - `iamOrg` (nullable string, default `null`) - GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
 

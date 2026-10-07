@@ -138,3 +138,7 @@ ______________________________________________________________________
 Author: jack\
 Date: 2025-10-21\
 PR: #<tbd>
+
+## Addendum: SSH sessions
+
+Over SSH, `gcloud auth login` still attempts to launch a browser on the remote host and fails noisily before printing the URL. The `auth` recipe therefore sets `GCLOUD_LOGIN_FLAGS=--no-launch-browser` when `SSH_CONNECTION` or `SSH_TTY` is set, and appends it to `gcloud auth login --update-adc`. Local sessions are unchanged. Detection is in the recipe (not a module option) because the caller has no basis for choosing it ahead of time.

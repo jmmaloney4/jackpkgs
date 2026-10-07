@@ -339,10 +339,16 @@ in {
                   "GCP_ACCOUNT_USER=\"\${GCP_ACCOUNT_USER:-$USER}\""
                 ])
                 ++ [
+                  # Over SSH gcloud still tries (and fails) to open a browser on the
+                  # remote host; fall back to the copy/paste URL flow instead.
+                  "GCLOUD_LOGIN_FLAGS=\"\""
+                  "if [ -n \"\${SSH_CONNECTION:-}\" ] || [ -n \"\${SSH_TTY:-}\" ]; then GCLOUD_LOGIN_FLAGS=\"--no-launch-browser\"; fi"
+                ]
+                ++ [
                   # Unset GOOGLE_APPLICATION_CREDENTIALS for this call only: when it is set,
                   # gcloud prompts Y/n before overwriting the ADC file even though it would
                   # write to the same location. env -u avoids the interactive prompt.
-                  "env -u GOOGLE_APPLICATION_CREDENTIALS ${gcloudExe} auth login --update-adc${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}"
+                  "env -u GOOGLE_APPLICATION_CREDENTIALS ${gcloudExe} auth login --update-adc $GCLOUD_LOGIN_FLAGS${lib.optionalString (cfg.gcp.iamOrg != null) " --account=$GCP_ACCOUNT_USER@${cfg.gcp.iamOrg}"}"
                 ]
                 # Step 2: Set ADC billing project
                 ++ optionalLines (cfg.gcp.quotaProject != null) [

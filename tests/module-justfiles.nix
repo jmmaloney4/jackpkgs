@@ -337,15 +337,20 @@ in {
     auth:
         #!/usr/bin/env bash
         GCP_ACCOUNT_USER="''${GCP_ACCOUNT_USER:-$USER}"
-        ${mockGetExe null} auth login --update-adc --account=$GCP_ACCOUNT_USER@example.com
+        GCLOUD_LOGIN_FLAGS=""
+        if [ -n "''${SSH_CONNECTION:-}" ] || [ -n "''${SSH_TTY:-}" ]; then GCLOUD_LOGIN_FLAGS="--no-launch-browser"; fi
+        ${mockGetExe null} auth login --update-adc $GCLOUD_LOGIN_FLAGS --account=$GCP_ACCOUNT_USER@example.com
   '';
 
-  # Test infra auth recipe without iamOrg (simpler, no shebang needed)
+  # Test infra auth recipe without iamOrg (SSH detection still needs a shebang)
   testInfraAuthWithoutGcpAccount = mkJustParseTest "infra-auth-simple" ''
     # Authenticate with GCP and refresh ADC
     # (set GCP_ACCOUNT_USER to override username)
     auth:
-        ${mockGetExe null} auth login --update-adc
+        #!/usr/bin/env bash
+        GCLOUD_LOGIN_FLAGS=""
+        if [ -n "''${SSH_CONNECTION:-}" ] || [ -n "''${SSH_TTY:-}" ]; then GCLOUD_LOGIN_FLAGS="--no-launch-browser"; fi
+        ${mockGetExe null} auth login --update-adc $GCLOUD_LOGIN_FLAGS
   '';
 
   # Test auth-status recipe pattern with CLOUDSDK_CONFIG variable
