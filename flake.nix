@@ -79,6 +79,13 @@
     };
     bun2nix = {
       url = "github:nix-community/bun2nix";
+      # Without these, bun2nix brings its own nixpkgs (and flake-parts, systems,
+      # treefmt-nix), and every consumer inherits that extra nixpkgs source tree
+      # as jackpkgs/bun2nix/nixpkgs (jackpkgs#421).
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-parts.follows = "flake-parts";
+      inputs.systems.follows = "systems";
+      inputs.treefmt-nix.follows = "treefmt";
     };
   };
 
