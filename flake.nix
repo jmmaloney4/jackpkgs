@@ -493,6 +493,9 @@
 
         jackpkgs.pre-commit.adr.enable = false;
 
+        # nvfetcher output is tracked (Nix needs it) but generated; never hand-format it.
+        jackpkgs.fmt.excludes = ["_sources/*"];
+
         packages =
           lib.filterAttrs (
             _: v:
