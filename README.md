@@ -874,6 +874,8 @@ ______________________________________________________________________
 ## Packages available
 
 > **Removed packages:** `openchamber` (removed in e09c5ba, PR #247). The `llm-agents` and `bun2nix` flake inputs were also removed.
+>
+> **Parked packages:** `nautilus-trader` (2026-10-14; see [#427](https://github.com/jmmaloney4/jackpkgs/issues/427)). Flake `packages` output unwired; nvfetcher and `_sources` kept. The overlay never exported this package.
 
 - `csharpier` - C# formatter
 - `docfx` - .NET docs generator
