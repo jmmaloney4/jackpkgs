@@ -76,7 +76,7 @@ modules = [ inputs.jackpkgs.darwinModules.default ];       # or darwinModules.im
 modules = [ inputs.jackpkgs.homeModules.tod ];             # or homeModules.default for the whole tree
 ```
 
-NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enable`): `attic`, `disks`, `docker`, `fonts`, `gnupg-agent`, `nix`, `nixbuild`, `packages`, `ssh`, `tailscale`, `user`, `zenith`, `zsh`. Identity and topology values have no defaults — enabling a module without them fails at eval:
+NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enable`): `agenix`, `attic`, `determinate`, `disks`, `docker`, `fonts`, `gnupg-agent`, `nix`, `nixbuild`, `packages`, `ssh`, `tailscale`, `user`, `zenith`, `zsh`. Identity and topology values have no defaults — enabling a module without them fails at eval:
 
 ```nix
 {
@@ -85,6 +85,8 @@ NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enabl
   jackpkgs.ssh = { enable = true; authorizedKeys = [ "ssh-ed25519 AAAA…" ]; authorizedKeysUsers = [ "root" "alice" ]; };
   jackpkgs.attic = { enable = true; endpoint = "https://attic.example.ts.net"; pullCaches.mycache = "mycache:…="; };
   jackpkgs.tailscale.enable = true;
+  jackpkgs.agenix.enable = true;       # imports agenix; secrets decrypt with /etc/ssh/ssh_host_ed25519_key (mkDefault)
+  jackpkgs.determinate.enable = true;  # upstream determinate.enable defaults to true; jackpkgs gates it
 }
 ```
 

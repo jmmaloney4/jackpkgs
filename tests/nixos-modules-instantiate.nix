@@ -40,6 +40,8 @@
         exemptSourceCIDRs = ["10.42.0.0/16"];
       };
       jackpkgs.zsh.secretEnv.MY_TOKEN = "/run/agenix/my-token";
+      # Exercises the agenix glue end to end (secret -> activation script).
+      age.secrets.my-token.file = builtins.toFile "my-token.age" "placeholder";
     }
   ];
 

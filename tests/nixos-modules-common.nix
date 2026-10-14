@@ -5,7 +5,7 @@
   lib,
 }: rec {
   # The named set exactly as flake.nix exports it.
-  named = import ../modules/nixos/modules.nix;
+  named = import ../modules/nixos/modules.nix inputs;
 
   # Smallest NixOS config that instantiates without a bootloader or root
   # filesystem. x86_64-linux regardless of the evaluating system: these are
@@ -19,7 +19,7 @@
   # A NixOS system with the `default` aggregator plus `modules`.
   eval = modules:
     inputs.nixpkgs.lib.nixosSystem {
-      modules = [base ../modules/nixos] ++ modules;
+      modules = [base (import ../modules/nixos inputs)] ++ modules;
     };
 
   # Messages of the assertions that fail — `[]` when the config is accepted.

@@ -25,6 +25,19 @@
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
     flake-root.url = "github:srid/flake-root";
+    # Cheap inputs for the nixosModules.{agenix,determinate} glue (ADR-051
+    # Decision 3 / OD-C). agenix's own lock is just nixpkgs + systems.
+    # determinate-nix is the heavy one: its `nix` input (nix-src) carries its
+    # own pinned nixpkgs/flake-parts/git-hooks tree, deliberately NOT followed,
+    # because re-pointing it would move Determinate Nix off its binary cache.
+    agenix = {
+      url = "github:ryantm/agenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    determinate-nix = {
+      url = "github:DeterminateSystems/determinate";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     flake-compat = {
       url = "github:NixOS/flake-compat";
       flake = false;
@@ -522,6 +535,13 @@
         nix-unit = let
           # Provide nix-unit with our flake inputs so it never needs network access.
           # Convert flake inputs to their realised store paths where possible.
+          # The option type is `absolute path`, and nix rejects a bare store
+          # path override of a single-file `flake = false` input (the
+          # determinate-nixd-* binaries: "not a flake (because it's not a
+          # directory)"). Those are left out of the overrides; they are only
+          # forced if a test builds the Determinate daemon package, which
+          # none does (nix-unit is eval-only here).
+          isDir = outPath: builtins.readFileType outPath == "directory";
           sanitizeInput = input:
             if builtins.isAttrs input && input ? outPath
             then input.outPath
@@ -550,7 +570,7 @@
                     if builtins.isAttrs child && child ? outPath
                     then child.outPath
                     else path;
-                  selfOverride = lib.optionalAttrs (builtins.isAttrs child && child ? outPath) {
+                  selfOverride = lib.optionalAttrs (builtins.isAttrs child && child ? outPath && isDir child.outPath) {
                     ${path} = child.outPath;
                   };
                   rest =
@@ -757,8 +777,8 @@
         # is a path, so a consumer importing `default` and a named output
         # together gets the file once (the module system dedups by path).
         nixosModules =
-          {default = ./modules/nixos;}
-          // import ./modules/nixos/modules.nix;
+          {default = import ./modules/nixos inputs;}
+          // import ./modules/nixos/modules.nix inputs;
 
         # Expose Home Manager modules under the modern `homeModules` output
         # name (ADR-051). The legacy `pkgs.homeManagerModules` overlay path
