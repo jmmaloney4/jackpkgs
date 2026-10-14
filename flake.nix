@@ -145,11 +145,12 @@
           inherit system;
           config.allowUnfreePredicate = pkg: lib.getName pkg == "gawkbot";
         };
-        nautilusRustToolchain = inputs.fenix.packages.${system}.minimal.toolchain;
-        nautilusRustPlatform = pkgs.makeRustPlatform {
-          cargo = nautilusRustToolchain;
-          rustc = nautilusRustToolchain;
-        };
+        # parked: see jackpkgs#427 (nautilus-trader 2.0 maturin/uv)
+        # nautilusRustToolchain = inputs.fenix.packages.${system}.minimal.toolchain;
+        # nautilusRustPlatform = pkgs.makeRustPlatform {
+        #   cargo = nautilusRustToolchain;
+        #   rustc = nautilusRustToolchain;
+        # };
         # Make flake lib available for tests
         flakeLib = inputs.nixpkgs.lib.extend (
           final: prev: jackLib
@@ -178,15 +179,16 @@
           mcp-ynab = pkgs.callPackage ./pkgs/mcp-ynab {
             inherit (nvfetcherSources.mcp-ynab) src version;
           };
-          nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
-            inherit (nvfetcherSources.nautilus-trader) src version cargoLock;
-            cargo = nautilusRustToolchain;
-            rustc = nautilusRustToolchain;
-            rustPlatform = nautilusRustPlatform;
-            # Keep the legacy override parameter for `.override { python312 = ...; }` callers.
-            # The default value now comes from Python 3.14.
-            python312 = pkgs.python314;
-          };
+          # parked: see jackpkgs#427 (nautilus-trader 2.0 maturin/uv)
+          # nautilus-trader = pkgs.callPackage ./pkgs/nautilus-trader {
+          #   inherit (nvfetcherSources.nautilus-trader) src version cargoLock;
+          #   cargo = nautilusRustToolchain;
+          #   rustc = nautilusRustToolchain;
+          #   rustPlatform = nautilusRustPlatform;
+          #   # Keep the legacy override parameter for `.override { python312 = ...; }` callers.
+          #   # The default value now comes from Python 3.14.
+          #   python312 = pkgs.python314;
+          # };
           seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           # Re-export skopeo-nix2container from the nix2container flake so it is
           # built once and pushed to our binary cache, instead of every consumer

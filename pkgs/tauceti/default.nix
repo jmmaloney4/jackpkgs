@@ -1,6 +1,6 @@
 {
   lib,
-  python312Packages,
+  python313Packages,
   makeWrapper,
   git,
   gh,
@@ -22,15 +22,15 @@
 # What is deliberately NOT pinned: `claude`, `codex`, `kiro-cli` and `lake`. The agent CLIs
 # carry the operator's credentials and subscription, and `lake` belongs to whichever Lean
 # toolchain the checkout nominates through elan. All four are left to the caller's PATH.
-python312Packages.buildPythonApplication {
+python313Packages.buildPythonApplication {
   pname = "tauceti";
   version = "0-unstable-${date}";
   inherit src;
 
   pyproject = true;
-  build-system = [python312Packages.hatchling];
+  build-system = [python313Packages.hatchling];
 
-  dependencies = with python312Packages; [
+  dependencies = with python313Packages; [
     rich
     textual
   ];
@@ -51,7 +51,7 @@ python312Packages.buildPythonApplication {
   # the shell helpers (claim.sh, git-safe-push, gh-safe-pr-create) land in site-packages rather
   # than $out/bin and miss the default patchShebangs pass.
   postFixup = ''
-    patchShebangs $out/${python312Packages.python.sitePackages}/tauceti_worker/scripts
+    patchShebangs $out/${python313Packages.python.sitePackages}/tauceti_worker/scripts
 
     wrapProgram $out/bin/tauceti \
       --prefix PATH : ${lib.makeBinPath [git gh jq tauceti-review tauceti-progress]}

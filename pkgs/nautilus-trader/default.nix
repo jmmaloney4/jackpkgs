@@ -62,9 +62,11 @@ in
 
     # Strip uv required-version pin (upstream dev guard; Nix controls the uv version)
     # Also strip invalid 'license' key from authors[0] rejected by poetry-core >= 2.3
+    # (harmless no-op on 2.x where license lives at project.license).
+    # Upstream 2.0 moved the Python project into python/ (no root pyproject.toml).
     postPatch = ''
-      yq -i 'del(.tool.uv.required-version)' pyproject.toml
-      yq -i 'del(.project.authors[0].license)' pyproject.toml
+      yq -i 'del(.tool.uv.required-version)' python/pyproject.toml
+      yq -i 'del(.project.authors[0].license)' python/pyproject.toml
     '';
 
     env =
@@ -122,7 +124,8 @@ in
         --no-managed-python \
         --no-python-downloads \
         --out-dir dist \
-        --offline
+        --offline \
+        python
       runHook postBuild
     '';
 

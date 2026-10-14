@@ -1,19 +1,19 @@
 {
   lib,
-  python312Packages,
+  python313Packages,
   makeWrapper,
   # From nvfetcher
   src,
   version,
 }: let
-  pythonEnv = python312Packages.python.withPackages (ps:
+  pythonEnv = python313Packages.python.withPackages (ps:
     with ps; [
       fastmcp
       httpx
       pyyaml
     ]);
 in
-  python312Packages.stdenv.mkDerivation {
+  python313Packages.stdenv.mkDerivation {
     pname = "mcp-ynab";
     inherit version src;
 
