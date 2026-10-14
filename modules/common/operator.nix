@@ -22,8 +22,9 @@
 # (garden's `gardenSkillsHosts` skills-sync invariant moved to garden).
 #
 # Platform-agnostic: the Linux-only account attributes are guarded, uid
-# differs per platform. Requires the Home Manager NixOS / nix-darwin module to
-# be imported by the consumer (`nixosModules.profile` does this on NixOS).
+# differs per platform. Requires the Home Manager NixOS / nix-darwin module:
+# `nixosModules.operator` imports the NixOS one itself; a nix-darwin consumer
+# imports home-manager's darwin module (jackpkgs has no nix-darwin input).
 {
   config,
   lib,
@@ -80,10 +81,13 @@ in {
     users.users.${username} =
       {
         shell = pkgs.zsh;
-        uid =
+        # mkDefault: a host whose operator account has another uid (a WSL
+        # `nixos` user, say) just sets `users.users.<n>.uid`.
+        uid = mkDefault (
           if isLinux
           then 1000
-          else 501;
+          else 501
+        );
       }
       // (
         if isLinux
@@ -91,7 +95,13 @@ in {
           isNormalUser = true;
           extraGroups = ["networkmanager" "wheel"];
         }
-        else {}
+        else {
+          # nix-darwin's `users.users.<n>.home` defaults to null, and Home
+          # Manager's nix-darwin glue derives `home.homeDirectory` from it, so
+          # without this the operator has no home directory on darwin. (The
+          # NixOS default, /home/<n>, is derived by NixOS itself.)
+          home = mkDefault "/Users/${username}";
+        }
       );
 
     home-manager = {

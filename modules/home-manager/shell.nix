@@ -8,7 +8,9 @@
 # cross-reference each other (zsh integrations for eza/fzf, zellij aliases,
 # the forwarded-agent socket shared by zsh and ssh_config). It is opinionated
 # taste on purpose (ADR-051 Decision 4): a consumer who dislikes one program
-# overrides that program's own `programs.<name>.enable`.
+# overrides that program's own `programs.<name>.enable`. Security-relevant
+# taste: the ssh client sets `ForwardAgent = true` for every host (`Host *`);
+# override `programs.ssh.settings."*".ForwardAgent` to narrow it.
 #
 # `home.stateVersion` is deliberately NOT set here: it is per-account state
 # the consumer owns, and Home Manager fails loudly when it is missing.
@@ -51,12 +53,15 @@
   shellSocket = "$HOME/${cfg.localSshAgentSocket}";
 in {
   options.jackpkgs.shell = {
-    enable = mkEnableOption "jackpkgs' interactive shell environment (zsh, starship, zellij, zoxide, direnv, eza, fzf, bat, gpg, jq, ssh client)";
+    enable = mkEnableOption "jackpkgs' interactive shell environment (zsh, starship, zellij, zoxide, direnv, eza, fzf, bat, gpg, jq, ssh client; note the ssh client forwards the agent to every host, ForwardAgent = true)";
 
     localSshAgentSocket = mkOption {
       # nullOr + default null: "no local agent socket to prefer" is an intended
       # state (a headless host), so it is spelled instead of left to fail.
-      type = types.nullOr types.str;
+      # strMatching: the value is interpolated unescaped into a zsh
+      # test and an ssh_config `Match exec` line, so a double quote or a
+      # leading "/" would yield broken or wrong config. Refuse it at the type.
+      type = types.nullOr (types.strMatching "[^\"/][^\"]*");
       default = null;
       example = "Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
       description = ''

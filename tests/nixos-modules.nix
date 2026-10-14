@@ -821,6 +821,50 @@ in {
     };
   };
 
+  # operator / build-user alone (no profile, no default aggregator) must
+  # evaluate: they bring the Home Manager NixOS module themselves.
+  testOperatorAloneEvaluates = {
+    expr = let
+      c =
+        (inputs.nixpkgs.lib.nixosSystem {
+          modules = [common.base named.operator operatorWiring];
+        }).config;
+    in
+      c.home-manager.users ? alice;
+    expected = true;
+  };
+
+  testBuildUserAloneEvaluates = {
+    expr = let
+      c =
+        (inputs.nixpkgs.lib.nixosSystem {
+          modules = [
+            common.base
+            named.build-user
+            {
+              jackpkgs.build-user = {
+                enable = true;
+                username = "builder";
+              };
+            }
+          ];
+        }).config;
+    in
+      c.home-manager.users ? builder;
+    expected = true;
+  };
+
+  # uid is a default, not a fixed value: a host may give the operator another.
+  testOperatorUidOverridable = {
+    expr =
+      (cfgOf [
+        named.profile
+        operatorWiring
+        {users.users.alice.uid = 1001;}
+      ]).users.users.alice.uid;
+    expected = 1001;
+  };
+
   testOperatorSuppliesHostnameSpecialArg = {
     expr = let
       c =

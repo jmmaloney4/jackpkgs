@@ -19,10 +19,12 @@ inputs:
 import ../common/modules.nix
 // {
   agenix = import ./agenix.nix inputs;
+  build-user = import ./build-user.nix inputs;
   determinate = import ./determinate.nix inputs;
   disks = ./disks.nix;
   docker = ./docker.nix;
   nix = ./nix.nix;
+  operator = import ./operator.nix inputs;
   profile = import ./profile.nix inputs;
   tailscale = ./tailscale.nix;
   zenith = ./zenith.nix;

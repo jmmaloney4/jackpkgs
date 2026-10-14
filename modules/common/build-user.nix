@@ -6,8 +6,9 @@
 # on root, as in garden). The account name is identity, so `username` has no
 # default (ADR-051 Decision 4); garden's `plato` is its consumer's value.
 #
-# Requires the Home Manager NixOS / nix-darwin module to be imported by the
-# consumer (`nixosModules.profile` does this on NixOS).
+# Requires the Home Manager NixOS / nix-darwin module: `nixosModules.build-user`
+# imports the NixOS one itself; a nix-darwin consumer imports home-manager's
+# darwin module (jackpkgs has no nix-darwin input).
 {
   config,
   lib,

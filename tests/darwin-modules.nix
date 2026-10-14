@@ -241,6 +241,10 @@
         && c.home-manager.extraSpecialArgs.hostname == "mac";
     }
     {
+      msg = "operator: darwin home directory is set (HM derives home.homeDirectory from it)";
+      ok = c.users.users.alice.home == "/Users/alice";
+    }
+    {
       msg = "build-user and guest-user: darwin accounts, guest has no HM user";
       ok =
         !(c.users.users.builder ? isNormalUser)

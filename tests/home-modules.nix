@@ -276,6 +276,50 @@ in {
     };
   };
 
+  # The socket path is interpolated into zsh and ssh_config; a quote or a
+  # leading "/" would produce broken config, so the type refuses them.
+  testShellLocalAgentSocketRefusesAbsolute = {
+    expr =
+      (cfgOf [
+        {
+          jackpkgs.shell = {
+            enable = true;
+            localSshAgentSocket = "/abs/agent.sock";
+          };
+        }
+      ]).programs.ssh.extraConfig;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "localSshAgentSocket";
+  };
+
+  testShellLocalAgentSocketRefusesQuote = {
+    expr =
+      (cfgOf [
+        {
+          jackpkgs.shell = {
+            enable = true;
+            localSshAgentSocket = "a\"b";
+          };
+        }
+      ]).programs.ssh.extraConfig;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "localSshAgentSocket";
+  };
+
+  testShellLocalAgentSocketAllowsSpaces = {
+    expr =
+      (cfgOf [
+        {
+          jackpkgs.shell = {
+            enable = true;
+            localSshAgentSocket = "Library/Group Containers/x/agent.sock";
+          };
+        }
+      ]).programs.ssh.extraConfig
+      != "";
+    expected = true;
+  };
+
   # ---------------------------------------------------------------------
   # jackpkgs.cargo / jackpkgs.build-user
   # ---------------------------------------------------------------------
