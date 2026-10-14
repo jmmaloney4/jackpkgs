@@ -655,6 +655,9 @@
             lib-default = import ./tests/lib-default.nix {
               inherit lib pkgs;
             };
+            nixos-modules = import ./tests/nixos-modules.nix {
+              inherit inputs lib;
+            };
           };
         };
 
@@ -706,7 +709,22 @@
           # jackpkgs.lean end-to-end against tests/fixtures/lean/project (#392).
           # Individual rather than aggregated so a Lean failure is legible
           # without building Lean to read it.
-          // lib.mapAttrs' (name: drv: lib.nameValuePair "lean-project-${name}" drv) leanProjectTests;
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "lean-project-${name}" drv) leanProjectTests
+          # The shared NixOS module set instantiated with every module enabled
+          # (ADR-051, garden#2074 Part B PR 2); value-level behaviour is the
+          # `nixos-modules` nix-unit suite.
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "nixos-modules-${name}" drv) (
+            import ./tests/nixos-modules-instantiate.nix {
+              inherit inputs lib pkgs;
+            }
+          )
+          # The common/ set evaluated as darwinModules against stub nix-darwin
+          # option declarations (eval-only; no nix-darwin input exists).
+          // {
+            darwin-modules-structure = import ./tests/darwin-modules.nix {
+              inherit inputs lib pkgs;
+            };
+          };
       };
 
       flake = {
@@ -720,16 +738,27 @@
         overlays.llvm-darwin-codesign-test = import ./overlays/llvm-darwin-codesign-test.nix;
 
         # Expose nix-darwin modules. `default` is the tree aggregator; named
-        # modules stay individually addressable (ADR-051).
-        darwinModules = {
-          default = import ./modules/nix-darwin;
-          imessage-bridge = import ./modules/nix-darwin/imessage-bridge.nix;
-        };
+        # modules stay individually addressable (ADR-051). The platform-agnostic
+        # common/ set is exported here as well as under `nixosModules` (ADR-051
+        # Decision 5, amended): the same files, one source of truth in
+        # modules/common/modules.nix. Garden's darwin-only tree still does not
+        # promote. NOT validated against a real nix-darwin evaluation -- see
+        # tests/darwin-modules.nix for what is.
+        darwinModules =
+          {
+            default = import ./modules/nix-darwin;
+            imessage-bridge = import ./modules/nix-darwin/imessage-bridge.nix;
+          }
+          // import ./modules/common/modules.nix;
 
-        # Expose NixOS modules (ADR-051). The aggregator is un-stubbed but
-        # empty: the shared fleet module set promoted from garden's nixfiles/
-        # (garden#2074 Part B) lands in the follow-up PRs.
-        nixosModules.default = import ./modules/nixos;
+        # Expose NixOS modules (ADR-051): the shared fleet module set promoted
+        # from garden's nixfiles/ (garden#2074 Part B). Named outputs and the
+        # `default` aggregator both come from modules/nixos/modules.nix. Each
+        # is a path, so a consumer importing `default` and a named output
+        # together gets the file once (the module system dedups by path).
+        nixosModules =
+          {default = ./modules/nixos;}
+          // import ./modules/nixos/modules.nix;
 
         # Expose Home Manager modules under the modern `homeModules` output
         # name (ADR-051). The legacy `pkgs.homeManagerModules` overlay path
