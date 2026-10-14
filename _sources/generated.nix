@@ -4,7 +4,8 @@
   fetchurl,
   fetchFromGitHub,
   dockerTools,
-}: {
+}:
+{
   codex-proxy = {
     pname = "codex-proxy";
     version = "aa8d9032ff92ae984482f44818b509f72cd0d7b2";
@@ -31,45 +32,45 @@
   };
   dbn-cli = {
     pname = "dbn-cli";
-    version = "v0.61.0";
+    version = "v0.72.0";
     src = fetchFromGitHub {
       owner = "databento";
       repo = "dbn";
-      rev = "v0.61.0";
+      rev = "v0.72.0";
       fetchSubmodules = false;
-      sha256 = "sha256-PMfTgyfLg0O61CypAN+l3porXuOE+bK777J9i4QE+W8=";
+      sha256 = "sha256-3pAyqzeQXvfXFvLcAbtvx5Fo7eG3seCxRn71yEpEnVQ=";
     };
   };
   gawkbot-aarch64-darwin = {
     pname = "gawkbot-aarch64-darwin";
-    version = "0.239.0";
+    version = "0.240.1";
     src = fetchurl {
-      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_darwin_arm64.tar.gz";
-      sha256 = "sha256-xvX+r2yCYWMP7z4l2serEznFnG9DtYhdGqQR/dPH5FA=";
+      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.240.1/gawkbot_0.240.1_darwin_arm64.tar.gz";
+      sha256 = "sha256-0yr7PZXRdmhUBvhyEcCtgHwowzpBDIaO6xlSXD+G2Rg=";
     };
   };
   gawkbot-aarch64-linux = {
     pname = "gawkbot-aarch64-linux";
-    version = "0.239.0";
+    version = "0.240.1";
     src = fetchurl {
-      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_linux_arm64.tar.gz";
-      sha256 = "sha256-clqcj+0XsgZYqpWi7etSytaiwfGNlpn5RZFKk1RKZKE=";
+      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.240.1/gawkbot_0.240.1_linux_arm64.tar.gz";
+      sha256 = "sha256-tgmQCPPwnXhTsW5TsSv+yhrdt7QnMuuxEZCW8mNLvCA=";
     };
   };
   gawkbot-x86_64-darwin = {
     pname = "gawkbot-x86_64-darwin";
-    version = "0.239.0";
+    version = "0.240.1";
     src = fetchurl {
-      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_darwin_amd64.tar.gz";
-      sha256 = "sha256-6rhclbFQWdWdG1Ra1PU9kZG7h5lAi9/HryXGYWWv49A=";
+      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.240.1/gawkbot_0.240.1_darwin_amd64.tar.gz";
+      sha256 = "sha256-ag36vlVsPoZxfGcBkS3uKld/JOft5KMjFOuPcOEe6rM=";
     };
   };
   gawkbot-x86_64-linux = {
     pname = "gawkbot-x86_64-linux";
-    version = "0.239.0";
+    version = "0.240.1";
     src = fetchurl {
-      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_linux_amd64.tar.gz";
-      sha256 = "sha256-0KNhzZ18ja7zIFvsQb6BCeFqrEaBUuaCSanS+dz6JNI=";
+      url = "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.240.1/gawkbot_0.240.1_linux_amd64.tar.gz";
+      sha256 = "sha256-g6I3S/cYqMLBJ/a3zXe70sTfQEiqRLwyDirD7V54p94=";
     };
   };
   gemini-proxy = {
@@ -98,81 +99,83 @@
   };
   nautilus-trader = {
     pname = "nautilus-trader";
-    version = "1408bec68bb01ba1c3166e1f3803f1536fc9c950";
+    version = "de794053685c3a3b7ae74eb995e2b31215786b25";
     src = fetchFromGitHub {
       owner = "nautechsystems";
       repo = "nautilus_trader";
-      rev = "1408bec68bb01ba1c3166e1f3803f1536fc9c950";
+      rev = "de794053685c3a3b7ae74eb995e2b31215786b25";
       fetchSubmodules = false;
-      sha256 = "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=";
+      sha256 = "sha256-4g6Yue8cQCKawhj3NtERKSZ02iTjDPlRCm3tmIonWOk=";
     };
     cargoLock."Cargo.lock" = {
-      lockFile = ./. + "/sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock";
+      lockFile = ./. + "/sha256-4g6Yue8cQCKawhj3NtERKSZ02iTjDPlRCm3tmIonWOk=/Cargo.lock";
       outputHashes = {
+        
       };
     };
-    date = "2026-05-29";
+    date = "2026-10-14";
   };
   spooktacular = {
     pname = "spooktacular";
-    version = "f36634b84e1d38d81bd282b0f88a497557e4a520";
+    version = "41036fc7a6bea9ac4d8b50559e40b8bd7ea66095";
     src = fetchFromGitHub {
       owner = "Spooky-Labs";
       repo = "spooktacular";
-      rev = "f36634b84e1d38d81bd282b0f88a497557e4a520";
+      rev = "41036fc7a6bea9ac4d8b50559e40b8bd7ea66095";
       fetchSubmodules = false;
-      sha256 = "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=";
+      sha256 = "sha256-0+ywbybxvrOuq+bZNCYs/UmyzAnlDuIaCTzXoTUVZig=";
     };
-    date = "2026-04-19";
+    date = "2026-08-02";
   };
   tauceti = {
     pname = "tauceti";
-    version = "68662114b91417cac3a2c72ed9e52a9e16c3aee6";
+    version = "11e4ff68c4998f2a700b1ad31801485ad2250e42";
     src = fetchFromGitHub {
       owner = "TauCetiProject";
       repo = "TauCetiWorker";
-      rev = "68662114b91417cac3a2c72ed9e52a9e16c3aee6";
+      rev = "11e4ff68c4998f2a700b1ad31801485ad2250e42";
       fetchSubmodules = false;
-      sha256 = "sha256-ay8N/4/GRLE1H/GyZ8HMJllmwYxhmn5H8+wSuN2Ze6E=";
+      sha256 = "sha256-P0GvamOX98yjZldyVe513b14KUZ4+Yk5xXoSgJcfPlE=";
     };
-    date = "2026-09-14";
+    date = "2026-10-14";
   };
   tauceti-progress = {
     pname = "tauceti-progress";
-    version = "e4cfa57193bd43827411e48f21226cc1c1b3b117";
+    version = "1feea7926eefd7129089bb060a47c28ae915a877";
     src = fetchFromGitHub {
       owner = "TauCetiProject";
       repo = "TauCetiProgress";
-      rev = "e4cfa57193bd43827411e48f21226cc1c1b3b117";
+      rev = "1feea7926eefd7129089bb060a47c28ae915a877";
       fetchSubmodules = false;
-      sha256 = "sha256-0JwXkpSRrldMugEwtNu+wAygwU5S3UMw3LOX/EMILqI=";
+      sha256 = "sha256-/WW3oU4BMc1I9rogvaHCha+e8kj1rFe2D+sDmKpHxHc=";
     };
   };
   tauceti-review = {
     pname = "tauceti-review";
-    version = "afb424eda89e8ac96d9eb69f6a88972055a4cd1b";
+    version = "baf2e680b43369805621e6ff0b6c984cab5e4ccb";
     src = fetchFromGitHub {
       owner = "TauCetiProject";
       repo = "TauCetiReview";
-      rev = "afb424eda89e8ac96d9eb69f6a88972055a4cd1b";
+      rev = "baf2e680b43369805621e6ff0b6c984cab5e4ccb";
       fetchSubmodules = false;
-      sha256 = "sha256-cgqOR5YGcboIrhkK6H31wt68fxyR8GJeUgmjggWEx3s=";
+      sha256 = "sha256-YisDJpQK63Dran5I5IibX2tVEUCehRxIq6y3ZWoappU=";
     };
-    date = "2026-09-03";
+    date = "2026-10-13";
   };
   tod = {
     pname = "tod";
-    version = "v0.12.1";
+    version = "v0.19.0";
     src = fetchFromGitHub {
       owner = "alanvardy";
       repo = "tod";
-      rev = "v0.12.1";
+      rev = "v0.19.0";
       fetchSubmodules = false;
-      sha256 = "sha256-091/1go/dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=";
+      sha256 = "sha256-/Q0hAKcJ9vcHBWtaYhpILpzcF8Zu/aY5eE/TY1NmAWE=";
     };
     cargoLock."Cargo.lock" = {
-      lockFile = ./. + "/sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock";
+      lockFile = ./. + "/sha256-_Q0hAKcJ9vcHBWtaYhpILpzcF8Zu_aY5eE_TY1NmAWE=/Cargo.lock";
       outputHashes = {
+        
       };
     };
   };
