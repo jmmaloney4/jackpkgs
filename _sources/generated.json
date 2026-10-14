@@ -55,12 +55,12 @@
             "name": null,
             "owner": "databento",
             "repo": "dbn",
-            "rev": "v0.61.0",
-            "sha256": "sha256-PMfTgyfLg0O61CypAN+l3porXuOE+bK777J9i4QE+W8=",
+            "rev": "v0.72.0",
+            "sha256": "sha256-3pAyqzeQXvfXFvLcAbtvx5Fo7eG3seCxRn71yEpEnVQ=",
             "sparseCheckout": [],
             "type": "github"
         },
-        "version": "v0.61.0"
+        "version": "v0.72.0"
     },
     "gawkbot-aarch64-darwin": {
         "cargoLock": null,
@@ -71,11 +71,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-xvX+r2yCYWMP7z4l2serEznFnG9DtYhdGqQR/dPH5FA=",
+            "sha256": "sha256-0yr7PZXRdmhUBvhyEcCtgHwowzpBDIaO6xlSXD+G2Rg=",
             "type": "url",
-            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_darwin_arm64.tar.gz"
+            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.240.1/gawkbot_0.240.1_darwin_arm64.tar.gz"
         },
-        "version": "0.239.0"
+        "version": "0.240.1"
     },
     "gawkbot-aarch64-linux": {
         "cargoLock": null,
@@ -86,11 +86,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-clqcj+0XsgZYqpWi7etSytaiwfGNlpn5RZFKk1RKZKE=",
+            "sha256": "sha256-tgmQCPPwnXhTsW5TsSv+yhrdt7QnMuuxEZCW8mNLvCA=",
             "type": "url",
-            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_linux_arm64.tar.gz"
+            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.240.1/gawkbot_0.240.1_linux_arm64.tar.gz"
         },
-        "version": "0.239.0"
+        "version": "0.240.1"
     },
     "gawkbot-x86_64-darwin": {
         "cargoLock": null,
@@ -101,11 +101,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-6rhclbFQWdWdG1Ra1PU9kZG7h5lAi9/HryXGYWWv49A=",
+            "sha256": "sha256-ag36vlVsPoZxfGcBkS3uKld/JOft5KMjFOuPcOEe6rM=",
             "type": "url",
-            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_darwin_amd64.tar.gz"
+            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.240.1/gawkbot_0.240.1_darwin_amd64.tar.gz"
         },
-        "version": "0.239.0"
+        "version": "0.240.1"
     },
     "gawkbot-x86_64-linux": {
         "cargoLock": null,
@@ -116,11 +116,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-0KNhzZ18ja7zIFvsQb6BCeFqrEaBUuaCSanS+dz6JNI=",
+            "sha256": "sha256-g6I3S/cYqMLBJ/a3zXe70sTfQEiqRLwyDirD7V54p94=",
             "type": "url",
-            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.239.0/gawkbot_0.239.0_linux_amd64.tar.gz"
+            "url": "https://github.com/najmuzzaman-mohammad/gawkbot/releases/download/v0.240.1/gawkbot_0.240.1_linux_amd64.tar.gz"
         },
-        "version": "0.239.0"
+        "version": "0.240.1"
     },
     "gemini-proxy": {
         "cargoLock": null,
@@ -167,11 +167,11 @@
     "nautilus-trader": {
         "cargoLock": {
             "Cargo.lock": [
-                "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=/Cargo.lock",
+                "sha256-4g6Yue8cQCKawhj3NtERKSZ02iTjDPlRCm3tmIonWOk=/Cargo.lock",
                 {}
             ]
         },
-        "date": "2026-05-29",
+        "date": "2026-10-14",
         "extract": null,
         "name": "nautilus-trader",
         "passthru": null,
@@ -183,16 +183,16 @@
             "name": null,
             "owner": "nautechsystems",
             "repo": "nautilus_trader",
-            "rev": "1408bec68bb01ba1c3166e1f3803f1536fc9c950",
-            "sha256": "sha256-5NgHvKZoydlqxfMvXEjZy73g8kJGoIV2L7kRKnfkRXc=",
+            "rev": "de794053685c3a3b7ae74eb995e2b31215786b25",
+            "sha256": "sha256-4g6Yue8cQCKawhj3NtERKSZ02iTjDPlRCm3tmIonWOk=",
             "sparseCheckout": [],
             "type": "github"
         },
-        "version": "1408bec68bb01ba1c3166e1f3803f1536fc9c950"
+        "version": "de794053685c3a3b7ae74eb995e2b31215786b25"
     },
     "spooktacular": {
         "cargoLock": null,
-        "date": "2026-04-19",
+        "date": "2026-08-02",
         "extract": null,
         "name": "spooktacular",
         "passthru": null,
@@ -204,16 +204,16 @@
             "name": null,
             "owner": "Spooky-Labs",
             "repo": "spooktacular",
-            "rev": "f36634b84e1d38d81bd282b0f88a497557e4a520",
-            "sha256": "sha256-x8bqwvbw0WZKASEIDqCVR8b91RqJKSLYcNSfe68WzrE=",
+            "rev": "41036fc7a6bea9ac4d8b50559e40b8bd7ea66095",
+            "sha256": "sha256-0+ywbybxvrOuq+bZNCYs/UmyzAnlDuIaCTzXoTUVZig=",
             "sparseCheckout": [],
             "type": "github"
         },
-        "version": "f36634b84e1d38d81bd282b0f88a497557e4a520"
+        "version": "41036fc7a6bea9ac4d8b50559e40b8bd7ea66095"
     },
     "tauceti": {
         "cargoLock": null,
-        "date": "2026-09-14",
+        "date": "2026-10-14",
         "extract": null,
         "name": "tauceti",
         "passthru": null,
@@ -225,12 +225,12 @@
             "name": null,
             "owner": "TauCetiProject",
             "repo": "TauCetiWorker",
-            "rev": "68662114b91417cac3a2c72ed9e52a9e16c3aee6",
-            "sha256": "sha256-ay8N/4/GRLE1H/GyZ8HMJllmwYxhmn5H8+wSuN2Ze6E=",
+            "rev": "11e4ff68c4998f2a700b1ad31801485ad2250e42",
+            "sha256": "sha256-P0GvamOX98yjZldyVe513b14KUZ4+Yk5xXoSgJcfPlE=",
             "sparseCheckout": [],
             "type": "github"
         },
-        "version": "68662114b91417cac3a2c72ed9e52a9e16c3aee6"
+        "version": "11e4ff68c4998f2a700b1ad31801485ad2250e42"
     },
     "tauceti-progress": {
         "cargoLock": null,
@@ -246,16 +246,16 @@
             "name": null,
             "owner": "TauCetiProject",
             "repo": "TauCetiProgress",
-            "rev": "e4cfa57193bd43827411e48f21226cc1c1b3b117",
-            "sha256": "sha256-0JwXkpSRrldMugEwtNu+wAygwU5S3UMw3LOX/EMILqI=",
+            "rev": "1feea7926eefd7129089bb060a47c28ae915a877",
+            "sha256": "sha256-/WW3oU4BMc1I9rogvaHCha+e8kj1rFe2D+sDmKpHxHc=",
             "sparseCheckout": [],
             "type": "github"
         },
-        "version": "e4cfa57193bd43827411e48f21226cc1c1b3b117"
+        "version": "1feea7926eefd7129089bb060a47c28ae915a877"
     },
     "tauceti-review": {
         "cargoLock": null,
-        "date": "2026-09-03",
+        "date": "2026-10-13",
         "extract": null,
         "name": "tauceti-review",
         "passthru": null,
@@ -267,17 +267,17 @@
             "name": null,
             "owner": "TauCetiProject",
             "repo": "TauCetiReview",
-            "rev": "afb424eda89e8ac96d9eb69f6a88972055a4cd1b",
-            "sha256": "sha256-cgqOR5YGcboIrhkK6H31wt68fxyR8GJeUgmjggWEx3s=",
+            "rev": "baf2e680b43369805621e6ff0b6c984cab5e4ccb",
+            "sha256": "sha256-YisDJpQK63Dran5I5IibX2tVEUCehRxIq6y3ZWoappU=",
             "sparseCheckout": [],
             "type": "github"
         },
-        "version": "afb424eda89e8ac96d9eb69f6a88972055a4cd1b"
+        "version": "baf2e680b43369805621e6ff0b6c984cab5e4ccb"
     },
     "tod": {
         "cargoLock": {
             "Cargo.lock": [
-                "sha256-091_1go_dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=/Cargo.lock",
+                "sha256-_Q0hAKcJ9vcHBWtaYhpILpzcF8Zu_aY5eE_TY1NmAWE=/Cargo.lock",
                 {}
             ]
         },
@@ -293,11 +293,11 @@
             "name": null,
             "owner": "alanvardy",
             "repo": "tod",
-            "rev": "v0.12.1",
-            "sha256": "sha256-091/1go/dBpTxK60Zh1cuzEJl7Fh7X7vpStRRoKFOzA=",
+            "rev": "v0.19.0",
+            "sha256": "sha256-/Q0hAKcJ9vcHBWtaYhpILpzcF8Zu/aY5eE/TY1NmAWE=",
             "sparseCheckout": [],
             "type": "github"
         },
-        "version": "v0.12.1"
+        "version": "v0.19.0"
     }
 }
