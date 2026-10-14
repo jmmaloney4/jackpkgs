@@ -547,4 +547,111 @@ in {
     expectedError.type = "ThrownError";
     expectedError.msg = "jackpkgs\\.tailscale\\.mullvad\\.exemptSourceCIDRs";
   };
+
+  # ---------------------------------------------------------------------
+  # Input-backed glue: jackpkgs.agenix / jackpkgs.determinate
+  # ---------------------------------------------------------------------
+
+  # Upstream `determinate.enable` defaults to TRUE, so importing the upstream
+  # module alone would swap nix.package on every host. Pin that importing the
+  # jackpkgs aggregator does not (compared against a config with no jackpkgs
+  # modules at all, so the check cannot pass vacuously).
+  testDeterminateImportIsInert = {
+    expr = let
+      bare = (inputs.nixpkgs.lib.nixosSystem {modules = [common.base];}).config;
+      c = cfgOf [];
+    in {
+      enable = c.determinate.enable;
+      package = c.nix.package.drvPath == bare.nix.package.drvPath;
+      registry = c.nix.registry ? nixpkgs == bare.nix.registry ? nixpkgs;
+    };
+    expected = {
+      enable = false;
+      package = true;
+      registry = true;
+    };
+  };
+
+  # Positive control for the test above: the same comparison DOES see the
+  # swap when the module is enabled.
+  testDeterminateEnableSwapsNixPackage = {
+    expr = let
+      bare = (inputs.nixpkgs.lib.nixosSystem {modules = [common.base];}).config;
+      c = cfgOf [{jackpkgs.determinate.enable = true;}];
+    in {
+      enable = c.determinate.enable;
+      swapped = c.nix.package.drvPath != bare.nix.package.drvPath;
+    };
+    expected = {
+      enable = true;
+      swapped = true;
+    };
+  };
+
+  # A consumer can still override the upstream switch (mkDefault priority).
+  testDeterminateConsumerCanOverride = {
+    expr =
+      (cfgOf [
+        {
+          jackpkgs.determinate.enable = true;
+          determinate.enable = false;
+        }
+      ]).determinate.enable;
+    expected = false;
+  };
+
+  testDeterminateStandsAlone = {
+    expr =
+      (inputs.nixpkgs.lib.nixosSystem {
+        modules = [common.base named.determinate {jackpkgs.determinate.enable = true;}];
+      }).config.determinate.enable;
+    expected = true;
+  };
+
+  # `default` + `determinate`/`agenix` together must not double-declare the
+  # upstream options (the glue carries a module `key`).
+  testInputBackedGlueDedups = {
+    expr = let
+      c = cfgOf [named.agenix named.determinate];
+    in {
+      agenix = c.jackpkgs.agenix.enable;
+      determinate = c.jackpkgs.determinate.enable;
+    };
+    expected = {
+      agenix = false;
+      determinate = false;
+    };
+  };
+
+  testAgenixIdentityDefaultWhenEnabled = {
+    expr = (cfgOf [{jackpkgs.agenix.enable = true;}]).age.identityPaths;
+    expected = ["/etc/ssh/ssh_host_ed25519_key"];
+  };
+
+  # Disabled: the host-key opinion is not applied. Upstream's own default is
+  # derived from services.openssh (empty when sshd is off), so `[]` here is
+  # upstream's value, not ours; the enabled test above is the positive control.
+  testAgenixIdentityNotForcedWhenDisabled = {
+    expr = (cfgOf []).age.identityPaths;
+    expected = [];
+  };
+
+  testAgenixIdentityOverridable = {
+    expr =
+      (cfgOf [
+        {
+          jackpkgs.agenix.enable = true;
+          age.identityPaths = ["/var/lib/age/key"];
+        }
+      ]).age.identityPaths;
+    expected = ["/var/lib/age/key"];
+  };
+
+  testAgenixStandsAlone = {
+    expr =
+      (inputs.nixpkgs.lib.nixosSystem {
+        modules = [common.base named.agenix {jackpkgs.agenix.enable = true;}];
+      }).config.age.identityPaths;
+    expected = ["/etc/ssh/ssh_host_ed25519_key"];
+  };
 }

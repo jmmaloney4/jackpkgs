@@ -24,7 +24,7 @@
 }: let
   darwinPkgs = inputs.nixpkgs.legacyPackages.aarch64-darwin;
   named = import ../modules/common/modules.nix;
-  nixosNamed = import ../modules/nixos/modules.nix;
+  nixosNamed = import ../modules/nixos/modules.nix inputs;
 
   # The option paths nix-darwin declares that common/ writes to. `systemd.*` is
   # deliberately absent (nix-darwin has none); `services.openssh.enable` is
