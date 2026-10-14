@@ -84,7 +84,17 @@
   c = full.config;
 
   inert = eval [];
-  mullvadOnDarwin = eval [wired wiring {jackpkgs.tailscale.mullvad = {enable = true; exitNode = "x.mullvad.ts.net"; exemptSourceCIDRs = ["10.0.0.0/8"];};}];
+  mullvadOnDarwin = eval [
+    wired
+    wiring
+    {
+      jackpkgs.tailscale.mullvad = {
+        enable = true;
+        exitNode = "x.mullvad.ts.net";
+        exemptSourceCIDRs = ["10.0.0.0/8"];
+      };
+    }
+  ];
 
   checks = [
     {
@@ -102,7 +112,8 @@
     {
       msg = "ssh: key fan-out reaches root and alice; darwin sshd_config drop-in is written";
       ok =
-        c.users.users.root.openssh.authorizedKeys.keys == wiring.jackpkgs.ssh.authorizedKeys
+        c.users.users.root.openssh.authorizedKeys.keys
+        == wiring.jackpkgs.ssh.authorizedKeys
         && c.users.users.alice.openssh.authorizedKeys.keys == wiring.jackpkgs.ssh.authorizedKeys
         && c.environment.etc."ssh/sshd_config.d/100-nix-darwin.conf".text != "";
     }
