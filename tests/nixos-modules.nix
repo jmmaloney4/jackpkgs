@@ -463,4 +463,88 @@ in {
     expr = (cfgOf [{jackpkgs.zenith.enable = true;}]).security.wrappers.zenith.capabilities;
     expected = "cap_sys_ptrace,cap_dac_read_search=ep";
   };
+
+  # ---------------------------------------------------------------------
+  # Closed silent no-ops / overridable defaults (PR #418 review)
+  # ---------------------------------------------------------------------
+
+  testSshSettingsOverridableWithoutMkForce = {
+    expr = let
+      c = cfgOf [
+        {
+          jackpkgs.ssh = {
+            enable = true;
+            authorizedKeys = ["ssh-ed25519 AAAA test"];
+            authorizedKeysUsers = ["root"];
+          };
+          services.openssh.settings = {
+            PermitRootLogin = "no";
+            AllowAgentForwarding = false;
+          };
+        }
+      ];
+    in {
+      root = c.services.openssh.settings.PermitRootLogin;
+      fwd = c.services.openssh.settings.AllowAgentForwarding;
+    };
+    expected = {
+      root = "no";
+      fwd = false;
+    };
+  };
+
+  testSshEnableWithoutUsersRefused = {
+    expr = failedAssertions (cfgOf [
+      {
+        jackpkgs.ssh = {
+          enable = true;
+          authorizedKeys = ["ssh-ed25519 AAAA test"];
+        };
+      }
+    ]);
+    expected = ["jackpkgs.ssh.enable is set but jackpkgs.ssh.authorizedKeysUsers is empty: sshd would run with password auth off and no authorized keys (lockout)."];
+  };
+
+  testAtticBadCacheNameRefused = {
+    expr = builtins.length (failedAssertions (cfgOf [
+      {
+        jackpkgs.attic = {
+          enable = true;
+          endpoint = "https://h.ts.net";
+          pullCaches."a b" = "k:KEY=";
+        };
+      }
+    ]));
+    expected = 1;
+  };
+
+  testTailscaleMullvadWithoutTailscaleRefused = {
+    expr = failedAssertions (cfgOf [
+      {
+        jackpkgs.tailscale.mullvad = {
+          enable = true;
+          exitNode = "x.mullvad.ts.net";
+          exemptSourceCIDRs = ["10.42.0.0/16"];
+        };
+      }
+    ]);
+    expected = ["jackpkgs.tailscale.mullvad.enable requires jackpkgs.tailscale.enable; without it no units are produced."];
+  };
+
+  testTailscaleExemptCidrsRequired = {
+    expr =
+      (cfgOf [
+        {
+          jackpkgs.tailscale = {
+            enable = true;
+            mullvad = {
+              enable = true;
+              exitNode = "x.mullvad.ts.net";
+            };
+          };
+        }
+      ]).systemd.services.tailscale-mullvad-exemptions.serviceConfig.ExecStart;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "jackpkgs\\.tailscale\\.mullvad\\.exemptSourceCIDRs";
+  };
 }

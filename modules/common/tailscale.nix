@@ -112,65 +112,76 @@ in {
       };
 
       exemptSourceCIDRs = mkOption {
-        type = types.listOf types.str;
-        default = [];
+        # nonEmptyListOf, no default: an unwired listOf silently evaluates to
+        # [] and would render an exemptions unit with no CIDR exemptions.
+        type = types.nonEmptyListOf types.str;
         example = ["10.42.0.0/16"];
         description = ''
           Source CIDRs whose internet egress must NOT ride the exit node. On
           the Cilium egress-gateway node this must contain the cluster pod
           CIDR — otherwise every pod scheduled on the host is swept into the
           tunnel by tailscaled's catch-all route, not just pods selected by
-          the CiliumEgressGatewayPolicy.
+          the CiliumEgressGatewayPolicy. Required when `mullvad.enable` is set.
         '';
       };
     };
   };
 
-  config = mkIf cfg.enable (mkMerge [
-    {
-      services.tailscale.enable = true;
-      environment.systemPackages = [config.services.tailscale.package];
-    }
-
-    (optionalAttrs (options ? systemd) {
-      # PartOf: a tailscaled restart re-runs both units, re-asserting the
-      # rules and the exit-node preference alongside the daemon lifecycle.
-      systemd.services.tailscale-mullvad-exemptions = mkIf mullvadCfg.enable {
-        description = "Egress routing exemptions for the Mullvad exit node";
-        before = ["tailscaled.service"];
-        partOf = ["tailscaled.service"];
-        wantedBy = ["multi-user.target"];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = "${mullvadExemptionsScript}";
-        };
-      };
-
-      systemd.services.tailscale-mullvad-exit-node = mkIf mullvadCfg.enable {
-        description = "Set Tailscale Mullvad exit node";
-        after = ["tailscaled.service" "network-online.target" "tailscale-mullvad-exemptions.service"];
-        wants = ["tailscaled.service" "network-online.target"];
-        requires = ["tailscale-mullvad-exemptions.service"];
-        partOf = ["tailscaled.service"];
-        wantedBy = ["multi-user.target"];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = "${mullvadExitNodeScript}";
-        };
-      };
-    })
-
-    # Refuse rather than silently ignore: on a platform without systemd the
-    # exit-node units above cannot exist.
+  config = mkMerge [
     {
       assertions = [
         {
-          assertion = !mullvadCfg.enable || options ? systemd;
-          message = "jackpkgs.tailscale.mullvad requires systemd (NixOS); it cannot be enabled on this platform.";
+          assertion = !mullvadCfg.enable || cfg.enable;
+          message = "jackpkgs.tailscale.mullvad.enable requires jackpkgs.tailscale.enable; without it no units are produced.";
         }
       ];
     }
-  ]);
+    (mkIf cfg.enable (mkMerge [
+      {
+        services.tailscale.enable = true;
+        environment.systemPackages = [config.services.tailscale.package];
+      }
+
+      (optionalAttrs (options ? systemd) {
+        # PartOf: a tailscaled restart re-runs both units, re-asserting the
+        # rules and the exit-node preference alongside the daemon lifecycle.
+        systemd.services.tailscale-mullvad-exemptions = mkIf mullvadCfg.enable {
+          description = "Egress routing exemptions for the Mullvad exit node";
+          before = ["tailscaled.service"];
+          partOf = ["tailscaled.service"];
+          wantedBy = ["multi-user.target"];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = "${mullvadExemptionsScript}";
+          };
+        };
+
+        systemd.services.tailscale-mullvad-exit-node = mkIf mullvadCfg.enable {
+          description = "Set Tailscale Mullvad exit node";
+          after = ["tailscaled.service" "network-online.target" "tailscale-mullvad-exemptions.service"];
+          wants = ["tailscaled.service" "network-online.target"];
+          requires = ["tailscale-mullvad-exemptions.service"];
+          partOf = ["tailscaled.service"];
+          wantedBy = ["multi-user.target"];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = "${mullvadExitNodeScript}";
+          };
+        };
+      })
+
+      # Refuse rather than silently ignore: on a platform without systemd the
+      # exit-node units above cannot exist.
+      {
+        assertions = [
+          {
+            assertion = !mullvadCfg.enable || options ? systemd;
+            message = "jackpkgs.tailscale.mullvad requires systemd (NixOS); it cannot be enabled on this platform.";
+          }
+        ];
+      }
+    ]))
+  ];
 }

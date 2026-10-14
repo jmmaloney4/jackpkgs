@@ -62,15 +62,28 @@ in {
       });
     }
 
+    # sshd with PasswordAuthentication off and no keys installed anywhere is a
+    # lockout. Refuse the empty fan-out rather than document it; a consumer
+    # that installs keys by other means lists no users here and sets
+    # `jackpkgs.ssh.enable = false`, using services.openssh directly.
+    {
+      assertions = [
+        {
+          assertion = cfg.authorizedKeysUsers != [];
+          message = "jackpkgs.ssh.enable is set but jackpkgs.ssh.authorizedKeysUsers is empty: sshd would run with password auth off and no authorized keys (lockout).";
+        }
+      ];
+    }
+
     (optionalAttrs (options ? services.openssh.enable) {
       services.openssh.enable = true;
     })
 
     (optionalAttrs (options ? services.openssh.settings) {
       services.openssh.settings = {
-        PermitRootLogin = "prohibit-password";
+        PermitRootLogin = mkDefault "prohibit-password";
         PasswordAuthentication = mkDefault false;
-        AllowAgentForwarding = true;
+        AllowAgentForwarding = mkDefault true;
       };
     })
 

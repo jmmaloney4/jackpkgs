@@ -101,6 +101,20 @@ in {
   };
 
   config = mkIf cfg.enable (mkMerge [
+    {
+      assertions = [
+        {
+          # Names become URL path segments; reject anything that would not
+          # round-trip (spaces, slashes, ...).
+          assertion = lib.all (n: builtins.match "[A-Za-z0-9._-]+" n != null) (builtins.attrNames cfg.pullCaches);
+          message = "jackpkgs.attic.pullCaches: cache names must match [A-Za-z0-9._-]+ (they are URL path segments); got ${builtins.toJSON (builtins.attrNames cfg.pullCaches)}.";
+        }
+        {
+          assertion = !isDarwin || options ? determinateNix;
+          message = "jackpkgs.attic.enable on darwin requires the Determinate Nix darwin module (`determinateNix.customSettings`); without it the substituters would be silently dropped.";
+        }
+      ];
+    }
     (mkIf (!isDarwin) {nix.settings = settings;})
     (mkIf isDarwin (optionalAttrs (options ? determinateNix) {
       determinateNix.customSettings = settings;
