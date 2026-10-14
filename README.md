@@ -71,7 +71,7 @@ Module outputs under `inputs.jackpkgs.{nixosModules,darwinModules,homeModules}` 
 # NixOS host (nixosConfigurations):
 modules = [ inputs.jackpkgs.nixosModules.default ];        # every module below; each is inert until enabled
 # nix-darwin host:
-modules = [ inputs.jackpkgs.darwinModules.default ];       # or darwinModules.imessage-bridge alone
+modules = [ inputs.jackpkgs.darwinModules.default ];       # or darwinModules.imessage-bridge / darwinModules.<common name> alone
 # Home Manager:
 modules = [ inputs.jackpkgs.homeModules.tod ];             # or homeModules.default for the whole tree
 ```
@@ -88,7 +88,7 @@ NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enabl
 }
 ```
 
-The Home Manager fleet module set lands per ADR-051's PR sequence. `darwinModules` is not part of that promotion — ADR-051's darwin-scope decision (amended 2026-09-25) keeps garden's `modules/darwin/` tree in garden, so `imessage-bridge` stays the only darwin module for the foreseeable future. `pkgs.homeManagerModules` (via the overlay) remains the legacy path.
+The Home Manager fleet module set lands per ADR-051's PR sequence. Garden's darwin-only `modules/darwin/` tree does not promote (ADR-051 Decision 5, amended 2026-09-25), so `imessage-bridge` is the only darwin-only module. The platform-agnostic modules (`attic`, `fonts`, `gnupg-agent`, `nix`, `nixbuild`, `packages`, `ssh`, `tailscale`, `user`, `zsh`) are additionally exported as `darwinModules.<name>` (amended 2026-10-14). Those darwin exports are **not validated against a real nix-darwin evaluation** (jackpkgs has no nix-darwin input); they are only evaluated against stub option declarations in `tests/darwin-modules.nix`. `pkgs.homeManagerModules` (via the overlay) remains the legacy path.
 
 ______________________________________________________________________
 

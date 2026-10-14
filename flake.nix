@@ -717,7 +717,14 @@
             import ./tests/nixos-modules-instantiate.nix {
               inherit inputs lib pkgs;
             }
-          );
+          )
+          # The common/ set evaluated as darwinModules against stub nix-darwin
+          # option declarations (eval-only; no nix-darwin input exists).
+          // {
+            darwin-modules-structure = import ./tests/darwin-modules.nix {
+              inherit inputs lib pkgs;
+            };
+          };
       };
 
       flake = {
@@ -731,11 +738,18 @@
         overlays.llvm-darwin-codesign-test = import ./overlays/llvm-darwin-codesign-test.nix;
 
         # Expose nix-darwin modules. `default` is the tree aggregator; named
-        # modules stay individually addressable (ADR-051).
-        darwinModules = {
-          default = import ./modules/nix-darwin;
-          imessage-bridge = import ./modules/nix-darwin/imessage-bridge.nix;
-        };
+        # modules stay individually addressable (ADR-051). The platform-agnostic
+        # common/ set is exported here as well as under `nixosModules` (ADR-051
+        # Decision 5, amended): the same files, one source of truth in
+        # modules/common/modules.nix. Garden's darwin-only tree still does not
+        # promote. NOT validated against a real nix-darwin evaluation -- see
+        # tests/darwin-modules.nix for what is.
+        darwinModules =
+          {
+            default = import ./modules/nix-darwin;
+            imessage-bridge = import ./modules/nix-darwin/imessage-bridge.nix;
+          }
+          // import ./modules/common/modules.nix;
 
         # Expose NixOS modules (ADR-051): the shared fleet module set promoted
         # from garden's nixfiles/ (garden#2074 Part B). Named outputs and the
