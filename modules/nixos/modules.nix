@@ -23,6 +23,7 @@ import ../common/modules.nix
   disks = ./disks.nix;
   docker = ./docker.nix;
   nix = ./nix.nix;
+  profile = import ./profile.nix inputs;
   tailscale = ./tailscale.nix;
   zenith = ./zenith.nix;
 }

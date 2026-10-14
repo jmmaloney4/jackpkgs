@@ -20,6 +20,42 @@
   inherit (common) eval failedAssertions named;
 
   cfgOf = modules: (eval modules).config;
+
+  profileWiring = {
+    jackpkgs.profile.enable = true;
+    jackpkgs.user.username = "alice";
+    jackpkgs.ssh.authorizedKeys = ["ssh-ed25519 AAAA test"];
+    jackpkgs.attic = {
+      endpoint = "https://attic.example.ts.net";
+      pullCaches.c1 = "c1:KEY=";
+    };
+  };
+
+  operatorWiring = {
+    jackpkgs.user.username = "alice";
+    jackpkgs.operator = {
+      enable = true;
+      home.modules = [
+        {
+          home.stateVersion = "26.05";
+          jackpkgs.git = {
+            enable = true;
+            userName = "Alice Example";
+            userEmail = "alice@example.com";
+          };
+        }
+      ];
+    };
+  };
+
+  guestWiring = {
+    jackpkgs.guest-user = {
+      enable = true;
+      username = "carol";
+      uid = 1002;
+      authorizedKeys = ["ssh-ed25519 AAAA carol"];
+    };
+  };
 in {
   # ---------------------------------------------------------------------
   # Inert import
@@ -653,5 +689,312 @@ in {
         modules = [common.base named.agenix {jackpkgs.agenix.enable = true;}];
       }).config.age.identityPaths;
     expected = ["/etc/ssh/ssh_host_ed25519_key"];
+  };
+
+  # ---------------------------------------------------------------------
+  # Profiles and accounts (garden#2074 Part B PR 3)
+  # ---------------------------------------------------------------------
+
+  testProfileEnablesBaseline = {
+    expr = let
+      c = cfgOf [profileWiring];
+    in {
+      nix = c.jackpkgs.nix.enable;
+      substituters = c.jackpkgs.nix.substituters.enable;
+      attic = c.jackpkgs.attic.enable;
+      ssh = c.services.openssh.enable;
+      sshUsers = c.jackpkgs.ssh.authorizedKeysUsers;
+      tailscale = c.services.tailscale.enable;
+      fonts = c.jackpkgs.fonts.enable;
+      user = c.jackpkgs.user.enable;
+      locale = c.i18n.defaultLocale;
+      failed = failedAssertions c;
+    };
+    expected = {
+      nix = true;
+      substituters = true;
+      attic = true;
+      ssh = true;
+      sshUsers = ["root"];
+      tailscale = true;
+      fonts = true;
+      user = true;
+      locale = "en_US.UTF-8";
+      failed = [];
+    };
+  };
+
+  testProfileDefaultsAreOptOutable = {
+    expr = let
+      c = cfgOf [
+        profileWiring
+        {jackpkgs.tailscale.enable = false;}
+      ];
+    in
+      c.services.tailscale.enable;
+    expected = false;
+  };
+
+  # The profile makes the operator and cache part of the host's contract: a
+  # host on the profile that never named its operator fails, it does not come
+  # up with an unnamed trusted-user.
+  testProfileRequiresOperatorName = {
+    expr =
+      (cfgOf [
+        {
+          jackpkgs.profile.enable = true;
+          jackpkgs.ssh.authorizedKeys = ["ssh-ed25519 AAAA test"];
+          jackpkgs.attic = {
+            endpoint = "https://attic.example.ts.net";
+            pullCaches.c1 = "c1:KEY=";
+          };
+        }
+      ]).nix.settings.trusted-users;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "jackpkgs\\.user\\.username";
+  };
+
+  testProfileNamedOutputStandsAlone = {
+    expr =
+      (inputs.nixpkgs.lib.nixosSystem {
+        modules = [
+          common.base
+          named.profile
+          {
+            jackpkgs.profile.enable = true;
+            jackpkgs.user.username = "alice";
+            jackpkgs.ssh.authorizedKeys = ["ssh-ed25519 AAAA test"];
+            jackpkgs.attic = {
+              endpoint = "https://attic.example.ts.net";
+              pullCaches.c1 = "c1:KEY=";
+            };
+          }
+        ];
+      }).config.i18n.defaultLocale;
+    expected = "en_US.UTF-8";
+  };
+
+  testProfileInertWhenDisabled = {
+    expr = let
+      c = cfgOf [];
+    in {
+      locale = c.i18n.defaultLocale;
+      nix = c.jackpkgs.nix.enable;
+    };
+    expected = {
+      locale = "en_US.UTF-8"; # NixOS' own default, not the profile's
+      nix = false;
+    };
+  };
+
+  testOperatorCreatesAccount = {
+    expr = let
+      c = (eval [named.profile operatorWiring]).config;
+      u = c.users.users.alice;
+    in {
+      normal = u.isNormalUser;
+      uid = u.uid;
+      groups = u.extraGroups;
+      sshUsers = c.jackpkgs.ssh.authorizedKeysUsers;
+    };
+    expected = {
+      normal = true;
+      uid = 1000;
+      groups = ["networkmanager" "wheel"];
+      sshUsers = ["alice"];
+    };
+  };
+
+  # The consumer's Home Manager modules and jackpkgs' own homeModules both
+  # reach the account: git is enabled by the consumer's module, whose options
+  # come from jackpkgs' aggregator.
+  testOperatorWiresHomeManager = {
+    expr = let
+      hm = (eval [named.profile operatorWiring]).config.home-manager.users.alice;
+    in {
+      git = hm.programs.git.enable;
+      name = hm.programs.git.settings.user.name;
+    };
+    expected = {
+      git = true;
+      name = "Alice Example";
+    };
+  };
+
+  testOperatorSuppliesHostnameSpecialArg = {
+    expr = let
+      c =
+        (eval [
+          named.profile
+          operatorWiring
+          {
+            networking.hostName = "box";
+            jackpkgs.operator.home.extraSpecialArgs.marker = "x";
+          }
+        ]).config;
+    in {
+      inherit (c.home-manager.extraSpecialArgs) hostname marker;
+    };
+    expected = {
+      hostname = "box";
+      marker = "x";
+    };
+  };
+
+  testOperatorHostnameOverrideRefused = {
+    expr = failedAssertions (cfgOf [
+      named.profile
+      operatorWiring
+      {jackpkgs.operator.home.extraSpecialArgs.hostname = "other";}
+    ]);
+    expected = ["jackpkgs.operator.home.extraSpecialArgs must not define `hostname`: jackpkgs.operator supplies it from networking.hostName, and a second definition would silently win."];
+  };
+
+  testOperatorHomeModulesRequired = {
+    expr =
+      (cfgOf [
+        named.profile
+        {
+          jackpkgs.user.username = "alice";
+          jackpkgs.operator.enable = true;
+        }
+      ]).home-manager.users.alice.home.username;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "jackpkgs\\.operator\\.home\\.modules";
+  };
+
+  testOperatorEmptyHomeModulesRefused = {
+    expr =
+      (cfgOf [
+        named.profile
+        {
+          jackpkgs.user.username = "alice";
+          jackpkgs.operator = {
+            enable = true;
+            home.modules = [];
+          };
+        }
+      ]).home-manager.users.alice.home.username;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "jackpkgs\\.operator\\.home\\.modules";
+  };
+
+  testOperatorUsernameRequired = {
+    expr =
+      (cfgOf [
+        named.profile
+        {
+          jackpkgs.operator = {
+            enable = true;
+            home.modules = [{home.stateVersion = "26.05";}];
+          };
+        }
+      ]).users.users;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "jackpkgs\\.user\\.username";
+  };
+
+  testOperatorInertWhenDisabled = {
+    expr = (cfgOf []).users.users ? alice;
+    expected = false;
+  };
+
+  testBuildUser = {
+    expr = let
+      c =
+        (eval [
+          named.profile
+          {
+            jackpkgs.build-user = {
+              enable = true;
+              username = "builder";
+            };
+          }
+        ]).config;
+    in {
+      groups = c.users.users.builder.extraGroups;
+      sshUsers = c.jackpkgs.ssh.authorizedKeysUsers;
+      home = c.home-manager.users.builder.programs.git.settings.user.email;
+      stateVersion = c.home-manager.users.builder.home.stateVersion;
+    };
+    expected = {
+      groups = ["wheel"];
+      sshUsers = ["root" "builder"];
+      home = "build@localhost";
+      stateVersion = "24.05";
+    };
+  };
+
+  testBuildUserNameRequired = {
+    expr = (cfgOf [named.profile {jackpkgs.build-user.enable = true;}]).users.users;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "jackpkgs\\.build-user\\.username";
+  };
+
+  testGuestUser = {
+    expr = let
+      c = cfgOf [guestWiring];
+      u = c.users.users.carol;
+    in {
+      uid = u.uid;
+      keys = u.openssh.authorizedKeys.keys;
+      groups = u.extraGroups;
+      hm = c.home-manager.users or {};
+      # Not in the operator fan-out: that would give her the operator's keys.
+      sshUsers = c.jackpkgs.ssh.authorizedKeysUsers;
+    };
+    expected = {
+      uid = 1002;
+      keys = ["ssh-ed25519 AAAA carol"];
+      groups = [];
+      hm = {};
+      sshUsers = [];
+    };
+  };
+
+  testGuestUserKeysRequired = {
+    expr =
+      (cfgOf [
+        {
+          jackpkgs.guest-user = {
+            enable = true;
+            username = "carol";
+            uid = 1002;
+          };
+        }
+      ]).users.users.carol.openssh.authorizedKeys.keys;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "jackpkgs\\.guest-user\\.authorizedKeys";
+  };
+
+  testGuestUserEmptyKeysRefused = {
+    expr =
+      (cfgOf [
+        {
+          jackpkgs.guest-user = {
+            enable = true;
+            username = "carol";
+            uid = 1002;
+            authorizedKeys = [];
+          };
+        }
+      ]).users.users.carol.openssh.authorizedKeys.keys;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "jackpkgs\\.guest-user\\.authorizedKeys";
+  };
+
+  testGuestUserUidRequired = {
+    expr =
+      (cfgOf [
+        {
+          jackpkgs.guest-user = {
+            enable = true;
+            username = "carol";
+            authorizedKeys = ["ssh-ed25519 AAAA carol"];
+          };
+        }
+      ]).users.users.carol.uid;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "jackpkgs\\.guest-user\\.uid";
   };
 }

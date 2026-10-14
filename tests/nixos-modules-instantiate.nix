@@ -24,7 +24,23 @@
     }
     {
       jackpkgs.user.username = "alice";
-      users.users.alice.isNormalUser = true;
+      jackpkgs.operator.home.modules = [
+        {
+          home.stateVersion = "26.05";
+          jackpkgs.git = {
+            enable = true;
+            userName = "Alice Example";
+            userEmail = "alice@example.com";
+          };
+          jackpkgs.shell.enable = true;
+        }
+      ];
+      jackpkgs.build-user.username = "builder";
+      jackpkgs.guest-user = {
+        username = "carol";
+        uid = 1002;
+        authorizedKeys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIcarol carol"];
+      };
       jackpkgs.nix.substituters.enable = true;
       jackpkgs.ssh = {
         authorizedKeys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAItest test"];

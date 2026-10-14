@@ -97,6 +97,34 @@
         type = types.lines;
         default = "";
       };
+      networking.hostName = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+      };
+      # The nix-darwin Home Manager module's surface the account modules write
+      # to. `users.<n>` is a freeform submodule: `imports` (the jackpkgs HM
+      # aggregator plus consumer modules) are accepted but the Home Manager
+      # module system is NOT run -- this stub proves the darwin side wires the
+      # right option paths, not that the Home Manager config evaluates (that is
+      # tests/home-modules-instantiate.nix).
+      home-manager.useGlobalPkgs = mkOption {
+        type = types.bool;
+        default = false;
+      };
+      home-manager.useUserPackages = mkOption {
+        type = types.bool;
+        default = false;
+      };
+      home-manager.extraSpecialArgs = mkOption {
+        type = types.attrs;
+        default = {};
+      };
+      home-manager.users = mkOption {
+        type = types.attrsOf (types.submoduleWith {
+          modules = [{freeformType = types.attrsOf types.anything;}];
+        });
+        default = {};
+      };
       programs.zsh.enable = mkOption {
         type = types.bool;
         default = false;
@@ -143,6 +171,14 @@
       pullCaches.c1 = "c1:KEY=";
     };
     jackpkgs.zsh.secretEnv.MY_TOKEN = "/run/agenix/my-token";
+    jackpkgs.operator.home.modules = [{home.stateVersion = "26.05";}];
+    jackpkgs.build-user.username = "builder";
+    jackpkgs.guest-user = {
+      username = "carol";
+      uid = 1002;
+      authorizedKeys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIcarol carol"];
+    };
+    networking.hostName = "mac";
   };
 
   full = eval [determinateStub wired wiring];
@@ -193,6 +229,28 @@
     {
       msg = "attic: enabling on darwin without determinateNix is refused, not silently dropped";
       ok = lib.any (m: lib.hasInfix "requires the Determinate Nix darwin module" m) (failed atticNoDeterminate);
+    }
+    {
+      msg = "operator: darwin uid/shell, no linux-only attributes, HM user wired with hostname";
+      ok =
+        c.users.users.alice.uid
+        == 501
+        && !(c.users.users.alice ? isNormalUser)
+        && !(c.users.users.alice ? extraGroups)
+        && c.home-manager.users ? alice
+        && c.home-manager.extraSpecialArgs.hostname == "mac";
+    }
+    {
+      msg = "build-user and guest-user: darwin accounts, guest has no HM user";
+      ok =
+        !(c.users.users.builder ? isNormalUser)
+        && c.home-manager.users ? builder
+        && c.users.users.carol.uid == 1002
+        && !(c.home-manager.users ? carol);
+    }
+    {
+      msg = "profile: the platform-agnostic baseline is exported (no HM module import, no locale)";
+      ok = named ? profile && !(c ? i18n);
     }
     {
       msg = "tailscale: no systemd units leak onto darwin";

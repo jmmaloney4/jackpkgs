@@ -76,7 +76,7 @@ modules = [ inputs.jackpkgs.darwinModules.default ];       # or darwinModules.im
 modules = [ inputs.jackpkgs.homeModules.tod ];             # or homeModules.default for the whole tree
 ```
 
-NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enable`): `agenix`, `attic`, `determinate`, `disks`, `docker`, `fonts`, `gnupg-agent`, `nix`, `nixbuild`, `packages`, `ssh`, `tailscale`, `user`, `zenith`, `zsh`. Identity and topology values have no defaults — enabling a module without them fails at eval:
+NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enable`): `agenix`, `attic`, `build-user`, `determinate`, `disks`, `docker`, `fonts`, `gnupg-agent`, `guest-user`, `nix`, `nixbuild`, `operator`, `packages`, `profile`, `ssh`, `tailscale`, `user`, `zenith`, `zsh`. Identity and topology values have no defaults — enabling a module without them fails at eval:
 
 ```nix
 {
@@ -90,7 +90,29 @@ NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enabl
 }
 ```
 
-The Home Manager fleet module set lands per ADR-051's PR sequence. Garden's darwin-only `modules/darwin/` tree does not promote (ADR-051 Decision 5, amended 2026-09-25), so `imessage-bridge` is the only darwin-only module. The platform-agnostic modules (`attic`, `fonts`, `gnupg-agent`, `nix`, `nixbuild`, `packages`, `ssh`, `tailscale`, `user`, `zsh`) are additionally exported as `darwinModules.<name>` (amended 2026-10-14). Those darwin exports are **not validated against a real nix-darwin evaluation** (jackpkgs has no nix-darwin input); they are only evaluated against stub option declarations in `tests/darwin-modules.nix`. `pkgs.homeManagerModules` (via the overlay) remains the legacy path.
+`profile` is the fleet baseline: it `mkDefault`-enables `user`, `fonts`, `nix`, `attic`, `ssh` and `tailscale`, so a host on it must also wire their required values above (and on NixOS it imports Home Manager's NixOS module and sets the locale). The account modules create users: `operator` creates the account `jackpkgs.user.username` names and wires it to Home Manager, `build-user` and `guest-user` create the others.
+
+```nix
+{
+  jackpkgs.profile.enable = true;
+  jackpkgs.operator = {
+    enable = true;
+    # Required and non-empty. Define home.stateVersion in one of them.
+    home.modules = [ ({ ... }: {
+      home.stateVersion = "26.05";
+      jackpkgs.shell.enable = true;
+      jackpkgs.git = { enable = true; userName = "Alice Example"; userEmail = "alice@example.com"; };
+    }) ];
+    # home.extraSpecialArgs = { inherit inputs; };  # `hostname` is always supplied
+  };
+  jackpkgs.build-user = { enable = true; username = "builder"; };
+  jackpkgs.guest-user = { enable = true; username = "carol"; uid = 1002; authorizedKeys = [ "ssh-ed25519 AAAA…" ]; };
+}
+```
+
+Home Manager modules (`homeModules.<name>`, `jackpkgs.<name>.enable`): `shell` (zsh, starship, zellij, direnv, eza, fzf, bat, ssh client; optional `localSshAgentSocket`), `git` (required `userName`/`userEmail`; optional `signing.{key,program}`), `jujutsu` (takes its identity from `jackpkgs.git`), `cargo`, `build-user`. They need nothing from `specialArgs`. The operator module imports them into the account for you; standalone Home Manager users import `homeModules.default`. Heavy or personal pieces (nixvim, Claude Code, host-specific wiring) are consumer-side.
+
+Garden's darwin-only `modules/darwin/` tree does not promote (ADR-051 Decision 5, amended 2026-09-25), so `imessage-bridge` is the only darwin-only module. The platform-agnostic modules (`attic`, `build-user`, `fonts`, `gnupg-agent`, `guest-user`, `nix`, `nixbuild`, `operator`, `packages`, `profile`, `ssh`, `tailscale`, `user`, `zsh`) are additionally exported as `darwinModules.<name>` (amended 2026-10-14). Those darwin exports are **not validated against a real nix-darwin evaluation** (jackpkgs has no nix-darwin input); they are only evaluated against stub option declarations in `tests/darwin-modules.nix`. `pkgs.homeManagerModules` (via the overlay) remains the legacy path.
 
 ______________________________________________________________________
 
