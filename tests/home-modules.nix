@@ -309,20 +309,19 @@ in {
   # Command substitution and other shell metacharacters in the path would be
   # executed by the generated zsh / `Match exec` line.
   testShellLocalAgentSocketRefusesMetacharacters = {
-    expr =
-      map (
-        sock:
-          (builtins.tryEval (builtins.deepSeq
-            (cfgOf [
-              {
-                jackpkgs.shell = {
-                  enable = true;
-                  localSshAgentSocket = sock;
-                };
-              }
-            ]).programs.ssh.extraConfig
-            true)).success
-      ) ["$(touch /tmp/pwn)" "`id`" "a;b" "a\\b" "a$HOME"];
+    expr = map (
+      sock:
+        (builtins.tryEval (builtins.deepSeq
+          (cfgOf [
+            {
+              jackpkgs.shell = {
+                enable = true;
+                localSshAgentSocket = sock;
+              };
+            }
+          ]).programs.ssh.extraConfig
+          true)).success
+    ) ["$(touch /tmp/pwn)" "`id`" "a;b" "a\\b" "a$HOME"];
     expected = [false false false false false];
   };
 
