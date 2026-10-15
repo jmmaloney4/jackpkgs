@@ -33,7 +33,9 @@ in {
     };
 
     uid = mkOption {
-      type = types.ints.between 1000 65533;
+      # 500 floor: macOS accounts start at 501. On Linux, NixOS itself refuses
+      # an isNormalUser account below 1000, so no second check lives here.
+      type = types.ints.between 500 65533;
       example = 1002;
       description = ''
         Pinned uid, identical on every host that enables the account. Required:

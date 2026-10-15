@@ -41,7 +41,10 @@ in {
         if isLinux
         then {
           isNormalUser = true;
-          extraGroups = ["wheel"];
+          # No wheel: a build account needs no sudo (builds are submitted to the
+          # daemon over ssh; deploys go in as root). Group membership would be a
+          # latent root-equivalence the moment a password or NOPASSWD rule appears.
+          extraGroups = [];
         }
         else {}
       );

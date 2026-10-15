@@ -253,6 +253,30 @@
         && !(c.home-manager.users ? carol);
     }
     {
+      msg = "guest-user: a macOS-range uid (501) is accepted on darwin, no Linux uid assertion fires";
+      ok = let
+        e = eval [
+          determinateStub
+          wired
+          wiring
+          {jackpkgs.guest-user.uid = lib.mkForce 501;}
+        ];
+      in
+        e.config.users.users.carol.uid == 501 && failed e == [];
+    }
+    {
+      msg = "operator: an unset (null) networking.hostName is refused, not passed on as a null specialArg";
+      ok = let
+        e = eval [
+          determinateStub
+          wired
+          wiring
+          {networking.hostName = lib.mkForce null;}
+        ];
+      in
+        lib.any (m: lib.hasInfix "requires networking.hostName" m) (failed e);
+    }
+    {
       msg = "profile: the platform-agnostic baseline is exported (no HM module import, no locale)";
       ok = named ? profile && !(c ? i18n);
     }

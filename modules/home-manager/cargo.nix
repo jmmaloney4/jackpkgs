@@ -40,6 +40,10 @@ in {
 
   config = lib.mkIf (cfg.enable && cfg.buildJobs != null) {
     home.sessionVariables.CARGO_BUILD_JOBS = toString cfg.buildJobs;
+    # Deliberately unguarded: Home Manager declares `systemd.user.*` on every
+    # platform and emits nothing for it while `systemd.user.enable` is false
+    # (its default off Linux), so this is inert -- not an undeclared-option
+    # error -- on darwin. tests/home-modules.nix (testCargoOnDarwin) pins it.
     systemd.user.sessionVariables.CARGO_BUILD_JOBS = toString cfg.buildJobs;
   };
 }

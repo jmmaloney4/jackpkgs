@@ -962,7 +962,7 @@ in {
       stateVersion = c.home-manager.users.builder.home.stateVersion;
     };
     expected = {
-      groups = ["wheel"];
+      groups = [];
       sshUsers = ["root" "builder"];
       home = "build@localhost";
       stateVersion = "24.05";
@@ -1040,5 +1040,24 @@ in {
       ]).users.users.carol.uid;
     expectedError.type = "ThrownError";
     expectedError.msg = "jackpkgs\\.guest-user\\.uid";
+  };
+
+  # macOS uids start at 501, so the type admits them; on Linux NixOS's own
+  # isNormalUser assertion refuses the system-account range instead.
+  testGuestUserLinuxSystemUidRefused = {
+    expr = let
+      e = eval [
+        {
+          jackpkgs.guest-user = {
+            enable = true;
+            username = "carol";
+            uid = 501;
+            authorizedKeys = ["ssh-ed25519 AAAA carol"];
+          };
+        }
+      ];
+    in
+      map (a: a.message) (lib.filter (a: !a.assertion) e.config.assertions);
+    expected = ["A user cannot have a users.users.carol.uid set below 1000 and set users.users.carol.isNormalUser.\nEither users.users.carol.isSystemUser must be set to true instead of users.users.carol.isNormalUser\nor users.users.carol.uid must be changed to 1000 or above.\n"];
   };
 }

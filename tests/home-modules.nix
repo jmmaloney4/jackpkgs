@@ -306,6 +306,42 @@ in {
     expectedError.msg = "localSshAgentSocket";
   };
 
+  # Command substitution and other shell metacharacters in the path would be
+  # executed by the generated zsh / `Match exec` line.
+  testShellLocalAgentSocketRefusesMetacharacters = {
+    expr =
+      map (
+        sock:
+          (builtins.tryEval (builtins.deepSeq
+            (cfgOf [
+              {
+                jackpkgs.shell = {
+                  enable = true;
+                  localSshAgentSocket = sock;
+                };
+              }
+            ]).programs.ssh.extraConfig
+            true)).success
+      ) ["$(touch /tmp/pwn)" "`id`" "a;b" "a\\b" "a$HOME"];
+    expected = [false false false false false];
+  };
+
+  # refresh-ssh-agent's ssh command is double-quoted: $HOME / $SSH_AUTH_SOCK
+  # must reach the REMOTE shell unexpanded (escaped here), or the remote
+  # symlink is re-pointed at this machine's socket path.
+  testShellRefreshAgentExpandsRemotely = {
+    expr = let
+      init = (cfgOf [{jackpkgs.shell.enable = true;}]).programs.zsh.initContent;
+    in {
+      escaped = lib.hasInfix "ln -sf \\\"\\$SSH_AUTH_SOCK\\\" \\\"\\$HOME/.ssh/ssh_auth_sock\\\"" init;
+      unescaped = lib.hasInfix "ln -sf \\\"$SSH_AUTH_SOCK\\\"" init;
+    };
+    expected = {
+      escaped = true;
+      unescaped = false;
+    };
+  };
+
   testShellLocalAgentSocketAllowsSpaces = {
     expr =
       (cfgOf [
@@ -335,6 +371,40 @@ in {
         }
       ]).home.sessionVariables.CARGO_BUILD_JOBS;
     expected = "4";
+  };
+
+  # `systemd.user.sessionVariables` is declared on every platform but inert off
+  # Linux (`systemd.user.enable` defaults to isLinux), so the unguarded write in
+  # cargo.nix must evaluate -- activation package included, which forces Home
+  # Manager's assertions -- on a darwin pkgs without emitting the systemd file.
+  testCargoOnDarwin = {
+    expr = let
+      hm = inputs.home-manager.lib.homeManagerConfiguration {
+        pkgs = inputs.nixpkgs.legacyPackages.aarch64-darwin;
+        modules = [
+          common.base
+          {home.homeDirectory = lib.mkForce "/Users/alice";}
+          (import ../modules/home-manager/cargo.nix)
+          {
+            jackpkgs.cargo = {
+              enable = true;
+              buildJobs = 2;
+            };
+          }
+        ];
+      };
+    in {
+      evaluates = builtins.isString hm.activationPackage.drvPath;
+      sessionVar = hm.config.home.sessionVariables.CARGO_BUILD_JOBS;
+      systemdEnabled = hm.config.systemd.user.enable;
+      envdFile = hm.config.xdg.configFile ? "environment.d/10-home-manager.conf";
+    };
+    expected = {
+      evaluates = true;
+      sessionVar = "2";
+      systemdEnabled = false;
+      envdFile = false;
+    };
   };
 
   testCargoNullJobsSetsNothing = {

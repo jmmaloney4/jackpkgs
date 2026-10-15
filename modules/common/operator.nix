@@ -73,6 +73,13 @@ in {
   config = mkIf cfg.enable {
     assertions = [
       {
+        # nix-darwin's networking.hostName is nullOr str defaulting to null; a
+        # null `hostname` specialArg would only fail far away, wherever a
+        # consumer module interpolates it.
+        assertion = config.networking.hostName != null;
+        message = "jackpkgs.operator requires networking.hostName to be set: it is the source of the `hostname` specialArg for the operator's Home Manager modules (nix-darwin defaults it to null).";
+      }
+      {
         assertion = !(cfg.home.extraSpecialArgs ? hostname);
         message = "jackpkgs.operator.home.extraSpecialArgs must not define `hostname`: jackpkgs.operator supplies it from networking.hostName, and a second definition would silently win.";
       }

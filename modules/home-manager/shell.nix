@@ -59,9 +59,12 @@ in {
       # nullOr + default null: "no local agent socket to prefer" is an intended
       # state (a headless host), so it is spelled instead of left to fail.
       # strMatching: the value is interpolated unescaped into a zsh
-      # test and an ssh_config `Match exec` line, so a double quote or a
-      # leading "/" would yield broken or wrong config. Refuse it at the type.
-      type = types.nullOr (types.strMatching "[^\"/][^\"]*");
+      # test and an ssh_config `Match exec` line, so shell metacharacters
+      # (quotes, `$`, backticks, backslash) or a leading "/" would yield broken
+      # config or command substitution. Allow only path-like characters
+      # (letters, digits, `. _ @ + = , : -`, space and inner `/`) and refuse the
+      # rest at the type.
+      type = types.nullOr (types.strMatching "[A-Za-z0-9._@+=,:-][A-Za-z0-9._@+=,:/ -]*");
       default = null;
       example = "Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
       description = ''
@@ -192,7 +195,11 @@ in {
               return 2
             fi
 
-            ssh -tt "$host" "zsh -lic 'test -S \"$HOME/.ssh/ssh_auth_sock\" && rm -f \"$HOME/.ssh/ssh_auth_sock\"; test -S \"$SSH_AUTH_SOCK\" || exit 1; ln -sf \"$SSH_AUTH_SOCK\" \"$HOME/.ssh/ssh_auth_sock\"; test -S \"$HOME/.ssh/ssh_auth_sock\"'" </dev/null
+            # The command is double-quoted, so every $ that must expand on the
+            # REMOTE host is escaped; unescaped, $HOME/$SSH_AUTH_SOCK expand
+            # here and the remote re-points its stable symlink at this
+            # machine's socket path.
+            ssh -tt "$host" "zsh -lic 'test -S \"\$HOME/.ssh/ssh_auth_sock\" && rm -f \"\$HOME/.ssh/ssh_auth_sock\"; test -S \"\$SSH_AUTH_SOCK\" || exit 1; ln -sf \"\$SSH_AUTH_SOCK\" \"\$HOME/.ssh/ssh_auth_sock\"; test -S \"\$HOME/.ssh/ssh_auth_sock\"'" </dev/null
           }
         ''
 
