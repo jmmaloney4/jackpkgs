@@ -680,6 +680,9 @@
             nixos-modules = import ./tests/nixos-modules.nix {
               inherit inputs lib;
             };
+            home-modules = import ./tests/home-modules.nix {
+              inherit inputs lib;
+            };
           };
         };
 
@@ -740,6 +743,14 @@
               inherit inputs lib pkgs;
             }
           )
+          # The Home Manager module set instantiated with every module enabled
+          # (ADR-051, garden#2074 Part B PR 3); value-level behaviour is the
+          # `home-modules` nix-unit suite.
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "home-modules-${name}" drv) (
+            import ./tests/home-modules-instantiate.nix {
+              inherit inputs lib pkgs;
+            }
+          )
           # The common/ set evaluated as darwinModules against stub nix-darwin
           # option declarations (eval-only; no nix-darwin input exists).
           // {
@@ -785,10 +796,9 @@
         # Expose Home Manager modules under the modern `homeModules` output
         # name (ADR-051). The legacy `pkgs.homeManagerModules` overlay path
         # is unchanged; no `homeManagerModules` flake output is minted.
-        homeModules = {
-          default = import ./modules/home-manager;
-          tod = import ./modules/home-manager/programs/tod.nix;
-        };
+        homeModules =
+          {default = import ./modules/home-manager;}
+          // import ./modules/home-manager/modules.nix;
 
         # Expose lib for backward compatibility
         lib = inputs.nixpkgs.lib.extend (

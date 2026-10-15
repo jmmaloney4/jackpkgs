@@ -9,9 +9,6 @@
 # (default false), and required identity/topology options are only read once
 # the module that needs them is enabled. That includes `determinate`, whose
 # upstream module is otherwise on by default (see ./determinate.nix).
-#
-# Not here yet (ADR-051 implementation plan): the profiles/home-manager tree
-# (PR 3).
 inputs: {
   imports = builtins.attrValues (import ./modules.nix inputs);
 }
