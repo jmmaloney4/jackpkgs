@@ -13,6 +13,30 @@
 in {
   imports = [
     jackpkgsInputs.flake-root.flakeModule
+
+    # The nodejs devshell hook prepends node_modules/.bin; an npm `pulumi`
+    # dependency would then shadow pulumi-bin and curl its own CLI
+    # (jackpkgs#430), so register pulumi-bin as nix-owned. Inert when
+    # jackpkgs.nodejs is disabled or jackpkgs.pulumi.enable is false (imports
+    # sit outside this module's `mkIf cfg.enable`, so the gate is repeated).
+    #
+    # Conditional on the option existing because this module is also imported
+    # without nodejs.nix (tests/lsp.nix, tests/pulumi.nix), where an
+    # unconditional definition is a hard "option does not exist" error. A
+    # deliberate trade: the coupling hides behind a presence check rather than
+    # both modules sharing a declaration.
+    {
+      perSystem = {
+        pkgs,
+        options,
+        lib,
+        ...
+      }: {
+        config = lib.optionalAttrs (options.jackpkgs ? nodejs) {
+          jackpkgs.nodejs.nixOwnedBins = lib.mkIf cfg.enable [pkgs.pulumi-bin];
+        };
+      };
+    }
   ];
   options = let
     inherit (lib) types mkOption mkEnableOption;
