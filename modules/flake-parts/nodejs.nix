@@ -72,6 +72,20 @@ in {
           description = "Node.js package to use.";
         };
 
+        nixOwnedBins = mkOption {
+          type = types.listOf types.package;
+          default = [];
+          description = ''
+            Packages whose bin directories take precedence over
+            `node_modules/.bin` in the devshell. The devshell otherwise puts
+            the project's `node_modules/.bin` first, so an npm dependency that
+            ships a bin with the same name as a jackpkgs-provisioned tool
+            silently shadows the nix tool (jackpkgs#430). Modules that
+            provision a tool a project may also depend on via npm add it here;
+            everything not listed keeps project-first resolution.
+          '';
+        };
+
         pnpmPackage = mkOption {
           type = types.package;
           # Run pnpm on nodejs-slim_latest instead of its default node runtime:
@@ -188,6 +202,7 @@ in {
           else
             export PATH="$PWD/node_modules/.bin:$PATH"
           fi
+          ${jackpkgsLib.nodejs.prependNixOwnedBins sysCfg.nixOwnedBins}
 
           # A checks/pre-commit run of mkWorkspaceRuntime against this
           # checkout replaces node_modules entries with read-only links into

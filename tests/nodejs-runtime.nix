@@ -153,6 +153,45 @@ in {
     assertions = commonAssertions;
   };
 
+  # jackpkgs#430: an npm dependency shipping a bin named like a nix-provisioned
+  # tool (the `pulumi` shim) must not shadow it, while every unlisted bin keeps
+  # project-first resolution.
+  testNixOwnedBinsBeatNodeModulesBin = let
+    fakeBin = name: marker:
+      pkgs.runCommand "fake-${name}-${marker}" {} ''
+        mkdir -p "$out/bin"
+        printf '#!/bin/sh\necho ${marker}\n' > "$out/bin/${name}"
+        chmod +x "$out/bin/${name}"
+      '';
+    nixPulumi = fakeBin "pulumi" "nix";
+    npmBin = pkgs.runCommand "fake-node-modules-bin" {} ''
+      mkdir -p "$out"
+      for n in pulumi tsc; do
+        printf '#!/bin/sh\necho npm\n' > "$out/$n"
+        chmod +x "$out/$n"
+      done
+    '';
+  in
+    pkgs.runCommand "test-node-nix-owned-bins" {} ''
+      export PATH="${nixPulumi}/bin:$PATH"
+      # What the nodejs shellHook does first: project bins go to the front.
+      export PATH="${npmBin}:$PATH"
+      test "$(command -v pulumi)" = "${npmBin}/pulumi"   # the bug, reproduced
+
+      ${helpers.nodejs.prependNixOwnedBins [nixPulumi]}
+
+      test "$(command -v pulumi)" = "${nixPulumi}/bin/pulumi"
+      test "$(pulumi)" = nix
+      # Not listed => still project-first.
+      test "$(command -v tsc)" = "${npmBin}/tsc"
+
+      # No owned bins => the hook contributes nothing at all.
+      test -z "${helpers.nodejs.prependNixOwnedBins []}"
+
+      echo "✅ nixOwnedBins precedence"
+      touch "$out"
+    '';
+
   # pre-commit.nix embeds the runtime in writeShellApplication wrappers, so the
   # emitted shell has to survive `set -euo pipefail` plus shellcheck.
   testShellcheckClean = pkgs.writeShellApplication {

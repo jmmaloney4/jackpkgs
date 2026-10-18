@@ -254,6 +254,20 @@ in {
       ${pathVar}="${storePath}/node_modules/.bin"
     '';
 
+    # Shell that re-asserts the bin dirs of `packages` at the front of PATH.
+    #
+    # Interface: run it AFTER node_modules/.bin has been prepended. Every
+    # command the given packages provide then resolves to the nix package,
+    # even when an npm dependency ships a same-named bin (jackpkgs#430: the
+    # npm `pulumi` shim, which curls the CLI, shadowing pulumi-bin). The bin
+    # dirs are computed at eval time, so there is no runtime discovery and no
+    # dependence on the order shellHooks are concatenated in via inputsFrom.
+    # An empty list emits nothing.
+    prependNixOwnedBins = packages:
+      lib.optionalString (packages != []) ''
+        export PATH="${lib.makeBinPath packages}:$PATH"
+      '';
+
     # Capture the pnpm-installed node_modules trees from the current directory
     # into "$out" — the output contract from ADR-028: root dependencies at
     # $out/node_modules, package-local trees at $out/<workspace>/node_modules.
