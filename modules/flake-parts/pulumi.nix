@@ -17,7 +17,8 @@ in {
     # The nodejs devshell hook prepends node_modules/.bin; an npm `pulumi`
     # dependency would then shadow pulumi-bin and curl its own CLI
     # (jackpkgs#430), so register pulumi-bin as nix-owned. Inert when
-    # jackpkgs.nodejs is disabled.
+    # jackpkgs.nodejs is disabled or jackpkgs.pulumi.enable is false (imports
+    # sit outside this module's `mkIf cfg.enable`, so the gate is repeated).
     #
     # Conditional on the option existing because this module is also imported
     # without nodejs.nix (tests/lsp.nix, tests/pulumi.nix), where an
@@ -32,7 +33,7 @@ in {
         ...
       }: {
         config = lib.optionalAttrs (options.jackpkgs ? nodejs) {
-          jackpkgs.nodejs.nixOwnedBins = [pkgs.pulumi-bin];
+          jackpkgs.nodejs.nixOwnedBins = lib.mkIf cfg.enable [pkgs.pulumi-bin];
         };
       };
     }
