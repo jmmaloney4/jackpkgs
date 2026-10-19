@@ -1,9 +1,7 @@
+# Disabled 2026-10-18: no project token yet. Re-enable once the fleet GitHub App lands (ergodicsystems/hq#253, jmmaloney4/sector7#165).
 name: 📌 add to project
 on:
-  issues:
-    types: [opened, reopened, transferred, labeled]
-  pull_request:
-    types: [opened, reopened, labeled]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
