@@ -1,0 +1,55 @@
+{
+	"env": {
+		"CLAUDE_TIMESTAMPS_FORMAT": "%m-%d %H:%M:%S"
+	},
+	"permissions": {
+		"defaultMode": "auto"
+	},
+	"worktree": {
+		"baseRef": "fresh"
+	},
+	"statusLine": {
+		"type": "command",
+		"command": "bash /etc/claude-code/statusline-command.sh"
+	},
+	"hooks": {
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bash /etc/claude-code/hooks/message-timestamps/dependency-check.sh",
+						"timeout": 5
+					}
+				]
+			}
+		],
+		"UserPromptSubmit": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bash /etc/claude-code/hooks/message-timestamps/timestamp-context.sh",
+						"timeout": 5
+					}
+				]
+			}
+		],
+		"MessageDisplay": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "CLAUDE_TIMESTAMPS_FORMAT=\"%m-%d %H:%M:%S %Z\" bash /etc/claude-code/hooks/message-timestamps/timestamp-display.sh",
+						"timeout": 10
+					}
+				]
+			}
+		]
+	},
+	"skipWorkflowUsageWarning": true,
+	"preferredNotifChannel": "kitty",
+	"inputNeededNotifEnabled": true,
+	"agentPushNotifEnabled": true,
+	"skipAutoPermissionPrompt": true
+}

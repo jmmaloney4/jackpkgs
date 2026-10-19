@@ -21,6 +21,7 @@ import ../common/modules.nix
   agenix = import ./agenix.nix inputs;
   build-user = import ./build-user.nix inputs;
   cache-target-pruner = ./cache-target-pruner.nix;
+  claude-managed-settings = ./claude-managed-settings.nix;
   determinate = import ./determinate.nix inputs;
   disks = ./disks.nix;
   docker = ./docker.nix;
