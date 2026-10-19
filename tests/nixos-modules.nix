@@ -1372,13 +1372,13 @@ in {
     in {
       statusLine = j.statusLine.command;
       hasHooks = builtins.all (k: j.hooks ? ${k}) ["SessionStart" "UserPromptSubmit" "MessageDisplay"];
-      # The shipped copy is neutral: no host-specific allowlist entries.
-      neutral = !(j ? autoMode);
+      # The shipped copy carries no host-specific allowlist entries.
+      noAutoMode = !(j ? autoMode);
     };
     expected = {
       statusLine = "bash /etc/claude-code/statusline-command.sh";
       hasHooks = true;
-      neutral = true;
+      noAutoMode = true;
     };
   };
 
@@ -1399,5 +1399,17 @@ in {
       overrideChangesDrv = true;
       defaultStable = true;
     };
+  };
+
+  # The statusline prints directory/worktree/PR strings through `printf %b`
+  # into a terminal, so each must pass through sanitize_display first.
+  testClaudeManagedSettingsStatuslineSanitizesUntrustedFields = {
+    expr = let
+      src = builtins.readFile ../modules/nixos/claude-managed-settings/statusline-command.sh;
+      sanitized = f: lib.hasInfix ("${f}=$(sanitize_display \"" + "$" + f + "\")") src;
+    in
+      builtins.all sanitized ["model" "effort" "wt_name" "pr_number" "pr_url" "pr_state"]
+      && lib.hasInfix "base=$(sanitize_display \"$(basename" src;
+    expected = true;
   };
 }

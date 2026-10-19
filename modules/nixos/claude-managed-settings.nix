@@ -18,8 +18,9 @@
 #   * `settingsFile`      — the managed-settings.json to install
 #   * `statuslineSource`  — the statusline script it points at
 #
-# The shipped defaults (./claude-managed-settings/) are a NEUTRAL vendored copy
-# of garden's payload: garden's own `autoMode` allowlist entry (a Nous Portal
+# The shipped defaults (./claude-managed-settings/) are a vendored copy
+# of garden's payload (NOT policy-neutral: it sets permissions.defaultMode "auto"
+# and skipAutoPermissionPrompt, see README): garden's own `autoMode` allowlist entry (a Nous Portal
 # distillation pipeline) is deliberately not included. A consumer that wants its
 # own payload points the options at its own files; garden is expected to do so,
 # which keeps garden's file the single source of truth for garden.
@@ -196,7 +197,10 @@ in {
       defaultText = lib.literalExpression "./claude-managed-settings/managed-settings.json";
       description = ''
         The managed-settings.json to install; `jq`-validated at build time.
-        The default is a neutral shipped copy. A replacement must keep the
+        The default is a vendored copy of garden's payload, not a policy-neutral
+        one: it sets `permissions.defaultMode = "auto"` and
+        `skipAutoPermissionPrompt = true`, which override per-user settings for
+        every user on the host. Supply your own file to opt out. A replacement must keep the
         `statusLine` and hook commands pointing at the /etc/claude-code/ paths
         this module installs.
       '';

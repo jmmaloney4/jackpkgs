@@ -44,11 +44,30 @@ tsv=$(echo "$input" | jq -r '
 ')
 IFS=$'\001' read -r model dir remaining rl5h rl7d cache_ratio effort wt_name pr_number pr_url pr_state <<<"$tsv"
 
-base=$(basename "$dir")
+# Every displayed string below is attacker-influenced (a directory or worktree
+# name, a PR URL, ...) and ends up inside `printf "%b"` output that a terminal
+# interprets. Strip C0 controls and DEL (ESC, newline, BEL, ...) so a value
+# cannot inject its own escape sequences or terminate the OSC 8 hyperlink, and
+# double any backslash so `%b` does not expand a literal "\033" typed into a
+# name. The intentional colour escapes are added after this, by the script.
+sanitize_display() {
+  local v
+  v=$(printf '%s' "$1" | tr -d '\001-\037\177')
+  printf '%s' "${v//\\/\\\\}"
+}
+
+model=$(sanitize_display "$model")
+effort=$(sanitize_display "$effort")
+wt_name=$(sanitize_display "$wt_name")
+pr_number=$(sanitize_display "$pr_number")
+pr_url=$(sanitize_display "$pr_url")
+pr_state=$(sanitize_display "$pr_state")
+
+base=$(sanitize_display "$(basename "$dir")")
 
 branch=""
 if git -C "$dir" --no-optional-locks rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  branch=$(git -C "$dir" --no-optional-locks branch --show-current 2>/dev/null)
+  branch=$(sanitize_display "$(git -C "$dir" --no-optional-locks branch --show-current 2>/dev/null)")
 fi
 
 # color code: higher value is good (context remaining, cache ratio)
