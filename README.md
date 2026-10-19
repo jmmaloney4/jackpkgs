@@ -37,8 +37,6 @@ flowchart LR
 
 Detail by area is below: [input](#add-as-a-flake-input), [packages](#use-packages-flake-only) / [package list](#packages-available), [overlays](#overlays), [host modules](#nixos--nix-darwin--home-manager-modules), [flake-parts](#flake-parts-modules), [templates](#templates).
 
-**Constraint:** this flake's `systems` input is `github:nix-systems/default`, which still includes `x86_64-darwin`. Evaluating that system against the current `nixpkgs` pin fails (`Nixpkgs 26.11 has dropped support for x86_64-darwin`). `nix flake show --all-systems` therefore fails; `packages.x86_64-linux` / `aarch64-linux` / `aarch64-darwin` still evaluate.
-
 ______________________________________________________________________
 
 ## Add as a flake input
@@ -60,7 +58,7 @@ ______________________________________________________________________
 {
   outputs = { self, nixpkgs, jackpkgs, ... }:
   let
-    system = "x86_64-darwin"; # or x86_64-linux, aarch64-linux, etc.
+    system = "x86_64-linux"; # or aarch64-linux, aarch64-darwin, etc.
   in {
     packages.${system} = {
       inherit (jackpkgs.packages.${system}) biome tod; # example; not every attr exists on every system
@@ -205,7 +203,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 
 Note: When importing modules a la carte, include `flakeModules.pkgs` if you want to set `jackpkgs.pkgs` to propagate overlayed nixpkgs. The `default` module includes it automatically.
 
-`nodejs` and `checks` are not named flakeModules. Repos that need `jackpkgs.nodejs` or the shared quality-gate options should import `flakeModules.default` rather than assembling a la carte. The `pre-commit` module's own text still mentions `flakeModules.checks`; that output does not exist — use `default`.
+`nodejs` and `checks` are not named flakeModules. Repos that need `jackpkgs.nodejs` or the shared quality-gate options should import `flakeModules.default` rather than assembling a la carte.
 
 ### Using overlayed nixpkgs
 
@@ -458,7 +456,7 @@ back.
   - Global options under `jackpkgs.images`:
     - `enable` (bool, default `false`)
     - `linuxSystem` (string, default `"x86_64-linux"`) - system used to evaluate and build images
-    - `registry` (string, required) - default registry/repository prefix for generated image names
+    - `registry` (null or string, default `null`) - default registry/repository prefix. Per-image `registry` overrides it and falls back to it; at least one of the two must be set when an image is built.
     - `authMode` (string, default `"gcp"`) - push credential mode used by generated recipes (`"gcp"`: `gcloud auth print-access-token`; `"ghcr"`: `GITHUB_ACTOR` + `GITHUB_TOKEN`). Not a closed enum in the module type.
     - `labels` (attrset of string, default `{}`) - OCI labels merged into every image
     - `addRevisionLabel` (bool, default `true`) - injects `org.opencontainers.image.revision` from the consumer flake metadata, preferring `self.dirtyRev` over `self.rev`
@@ -527,7 +525,7 @@ back.
   - `jackpkgs.lsp.enable` (bool, default `false`). Puts LSP binaries on the composed `jackpkgs.shell` PATH.
   - `jackpkgs.lsp.typescript.backend` (`"tsgo"` | `"typescript-language-server"` | `"none"`, default `"typescript-language-server"`). TypeScript packages are added when `jackpkgs.nodejs.enable` or `jackpkgs.pulumi.enable`.
   - `jackpkgs.lsp.python.backend` (`"ty"` | `"pyright"` | `"none"`, default `"ty"`); `jackpkgs.lsp.python.lintBackend` (`"ruff"` | `"none"`, default `"ruff"`). Python LSPs are added when `jackpkgs.python.enable`.
-  - `jackpkgs.lsp.nix.backend` (enum `"nil"` | `"nixd"` | `"none"`, default `"nil"`). `"nil"` installs `nil`; any other value, including `"none"`, currently installs `nixd` (`modules/flake-parts/lsp.nix`).
+  - `jackpkgs.lsp.nix.backend` (enum `"nil"` | `"nixd"` | `"none"`, default `"nil"`). `"nil"` installs `nil`; `"nixd"` installs `nixd`; `"none"` installs neither.
   - `jackpkgs.lsp.rust.enable` (bool, default `false`) — `rust-analyzer`.
   - Always (when the module is enabled): `yaml-language-server`, `bash-language-server`.
   - Per-system `jackpkgs.lsp.extraPackages` (list of packages, default `[]`).
@@ -1034,7 +1032,7 @@ ______________________________________________________________________
 > **Parked packages:** `nautilus-trader` (2026-10-14; see [#427](https://github.com/jmmaloney4/jackpkgs/issues/427)). Flake `packages` output unwired; nvfetcher and `_sources` kept. Neither `overlays.default` nor `packages.<system>` export it.
 
 - `adr-conflict-check` — ADR numbering/filename checks (`pkgs/adr-conflict-check`; flake `packages` only, not `overlays.default`)
-- `biome` — Biome 2.5.4 (`pkgs/biome`; nixpkgs still ships 2.4.13 at the pin used here)
+- `biome` — Biome 2.5.4 (`pkgs/biome`)
 - `codex-proxy` — OpenAI-compatible proxy for ChatGPT Codex (`pkgs/codex-proxy`)
 - `codex-proxy-rs` — Rust port of `codex-proxy` (`pkgs/codex-proxy-rs`)
 - `csharpier` — C# formatter (`pkgs/csharpier`; `meta.broken = true`, so it is **not** in `packages.<system>`; still an overlay attribute)
