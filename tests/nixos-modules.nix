@@ -1337,4 +1337,79 @@ in {
       }).config.systemd.timers.repo-sync.wantedBy;
     expected = ["timers.target"];
   };
+
+  # ---------------------------------------------------------------------
+  # jackpkgs.claude-managed-settings
+  # ---------------------------------------------------------------------
+
+  testClaudeManagedSettingsInstallsEtcEntries = {
+    expr = let
+      c = cfgOf [{jackpkgs.claude-managed-settings.enable = true;}];
+    in {
+      files = builtins.attrNames (lib.filterAttrs (n: _: lib.hasPrefix "claude-code/" n) c.environment.etc);
+      failed = failedAssertions c;
+    };
+    expected = {
+      files = [
+        "claude-code/hooks/message-timestamps"
+        "claude-code/managed-settings.json"
+        "claude-code/statusline-command.sh"
+      ];
+      failed = [];
+    };
+  };
+
+  testClaudeManagedSettingsInertWhenDisabled = {
+    expr = builtins.any (lib.hasPrefix "claude-code/") (builtins.attrNames (cfgOf []).environment.etc);
+    expected = false;
+  };
+
+  # The shipped default is what seven consumes without wiring anything, so it
+  # must itself be valid JSON that points at the paths the module installs.
+  testClaudeManagedSettingsDefaultPayloadReferencesInstalledPaths = {
+    expr = let
+      j = builtins.fromJSON (builtins.readFile ../modules/nixos/claude-managed-settings/managed-settings.json);
+    in {
+      statusLine = j.statusLine.command;
+      hasHooks = builtins.all (k: j.hooks ? ${k}) ["SessionStart" "UserPromptSubmit" "MessageDisplay"];
+      # The shipped copy carries no host-specific allowlist entries.
+      noAutoMode = !(j ? autoMode);
+    };
+    expected = {
+      statusLine = "bash /etc/claude-code/statusline-command.sh";
+      hasHooks = true;
+      noAutoMode = true;
+    };
+  };
+
+  # A consumer's own payload replaces the shipped default: the installed
+  # derivation changes when `settingsFile` does (and only then).
+  testClaudeManagedSettingsPayloadOverridable = {
+    expr = let
+      drv = mods: (cfgOf mods).environment.etc."claude-code/managed-settings.json".source.drvPath;
+      on = {jackpkgs.claude-managed-settings.enable = true;};
+      custom = {
+        jackpkgs.claude-managed-settings.settingsFile = builtins.toFile "s.json" "{}";
+      };
+    in {
+      overrideChangesDrv = drv [on custom] != drv [on];
+      defaultStable = drv [on] == drv [on];
+    };
+    expected = {
+      overrideChangesDrv = true;
+      defaultStable = true;
+    };
+  };
+
+  # The statusline prints directory/worktree/PR strings through `printf %b`
+  # into a terminal, so each must pass through sanitize_display first.
+  testClaudeManagedSettingsStatuslineSanitizesUntrustedFields = {
+    expr = let
+      src = builtins.readFile ../modules/nixos/claude-managed-settings/statusline-command.sh;
+      sanitized = f: lib.hasInfix ("${f}=$(sanitize_display \"" + "$" + f + "\")") src;
+    in
+      builtins.all sanitized ["model" "effort" "wt_name" "pr_number" "pr_url" "pr_state"]
+      && lib.hasInfix "base=$(sanitize_display \"$(basename" src;
+    expected = true;
+  };
 }
