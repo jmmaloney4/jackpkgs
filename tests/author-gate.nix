@@ -119,6 +119,12 @@ in {
       grep -q 'git rebase --exec' err
       grep -q 'cursoragent@cursor.com' err
       grep -q 'bots.roomofrequirement.xyz' err
+      grep -q 'committer=' err
+      if grep -q 'commiter=' err; then
+        echo "gate output has typo commiter= (should be committer=)"
+        cat err
+        exit 1
+      fi
     '';
   };
 
@@ -258,6 +264,69 @@ in {
       commit_msg "$(printf 'agent\n\nBot: grok (Cavins)\n')"
       ${exe} --base main --bot-email-domain bots.cavinsresearch.io 2> err || true
       grep -q 'bots.cavinsresearch.io' err
+      # Same amend shape as the default-domain hint (git 2.55 rejects
+      # --reset-author together with --author).
+      grep -q 'GIT_COMMITTER_NAME' err
+      grep -q -- '--author=' err
+      if grep -q -- '--reset-author' err; then
+        echo "Cavins fix command must not use --reset-author"
+        cat err
+        exit 1
+      fi
+    '';
+  };
+
+  # Dogfood: git 2.55 errors with
+  #   fatal: options '--reset-author' and '--author' cannot be used together
+  # when the printed rebase --exec is copy-pasted. Extract that command,
+  # run it, and require the gate to pass on the rewritten identity.
+  printed-fix-rewrites-cursoragent-identity = mkTest {
+    name = "printed-fix-rewrites-cursoragent-identity";
+    body = ''
+      init_repo
+      start_feature
+      ident_cursor_author
+      echo bad > f
+      git add f
+      commit_msg "$(printf 'agent work\n\nBot: wiesner (Shared Patterns Maintainer)\n')"
+      set +e
+      ${exe} --base main 2> err
+      rc=$?
+      set -e
+      if [ "$rc" -ne 1 ]; then
+        echo "expected exit 1 before rewrite, got $rc"
+        cat err
+        exit 1
+      fi
+      if grep -q -- '--reset-author' err; then
+        echo "printed fix must not use --reset-author (incompatible with --author on git 2.55)"
+        cat err
+        exit 1
+      fi
+      if grep -q 'commiter=' err; then
+        echo "gate output has typo commiter= (should be committer=)"
+        cat err
+        exit 1
+      fi
+      cmd=$(grep -E '^[[:space:]]*git rebase --exec' err | head -n 1)
+      if [ -z "$cmd" ]; then
+        echo "no git rebase --exec line in gate output"
+        cat err
+        exit 1
+      fi
+      eval "$cmd"
+      ${exe} --base main
+      ident=$(git log -1 --format='%an <%ae>%n%cn <%ce>')
+      expected=$(printf '%s\n%s' \
+        'wiesner (Shared Patterns Maintainer) <wiesner@bots.roomofrequirement.xyz>' \
+        'wiesner (Shared Patterns Maintainer) <wiesner@bots.roomofrequirement.xyz>')
+      if [ "$ident" != "$expected" ]; then
+        echo "identity after printed fix:"
+        printf '%s\n' "$ident"
+        echo "expected:"
+        printf '%s\n' "$expected"
+        exit 1
+      fi
     '';
   };
 }
