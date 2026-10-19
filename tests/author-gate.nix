@@ -1,0 +1,263 @@
+# Script-behaviour tests for author-gate. Each attribute is a derivation
+# that builds a throwaway git repo in the sandbox and asserts exit codes.
+#
+# These tests *do* see git history because they `git init` inside the
+# derivation. That is the opposite of `nix flake check` against a flake
+# source copy: the store path has no `.git`, which `store-copy-has-no-git`
+# proves. The merge-gate therefore cannot be a pure check of the consumer
+# repo; it is this CLI run in the worktree (and the pre-push hook).
+{
+  pkgs,
+  author-gate,
+}: let
+  lib = pkgs.lib;
+  git = pkgs.git;
+  exe = lib.getExe author-gate;
+
+  prelude = ''
+    export HOME="$PWD/home"
+    mkdir -p "$HOME"
+    export GIT_CONFIG_NOSYSTEM=1
+    export GIT_CONFIG_GLOBAL=/dev/null
+    export GIT_AUTHOR_DATE="1970-01-01T00:00:00+0000"
+    export GIT_COMMITTER_DATE="1970-01-01T00:00:00+0000"
+    git() { ${git}/bin/git -c init.defaultBranch=main -c commit.gpgsign=false "$@"; }
+    ident_jack() {
+      export GIT_AUTHOR_NAME="Jack Maloney"
+      export GIT_AUTHOR_EMAIL="jmmaloney4@gmail.com"
+      export GIT_COMMITTER_NAME="Jack Maloney"
+      export GIT_COMMITTER_EMAIL="jmmaloney4@gmail.com"
+    }
+    ident_bot() {
+      export GIT_AUTHOR_NAME="wiesner (Shared Patterns Maintainer)"
+      export GIT_AUTHOR_EMAIL="wiesner@bots.roomofrequirement.xyz"
+      export GIT_COMMITTER_NAME="wiesner (Shared Patterns Maintainer)"
+      export GIT_COMMITTER_EMAIL="wiesner@bots.roomofrequirement.xyz"
+    }
+    ident_cursor_author() {
+      export GIT_AUTHOR_NAME="Cursor Agent"
+      export GIT_AUTHOR_EMAIL="cursoragent@cursor.com"
+      export GIT_COMMITTER_NAME="Jack Maloney"
+      export GIT_COMMITTER_EMAIL="jmmaloney4@gmail.com"
+    }
+    ident_cursor_committer() {
+      export GIT_AUTHOR_NAME="Jack Maloney"
+      export GIT_AUTHOR_EMAIL="jmmaloney4@gmail.com"
+      export GIT_COMMITTER_NAME="Cursor Agent"
+      export GIT_COMMITTER_EMAIL="cursoragent@cursor.com"
+    }
+    commit_msg() {
+      local body="$1"
+      git commit -m "$body"
+    }
+    init_repo() {
+      mkdir -p repo && cd repo
+      git init
+      ident_jack
+      echo base > README
+      git add README
+      commit_msg "initial"
+    }
+    # Commits after this are merge-base(main, HEAD)..HEAD; staying on main
+    # makes that range empty (HEAD *is* main).
+    start_feature() {
+      git checkout -b feature
+    }
+  '';
+
+  mkTest = {
+    name,
+    body,
+  }:
+    pkgs.runCommand "author-gate-${name}" {
+      nativeBuildInputs = [git];
+    } ''
+      set -euo pipefail
+      ${prelude}
+      ${body}
+      touch "$out"
+    '';
+in {
+  cursoragent-author-fails = mkTest {
+    name = "cursoragent-author-fails";
+    body = ''
+      init_repo
+      start_feature
+      ident_cursor_author
+      echo bad > f
+      git add f
+      commit_msg "$(printf 'agent work\n\nBot: wiesner (Shared Patterns Maintainer)\n')"
+      set +e
+      ${exe} --base main
+      rc=$?
+      set -e
+      if [ "$rc" -ne 1 ]; then
+        echo "expected exit 1, got $rc"
+        exit 1
+      fi
+    '';
+  };
+
+  cursoragent-committer-fails = mkTest {
+    name = "cursoragent-committer-fails";
+    body = ''
+      init_repo
+      start_feature
+      ident_cursor_committer
+      echo bad > f
+      git add f
+      commit_msg "$(printf 'agent work\n\nBot: wiesner (Shared Patterns Maintainer)\n')"
+      set +e
+      ${exe} --base main
+      rc=$?
+      set -e
+      if [ "$rc" -ne 1 ]; then
+        echo "expected exit 1, got $rc"
+        exit 1
+      fi
+      ${exe} --base main 2> err || true
+      grep -q 'git rebase --exec' err
+      grep -q 'cursoragent@cursor.com' err
+      grep -q 'bots.roomofrequirement.xyz' err
+    '';
+  };
+
+  bot-author-passes = mkTest {
+    name = "bot-author-passes";
+    body = ''
+      init_repo
+      start_feature
+      ident_bot
+      echo ok > f
+      git add f
+      commit_msg "$(printf 'bot work\n\nBot: wiesner (Shared Patterns Maintainer)\n')"
+      ${exe} --base main
+    '';
+  };
+
+  jack-author-passes = mkTest {
+    name = "jack-author-passes";
+    body = ''
+      init_repo
+      start_feature
+      ident_jack
+      echo ok > f
+      git add f
+      commit_msg "jack work"
+      ${exe} --base main
+    '';
+  };
+
+  empty-range-passes = mkTest {
+    name = "empty-range-passes";
+    body = ''
+      init_repo
+      # HEAD is main; merge-base(main, HEAD)..HEAD is empty.
+      ${exe} --base main
+    '';
+  };
+
+  shallow-clone-clear-error = mkTest {
+    name = "shallow-clone-clear-error";
+    body = ''
+      mkdir origin && cd origin
+      git init
+      ident_jack
+      echo a > README
+      git add README
+      commit_msg "a"
+      echo b >> README
+      git add README
+      commit_msg "b"
+      echo c >> README
+      git add README
+      commit_msg "c"
+      git checkout -b feature
+      ident_cursor_author
+      echo d >> README
+      git add README
+      commit_msg "$(printf 'agent\n\nBot: wiesner (Shared Patterns Maintainer)\n')"
+      cd ..
+      git -c protocol.file.allow=always clone --depth=1 "file://$PWD/origin" shallow
+      cd shallow
+      git -c protocol.file.allow=always remote set-url origin "file://$PWD/../origin"
+      set +e
+      ${exe} --base origin/main
+      rc=$?
+      set -e
+      if [ "$rc" -ne 2 ]; then
+        echo "expected exit 2 for shallow clone, got $rc"
+        exit 1
+      fi
+      ${exe} --base origin/main 2> err || true
+      grep -qi 'shallow' err
+    '';
+  };
+
+  store-copy-has-no-git = mkTest {
+    name = "store-copy-has-no-git";
+    body = ''
+      init_repo
+      ident_cursor_author
+      echo bad > f
+      git add f
+      commit_msg "agent"
+      cd ..
+      mkdir copy
+      # Simulate the flake source copy Nix puts in the store: tracked files,
+      # no .git. A pure check running against that copy cannot see authors.
+      cp -a repo/README repo/f copy/
+      cd copy
+      set +e
+      ${exe}
+      rc=$?
+      set -e
+      if [ "$rc" -ne 2 ]; then
+        echo "expected exit 2 (not a git worktree), got $rc"
+        exit 1
+      fi
+      ${exe} 2> err || true
+      grep -q 'not a git worktree' err
+      grep -q 'nix flake check' err
+    '';
+  };
+
+  ident-mode-blocks-cursoragent = mkTest {
+    name = "ident-mode-blocks-cursoragent";
+    body = ''
+      init_repo
+      ident_cursor_author
+      set +e
+      ${exe} --mode ident
+      rc=$?
+      set -e
+      if [ "$rc" -ne 1 ]; then
+        echo "expected exit 1, got $rc"
+        exit 1
+      fi
+    '';
+  };
+
+  ident-mode-allows-jack = mkTest {
+    name = "ident-mode-allows-jack";
+    body = ''
+      init_repo
+      ident_jack
+      ${exe} --mode ident
+    '';
+  };
+
+  cavins-domain-in-fix = mkTest {
+    name = "cavins-domain-in-fix";
+    body = ''
+      init_repo
+      start_feature
+      ident_cursor_author
+      echo bad > f
+      git add f
+      commit_msg "$(printf 'agent\n\nBot: grok (Cavins)\n')"
+      ${exe} --base main --bot-email-domain bots.cavinsresearch.io 2> err || true
+      grep -q 'bots.cavinsresearch.io' err
+    '';
+  };
+}

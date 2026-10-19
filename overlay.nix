@@ -75,6 +75,8 @@ else let
       inherit (nvfetcherSources.tod) src version;
       nvCargoLock = nvfetcherSources.tod.cargoLock;
     };
+    author-gate = super.callPackage ./pkgs/author-gate {};
+    git-bot-identity = super.callPackage ./pkgs/git-bot-identity {};
   };
   jackLib = import ./lib {pkgs = super;};
   nurAttrs =
