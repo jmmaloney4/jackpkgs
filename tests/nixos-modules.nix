@@ -1311,12 +1311,16 @@ in {
     in {
       plainNoEnvFile = !(lib.hasInfix "grep -E '^GITHUB_TOKEN=" plain);
       envFile = lib.hasInfix "/home/alice/.agent/.env" envf;
+      envFileStripsQuotes = lib.hasInfix "\${tok#\\\"}" envf && lib.hasInfix "\${tok#\\'}" envf;
+      plainNoQuoteStrip = !(lib.hasInfix "tok#" plain);
       opFailsLoudly = lib.hasInfix "not falling back to other credentials" op;
       opNoGhFallback = !(lib.hasInfix "auth token" op);
     };
     expected = {
       plainNoEnvFile = true;
       envFile = true;
+      envFileStripsQuotes = true;
+      plainNoQuoteStrip = true;
       opFailsLoudly = true;
       opNoGhFallback = true;
     };

@@ -76,7 +76,7 @@ modules = [ inputs.jackpkgs.darwinModules.default ];       # or darwinModules.im
 modules = [ inputs.jackpkgs.homeModules.tod ];             # or homeModules.default for the whole tree
 ```
 
-NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enable`): `agenix`, `attic`, `build-user`, `cache-target-pruner`, `determinate`, `disks`, `docker`, `fonts`, `gnupg-agent`, `guest-user`, `nix`, `nixbuild`, `operator`, `packages`, `profile`, `ssh`, `tailscale`, `user`, `zenith`, `zsh`. Identity and topology values have no defaults — enabling a module without them fails at eval:
+NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enable`): `agenix`, `attic`, `build-user`, `cache-target-pruner`, `determinate`, `disks`, `docker`, `fonts`, `gnupg-agent`, `guest-user`, `nix`, `nixbuild`, `operator`, `packages`, `profile`, `repo-sync`, `ssh`, `tailscale`, `user`, `zenith`, `zsh`. Identity and topology values have no defaults — enabling a module without them fails at eval:
 
 ```nix
 {
@@ -93,6 +93,8 @@ NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enabl
 `cache-target-pruner` deletes `CACHEDIR.TAG`-marked build caches (Cargo `target/`, uv, ...) under a user's `~/.cache`, but only when the root filesystem drops below 15% free (stopping at 20%), via a systemd timer. Required: `jackpkgs.cache-target-pruner.user` (declared in `users.users`). Thresholds are fixed. NixOS only.
 
 `profile` is the fleet baseline: it `mkDefault`-enables `user`, `fonts`, `nix`, `attic`, `ssh` and `tailscale`, so a host on it must also wire their required values above (and on NixOS it imports Home Manager's NixOS module and sets the locale). The account modules create users: `operator` creates the account `jackpkgs.user.username` names and wires it to Home Manager, `build-user` and `guest-user` create the others.
+
+`repo-sync` is a timer-driven service that commits agent-authored edits from a dedicated checkout (`repoPath`) to a branch of `repo` and keeps a PR to `baseBranch` open. It needs `user`, `repo` (`owner/name`), `repoPath`, `branch`, `paths` and `commitAuthor.{name,email}` (no defaults); `flattenSkillsDir`, `githubTokenEnvFile` and `onePassword.*` are optional. It is not covered by `profile`.
 
 ```nix
 {

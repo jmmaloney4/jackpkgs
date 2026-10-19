@@ -86,6 +86,11 @@ with lib; let
       ${optionalString (cfg.githubTokenEnvFile != null) ''
         if [ -f ${escapeShellArg cfg.githubTokenEnvFile} ]; then
           tok="$(grep -E '^GITHUB_TOKEN=' ${escapeShellArg cfg.githubTokenEnvFile} | head -1 | cut -d= -f2- || true)"
+          # dotenv values are often quoted; strip one surrounding pair.
+          case "$tok" in
+            \"*\") tok="''${tok#\"}"; tok="''${tok%\"}" ;;
+            \'*\') tok="''${tok#\'}"; tok="''${tok%\'}" ;;
+          esac
           if [ -n "''${tok:-}" ]; then
             export GH_TOKEN="$tok" GITHUB_TOKEN="$tok"
           fi
