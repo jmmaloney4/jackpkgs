@@ -35,6 +35,7 @@
           jackpkgs.shell.enable = true;
         }
       ];
+      jackpkgs.cache-target-pruner.user = "alice";
       jackpkgs.build-user.username = "builder";
       jackpkgs.guest-user = {
         username = "carol";
