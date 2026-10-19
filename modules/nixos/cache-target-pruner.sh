@@ -66,7 +66,10 @@ while IFS= read -r -d '' tag; do
   # checked (pipefail inside the subshell), and any failure or empty result is
   # indeterminate -> skip. The `if !` also keeps a deterministic failure from
   # aborting the whole run under set -e on every timer tick.
-  if ! newest=$(set -o pipefail; find "$d" -xdev -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1) ||
+  if ! newest=$(
+    set -o pipefail
+    find "$d" -xdev -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1
+  ) ||
     [ -z "${newest:-}" ]; then
     # For a deletion path, an indeterminate result must fail toward "skip",
     # never toward "looks oldest, delete it".
