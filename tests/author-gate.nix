@@ -241,6 +241,65 @@ in {
         echo "expected exit 1, got $rc"
         exit 1
       fi
+      ${exe} --mode ident 2> err || true
+      grep -q 'git-bot-identity' err
+      grep -q 'GIT_AUTHOR_NAME' err
+      grep -q -- '-c user.name' err
+      grep -qi 're-commit' err
+      if grep -q 'git rebase --exec' err; then
+        echo "ident-mode hint must not print rebase --exec (nothing is on HEAD yet)"
+        cat err
+        exit 1
+      fi
+    '';
+  };
+
+  # New-branch pre-push: FROM_REF is 40 zeros, so the hook range is unusable.
+  # The gate must fall back to merge-base and still fail on the cursoragent
+  # commit in the pushed range (not exit 0).
+  pre-push-all-zeros-from-ref-fails = mkTest {
+    name = "pre-push-all-zeros-from-ref-fails";
+    body = ''
+      init_repo
+      start_feature
+      ident_cursor_author
+      echo bad > f
+      git add f
+      commit_msg "$(printf 'agent work\n\nBot: wiesner (Shared Patterns Maintainer)\n')"
+      export PRE_COMMIT_FROM_REF=0000000000000000000000000000000000000000
+      export PRE_COMMIT_TO_REF="$(git rev-parse HEAD)"
+      set +e
+      ${exe} --base main
+      rc=$?
+      set -e
+      if [ "$rc" -ne 1 ]; then
+        echo "expected exit 1 for all-zeros pre-push from-ref with cursoragent commit, got $rc"
+        exit 1
+      fi
+    '';
+  };
+
+  # Pre-push FROM_REF is a plausible sha that is not in this repo (not fetched).
+  # Same fail-closed requirement as the all-zeros case.
+  pre-push-unknown-from-ref-fails = mkTest {
+    name = "pre-push-unknown-from-ref-fails";
+    body = ''
+      init_repo
+      start_feature
+      ident_cursor_author
+      echo bad > f
+      git add f
+      commit_msg "$(printf 'agent work\n\nBot: wiesner (Shared Patterns Maintainer)\n')"
+      export PRE_COMMIT_FROM_REF=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+      export PRE_COMMIT_TO_REF="$(git rev-parse HEAD)"
+      set +e
+      ${exe} --base main
+      rc=$?
+      set -e
+      if [ "$rc" -ne 1 ]; then
+        echo "expected exit 1 for unknown pre-push from-ref with cursoragent commit, got $rc"
+        exit 1
+      fi
     '';
   };
 
