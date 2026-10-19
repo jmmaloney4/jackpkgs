@@ -163,6 +163,42 @@ print_fix() {
   echo "Then verify: nix run github:jmmaloney4/jackpkgs#author-gate" >&2
 }
 
+print_ident_fix() {
+  local domain="$bot_email_domain"
+  echo >&2
+  echo "Cursor cloud agents must not land as Cursor Agent <cursoragent@cursor.com>." >&2
+  echo "This is --mode ident (commit-msg): the commit is not on HEAD yet, so a" >&2
+  echo "rebase --exec over HEAD would replay nothing. Fix the identity, then re-commit." >&2
+  echo >&2
+  echo "Preferred: persist the bot identity with git-bot-identity (writes --local" >&2
+  echo "user.name / user.email from GROKBOT_GIT_NAME / GROKBOT_GIT_EMAIL):" >&2
+  echo "  export GROKBOT_GIT_NAME='<name> (<Title>)' GROKBOT_GIT_EMAIL='<name>@${domain}'" >&2
+  echo "  nix run github:jmmaloney4/jackpkgs#git-bot-identity" >&2
+  echo >&2
+  echo "Or set identity for this commit only (do not run unscoped git config user.*" >&2
+  echo "— linked worktrees share .git/config):" >&2
+  echo "  export GIT_AUTHOR_NAME='<name> (<Title>)' GIT_AUTHOR_EMAIL='<name>@${domain}' \\" >&2
+  echo "         GIT_COMMITTER_NAME='<name> (<Title>)' GIT_COMMITTER_EMAIL='<name>@${domain}'" >&2
+  echo "  git -c user.name='<name> (<Title>)' -c user.email='<name>@${domain}' commit ..." >&2
+}
+
+is_all_zeros_sha() {
+  local ref="$1"
+  [[ $ref =~ ^0+$ ]] && { [[ ${#ref} -eq 40 || ${#ref} -eq 64 ]]; }
+}
+
+# Pre-push supplies PRE_COMMIT_FROM_REF..PRE_COMMIT_TO_REF. Trust that range
+# only when from-ref is a real local commit. All-zeros (new branch) and any
+# sha missing locally used to make `git rev-list` fail, which the empty-range
+# check swallowed as a pass — skip the gate on the agent-pushes-new-branch case.
+pre_commit_from_ref_usable() {
+  local from="$1"
+  if [[ -z $from ]] || is_all_zeros_sha "$from"; then
+    return 1
+  fi
+  git rev-parse --verify --quiet "${from}^{commit}" >/dev/null
+}
+
 report_and_fail() {
   local merge_base="$1"
   shift
@@ -212,7 +248,14 @@ ident)
     hits+=("ident  committer=${committer_ident}")
   fi
   if [[ ${#hits[@]} -gt 0 ]]; then
-    report_and_fail "HEAD" "${hits[@]}"
+    echo "author-gate: blocked commit(s) with author or committer email matching:" >&2
+    for email in "${blocked_emails[@]}"; do
+      echo "  - ${email}" >&2
+    done
+    echo >&2
+    printf '%s\n' "${hits[@]}" >&2
+    print_ident_fix
+    exit 1
   fi
   exit 0
   ;;
@@ -235,7 +278,8 @@ range) ;;
   ;;
 esac
 
-if [[ -n ${PRE_COMMIT_FROM_REF:-} && -n ${PRE_COMMIT_TO_REF:-} ]]; then
+if [[ -n ${PRE_COMMIT_FROM_REF:-} && -n ${PRE_COMMIT_TO_REF:-} ]] &&
+  pre_commit_from_ref_usable "$PRE_COMMIT_FROM_REF"; then
   range="${PRE_COMMIT_FROM_REF}..${PRE_COMMIT_TO_REF}"
   merge_base="$PRE_COMMIT_FROM_REF"
 else
@@ -255,7 +299,15 @@ else
 fi
 
 # Empty range (HEAD is the default branch, or nothing to push): pass.
-if [[ -z "$(git rev-list --max-count=1 "$range" 2>/dev/null || true)" ]]; then
+# A failed rev-list is not empty — do not swallow it as a pass.
+rev_list_status=0
+rev_list_sample="$(git rev-list --max-count=1 "$range" 2>/dev/null)" || rev_list_status=$?
+if [[ $rev_list_status -ne 0 ]]; then
+  echo "author-gate: cannot list commits in range ${range} (git rev-list exited ${rev_list_status})." >&2
+  echo "Fetch the missing ref or pass --base <rev>." >&2
+  exit 2
+fi
+if [[ -z $rev_list_sample ]]; then
   exit 0
 fi
 
