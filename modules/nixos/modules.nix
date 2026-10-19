@@ -27,6 +27,7 @@ import ../common/modules.nix
   nix = ./nix.nix;
   operator = import ./operator.nix inputs;
   profile = import ./profile.nix inputs;
+  repo-sync = ./repo-sync.nix;
   tailscale = ./tailscale.nix;
   zenith = ./zenith.nix;
 }

@@ -56,6 +56,34 @@
       authorizedKeys = ["ssh-ed25519 AAAA carol"];
     };
   };
+
+  # jackpkgs.repo-sync: the fully wired module, `extra` merged over it.
+  repoSyncFull = {
+    user = "alice";
+    repo = "example-org/example-repo";
+    repoPath = "/home/alice/checkout";
+    branch = "agent-sync";
+    paths = ["notes"];
+    commitAuthor = {
+      name = "Sync Bot";
+      email = "sync-bot@example.com";
+    };
+  };
+  repoSyncWiring = extra: {
+    jackpkgs.repo-sync = lib.recursiveUpdate ({enable = true;} // repoSyncFull) extra;
+  };
+  # Wiring with the option at `path` left out; forces ExecStart.
+  repoSyncMissing = path: msg: {
+    expr = let
+      pruned =
+        if builtins.length path == 1
+        then removeAttrs repoSyncFull path
+        else repoSyncFull // {${builtins.head path} = removeAttrs repoSyncFull.${builtins.head path} [(builtins.elemAt path 1)];};
+    in
+      (cfgOf [{jackpkgs.repo-sync = {enable = true;} // pruned;}]).systemd.services.repo-sync.serviceConfig.ExecStart;
+    expectedError.type = "ThrownError";
+    expectedError.msg = msg;
+  };
 in {
   # ---------------------------------------------------------------------
   # Inert import
@@ -1121,5 +1149,192 @@ in {
       }
     ]);
     expected = ["jackpkgs.cache-target-pruner.user = \"ghost\" is not declared in users.users; the pruner needs its home directory."];
+  };
+
+  # ---------------------------------------------------------------------
+  # jackpkgs.repo-sync (NixOS-only; promoted from garden's services.garden-sync)
+  # ---------------------------------------------------------------------
+
+  testRepoSyncDefaultsOff = {
+    expr = let
+      c = cfgOf [];
+    in {
+      enable = c.jackpkgs.repo-sync.enable;
+      service = c.systemd.services ? repo-sync;
+      timer = c.systemd.timers ? repo-sync;
+      failed = failedAssertions c;
+    };
+    expected = {
+      enable = false;
+      service = false;
+      timer = false;
+      failed = [];
+    };
+  };
+
+  # Every identity/topology option is required (ADR-051 Decision 4): the
+  # module encodes no repository, branch, checkout location or author. Each
+  # case drops exactly one and forces the unit's ExecStart, which reads them all.
+  testRepoSyncRequiredOptionUser = repoSyncMissing ["user"] "jackpkgs\\.repo-sync\\.user'";
+  testRepoSyncRequiredOptionRepo = repoSyncMissing ["repo"] "jackpkgs\\.repo-sync\\.repo'";
+  testRepoSyncRequiredOptionRepoPath = repoSyncMissing ["repoPath"] "jackpkgs\\.repo-sync\\.repoPath'";
+  testRepoSyncRequiredOptionBranch = repoSyncMissing ["branch"] "jackpkgs\\.repo-sync\\.branch'";
+  testRepoSyncRequiredOptionPaths = repoSyncMissing ["paths"] "jackpkgs\\.repo-sync\\.paths'";
+  testRepoSyncRequiredOptionAuthorName = repoSyncMissing ["commitAuthor" "name"] "jackpkgs\\.repo-sync\\.commitAuthor\\.name'";
+  testRepoSyncRequiredOptionAuthorEmail = repoSyncMissing ["commitAuthor" "email"] "jackpkgs\\.repo-sync\\.commitAuthor\\.email'";
+
+  # `paths = []` would make "commit nothing" expressible; the type refuses it.
+  testRepoSyncEmptyPathsRefused = {
+    expr = (cfgOf [(repoSyncWiring {paths = [];})]).systemd.services.repo-sync.serviceConfig.User;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "paths";
+  };
+
+  testRepoSyncRepoMustBeOwnerName = {
+    expr = (cfgOf [(repoSyncWiring {repo = "https://github.com/o/r.git";})]).systemd.services.repo-sync.serviceConfig.User;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "repo";
+  };
+
+  testRepoSyncUnitShape = {
+    expr = let
+      c = cfgOf [(repoSyncWiring {interval = 900;})];
+      svc = c.systemd.services.repo-sync;
+      tmr = c.systemd.timers.repo-sync;
+    in {
+      type = svc.serviceConfig.Type;
+      user = svc.serviceConfig.User;
+      timeout = svc.serviceConfig.TimeoutStartSec;
+      execIsStorePath = lib.hasPrefix "/nix/store/" svc.serviceConfig.ExecStart;
+      requiresNetwork = svc.wants == ["network-online.target"] && svc.after == ["network-online.target"];
+      wantedBy = tmr.wantedBy;
+      onBoot = tmr.timerConfig.OnBootSec;
+      active = tmr.timerConfig.OnUnitActiveSec;
+      failed = failedAssertions c;
+    };
+    expected = {
+      type = "oneshot";
+      user = "alice";
+      timeout = "10m";
+      execIsStorePath = true;
+      requiresNetwork = true;
+      wantedBy = ["timers.target"];
+      onBoot = "5m";
+      active = "900s";
+      failed = [];
+    };
+  };
+
+  # The script carries the consumer's values and none of garden's.
+  testRepoSyncScriptUsesWiredValues = {
+    expr = let
+      t = (cfgOf [(repoSyncWiring {})]).jackpkgs.repo-sync.script.text;
+      has = lib.hasInfix;
+    in {
+      repoUrl = has "https://github.com/example-org/example-repo.git" t;
+      branch = has "branch=agent-sync" t;
+      base = has "base=main" t;
+      author = has "Sync Bot" t;
+      paths = has "notes" t;
+      bootstrapHint = has "git clone git@github.com:example-org/example-repo.git" t;
+      noGarden = !(has "jmmaloney4" t) && !(has "garden" t) && !(has "hermes" t);
+      noFlatten = !(has "sroot=" t);
+    };
+    expected = {
+      repoUrl = true;
+      branch = true;
+      base = true;
+      author = true;
+      paths = true;
+      bootstrapHint = true;
+      noGarden = true;
+      noFlatten = true;
+    };
+  };
+
+  testRepoSyncFlattenOptIn = {
+    expr = let
+      t =
+        (cfgOf [
+          (repoSyncWiring {
+            paths = ["skills"];
+            flattenSkillsDir = "skills";
+          })
+        ]).jackpkgs.repo-sync.script.text;
+    in
+      lib.hasInfix "sroot=skills" t;
+    expected = true;
+  };
+
+  testRepoSyncFlattenDirMustBeInPaths = {
+    expr = failedAssertions (cfgOf [
+      (repoSyncWiring {
+        paths = ["notes"];
+        flattenSkillsDir = "skills";
+      })
+    ]);
+    expected = ["jackpkgs.repo-sync.flattenSkillsDir must be one of (or inside) `paths`; otherwise the moves would never be committed."];
+  };
+
+  testRepoSyncBranchMustDifferFromBase = {
+    expr = failedAssertions (cfgOf [(repoSyncWiring {branch = "main";})]);
+    expected = ["jackpkgs.repo-sync.branch must differ from baseBranch (main); the sync would rebase and PR a branch onto itself."];
+  };
+
+  testRepoSyncRefusesDotDotPaths = {
+    expr = failedAssertions (cfgOf [(repoSyncWiring {paths = ["../escape"];})]);
+    expected = ["jackpkgs.repo-sync.paths and flattenSkillsDir must not contain `..` components."];
+  };
+
+  testRepoSyncOnePasswordPairRefused = {
+    expr = failedAssertions (cfgOf [(repoSyncWiring {onePassword.githubTokenRef = "op://v/i/f";})]);
+    expected = ["jackpkgs.repo-sync.onePassword.tokenFile and githubTokenRef must be set together (or both null)."];
+  };
+
+  # Token source: configuring 1Password must not silently fall back (the
+  # script exits non-zero instead), and the env-file fallback is opt-in.
+  testRepoSyncTokenSources = {
+    expr = let
+      plain = (cfgOf [(repoSyncWiring {})]).jackpkgs.repo-sync.script.text;
+      envf = (cfgOf [(repoSyncWiring {githubTokenEnvFile = "/home/alice/.agent/.env";})]).jackpkgs.repo-sync.script.text;
+      op =
+        (cfgOf [
+          (repoSyncWiring {
+            onePassword = {
+              # Any package with a main program: the default is unfree.
+              package = inputs.nixpkgs.legacyPackages.x86_64-linux.hello;
+              tokenFile = "/run/agenix/op-token";
+              githubTokenRef = "op://v/i/f";
+            };
+          })
+        ]).jackpkgs.repo-sync.script.text;
+    in {
+      plainNoEnvFile = !(lib.hasInfix "grep -E '^GITHUB_TOKEN=" plain);
+      envFile = lib.hasInfix "/home/alice/.agent/.env" envf;
+      envFileStripsQuotes = lib.hasInfix "\${tok#\\\"}" envf && lib.hasInfix "\${tok#\\'}" envf;
+      plainNoQuoteStrip = !(lib.hasInfix "tok#" plain);
+      opFailsLoudly = lib.hasInfix "not falling back to other credentials" op;
+      opNoGhFallback = !(lib.hasInfix "auth token" op);
+    };
+    expected = {
+      plainNoEnvFile = true;
+      envFile = true;
+      envFileStripsQuotes = true;
+      plainNoQuoteStrip = true;
+      opFailsLoudly = true;
+      opNoGhFallback = true;
+    };
+  };
+
+  testRepoSyncNamedStandsAlone = {
+    expr =
+      (inputs.nixpkgs.lib.nixosSystem {
+        modules = [
+          common.base
+          named.repo-sync
+          (repoSyncWiring {})
+        ];
+      }).config.systemd.timers.repo-sync.wantedBy;
+    expected = ["timers.target"];
   };
 }
