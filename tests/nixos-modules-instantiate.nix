@@ -56,6 +56,18 @@
         exitNode = "us-chi-wg-301.mullvad.ts.net";
         exemptSourceCIDRs = ["10.42.0.0/16"];
       };
+      jackpkgs.repo-sync = {
+        user = "alice";
+        repo = "example-org/example-repo";
+        repoPath = "/home/alice/checkout";
+        branch = "agent-sync";
+        paths = ["notes"];
+        flattenSkillsDir = "notes";
+        commitAuthor = {
+          name = "Sync Bot";
+          email = "sync-bot@example.com";
+        };
+      };
       jackpkgs.zsh.secretEnv.MY_TOKEN = "/run/agenix/my-token";
       # Exercises the agenix glue end to end (secret -> activation script).
       age.secrets.my-token.file = builtins.toFile "my-token.age" "placeholder";
