@@ -743,6 +743,13 @@
               inherit inputs lib pkgs;
             }
           )
+          # Behavioural test of the cache-target-pruner script's deletion-path
+          # refusals (indeterminate recency, wrong filesystem).
+          // {
+            cache-target-pruner-script = import ./tests/cache-target-pruner-script.nix {
+              inherit pkgs;
+            };
+          }
           # The Home Manager module set instantiated with every module enabled
           # (ADR-051, garden#2074 Part B PR 3); value-level behaviour is the
           # `home-modules` nix-unit suite.

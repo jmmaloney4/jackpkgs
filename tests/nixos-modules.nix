@@ -1060,4 +1060,66 @@ in {
       map (a: a.message) (lib.filter (a: !a.assertion) e.config.assertions);
     expected = ["A user cannot have a users.users.carol.uid set below 1000 and set users.users.carol.isNormalUser.\nEither users.users.carol.isSystemUser must be set to true instead of users.users.carol.isNormalUser\nor users.users.carol.uid must be changed to 1000 or above.\n"];
   };
+
+  # ---------------------------------------------------------------------
+  # jackpkgs.cache-target-pruner
+  # ---------------------------------------------------------------------
+
+  testCacheTargetPrunerUnits = {
+    expr = let
+      c = cfgOf [
+        {
+          users.users.alice = {
+            isNormalUser = true;
+            home = "/home/alice";
+          };
+          jackpkgs.cache-target-pruner = {
+            enable = true;
+            user = "alice";
+          };
+        }
+      ];
+      svc = c.systemd.services.cache-target-pruner.serviceConfig;
+    in {
+      user = svc.User;
+      type = svc.Type;
+      # Scans the named user's cache dir, with the documented thresholds.
+      args = lib.hasSuffix " ${lib.escapeShellArg "/home/alice/.cache"} ${lib.escapeShellArg "/"} 15 20 15 4" svc.ExecStart;
+      timer = c.systemd.timers.cache-target-pruner.timerConfig.OnUnitActiveSec;
+      failed = failedAssertions c;
+    };
+    expected = {
+      user = "alice";
+      type = "oneshot";
+      args = true;
+      timer = "900s";
+      failed = [];
+    };
+  };
+
+  testCacheTargetPrunerInertWhenDisabled = {
+    expr = (cfgOf []).systemd.services ? cache-target-pruner;
+    expected = false;
+  };
+
+  testCacheTargetPrunerUserRequired = {
+    expr =
+      (cfgOf [{jackpkgs.cache-target-pruner.enable = true;}]).systemd.services.cache-target-pruner.serviceConfig.User;
+    expectedError.type = "ThrownError";
+    expectedError.msg = "jackpkgs\\.cache-target-pruner\\.user";
+  };
+
+  # A user the system does not declare is refused by assertion, not by an
+  # opaque missing-attribute error and not by silently scanning "/.cache".
+  testCacheTargetPrunerUndeclaredUserRefused = {
+    expr = failedAssertions (cfgOf [
+      {
+        jackpkgs.cache-target-pruner = {
+          enable = true;
+          user = "ghost";
+        };
+      }
+    ]);
+    expected = ["jackpkgs.cache-target-pruner.user = \"ghost\" is not declared in users.users; the pruner needs its home directory."];
+  };
 }
