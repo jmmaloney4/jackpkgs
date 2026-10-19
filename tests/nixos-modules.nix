@@ -1084,7 +1084,7 @@ in {
       user = svc.User;
       type = svc.Type;
       # Scans the named user's cache dir, with the documented thresholds.
-      args = lib.hasSuffix " /home/alice/.cache / 15 20 15 4" svc.ExecStart;
+      args = lib.hasSuffix " ${lib.escapeShellArg "/home/alice/.cache"} ${lib.escapeShellArg "/"} 15 20 15 4" svc.ExecStart;
       timer = c.systemd.timers.cache-target-pruner.timerConfig.OnUnitActiveSec;
       failed = failedAssertions c;
     };

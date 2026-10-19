@@ -14,16 +14,27 @@ free_pct() {
   echo $((avail_kb * 100 / size_kb))
 }
 
+if [ ! -d "$CACHE_DIR" ]; then
+  echo "[$(date -Iseconds)] cache-target-pruner: SKIP: $CACHE_DIR does not exist"
+  exit 0
+fi
+
+# Pruning $CACHE_DIR can only raise free space on the filesystem it lives on.
+# If it is a different filesystem than the one measured (e.g. a home on its own
+# mount), the target is unreachable and every below-floor run would delete every
+# eligible cache for nothing, on every timer tick. Refuse instead. (A btrfs
+# subvolume has its own st_dev, so that layout is also skipped: fail toward
+# not-deleting.)
+if [ "$(stat -c %d -- "$CACHE_DIR")" != "$(stat -c %d -- "$FILESYSTEM")" ]; then
+  echo "[$(date -Iseconds)] cache-target-pruner: SKIP: $CACHE_DIR is not on $FILESYSTEM, so pruning it cannot free space there"
+  exit 0
+fi
+
 pct=$(free_pct)
 echo "[$(date -Iseconds)] cache-target-pruner: ${pct}% free on $FILESYSTEM (floor=${FLOOR_PCT}%, target=${TARGET_PCT}%)"
 
 if [ "$pct" -ge "$FLOOR_PCT" ]; then
   echo "  above floor, nothing to do"
-  exit 0
-fi
-
-if [ ! -d "$CACHE_DIR" ]; then
-  echo "  SKIP: $CACHE_DIR does not exist"
   exit 0
 fi
 
@@ -48,20 +59,21 @@ while IFS= read -r -d '' tag; do
   # -xdev/-x/--one-file-system: never cross into a mount point nested below a
   # tagged cache root, so a bind mount or mounted volume there can't cause
   # this service to delete data outside the cache filesystem.
-  # || true: a genuine find failure (not just empty output -- e.g. an
-  # unreadable subdirectory) must not abort the whole run under set -e. A
-  # deterministic failure here would otherwise abort at the same candidate
-  # on every timer tick, forever, defeating the pruner. Empty/failed both
-  # flow into the same "could not determine recency" skip below.
-  newest=$(find "$d" -xdev -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1) || true
-  newest=${newest%.*}
-  if [ -z "${newest:-}" ]; then
-    # Can't determine recency (find produced nothing -- an error, or a race
-    # with the tag disappearing). For a deletion path, an indeterminate
-    # result must fail toward "skip", never toward "looks oldest, delete it".
+  # Recency must come from a find that read EVERY file: a partial result (an
+  # unreadable, e.g. root-owned, subtree errors while readable files still
+  # print) would take the newest mtime among only the readable files and could
+  # prune a directory that is being written to. So the pipeline's own status is
+  # checked (pipefail inside the subshell), and any failure or empty result is
+  # indeterminate -> skip. The `if !` also keeps a deterministic failure from
+  # aborting the whole run under set -e on every timer tick.
+  if ! newest=$(set -o pipefail; find "$d" -xdev -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1) ||
+    [ -z "${newest:-}" ]; then
+    # For a deletion path, an indeterminate result must fail toward "skip",
+    # never toward "looks oldest, delete it".
     echo "  SKIP $d (could not determine recency)"
     continue
   fi
+  newest=${newest%.*}
   if [ "$((now - newest))" -lt "$min_age_secs" ]; then
     echo "  SKIP $d (written to within ${MIN_AGE_MIN}m -- may be an active build)"
     continue
