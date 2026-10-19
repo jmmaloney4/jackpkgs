@@ -158,7 +158,7 @@ print_fix() {
   echo '(matchers key on the email or the bare name before ` (`; do not drop the' >&2
   echo "title suffix). Email is <name>@${domain} (Cavins: bots.cavinsresearch.io)." >&2
   echo >&2
-  echo "  git rebase --exec 'trailer=\$(git log -1 --pretty=\"%(trailers:key=Bot,valueonly)\"); if [ -z \"\$trailer\" ]; then echo \"author-gate fix: missing Bot: trailer\" >&2; exit 1; fi; name=\${trailer%% (*}; email=\"\${name}@${domain}\"; export GIT_COMMITTER_NAME=\"\$trailer\" GIT_COMMITTER_EMAIL=\"\$email\"; git commit --amend --no-edit --reset-author --author=\"\$trailer <\$email>\"' ${merge_base}" >&2
+  echo "  git rebase --exec 'trailer=\$(git log -1 --pretty=\"%(trailers:key=Bot,valueonly)\"); if [ -z \"\$trailer\" ]; then echo \"author-gate fix: missing Bot: trailer\" >&2; exit 1; fi; name=\${trailer%% (*}; email=\"\${name}@${domain}\"; export GIT_COMMITTER_NAME=\"\$trailer\" GIT_COMMITTER_EMAIL=\"\$email\"; git commit --amend --no-edit --author=\"\$trailer <\$email>\"' ${merge_base}" >&2
   echo >&2
   echo "Then verify: nix run github:jmmaloney4/jackpkgs#author-gate" >&2
 }
