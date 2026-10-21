@@ -297,4 +297,4 @@ ______________________________________________________________________
 
 Author: ChatGPT (draft for operator review)
 Date: 2026-10-21
-PR: pending
+PR: #442
