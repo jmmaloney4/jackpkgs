@@ -69,6 +69,7 @@ If an ADR is superseded, add cross-links in both directions.
 | 048 | [Secondary uv Workspaces via `jackpkgs.python.extraWorkspaces`](048-python-extra-workspaces.md)                              | Proposed |
 | 049 | [`jackpkgs.lean` — Nix-built Lean 4 environments for multiple checkouts](049-lean-toolchain-module.md)                       | Proposed |
 | 051 | [Shared NixOS / nix-darwin / Home Manager Module Conventions](051-shared-nixos-darwin-home-manager-module-conventions.md)    | Accepted |
+| 052 | [Lake Builds with Nix-Provided Precompiled Dependencies](052-lake-builds-with-nix-prebuilt-dependencies.md)                              | Proposed |
 
 ## Template
 
