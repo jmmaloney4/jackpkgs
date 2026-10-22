@@ -40,6 +40,20 @@ in {
   inherit build;
   devShell = cfg.devShells.mathlibproj;
 
+  # The devShell's `lake` must resolve the Nix-provided packages with no flags
+  # and no setup step: that is the whole interactive contract (ADR-052, B).
+  devShellLake =
+    pkgs.runCommand "lean-mathlib-devshell-lake" {
+      inherit (cfg.devShells.mathlibproj) nativeBuildInputs;
+    } ''
+      export HOME="$TMPDIR"
+      test "$(command -v lake)" != "${build.passthru.toolchain}/bin/lake" \
+        || { echo "devShell lake is not the wrapper" >&2; exit 1; }
+      cp -R ${src}/. "$TMPDIR/p" && chmod -R u+w "$TMPDIR/p" && cd "$TMPDIR/p"
+      lake build --no-ansi --wfail
+      touch "$out"
+    '';
+
   # Negative control against the real Mathlib closure: a `sorry` must fail under
   # the flags the package uses, and pass without them (so the flag is what is
   # being tested).
@@ -47,14 +61,15 @@ in {
     pkgs.runCommand "lean-mathlib-rejects-sorry" {
       nativeBuildInputs = [build.passthru.toolchain];
     } ''
-      export HOME="$TMPDIR"
-      cp -R ${src}/. "$TMPDIR/p" && chmod -R u+w "$TMPDIR/p" && cd "$TMPDIR/p"
-      mkdir -p Spike && printf 'import Mathlib.Data.Nat.Basic\ntheorem bad : (1 : Nat) = 2 := sorry\n' > Spike/Bad.lean
-      printf '\n[[lean_lib]]\nname = "Spike"\n' >> lakefile.toml
-      if lake --packages=${build.passthru.overridesJson} build --no-ansi --wfail Spike; then
-        echo "lake build --wfail accepted a sorry" >&2; exit 1
-      fi
-      lake --packages=${build.passthru.overridesJson} build --no-ansi Spike
-      touch "$out"
+        export HOME="$TMPDIR"
+        cp -R ${src}/. "$TMPDIR/p" && chmod -R u+w "$TMPDIR/p" && cd "$TMPDIR/p"
+        mkdir -p Spike && printf 'import Mathlib.Data.Nat.Basic\ntheorem bad : (1 : Nat) = 2 := sorry\n' > Spike/Bad.lean
+      echo 'import Spike.Bad' > Spike.lean
+        printf '\n[[lean_lib]]\nname = "Spike"\n' >> lakefile.toml
+        if lake --packages=${build.passthru.overridesJson} build --no-ansi --wfail Spike; then
+          echo "lake build --wfail accepted a sorry" >&2; exit 1
+        fi
+        lake --packages=${build.passthru.overridesJson} build --no-ansi Spike
+        touch "$out"
     '';
 }

@@ -162,4 +162,18 @@ in
         lake --packages=${build.passthru.overridesJson} build --no-ansi
         touch "$out"
       '';
+
+    # ADR-052 (Approach B): the devShell's own `lake`, with no flags and no
+    # setup, resolves the Nix-provided packages. If it were the bare toolchain
+    # `lake` this would try to clone batteries and fail offline.
+    devshell-lake =
+      pkgs.runCommand "lean-project-devshell-lake" {
+        inherit (devShell) nativeBuildInputs;
+      } ''
+        export HOME="$TMPDIR"
+        cp -R ${fixture}/. "$TMPDIR/p" && chmod -R u+w "$TMPDIR/p" && cd "$TMPDIR/p"
+        lake build --no-ansi --wfail
+        test -f .lake/build/lib/lean/LeanFixture/Basic.olean
+        touch "$out"
+      '';
   }
