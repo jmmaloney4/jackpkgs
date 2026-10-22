@@ -19,6 +19,7 @@
     readLakeManifest
     hasMathlib
     pruneNondeterministic
+    seedLakeHashes
     ;
 
   # `builtins.tryEval` catches `builtins.throw`/`abort` but NOT fatal type
@@ -262,6 +263,39 @@ in {
       '';
     in
       (lib.hasInfix "'$out" buggyFragment) && !(lib.hasInfix "'$out" (pruneNondeterministic packagesDir));
+    expected = true;
+  };
+
+  # ---------------------------------------------------------------------
+  # pruneNondeterministic: keeps traces, seedLakeHashes: refuses rebuilds
+  # ---------------------------------------------------------------------
+
+  testPruneNondeterministicKeepsTraces = {
+    # The regression this guards: deleting `*.trace` made Lake re-elaborate
+    # Mathlib (ADR-052 spike 1). Traces may be rewritten, never removed.
+    expr = !(lib.hasInfix "-name '*.trace' -delete" (pruneNondeterministic "$out/packages"));
+    expected = true;
+  };
+
+  testSeedLakeHashesRefusesRebuild = {
+    expr = let
+      f = seedLakeHashes {
+        workspace = "/ws";
+        packagesDir = "$out/packages";
+      };
+    in
+      lib.hasInfix "grep -q ' Built '" f && lib.hasInfix "exit 1" f;
+    expected = true;
+  };
+
+  testSeedLakeHashesPointsOverridesAtPackagesDir = {
+    expr = let
+      f = seedLakeHashes {
+        workspace = "/ws";
+        packagesDir = "$out/packages";
+      };
+    in
+      lib.hasInfix ''--arg d "$out/packages"'' f && lib.hasInfix "package-overrides.json" f;
     expected = true;
   };
 }

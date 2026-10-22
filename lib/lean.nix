@@ -169,27 +169,118 @@
   # claiming to be general.
   hasMathlib = m: builtins.elem "mathlib" (lakeManifestPackages m);
 
-  # Everything `lake exe cache get` leaves behind that differs between runs.
+  # Canonicalise what `lake exe cache get` leaves behind, so the tree is both
+  # reproducible AND accepted by Lake (ADR-052, "Spike 2 result").
   #
   # Measured 2026-09-15: a fixed-output derivation over a raw `.lake/packages`
-  # is NOT reproducible — two cold builds gave different hashes. The carriers
-  # are each dependency's `.git` (reflogs embed wall-clock time and committer
-  # identity; pack filenames differ per clone; `.git/index` caches mtimes) and
-  # the build provenance of the `cache` tool itself.
+  # is NOT reproducible — two cold builds gave different hashes. Re-measured
+  # 2026-10-22 (darwin/aarch64 and linux/x86_64, two fetches each, diffed): the
+  # ~8,700 module `.trace` files Mathlib's archives deliver are byte-identical
+  # across fetches. What differs is only
+  #   - `.git` (reflogs, pack names, index mtimes),
+  #   - the locally built `cache` executable: `*/.lake/build/bin`,
+  #     `mathlib/.lake/build/ir/Cache`, `mathlib/.lake/build/lib/lean/Cache*`,
+  #     `*.setup.json`, `*.rsp`,
+  #   - the `log` and `inputs` fields of traces for modules that build compiles
+  #     locally (`Batteries.Tactic.OpenPrivate` embeds an absolute `LEAN_PATH`
+  #     and source paths); their `depHash` and `outputs` are identical.
   #
-  # This is deliberately a RULE, not the enumeration it replaces: that list was
-  # derived from one diff and missed `bin/cache` (~104 MB), `bin/cache.hash`,
-  # and a stray `batteries` trace.
+  # So the rule is: delete the first two, KEEP every trace, and empty the
+  # `log` and `inputs` of all of them (neither takes part in the up-to-date
+  # check, which compares `depHash` alone). Deleting traces (this function's previous behaviour)
+  # was over-broad and fatal downstream: a missing trace is "stale" to Lake,
+  # which then re-elaborates Mathlib. A trace's `depHash` is a pure function of
+  # source, options, platform and the imports' artifact content hashes, so a
+  # trace stays valid wherever the same bytes sit. `proofwidgets/widget` traces
+  # must be kept too — without them Lake tries to run npm.
+  #
+  # Still a RULE, not an enumeration (the earlier list missed `bin/cache`
+  # (~104 MB), `bin/cache.hash` and a stray `batteries` trace). `jq -S`
+  # sorts keys so the rewrite is canonical; a trace `jq` cannot parse FAILS
+  # the build rather than being left in place, since an unparsed trace is
+  # exactly an unexamined source of nondeterminism.
   #
   # `$out` must reach the shell unquoted-by-Nix and quoted-by-shell.
   # `lib.escapeShellArg` single-quotes it, which yields `rm -rf -- '$out/…'` —
   # a no-op that exits 0, silently disabling the only thing making the hash
-  # stable.
+  # stable. Needs `jq` and `findutils` in the build's PATH.
   pruneNondeterministic = packagesDir: ''
     find ${packagesDir} -maxdepth 2 -name .git -type d -exec rm -rf {} +
-    find ${packagesDir} \( -name '*.trace' -o -name '*.setup.json' -o -name '*.rsp' \) -delete
+    find ${packagesDir} \( -name '*.setup.json' -o -name '*.rsp' \) -delete
     rm -rf ${packagesDir}/*/.lake/build/bin
+    rm -rf ${packagesDir}/mathlib/.lake/build/ir/Cache
+    rm -rf ${packagesDir}/mathlib/.lake/build/lib/lean/Cache ${packagesDir}/mathlib/.lake/build/lib/lean/Cache.*
+    find ${packagesDir} -name '*.trace' -print0 | xargs -0 -n 256 sh -c '
+      set -e
+      for f in "$@"; do
+        jq -cS "(if has(\"log\") then .log = [] else . end) | (if has(\"inputs\") then .inputs = [] else . end)" "$f" > "$f.canon"
+        mv "$f.canon" "$f"
+      done
+    ' sh
   '';
+
+  # Make the pruned tree usable READ-ONLY by Lake (ADR-052).
+  #
+  # Lake caches artifact content hashes in `<artifact>.hash`, each exactly 16
+  # lowercase hex digits. Mathlib's archives ship a few that are malformed
+  # (`Mathlib/Tactic/FastInstance.olean.hash` has its leading zeros stripped,
+  # and five more turn up in a full pass) or absent
+  # (`proofwidgets/widget/package-lock.json.hash`); Lake then recomputes and
+  # REWRITES them, which fails with `permission denied` on a store path. Which
+  # files those are is a fact about the archives, not something to enumerate,
+  # so let Lake canonicalise its own cache: replay the whole dependency graph
+  # once, writable, before the tree is frozen.
+  #
+  # The pass must find everything up to date. A `Built` line means a trace
+  # did not validate (the same defect as deleting traces) and that is refused
+  # here rather than discovered as a multi-hour Mathlib rebuild downstream.
+  #
+  # `workspace` is a checkout with `lakefile.*` and `lake-manifest.json`;
+  # `packagesDir` is the shell expression for the pruned tree. Needs `lake`
+  # and `jq` on PATH.
+  seedLakeHashes = {
+    workspace,
+    packagesDir,
+    target ? "@mathlib/Mathlib",
+  }: ''
+    seed="$(mktemp -d)"
+    mkdir -p "$seed/.lake"
+    cp ${workspace}/lakefile.* ${workspace}/lean-toolchain ${workspace}/lake-manifest.json "$seed/"
+    jq --arg d "${packagesDir}" \
+      '.packages |= map({name, inherited: (.inherited // false), type: "path", dir: ($d + "/" + .name)})' \
+      ${workspace}/lake-manifest.json > "$seed/.lake/package-overrides.json"
+    (cd "$seed" && lake build --no-ansi ${target} 2>&1 | tee "$seed/seed.log")
+    if grep -q ' Built ' "$seed/seed.log"; then
+      echo "jackpkgs.lean: Lake rebuilt dependency modules while seeding; the pruned tree is not accepted by Lake." >&2
+      grep ' Built ' "$seed/seed.log" | head -5 >&2
+      exit 1
+    fi
+  '';
+
+  # A Lake package-overrides document: the project's own `lake-manifest.json`
+  # with every dependency repointed at a directory in the Nix store (ADR-052).
+  #
+  # Handed to Lake as `--packages=<file>`, it makes Lake resolve each package to
+  # prebuilt, read-only store contents instead of `.lake/packages`, so nothing
+  # is copied, cloned or written. Absolute `dir`s are accepted (measured).
+  #
+  # `dirOf` is total over the manifest's packages by construction (it is mapped
+  # over them), so a dependency cannot be left pointing at the network.
+  packageOverrides = {
+    manifest,
+    dirOf,
+  }:
+    manifest
+    // {
+      packages =
+        map (p: {
+          inherit (p) name;
+          inherited = p.inherited or false;
+          type = "path";
+          dir = dirOf p.name;
+        })
+        (manifest.packages or []);
+    };
 
   # lean4-nix's binary toolchain is unusable on aarch64-darwin without this.
   #

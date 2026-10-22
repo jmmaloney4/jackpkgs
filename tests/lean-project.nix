@@ -46,6 +46,7 @@
 
   deps = perSystemConfig.packages."leanfixture-lean-deps";
   devShell = perSystemConfig.devShells.leanfixture;
+  build = perSystemConfig.packages."leanfixture-lean";
 
   # The dependency name is read out of the committed manifest rather than
   # restated, so repinning the fixture cannot leave these checks asserting
@@ -131,6 +132,34 @@ in
         test -s "$TMPDIR/out/Basic.olean" \
           || { echo "lean produced no olean" >&2; exit 1; }
 
+        touch "$out"
+      '';
+
+    # ADR-052 (Approach C): the project's own targets, built by Lake against the
+    # read-only dependency store. Reaching this at all means Lake accepted the
+    # prebuilt dependencies without rebuilding or writing them.
+    build = pkgs.runCommand "lean-project-build" {} ''
+      test -f ${build}/build/lib/lean/LeanFixture/Basic.olean \
+        || { echo "Lake did not build LeanFixture.Basic" >&2; exit 1; }
+      touch "$out"
+    '';
+
+    # Negative controls for the build above. A check that has never been seen
+    # to fail proves nothing: plain `lake build` PASSES a `sorry`, and an
+    # unreached module is silently unchecked. Both must be refused.
+    build-rejects-sorry =
+      pkgs.runCommand "lean-project-build-rejects-sorry" {
+        nativeBuildInputs = [build.passthru.toolchain];
+      } ''
+        export HOME="$TMPDIR"
+        cp -R ${fixture}/. "$TMPDIR/p" && chmod -R u+w "$TMPDIR/p" && cd "$TMPDIR/p"
+        printf 'theorem bad : (1 : Nat) = 2 := sorry\n' >> LeanFixture/Basic.lean
+        if lake --packages=${build.passthru.overridesJson} build --no-ansi --wfail; then
+          echo "lake build --wfail accepted a sorry" >&2; exit 1
+        fi
+        # Control: the same edit passes WITHOUT --wfail, so the flag is what is
+        # being tested rather than a broken fixture.
+        lake --packages=${build.passthru.overridesJson} build --no-ansi
         touch "$out"
       '';
   }
