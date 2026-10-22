@@ -295,6 +295,6 @@ to mathematical proof sources or pinned dependencies are required for rollback.
 
 ______________________________________________________________________
 
-Author: ChatGPT (draft for operator review)
+Author: jmmaloney4
 Date: 2026-10-21
 PR: #442
