@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-10-21; spike 1 result added 2026-10-22). The intended architecture is selected for evaluation;
+Proposed (2026-10-21; spike results added 2026-10-22). The intended architecture is selected for evaluation;
 compatibility of the current Mathlib artifact closure with Lake's build-state
 tracking has **not** been demonstrated. No implementation is authorized by the
 existence of this ADR alone.
@@ -279,7 +279,7 @@ recompilation. Until those tests exist and pass, this ADR remains Proposed.
 migration. If either new path fails, stop routing consumers to it; no changes
 to mathematical proof sources or pinned dependencies are required for rollback.
 
-## Spike 1 result (2026-10-22)
+## Spike 1 result (2026-10-22): the pruned FOD is not accepted by Lake
 
 Executed Implementation Plan step 1 in a scratch directory (nothing committed).
 Setup: garden's `lean/kolmogorov` checkout, Lean v4.33.1 (binary toolchain),
@@ -305,16 +305,80 @@ rebuild" gate. The same applies to the naive form of Approach B (path
 overrides over the unmodified closure). The instrument could have shown a
 pass (an up-to-date build) and did not, so this is a real negative.
 
-**What this does not establish.** It does not show that no downstream
-mechanism works. Untested: regenerating valid traces in a disposable writable
-layer without re-elaboration, whether Lake's trace inputs (source hash,
-dependency traces, toolchain and options) are reproducible enough to compute
-them, and Linux. The decision therefore stands as Proposed, narrowed: the
-open question is no longer "does `lakeDeps` accept the FOD" (it does not) but
-"can Lake-valid traces be produced downstream, deterministically, outside the
-FOD". Per the plan, no custom trace generator is to be designed until that
-is answered; if it is answered negatively, revisit Alternatives B-alone and E
-and keep `build.py`.
+**What this did not establish** is answered by spike 2 below.
+
+## Spike 2 result (2026-10-22): Lake accepts a targeted-prune closure
+
+Source-reading (Lake from the pinned toolchain, `src/lean/lake/Lake/Build/`)
+and two experiments, darwin/aarch64, Lean v4.33.1, Mathlib `0df444a3`.
+
+**How Lake decides.** A module is up to date iff its `.trace` file's `depHash`
+equals the freshly computed input hash and its artifacts exist. The input hash
+mixes the module source hash, Lean options, platform, and the **content-hash
+traces of the imports' artifacts**: a pure function of bytes, not of mtimes,
+paths or the build log. A missing trace is therefore "stale", but a *present*
+upstream trace is valid wherever the same bytes sit. (`--old` mode would accept
+mtimes but ignores transitive changes for local modules, so it is not a
+correctness option.)
+
+**Experiment A: what in the closure is actually nondeterministic.** Two
+independent `lake exe cache get` runs into fresh trees, diffed excluding
+`.git`. All ~8,700 module `.trace` files delivered by Mathlib's archives were
+**byte-identical**. The differences were confined to (1) the locally built
+`cache` executable (`bin/`, `ir/Cache/*`, `*.setup.json`, `*.rsp`) and (2)
+`Batteries.Tactic.OpenPrivate`, which the `cache` tool builds locally: its
+`depHash` and `outputs` were identical across runs and only the `log` field
+differed, because it embeds an absolute `LEAN_PATH`. This is ADR-049's "stray
+batteries trace". Blanket trace deletion over-pruned: the carriers of
+nondeterminism are the local `cache` build and build *logs*, not the traces.
+
+**Experiment B: targeted prune, then Lake.** Take the fetched tree; delete
+`.git`, `*/.lake/build/bin`, `*.setup.json`, `*.rsp`, `ir/Cache`; keep every
+`.trace` but rewrite its `log` to `[]` (canonical JSON). Place it as a
+separate tree; point the project at it with a `.lake/package-overrides.json` of
+`type = "path"` entries (no per-package copies or shadows); run `lake build` on
+garden's `lean/kolmogorov`.
+
+- All 2,623 jobs completed in about 1.5 to 3.5 minutes, of which the 28 local
+  `Kolmogorov.*` modules account for the time: **no dependency module was
+  rebuilt** (a Mathlib rebuild is hours).
+- With the tree made **read-only** the build still succeeded, provided two
+  `.hash` files were present (`Mathlib/Tactic/FastInstance.olean.hash` and
+  `proofwidgets/widget/package-lock.json.hash`). Lake lazily writes a
+  content-hash cache beside artifacts; absent, it fails with `permission
+  denied`. Both are deterministic content hashes and can be seeded.
+- Incremental: a comment-only edit to `Kolmogorov/M0.lean` rebuilt that one
+  module and, by early cutoff on the unchanged `.olean`, nothing downstream.
+- The first attempt deleted the `proofwidgets/widget` traces and failed at
+  `proofwidgets/widgetPackageLock` (it wants npm): those traces must be kept.
+
+**Consequences for the decision.**
+
+1. The decision stands and gets simpler. The blocker was the over-broad prune,
+   not Lake. The plan to restore traces *into the FOD* ("MUST NOT simply be
+   restored without proving a new reproducibility invariant") is now answerable:
+   restore **content-deterministic** traces, drop **logs**, and the invariant
+   is checkable by diffing two fetches.
+2. `lakeDeps`/`mkLakeDerivation` shadows are unnecessary for a read-only
+   dependency tree: `package-overrides.json` pointing straight at the store
+   path suffices, for both the Nix build (C) and the devShell (B). The
+   devShell then needs no multi-GB copy; only the project's own `.lake` is
+   writable.
+3. ADR-049's `pruneNondeterministic` should change from "delete all traces" to
+   the targeted rule above. This **changes the FOD content**, so every
+   `artifactHash` must be re-minted, and the cold-fetch reproducibility test
+   (ADR-049's own measurement) must be repeated before adopting it.
+4. Seeding the two `.hash` files (or all `*.hash`) belongs in the same
+   canonicalisation step.
+
+**Still unproven.** Both experiments warmed from `~/.cache/mathlib`, whose
+archives are content-addressed, so they stand in for, but are not, two cold
+network fetches inside the Nix sandbox. Linux (`x86_64`/`aarch64`) is untested,
+as are: the `sorry` and `#guard_msgs` negative controls against the Lake-built
+project, building inside the Nix sandbox offline, full-module coverage of
+non-default targets, and `-DwarningAsError`. Status remains Proposed; steps 2
+to 4 of the Implementation Plan are now de-risked on the central question but
+not complete.
 
 ## Related
 
