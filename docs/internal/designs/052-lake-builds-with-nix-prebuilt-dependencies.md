@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-10-21). The intended architecture is selected for evaluation;
+Proposed (2026-10-21; spike 1 result added 2026-10-22). The intended architecture is selected for evaluation;
 compatibility of the current Mathlib artifact closure with Lake's build-state
 tracking has **not** been demonstrated. No implementation is authorized by the
 existence of this ADR alone.
@@ -278,6 +278,43 @@ recompilation. Until those tests exist and pass, this ADR remains Proposed.
 **Rollback:** Keep `build.py` and the existing check active throughout the
 migration. If either new path fails, stop routing consumers to it; no changes
 to mathematical proof sources or pinned dependencies are required for rollback.
+
+## Spike 1 result (2026-10-22)
+
+Executed Implementation Plan step 1 in a scratch directory (nothing committed).
+Setup: garden's `lean/kolmogorov` checkout, Lean v4.33.1 (binary toolchain),
+Mathlib `0df444a3`, the already-realized `kolmogorov-lean-deps` closure copied
+into a writable `.lake/packages`, and a `.lake/package-overrides.json` of
+`type = "path"` entries as `lake2nix.mkLakeDerivation` generates. `lake build`
+ran with no network access to the dependencies.
+
+- The closure contains 8,700 `.olean` and 8,700 `.ilean` files and **zero**
+  `.trace` files, as ADR-049's pruning predicts.
+- Lake did **not** treat the present `.olean` files as up to date. It
+  re-elaborated Batteries, ImportGraph, Aesop and Mathlib modules and wrote 520
+  new `.trace` files in about 90 seconds before the run was stopped; a full
+  Mathlib rebuild was the trajectory.
+- `lake2nix.mkLakeDerivation` expects each `lakeDeps` entry to be a
+  per-package derivation holding sources **and** the `.lake` build state
+  (including traces) from that package's own `lake build`. The pruned
+  single-tree FOD provides neither the per-package split nor the traces.
+
+**Consequence.** The naive form of Approach C, passing the current FOD's
+packages through `lakeDeps`/`depOverrideDeriv`, **fails** the "no Mathlib
+rebuild" gate. The same applies to the naive form of Approach B (path
+overrides over the unmodified closure). The instrument could have shown a
+pass (an up-to-date build) and did not, so this is a real negative.
+
+**What this does not establish.** It does not show that no downstream
+mechanism works. Untested: regenerating valid traces in a disposable writable
+layer without re-elaboration, whether Lake's trace inputs (source hash,
+dependency traces, toolchain and options) are reproducible enough to compute
+them, and Linux. The decision therefore stands as Proposed, narrowed: the
+open question is no longer "does `lakeDeps` accept the FOD" (it does not) but
+"can Lake-valid traces be produced downstream, deterministically, outside the
+FOD". Per the plan, no custom trace generator is to be designed until that
+is answered; if it is answered negatively, revisit Alternatives B-alone and E
+and keep `build.py`.
 
 ## Related
 
