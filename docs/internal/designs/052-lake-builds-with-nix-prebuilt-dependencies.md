@@ -371,14 +371,30 @@ garden's `lean/kolmogorov`.
 4. Seeding the two `.hash` files (or all `*.hash`) belongs in the same
    canonicalisation step.
 
-**Still unproven.** Both experiments warmed from `~/.cache/mathlib`, whose
-archives are content-addressed, so they stand in for, but are not, two cold
-network fetches inside the Nix sandbox. Linux (`x86_64`/`aarch64`) is untested,
-as are: the `sorry` and `#guard_msgs` negative controls against the Lake-built
-project, building inside the Nix sandbox offline, full-module coverage of
-non-default targets, and `-DwarningAsError`. Status remains Proposed; steps 2
-to 4 of the Implementation Plan are now de-risked on the central question but
-not complete.
+**Linux confirmation (x86_64, NixOS host, Lean v4.33.1 binary toolchain).**
+Same experiments, with a genuinely cold first fetch:
+
+- Two fetches again differed only in the locally built `cache` tool
+  (`bin/`, `ir/Cache/*`, `lib/lean/Cache/*`, `*.setup.json`, `*.rsp`) and the
+  logs of `Batteries.Tactic.OpenPrivate`. So `lib/lean/Cache*` must also be
+  pruned; the darwin run missed it because it diffed only by file class.
+- With the targeted prune, `lake build` of `kolmogorov` completed all 2,623
+  jobs with no dependency rebuild, wrote exactly the same two lazy `.hash`
+  files, and **succeeded on a read-only tree** after they were present.
+- Negative control: a module containing `theorem _ : 1 = 2 := sorry` imported
+  by the default target made `lake build --wfail` **fail** (exit 1). Lake's
+  `--wfail` is therefore a usable replacement for `-DwarningAsError`; plain
+  `lake build` would pass, so the check MUST pass it.
+
+**Still unproven.** The second fetch on each host reused the first's
+`~/.cache/mathlib` (content-addressed archives), so this is not two
+independent network fetches inside the Nix sandbox; the FOD hash itself must be
+re-minted and compared across cold builds. Also untested: a build **inside the
+Nix sandbox offline**, `#guard_msgs` assertions (only `sorry` was exercised),
+full-module coverage of non-default targets, `aarch64-linux`, and
+`x86_64-darwin`. Status remains Proposed; the central question is answered on
+both darwin/aarch64 and linux/x86_64, and what remains is implementation and
+those measurements.
 
 ## Related
 
