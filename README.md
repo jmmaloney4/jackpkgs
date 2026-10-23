@@ -137,6 +137,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`, plus generated `preview`/`deploy` just recipes.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
 - `python` — opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
+- `lean` — Nix-built Lean 4 toolchains, dependency closures (with Nix-provided precompiled Mathlib) and sandboxed `lake build` packages; see [Lean projects](#lean-projects).
 
 ### Import (one-liner: everything)
 
@@ -740,6 +741,24 @@ jackpkgs.checks.python.numpydoc = {
   - `jackpkgs.projectRoot` is a Nix path (e.g., `inputs.self.outPath` or `./.`), or an absolute path converted via `builtins.toPath`.
   - Keep option values as relative strings; modules will resolve them.
 - See ADR-004 for details and troubleshooting: `docs/internal/designs/004-project-root-resolution.md`.
+
+### Lean projects
+
+`jackpkgs.lean.projects.<name>` builds a Lean 4 checkout (needs `lean-toolchain` and a committed `lake-manifest.json`) with its dependencies supplied by Nix (ADR-052):
+
+```nix
+perSystem = {
+  jackpkgs.lean.projects.mylib = {
+    src = ./lean/mylib;
+    artifactHash = "sha256-..."; # Mathlib projects only, per system
+    coverageExclude = [ "scripts/*" ]; # optional shell globs
+  };
+};
+```
+
+- `packages.<name>-lean-deps` — the dependency closure (fixed-output; mint `artifactHash` by building it with `lib.fakeHash`).
+- `packages.<name>-lean` — sandboxed `lake build --wfail` against that closure without rebuilding dependencies. Fails on `sorry` and on any `.lean` file the lakefile's default targets do not compile (list intentional exceptions in `coverageExclude`). The coverage check assumes the default `srcDir` layout.
+- devShell — `lake` is wrapped to use the Nix-provided dependencies; plain `lake build` works with no setup step.
 
 ### DevShell usage pattern
 
