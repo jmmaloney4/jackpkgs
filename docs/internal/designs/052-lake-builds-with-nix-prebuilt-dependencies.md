@@ -2,10 +2,10 @@
 
 ## Status
 
-Proposed (2026-10-21; spike results added 2026-10-22). The intended architecture is selected for evaluation;
-compatibility of the current Mathlib artifact closure with Lake's build-state
-tracking has **not** been demonstrated. No implementation is authorized by the
-existence of this ADR alone.
+Proposed (2026-10-21; spike results added 2026-10-22). Implemented in #447 and
+verified on aarch64-darwin and x86_64-linux (see "Implementation result");
+the status stays Proposed until the maintainer accepts it and garden's
+projects have migrated.
 
 ## Context
 
@@ -95,11 +95,11 @@ without rebuilding it before implementation is declared complete.
 
 The intended Nix outputs are illustrative, not a final API specification:
 
-| Output | Responsibility |
-| --- | --- |
-| `devShells.<project>` | Developer toolchain and Lake-compatible workspace |
-| `packages.<project>-lean-deps` | Reproducible precompiled dependency closure |
-| `packages.<project>-lean` | Lake-built project targets for CI and consumers |
+| Output                         | Responsibility                                    |
+| ------------------------------ | ------------------------------------------------- |
+| `devShells.<project>`          | Developer toolchain and Lake-compatible workspace |
+| `packages.<project>-lean-deps` | Reproducible precompiled dependency closure       |
+| `packages.<project>-lean`      | Lake-built project targets for CI and consumers   |
 
 ### 2. Interactive workspace — Approach B (companion)
 
@@ -345,8 +345,7 @@ garden's `lean/kolmogorov`.
 - With the tree made **read-only** the build still succeeded, provided two
   `.hash` files were present (`Mathlib/Tactic/FastInstance.olean.hash` and
   `proofwidgets/widget/package-lock.json.hash`). Lake lazily writes a
-  content-hash cache beside artifacts; absent, it fails with `permission
-  denied`. Both are deterministic content hashes and can be seeded.
+  content-hash cache beside artifacts; absent, it fails with `permission denied`. Both are deterministic content hashes and can be seeded.
 - Incremental: a comment-only edit to `Kolmogorov/M0.lean` rebuilt that one
   module and, by early cutoff on the unchanged `.olean`, nothing downstream.
 - The first attempt deleted the `proofwidgets/widget` traces and failed at
@@ -386,15 +385,36 @@ Same experiments, with a genuinely cold first fetch:
   `--wfail` is therefore a usable replacement for `-DwarningAsError`; plain
   `lake build` would pass, so the check MUST pass it.
 
-**Still unproven.** The second fetch on each host reused the first's
-`~/.cache/mathlib` (content-addressed archives), so this is not two
-independent network fetches inside the Nix sandbox; the FOD hash itself must be
-re-minted and compared across cold builds. Also untested: a build **inside the
-Nix sandbox offline**, `#guard_msgs` assertions (only `sorry` was exercised),
-full-module coverage of non-default targets, `aarch64-linux`, and
-`x86_64-darwin`. Status remains Proposed; the central question is answered on
-both darwin/aarch64 and linux/x86_64, and what remains is implementation and
-those measurements.
+## Implementation result (2026-10-22): PR #447
+
+Implemented in #447 (issues #443, #444, #445): the FOD keeps traces and scrubs
+only `log`/`inputs`, a seed step makes every `.hash` file well-formed and
+refuses if Lake rebuilds anything, `packages.<name>-lean` runs
+`lake build --wfail` against the closure through `--packages`, and the devShell
+`lake` is a wrapper that passes the same overrides.
+
+Evidence, all on the merged code or its parent:
+
+- **Cold fetch, x86_64-linux (itachi, NixOS).** Minting the closure for the
+  `kolmogorov` project gave `sha256-q7No+nbeVv4lTm3VB+BNxScUMgjCMWEYsuawpuLhmVQ=`;
+  `nix build --rebuild` of the same derivation, with an independent fetch,
+  produced the same hash (exit 0). This closes the "second fetch reused the
+  first's cache" gap in Spike 2.
+- **In the Nix sandbox.** The project build ran in the sandbox in about 40-47 s
+  with no dependency rebuilt. The `--wfail` control (a module containing
+  `sorry`) failed the build.
+- **Coverage check.** With `globs = ["Kolmogorov.+"]`, the sandbox build failed
+  on `Kolmogorov.lean`; with the root module listed, it failed on 17 `.lean`
+  files that the default targets never compile (for example
+  `Kolmogorov/PrecisionTrunc.lean`), so the check does flag unreached modules.
+- **Local gate.** `nix flake check -L` on aarch64-darwin: exit 0, `nix-unit`
+  461/461, including the Lean project checks.
+
+**Still unproven.** `#guard_msgs` assertions (only `sorry` was exercised),
+`aarch64-linux` and `x86_64-darwin`, and a darwin mint of the closure hash.
+Known limitation: the coverage check assumes the default `srcDir` layout; a
+library whose module names do not mirror file paths needs `coverageExclude`.
+Follow-up for garden's projects is tracked in jmmaloney4/garden#2721.
 
 ## Related
 
