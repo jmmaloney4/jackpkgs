@@ -249,7 +249,14 @@
     jq --arg d "${packagesDir}" \
       '.packages |= map({name, inherited: (.inherited // false), type: "path", dir: ($d + "/" + .name)})' \
       ${workspace}/lake-manifest.json > "$seed/.lake/package-overrides.json"
-    (cd "$seed" && lake build --no-ansi ${target} 2>&1 | tee "$seed/seed.log")
+    # Not `lake | tee`: a pipeline reports tee's status, so a hard lake
+    # failure (bad manifest, toolchain mismatch) would pass unnoticed.
+    (cd "$seed" && lake build --no-ansi ${target} > "$seed/seed.log" 2>&1) || {
+      cat "$seed/seed.log" >&2
+      echo "jackpkgs.lean: seeding build failed." >&2
+      exit 1
+    }
+    cat "$seed/seed.log"
     if grep -q ' Built ' "$seed/seed.log"; then
       echo "jackpkgs.lean: Lake rebuilt dependency modules while seeding; the pruned tree is not accepted by Lake." >&2
       grep ' Built ' "$seed/seed.log" | head -5 >&2

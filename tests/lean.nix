@@ -298,4 +298,17 @@ in {
       lib.hasInfix ''--arg d "$out/packages"'' f && lib.hasInfix "package-overrides.json" f;
     expected = true;
   };
+
+  testSeedLakeHashesFailsOnLakeFailure = {
+    # A `lake | tee` pipeline reports tee's status and hides a lake failure
+    # that prints no " Built " line; the seed run must be a plain command.
+    expr = let
+      f = seedLakeHashes {
+        workspace = "/ws";
+        packagesDir = "$out/packages";
+      };
+    in
+      !(lib.hasInfix "| tee" f) && lib.hasInfix "seeding build failed" f;
+    expected = true;
+  };
 }

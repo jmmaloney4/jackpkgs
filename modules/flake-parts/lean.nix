@@ -64,7 +64,8 @@ in {
                 type = types.listOf types.str;
                 default = [];
                 description = ''
-                  Project-relative `.lean` files that `packages.<name>-lean` need
+                  Project-relative `.lean` files (shell glob patterns such as
+                  `scripts/*` are accepted) that `packages.<name>-lean` need
                   not compile into `.lake/build/lib/lean` (executable roots,
                   scripts). Every other `.lean` file must be built, so a module
                   the default targets do not reach fails the build instead of
