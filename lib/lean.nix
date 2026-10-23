@@ -249,7 +249,7 @@
     jq --arg d "${packagesDir}" \
       '.packages |= map({name, inherited: (.inherited // false), type: "path", dir: ($d + "/" + .name)})' \
       ${workspace}/lake-manifest.json > "$seed/.lake/package-overrides.json"
-    # Not `lake | tee`: a pipeline reports tee's status, so a hard lake
+    # Not piped through tee: a pipeline reports tee's status, so a hard lake
     # failure (bad manifest, toolchain mismatch) would pass unnoticed.
     (cd "$seed" && lake build --no-ansi ${target} > "$seed/seed.log" 2>&1) || {
       cat "$seed/seed.log" >&2
