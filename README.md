@@ -130,7 +130,8 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Taplo, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix, nodejs).
-- `pre-commit` — pre-commit hooks (treefmt, nbstripout, ADR checks, Python/TS/JS quality gates). Requires `flakeModules.checks`; hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`.
+- `pre-commit` — pre-commit hooks (treefmt, nbstripout, ADR checks, author-gate, Python/TS/JS quality gates). Requires `flakeModules.checks`; hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`.
+- `author-gate` — `apps.author-gate` / `apps.git-bot-identity` and `just author-gate`. Git-history gate; not a pure flake check (store copies have no `.git`).
 - `shell` — shared dev shell output to include via `inputsFrom`.
 - `checks` — CI checks and quality-gate controls for Python (pytest/ty/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
 - `nodejs` — builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
@@ -162,6 +163,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     inputs.jackpkgs.flakeModules.pulumi
     inputs.jackpkgs.flakeModules.quarto
     inputs.jackpkgs.flakeModules.python
+    inputs.jackpkgs.flakeModules.author-gate
   ];
 }
 ```
@@ -262,6 +264,10 @@ in {
     - `adr.directory` (default `docs/internal/decisions`)
     - `adr.package` (default `config.packages."adr-conflict-check"`)
     - `adr.allowSkipped` (list of 3-digit strings, default `[]`; legacy ADR gaps to suppress, e.g. `["017" "018"]`)
+    - `authorGate.enable` (bool, default `true`) — reject `cursoragent@cursor.com` as author or committer at `commit-msg`, `post-commit`, and `pre-push`
+    - `authorGate.package` (default `jackpkgs#author-gate`)
+    - `authorGate.botEmailDomain` (str, default `"bots.roomofrequirement.xyz"`; Cavins: `"bots.cavinsresearch.io"`)
+    - `authorGate.blockedEmails` (list of str, default `["cursoragent@cursor.com"]`)
     - `python.ty.environment` (dev-tools env selection: prefers `jackpkgs.checks.python.environment` when set, then a non-editable env with `includeGroups = true`; falls back to `pythonDefaultEnv`, then `pkgs.ty`) — ty's `--python` target, inherited by the ruff/pytest/numpydoc hooks
     - `python.ty.package` (defaults to `pkgs.ty`; the ty binary)
     - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package` (each defaults to `python.ty.environment`)
@@ -938,6 +944,8 @@ ______________________________________________________________________
 >
 > **Parked packages:** `nautilus-trader` (2026-10-14; see [#427](https://github.com/jmmaloney4/jackpkgs/issues/427)). Flake `packages` output unwired; nvfetcher and `_sources` kept. The overlay never exported this package.
 
+- `author-gate` - fail if commits since `origin/<default>` are authored or committed as `cursoragent@cursor.com` (`nix run github:jmmaloney4/jackpkgs#author-gate`)
+- `git-bot-identity` - set repo-local `user.name`/`user.email` from `GROKBOT_GIT_NAME`/`GROKBOT_GIT_EMAIL` (or the latest `Bot:` trailer)
 - `csharpier` - C# formatter
 - `docfx` - .NET docs generator
 - `epub2tts` - EPUB -> TTS

@@ -120,6 +120,7 @@
               treefmtPackage = pkgs.treefmt;
               nbstripoutPackage = pkgs.nbstripout;
               adr.package = pkgs.writeShellScriptBin "adr-conflict-check" "";
+              authorGate.package = pkgs.writeShellScriptBin "author-gate" "";
             };
           }
           perSystemConfig;
@@ -568,6 +569,57 @@ in {
     ];
   in {
     expr = hooks.jupytext-ruff.enable;
+    expected = true;
+  };
+
+  testAuthorGateHooksEnabledByDefault = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr =
+      hooks.author-gate-ident.enable
+      && hooks.author-gate-head.enable
+      && hooks.author-gate-range.enable;
+    expected = true;
+  };
+
+  testAuthorGateHookStages = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = {
+      ident = hooks.author-gate-ident.stages;
+      head = hooks.author-gate-head.stages;
+      range = hooks.author-gate-range.stages;
+    };
+    expected = {
+      ident = ["commit-msg"];
+      head = ["post-commit"];
+      range = ["pre-push"];
+    };
+  };
+
+  testAuthorGateHookDisable = let
+    hooks = getHooks [
+      (mkConfigModule {
+        perSystemConfig.jackpkgs.pre-commit.authorGate.enable = false;
+      })
+    ];
+  in {
+    expr =
+      hooks.author-gate-ident.enable
+      || hooks.author-gate-head.enable
+      || hooks.author-gate-range.enable;
+    expected = false;
+  };
+
+  testAuthorGateHookEntry = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr =
+      hasInfixAll ["author-gate" "--mode ident" "cursoragent@cursor.com"] hooks.author-gate-ident.entry
+      && hasInfixAll ["author-gate" "--mode head"] hooks.author-gate-head.entry
+      && hasInfixAll ["author-gate" "--mode range"] hooks.author-gate-range.entry
+      && hooks.author-gate-ident.pass_filenames == false
+      && hooks.author-gate-range.always_run == true;
     expected = true;
   };
 }

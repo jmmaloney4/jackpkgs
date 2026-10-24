@@ -315,6 +315,46 @@ in {
             '';
           };
         };
+
+        authorGate = {
+          enable = mkOption {
+            type = types.bool;
+            default = true;
+            description = ''
+              Reject `cursoragent@cursor.com` as author or committer.
+
+              Runs at `commit-msg` (intended ident), `post-commit` (HEAD),
+              and `pre-push` (merge-base range). Those stages are not
+              executed by the git-hooks `nix flake check` copy (which has
+              no real history), so defaulting this on is safe: it warns
+              locally and blocks `git push` without false-failing CI
+              checks.
+            '';
+          };
+
+          package = mkOption {
+            type = types.package;
+            default = jackpkgsInputs.self.packages.${pkgs.stdenv.hostPlatform.system}.author-gate;
+            defaultText = "jackpkgsInputs.self.packages.\${system}.author-gate";
+            description = "The `author-gate` package to run.";
+          };
+
+          botEmailDomain = mkOption {
+            type = types.str;
+            default = "bots.roomofrequirement.xyz";
+            description = ''
+              Domain interpolated into the rewrite hint
+              (`<name>@<domain>` from `Bot: <name> (<Title>)`).
+              Cavins bots: `bots.cavinsresearch.io`.
+            '';
+          };
+
+          blockedEmails = mkOption {
+            type = types.listOf types.str;
+            default = ["cursoragent@cursor.com"];
+            description = "Author or committer emails that fail the hook. Other authors are not flagged.";
+          };
+        };
       };
     });
   };
@@ -666,6 +706,51 @@ in {
             package = sysCfg.adr.package;
             entry = "${lib.getExe sysCfg.adr.package} --adr-dir ${lib.escapeShellArg sysCfg.adr.directory}${lib.optionalString (sysCfg.adr.allowSkipped != []) " --allow-skipped ${lib.escapeShellArg (lib.concatStringsSep "," sysCfg.adr.allowSkipped)}"}";
             files = "\\.md$";
+            pass_filenames = false;
+          };
+
+          settings.hooks.author-gate-ident = let
+            blockedFlags = lib.concatMapStringsSep " " (e: "--blocked-email ${lib.escapeShellArg e}") sysCfg.authorGate.blockedEmails;
+            domainFlag = "--bot-email-domain ${lib.escapeShellArg sysCfg.authorGate.botEmailDomain}";
+            gate = lib.getExe sysCfg.authorGate.package;
+          in {
+            enable = sysCfg.authorGate.enable;
+            name = "author-gate (ident)";
+            package = sysCfg.authorGate.package;
+            entry = "${gate} --mode ident ${domainFlag} ${blockedFlags}";
+            language = "system";
+            stages = ["commit-msg"];
+            always_run = true;
+            pass_filenames = false;
+          };
+
+          settings.hooks.author-gate-head = let
+            blockedFlags = lib.concatMapStringsSep " " (e: "--blocked-email ${lib.escapeShellArg e}") sysCfg.authorGate.blockedEmails;
+            domainFlag = "--bot-email-domain ${lib.escapeShellArg sysCfg.authorGate.botEmailDomain}";
+            gate = lib.getExe sysCfg.authorGate.package;
+          in {
+            enable = sysCfg.authorGate.enable;
+            name = "author-gate (HEAD)";
+            package = sysCfg.authorGate.package;
+            entry = "${gate} --mode head ${domainFlag} ${blockedFlags}";
+            language = "system";
+            stages = ["post-commit"];
+            always_run = true;
+            pass_filenames = false;
+          };
+
+          settings.hooks.author-gate-range = let
+            blockedFlags = lib.concatMapStringsSep " " (e: "--blocked-email ${lib.escapeShellArg e}") sysCfg.authorGate.blockedEmails;
+            domainFlag = "--bot-email-domain ${lib.escapeShellArg sysCfg.authorGate.botEmailDomain}";
+            gate = lib.getExe sysCfg.authorGate.package;
+          in {
+            enable = sysCfg.authorGate.enable;
+            name = "author-gate (range)";
+            package = sysCfg.authorGate.package;
+            entry = "${gate} --mode range ${domainFlag} ${blockedFlags}";
+            language = "system";
+            stages = ["pre-push"];
+            always_run = true;
             pass_filenames = false;
           };
         };
