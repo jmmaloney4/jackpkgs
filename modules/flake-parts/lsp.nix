@@ -157,7 +157,9 @@ in {
       nixPackages =
         if cfg.nix.backend == "nil"
         then [jpkgs.nil]
-        else [jpkgs.nixd];
+        else if cfg.nix.backend == "nixd"
+        then [jpkgs.nixd]
+        else [];
 
       rustPackages = lib.optional cfg.rust.enable jpkgs.rust-analyzer;
 

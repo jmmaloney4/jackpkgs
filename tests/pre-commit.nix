@@ -275,6 +275,18 @@ in {
     expected = false;
   };
 
+  # `builtins.tryEval` discards the throw message, so assert the guidance
+  # string in the module source. `flakeModules.checks` is not an export;
+  # the error must point at `flakeModules.default` instead.
+  testPreCommitRequiresChecksModuleErrorPointsAtDefaultExport = {
+    expr = let
+      src = builtins.readFile ../modules/flake-parts/pre-commit.nix;
+    in
+      lib.hasInfix "Import inputs.jackpkgs.flakeModules.default" src
+      && !lib.hasInfix "flakeModules.checks" src;
+    expected = true;
+  };
+
   # With no dev env and no override, `ty.environment` resolves to the bare
   # `python3` fallback (a valid `ty --python` target), which has no `ruff`
   # executable. ruff must substitute the standalone ruff package (the bug that
