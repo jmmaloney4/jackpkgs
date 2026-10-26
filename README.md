@@ -1,12 +1,41 @@
 # jackpkgs (flake)
 
-Jack's Nix flake providing packages, an overlay, and reusable flake-parts modules.
+Jack's Nix flake providing packages, overlays, reusable flake-parts modules, and NixOS / nix-darwin / Home Manager modules.
 
 ## TL;DR
 
 - Add as a flake input: `jackpkgs = "github:jmmaloney4/jackpkgs"`.
-- Use packages via `jackpkgs.packages.${system}` or by enabling the overlay in your `nixpkgs`.
-- Import flake-parts modules from `inputs.jackpkgs.flakeModules` (default or a la carte).
+- Use packages via `jackpkgs.packages.${system}` or `jackpkgs.overlays.default`.
+- Import flake-parts modules from `inputs.jackpkgs.flakeModules` (`default` or named).
+- Import host modules from `inputs.jackpkgs.{nixosModules,darwinModules,homeModules}`.
+
+## Repo map
+
+Consumer-facing flake outputs and the trees that feed them:
+
+| Tree                                     | Flake output                                                                 |
+| ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `modules/flake-parts/`                   | `flakeModules` (`default` plus named modules)                                |
+| `modules/nixos/`, `modules/common/`      | `nixosModules`                                                               |
+| `modules/nix-darwin/`, `modules/common/` | `darwinModules`                                                              |
+| `modules/home-manager/`                  | `homeModules`                                                                |
+| `pkgs/`                                  | `packages.<system>` (platform-filtered)                                      |
+| `overlay.nix`                            | `overlays.default`                                                           |
+| `overlays/llvm-darwin-codesign-test.nix` | `overlays.llvm-darwin-codesign-test`                                         |
+| `templates/`                             | `templates.just`                                                             |
+| `lib/`                                   | `lib` (flake-level) and per-system `jackpkgs.lib` via `flakeModules.default` |
+| `tests/`                                 | this flake's own `checks` (not a consumer import)                            |
+
+```mermaid
+flowchart LR
+  consumer["Consumer flake"]
+  consumer -->|"imports = [ inputs.jackpkgs.flakeModules.default ]"| fp["flake-parts modules"]
+  consumer -->|"overlays = [ inputs.jackpkgs.overlays.default ]"| nixpkgs["nixpkgs"]
+  consumer -->|"optional overlays.llvm-darwin-codesign-test"| nixpkgs
+  consumer -->|"nixosModules / darwinModules / homeModules"| hosts["NixOS / darwin / Home Manager"]
+```
+
+Detail by area is below: [input](#add-as-a-flake-input), [packages](#use-packages-flake-only) / [package list](#packages-available), [overlays](#overlays), [host modules](#nixos--nix-darwin--home-manager-modules), [flake-parts](#flake-parts-modules), [templates](#templates).
 
 ______________________________________________________________________
 
@@ -29,10 +58,10 @@ ______________________________________________________________________
 {
   outputs = { self, nixpkgs, jackpkgs, ... }:
   let
-    system = "x86_64-darwin"; # or x86_64-linux, aarch64-linux, etc.
+    system = "x86_64-linux"; # or aarch64-linux, aarch64-darwin, etc.
   in {
     packages.${system} = {
-      inherit (jackpkgs.packages.${system}) csharpier codex-proxy docfx tod; # example
+      inherit (jackpkgs.packages.${system}) biome tod; # example; not every attr exists on every system
     };
 
     # Or build one-off from CLI:
@@ -116,7 +145,7 @@ NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enabl
 }
 ```
 
-Home Manager modules (`homeModules.<name>`, `jackpkgs.<name>.enable`): `shell` (zsh, starship, zellij, direnv, eza, fzf, bat, ssh client; optional `localSshAgentSocket`), `git` (required `userName`/`userEmail`; optional `signing.{key,program}`), `jujutsu` (takes its identity from `jackpkgs.git`), `cargo`, `build-user`. They need nothing from `specialArgs`. The operator module imports them into the account for you; standalone Home Manager users import `homeModules.default`. Heavy or personal pieces (nixvim, Claude Code, host-specific wiring) are consumer-side.
+Home Manager modules (`homeModules.<name>`): `shell` (zsh, starship, zellij, direnv, eza, fzf, bat, ssh client; optional `localSshAgentSocket`; gated on `jackpkgs.shell.enable`), `git` (required `userName`/`userEmail`; optional `signing.{key,program}`), `jujutsu` (takes its identity from `jackpkgs.git`), `cargo`, `build-user`, `tod` (gated on `programs.tod.enable`, not `jackpkgs.tod.enable`). They need nothing from `specialArgs`. The operator module imports them into the account for you; standalone Home Manager users import `homeModules.default`. Heavy or personal pieces (nixvim, Claude Code, host-specific wiring) are consumer-side.
 
 Garden's darwin-only `modules/darwin/` tree does not promote (ADR-051 Decision 5, amended 2026-09-25), so `imessage-bridge` is the only darwin-only module. The platform-agnostic modules (`attic`, `build-user`, `fonts`, `gnupg-agent`, `guest-user`, `nix`, `nixbuild`, `operator`, `packages`, `profile`, `ssh`, `tailscale`, `user`, `zsh`) are additionally exported as `darwinModules.<name>` (amended 2026-10-14). Those darwin exports are **not validated against a real nix-darwin evaluation** (jackpkgs has no nix-darwin input); they are only evaluated against stub option declarations in `tests/darwin-modules.nix`. `pkgs.homeManagerModules` (via the overlay) remains the legacy path.
 
@@ -124,20 +153,28 @@ ______________________________________________________________________
 
 ## Flake-parts modules
 
-This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModules` sourced from `modules/flake-parts/`:
+This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModules` sourced from `modules/flake-parts/`. Named exports (`modules/flake-parts/default.nix`); `flake.flakeModule` is the same value as `flakeModules.default`:
 
-- `default` — imports all modules below (including `pkgs`).
+- `default` — imports the full set in `modules/flake-parts/all.nix` (named modules below, plus `lib`, `project-root`, `nodejs`, and `checks`, which have no named `flakeModules.*` export).
 - `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Taplo, Yamlfmt, etc.).
-- `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix, nodejs).
-- `pre-commit` — pre-commit hooks (treefmt, nbstripout, ADR checks, Python/TS/JS quality gates). Requires `flakeModules.checks`; hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`.
-- `shell` — shared dev shell output to include via `inputsFrom`.
-- `checks` — CI checks and quality-gate controls for Python (pytest/ty/ruff, optional numpydoc), TypeScript (tsc), and JavaScript (vitest). Single switch disables/enables a tool across both CI checks and pre-commit hooks.
-- `nodejs` — builds `node_modules` via `fetchPnpmDeps/pnpmConfigHook` and exposes a Node.js devShell fragment.
+- `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix, nodejs). Also imports `gcp.nix` (options under `jackpkgs.gcp`; not a named flakeModule).
+- `pre-commit` — pre-commit hooks (treefmt, nbstripout, ADR checks, Python/TS/JS quality gates). Hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`. The checks module is loaded only by `flakeModules.default` (there is no `flakeModules.checks` output).
+- `shell` — shared dev shell output to include via `inputsFrom` (`modules/flake-parts/devshell.nix`).
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`, plus generated `preview`/`deploy` just recipes.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
 - `python` — opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
+- `container` — Linux OCI images under `config.flake.images` (options under `jackpkgs.images`; file `container.nix`).
+- `kubeconfig` — Pulumi-backed `just kubeconfig` recipe and `KUBECONFIG` devShell fragment.
+- `lsp` — optional lightweight LSP servers on the composed devShell PATH.
 - `lean` — Nix-built Lean 4 toolchains, dependency closures (with Nix-provided precompiled Mathlib) and sandboxed `lake build` packages; see [Lean projects](#lean-projects).
+
+Loaded only via `flakeModules.default` (files exist; no named `flakeModules.<name>`):
+
+- `lib` (`lib.nix`) — per-system `config.jackpkgs.lib`.
+- `project-root` (`project-root.nix`) — `jackpkgs.projectRoot`.
+- `nodejs` — `node_modules` via `fetchPnpmDeps` / `pnpmConfigHook`.
+- `checks` — CI checks and quality-gate controls shared with pre-commit.
 
 ### Import (one-liner: everything)
 
@@ -152,7 +189,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 
 ```nix
 flake-parts.lib.mkFlake { inherit inputs; } {
-  systems = import inputs.systems;
+  systems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
   imports = [
     inputs.jackpkgs.flakeModules.pkgs  # Required when using jackpkgs.pkgs with overlayed nixpkgs
     inputs.jackpkgs.flakeModules.fmt
@@ -162,11 +199,17 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     inputs.jackpkgs.flakeModules.pulumi
     inputs.jackpkgs.flakeModules.quarto
     inputs.jackpkgs.flakeModules.python
+    inputs.jackpkgs.flakeModules.container
+    inputs.jackpkgs.flakeModules.kubeconfig
+    inputs.jackpkgs.flakeModules.lsp
+    inputs.jackpkgs.flakeModules.lean
   ];
 }
 ```
 
 Note: When importing modules a la carte, include `flakeModules.pkgs` if you want to set `jackpkgs.pkgs` to propagate overlayed nixpkgs. The `default` module includes it automatically.
+
+`nodejs` and `checks` are not named flakeModules. Repos that need `jackpkgs.nodejs` or the shared quality-gate options should import `flakeModules.default` rather than assembling a la carte.
 
 ### Using overlayed nixpkgs
 
@@ -196,10 +239,17 @@ in {
   - Modules with package defaults use `config.jackpkgs.pkgs`.
   - Set this to your overlayed nixpkgs to propagate overlays to all jackpkgs package defaults.
 
-- core (`modules/flake-parts/project-root.nix`)
+- core (`modules/flake-parts/project-root.nix`) — included by `flakeModules.default` only; no named `flakeModules.project-root`
 
   - Exposes `jackpkgs.projectRoot` (path, default `inputs.self.outPath`).
   - Other modules resolve relative project files against this path.
+
+- lib (`modules/flake-parts/lib.nix`) — included by `flakeModules.default` only; no named `flakeModules.lib`
+
+  - Per-system `config.jackpkgs.lib` is `import ./lib { inherit pkgs; }` for the current system.
+  - Prefer this over `inputs.jackpkgs.lib` when building derivations: the flake-level `lib` instantiates pkgs from the first entry of `inputs.systems` (`aarch64-darwin` today).
+  - Also sets `_module.args.jackpkgsLib` to the nodejs helpers.
+  - Isolated uv2nix helper: `config.jackpkgs.lib.python.mkIsolatedUvEnvFactory { inherit (inputs) uv2nix pyproject-nix pyproject-build-systems; }`.
 
 - fmt (`modules/flake-parts/fmt.nix`)
 
@@ -227,8 +277,10 @@ in {
     - `ruffPackage` defaults to the same dev-tools Python environment as `tyEnvironmentPackage`
     - `pulumiBackendUrl` (nullable string)
   - `just auth` automatically passes `--no-launch-browser` to `gcloud auth login` when `SSH_CONNECTION` or `SSH_TTY` is set (remote sessions can't open a browser), so you paste the printed URL into a local browser instead.
-  - Options under `jackpkgs.gcp`:
+  - Options under `jackpkgs.gcp` (declared in `modules/flake-parts/gcp.nix`, imported by `just`):
     - `iamOrg` (nullable string, default `null`) - GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
+    - `quotaProject` (nullable string, default `null`) - when set, `just auth` runs `gcloud auth application-default set-quota-project <quotaProject>`.
+    - `profile` (nullable string, default `mkDefault` of `iamOrg`) - gcloud profile directory name under `~/.config/gcloud-profiles/`. When set, the composed devShell exports `CLOUDSDK_CONFIG` to isolate credentials per project.
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
 
@@ -236,7 +288,7 @@ in {
 
   - `numpydoc` is **opt-in** via `jackpkgs.checks.python.numpydoc.enable = true;`.
 
-  - **Dependency:** when `jackpkgs.pre-commit.enable = true`, you must also import `inputs.jackpkgs.flakeModules.checks` (or `inputs.jackpkgs.flakeModules.default`).
+  - **Dependency:** `jackpkgs.checks` options and CI check derivations come from `modules/flake-parts/checks.nix`, which is imported only by `flakeModules.default`. There is no `flakeModules.checks` named export. A la carte `flakeModules.pre-commit` alone does not load the checks module.
 
   - **Important:** Python tooling hooks require dev tools in the selected Python environment. See [Common Patterns: Dev Tools with Pre-commit](#common-patterns-dev-tools-with-pre-commit) below.
 
@@ -244,12 +296,11 @@ in {
 
   - Python package defaults are chained: set `python.ty.environment` once, and `python.ruff.package`, `python.pytest.package`, and `python.numpydoc.package` inherit it by default.
 
-  - Minimal imports when enabling pre-commit directly:
+  - Minimal import that actually loads both pre-commit and checks:
 
     ```nix
     imports = [
-      inputs.jackpkgs.flakeModules.checks
-      inputs.jackpkgs.flakeModules.pre-commit
+      inputs.jackpkgs.flakeModules.default
     ];
     ```
 
@@ -270,7 +321,7 @@ in {
     - `javascript.vitest.package` (defaults to `pkgs.nodejs`)
     - `javascript.vitest.nodeModules` (nullable package, default `null` -> falls back to `jackpkgs.outputs.nodeModules`)
 
-- checks (`modules/flake-parts/checks.nix`)
+- checks (`modules/flake-parts/checks.nix`) — included by `flakeModules.default` only; no named `flakeModules.checks`
 
   - Adds CI checks **and controls quality-gate enables/args** for both CI checks and pre-commit hooks. Setting `jackpkgs.checks.python.ty.enable = false` disables the CI check *and* the pre-commit hook with a single option.
   - **Python CI Environment Selection (ADR 045):**
@@ -341,10 +392,13 @@ derivation, so they replace the working copy's root and per-package
 replace a real directory). Run `pnpm install` to get a writable local install
 back.
 
-- shell (`modules/flake-parts/devshell.nix`)
+- shell (`flakeModules.shell`, `modules/flake-parts/devshell.nix`)
 
+  - `jackpkgs.shell.enable` (bool, default `true`).
   - Produces a composable dev shell output: `config.jackpkgs.outputs.devShell`.
   - The shell aggregates dev environments from `just-flake`, `flake-root`, `pre-commit`, and `treefmt`.
+  - Per-system `jackpkgs.shell.inputsFrom` / `jackpkgs.shell.packages` extend the composed shell.
+  - When `jackpkgs.gcp.profile` is set, the shell exports `CLOUDSDK_CONFIG` to `~/.config/gcloud-profiles/<profile>` (profile names limited to `[a-zA-Z0-9._-]`).
   - When `jackpkgs.pulumi.enable` is true, the composed dev shell exports the shared Pulumi environment: `PULUMI_BACKEND_URL`, `PULUMI_SECRETS_PROVIDER`, `PULUMI_IGNORE_AMBIENT_PLUGINS=1`, Pulumi non-interactive output defaults, and `NODE_OPTIONS=--async-context-frame`.
 
 - pulumi (`modules/flake-parts/pulumi.nix`)
@@ -365,7 +419,7 @@ back.
       - `"workload-identity"`: relies on `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` / `GOOGLE_SERVICE_ACCOUNT_EMAIL` injected by the CI runner (GitHub Actions WIF). `GOOGLE_APPLICATION_CREDENTIALS` is **not** set.
       - `"application-default-credentials"`: sets `GOOGLE_APPLICATION_CREDENTIALS` to the per-profile ADC file. Requires `jackpkgs.gcp.profile` to be non-null. Use for self-hosted runners or local testing of the CI shell.
 
-- nodejs (`modules/flake-parts/nodejs.nix`)
+- nodejs (`modules/flake-parts/nodejs.nix`) — included by `flakeModules.default` only; no named `flakeModules.nodejs`
 
   - Builds `node_modules` using `fetchPnpmDeps` + `pnpmConfigHook` and exposes `jackpkgs.outputs.nodeModules`.
   - Provides a Node.js devShell fragment: `jackpkgs.outputs.nodejsDevShell` with `pnpm` CLI.
@@ -401,15 +455,15 @@ back.
     }
     ```
 
-- images (`modules/flake-parts/container.nix`)
+- container (`flakeModules.container`, `modules/flake-parts/container.nix`; options live under `jackpkgs.images`)
 
   - Builds Linux OCI images under `config.flake.images` using `nix2container`.
   - Provides generated `just` recipes for image workflows: `image-build`, `image-digest`, `image-push`, and `image-push-all`.
   - Global options under `jackpkgs.images`:
     - `enable` (bool, default `false`)
     - `linuxSystem` (string, default `"x86_64-linux"`) - system used to evaluate and build images
-    - `registry` (string, required) - default registry/repository prefix for generated image names
-    - `authMode` (enum) - push credential mode used by generated recipes
+    - `registry` (null or string, default `null`) - default registry/repository prefix. Per-image `registry` overrides it and falls back to it; at least one of the two must be set when an image is built.
+    - `authMode` (string, default `"gcp"`) - push credential mode used by generated recipes (`"gcp"`: `gcloud auth print-access-token`; `"ghcr"`: `GITHUB_ACTOR` + `GITHUB_TOKEN`). Not a closed enum in the module type.
     - `labels` (attrset of string, default `{}`) - OCI labels merged into every image
     - `addRevisionLabel` (bool, default `true`) - injects `org.opencontainers.image.revision` from the consumer flake metadata, preferring `self.dirtyRev` over `self.rev`
   - Per-system options under `perSystem.jackpkgs.images`:
@@ -447,6 +501,67 @@ back.
             packages = [ pkgs.hello ];
             labels."com.example.role" = "app";
           };
+        };
+      };
+    }
+    ```
+
+- kubeconfig (`flakeModules.kubeconfig`, `modules/flake-parts/kubeconfig.nix`)
+
+  - `jackpkgs.kubeconfig.enable` (bool, default `false`). When enabled, `jackpkgs.pulumi.enable` is `mkDefault true`.
+  - `jackpkgs.kubeconfig.pulumiStackOutput.path` (string, required) — Pulumi project directory relative to the repo root that exports a `kubeconfig` stack output.
+  - `jackpkgs.kubeconfig.pulumiStackOutput.stack` (string, default `"prod"`).
+  - Outputs: `jackpkgs.outputs.kubeconfigJustfile` (`just kubeconfig`) and `jackpkgs.outputs.kubeconfigDevShell` (exports `KUBECONFIG` to `$FLAKE_ROOT/kubeconfig.yaml`).
+  - Example:
+    ```nix
+    {
+      imports = [ inputs.jackpkgs.flakeModules.default ]; # needs shell + just + pulumi
+      jackpkgs.kubeconfig = {
+        enable = true;
+        pulumiStackOutput = {
+          path = "deploy/cluster";
+          stack = "prod";
+        };
+      };
+    }
+    ```
+
+- lsp (`flakeModules.lsp`, `modules/flake-parts/lsp.nix`)
+
+  - `jackpkgs.lsp.enable` (bool, default `false`). Puts LSP binaries on the composed `jackpkgs.shell` PATH.
+  - `jackpkgs.lsp.typescript.backend` (`"tsgo"` | `"typescript-language-server"` | `"none"`, default `"typescript-language-server"`). TypeScript packages are added when `jackpkgs.nodejs.enable` or `jackpkgs.pulumi.enable`.
+  - `jackpkgs.lsp.python.backend` (`"ty"` | `"pyright"` | `"none"`, default `"ty"`); `jackpkgs.lsp.python.lintBackend` (`"ruff"` | `"none"`, default `"ruff"`). Python LSPs are added when `jackpkgs.python.enable`.
+  - `jackpkgs.lsp.nix.backend` (enum `"nil"` | `"nixd"` | `"none"`, default `"nil"`). `"nil"` installs `nil`; `"nixd"` installs `nixd`; `"none"` installs neither.
+  - `jackpkgs.lsp.rust.enable` (bool, default `false`) — `rust-analyzer`.
+  - Always (when the module is enabled): `yaml-language-server`, `bash-language-server`.
+  - Per-system `jackpkgs.lsp.extraPackages` (list of packages, default `[]`).
+  - Example:
+    ```nix
+    {
+      imports = [ inputs.jackpkgs.flakeModules.default ]; # writes jackpkgs.shell.packages
+      jackpkgs.lsp = {
+        enable = true;
+        typescript.backend = "typescript-language-server";
+        python.backend = "ty";
+        nix.backend = "nil";
+      };
+    }
+    ```
+
+- lean (`flakeModules.lean`, `modules/flake-parts/lean.nix`)
+
+  - `jackpkgs.lean.enable` (bool, default `true`). With an empty `projects` attrset this is a no-op (no extra nixpkgs instance).
+  - Per-system `jackpkgs.lean.projects.<name>.src` (path) — checkout with `lean-toolchain` and committed `lake-manifest.json`.
+  - Per-system `jackpkgs.lean.projects.<name>.artifactHash` (nullable string, default `null`) — Mathlib artifact FOD hash for this system. Leave `null` for a toolchain-only `devShells.<name>` that can mint the hash; then set `lib.fakeHash` and build `.#<name>-lean-deps`.
+  - Publishes `packages.<name>-lean-deps` and `devShells.<name>`.
+  - Example:
+    ```nix
+    {
+      imports = [ inputs.jackpkgs.flakeModules.lean ];
+      perSystem = { ... }: {
+        jackpkgs.lean.projects.tauceti = {
+          src = ./lean;
+          artifactHash = null;
         };
       };
     }
@@ -934,17 +1049,31 @@ ______________________________________________________________________
 
 ## Packages available
 
-> **Removed packages:** `openchamber` (removed in e09c5ba, PR #247). The `llm-agents` and `bun2nix` flake inputs were also removed.
->
-> **Parked packages:** `nautilus-trader` (2026-10-14; see [#427](https://github.com/jmmaloney4/jackpkgs/issues/427)). Flake `packages` output unwired; nvfetcher and `_sources` kept. The overlay never exported this package.
+`packages.<system>` is the `allPackages` set in `flake.nix`, filtered by `meta.platforms` (`lib.filterByPlatforms`) and then dropping `meta.broken`. Overlay consumers see a different set (see [Overlays](#overlays)).
 
-- `csharpier` - C# formatter
-- `docfx` - .NET docs generator
-- `epub2tts` - EPUB -> TTS
-- `gawkbot` - WhatsApp-first CRM CLI (prebuilt upstream binary; Sustainable Use License, unfree)
-- `seedtool-cli` - SSKR seed tool CLI
-- `skopeo-nix2container` - skopeo with the `nix:` transport (re-exported from nix2container), for reading/pushing nix2container images
-- `tod` - Todoist CLI
+> **Removed packages:** `openchamber` (removed in e09c5ba, PR #247).
+>
+> **Parked packages:** `nautilus-trader` (2026-10-14; see [#427](https://github.com/jmmaloney4/jackpkgs/issues/427)). Flake `packages` output unwired; nvfetcher and `_sources` kept. Neither `overlays.default` nor `packages.<system>` export it.
+
+- `adr-conflict-check` — ADR numbering/filename checks (`pkgs/adr-conflict-check`; flake `packages` only, not `overlays.default`)
+- `biome` — Biome 2.5.4 (`pkgs/biome`)
+- `codex-proxy` — OpenAI-compatible proxy for ChatGPT Codex (`pkgs/codex-proxy`)
+- `codex-proxy-rs` — Rust port of `codex-proxy` (`pkgs/codex-proxy-rs`)
+- `csharpier` — C# formatter (`pkgs/csharpier`; `meta.broken = true`, so it is **not** in `packages.<system>`; still an overlay attribute)
+- `dbn-cli` — Databento Binary Encoding CLI (`pkgs/dbn-cli`)
+- `docfx` — .NET docs generator (`pkgs/docfx`)
+- `epub2tts` — EPUB to TTS (`pkgs/epub2tts`; linux; `meta.broken = true`, so it is **not** in `packages.<system>`; still an overlay attribute)
+- `gawkbot` — WhatsApp-first CRM (prebuilt upstream binary; Sustainable Use License, unfree). Flake `packages` evaluates it with a narrow `allowUnfreePredicate`; overlay consumers must allow unfree themselves.
+- `gemini-proxy` — OpenAI-compatible HTTP proxy to Google Gemini via Cloud Code Assist (`pkgs/gemini-proxy`)
+- `imessage-bridge` — HTTP bridge for macOS iMessage (`pkgs/imessage-bridge`; darwin only)
+- `mcp-ynab` — FastMCP server for the YNAB API (`pkgs/mcp-ynab`)
+- `seedtool-cli` — Gordian seed tool CLI (`pkgs/seedtool-cli`)
+- `skopeo-nix2container` — skopeo with the `nix:` transport, re-exported from the `nix2container` flake input (flake `packages` only, not `overlays.default`)
+- `spooktacular` — macOS VM manager using Virtualization.framework (`pkgs/spooktacular`; darwin only)
+- `tauceti` — autonomous worker for the Tau Ceti Lean library (`pkgs/tauceti`)
+- `tauceti-progress` — per-roadmap progress reports (`pkgs/tauceti-progress`)
+- `tauceti-review` — Tau Ceti AI PR review (`pkgs/tauceti-review`)
+- `tod` — Todoist CLI (`pkgs/tod`)
 
 Build from CLI (examples):
 
@@ -956,11 +1085,34 @@ nix build github:jmmaloney4/jackpkgs#tod
 nix build .#tod
 ```
 
+## Overlays
+
+- `overlays.default` (`overlay.nix`) — NUR-style package overlay. It does **not** platform-filter attribute names. Packages: `biome`, `codex-proxy`, `codex-proxy-rs`, `csharpier`, `dbn-cli`, `docfx`, `epub2tts`, `gawkbot`, `gemini-proxy`, `imessage-bridge`, `mcp-ynab`, `seedtool-cli`, `spooktacular`, `tauceti`, `tauceti-progress`, `tauceti-review`, `tod`. Reserved names `lib` / `overlays` / `modules` are not merged onto `pkgs`. It does **not** export `skopeo-nix2container` or `adr-conflict-check`.
+- `overlays.llvm-darwin-codesign-test` (`overlays/llvm-darwin-codesign-test.nix`) — **not** folded into `default`. On darwin only, drops LLVM 23's `dsymutil/codesign.test` so `llvmPackages_23.libllvm` can build without `/usr/bin/codesign`. Linux drv hashes are unchanged. Opt in knowingly; remove when NixOS/nixpkgs#552246 lands (plain `rm` of that test, so the overlay fails instead of lingering).
+
+```nix
+{
+  outputs = { self, nixpkgs, jackpkgs, ... }:
+  let
+    system = "aarch64-darwin";
+    pkgs = import nixpkgs {
+      inherit system;
+      overlays = [
+        jackpkgs.overlays.default
+        jackpkgs.overlays.llvm-darwin-codesign-test
+      ];
+    };
+  in {
+    packages.${system}.hello = pkgs.hello;
+  };
+}
+```
+
 ______________________________________________________________________
 
-## Template(s)
+## Templates
 
-A `just-flake` template is available:
+A `just-flake` template is available (`templates.just` → `templates/default`):
 
 ```bash
 nix flake init -t github:jmmaloney4/jackpkgs#just
