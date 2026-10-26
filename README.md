@@ -159,7 +159,8 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `pkgs` — provides `jackpkgs.pkgs` option for consumer-provided overlayed nixpkgs. Required for à la carte imports when using `jackpkgs.pkgs`.
 - `fmt` — treefmt integration (Alejandra, Biome, Ruff, Rustfmt, Taplo, Yamlfmt, etc.).
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix, nodejs). Also imports `gcp.nix` (options under `jackpkgs.gcp`; not a named flakeModule).
-- `pre-commit` — pre-commit hooks (treefmt, nbstripout, ADR checks, Python/TS/JS quality gates). Hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`. The checks module is loaded only by `flakeModules.default` (there is no `flakeModules.checks` output).
+- `pre-commit` — pre-commit hooks (treefmt, nbstripout, ADR checks, author-gate, Python/TS/JS quality gates). Hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`. The checks module is loaded only by `flakeModules.default` (there is no `flakeModules.checks` output).
+- `author-gate` — `apps.author-gate` / `apps.git-bot-identity` and `just author-gate`. Git-history gate; not a pure flake check (store copies have no `.git`).
 - `shell` — shared dev shell output to include via `inputsFrom` (`modules/flake-parts/devshell.nix`).
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`, plus generated `preview`/`deploy` just recipes.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
@@ -199,6 +200,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
     inputs.jackpkgs.flakeModules.pulumi
     inputs.jackpkgs.flakeModules.quarto
     inputs.jackpkgs.flakeModules.python
+    inputs.jackpkgs.flakeModules.author-gate
     inputs.jackpkgs.flakeModules.container
     inputs.jackpkgs.flakeModules.kubeconfig
     inputs.jackpkgs.flakeModules.lsp
@@ -313,6 +315,10 @@ in {
     - `adr.directory` (default `docs/internal/decisions`)
     - `adr.package` (default `config.packages."adr-conflict-check"`)
     - `adr.allowSkipped` (list of 3-digit strings, default `[]`; legacy ADR gaps to suppress, e.g. `["017" "018"]`)
+    - `authorGate.enable` (bool, default `true`) — reject `cursoragent@cursor.com` as author or committer at `commit-msg`, `post-commit`, and `pre-push`
+    - `authorGate.package` (default `jackpkgs#author-gate`)
+    - `authorGate.botEmailDomain` (str, default `"bots.roomofrequirement.xyz"`; Cavins: `"bots.cavinsresearch.io"`)
+    - `authorGate.blockedEmails` (list of str, default `["cursoragent@cursor.com"]`)
     - `python.ty.environment` (dev-tools env selection: prefers `jackpkgs.checks.python.environment` when set, then a non-editable env with `includeGroups = true`; falls back to `pythonDefaultEnv`, then `pkgs.ty`) — ty's `--python` target, inherited by the ruff/pytest/numpydoc hooks
     - `python.ty.package` (defaults to `pkgs.ty`; the ty binary)
     - `python.ruff.package`, `python.pytest.package`, `python.numpydoc.package` (each defaults to `python.ty.environment`)
@@ -1056,6 +1062,7 @@ ______________________________________________________________________
 > **Parked packages:** `nautilus-trader` (2026-10-14; see [#427](https://github.com/jmmaloney4/jackpkgs/issues/427)). Flake `packages` output unwired; nvfetcher and `_sources` kept. Neither `overlays.default` nor `packages.<system>` export it.
 
 - `adr-conflict-check` — ADR numbering/filename checks (`pkgs/adr-conflict-check`; flake `packages` only, not `overlays.default`)
+- `author-gate` — fail if commits since `origin/<default>` are authored or committed as `cursoragent@cursor.com` (`nix run github:jmmaloney4/jackpkgs#author-gate`)
 - `biome` — Biome 2.5.4 (`pkgs/biome`)
 - `codex-proxy` — OpenAI-compatible proxy for ChatGPT Codex (`pkgs/codex-proxy`)
 - `codex-proxy-rs` — Rust port of `codex-proxy` (`pkgs/codex-proxy-rs`)
@@ -1065,6 +1072,7 @@ ______________________________________________________________________
 - `epub2tts` — EPUB to TTS (`pkgs/epub2tts`; linux; `meta.broken = true`, so it is **not** in `packages.<system>`; still an overlay attribute)
 - `gawkbot` — WhatsApp-first CRM (prebuilt upstream binary; Sustainable Use License, unfree). Flake `packages` evaluates it with a narrow `allowUnfreePredicate`; overlay consumers must allow unfree themselves.
 - `gemini-proxy` — OpenAI-compatible HTTP proxy to Google Gemini via Cloud Code Assist (`pkgs/gemini-proxy`)
+- `git-bot-identity` — set repo-local `user.name`/`user.email` from `GROKBOT_GIT_NAME`/`GROKBOT_GIT_EMAIL` (or the latest `Bot:` trailer)
 - `imessage-bridge` — HTTP bridge for macOS iMessage (`pkgs/imessage-bridge`; darwin only)
 - `mcp-ynab` — FastMCP server for the YNAB API (`pkgs/mcp-ynab`)
 - `seedtool-cli` — Gordian seed tool CLI (`pkgs/seedtool-cli`)

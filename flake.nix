@@ -216,6 +216,8 @@
             nvCargoLock = nvfetcherSources.tod.cargoLock;
           };
           adr-conflict-check = pkgs.callPackage ./pkgs/adr-conflict-check {};
+          author-gate = pkgs.callPackage ./pkgs/author-gate {};
+          git-bot-identity = pkgs.callPackage ./pkgs/git-bot-identity {};
         };
         platformFilteredPackages = jackLib.filterByPlatforms system allPackages;
         # Import test helpers that validate the flake-exposed API surface
@@ -698,6 +700,18 @@
             import ./tests/adr.nix {
               inherit pkgs;
               adr-conflict-check = allPackages.adr-conflict-check;
+            }
+          )
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "author-gate-${name}" drv) (
+            import ./tests/author-gate.nix {
+              inherit pkgs;
+              author-gate = allPackages.author-gate;
+            }
+          )
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "git-bot-identity-${name}" drv) (
+            import ./tests/git-bot-identity.nix {
+              inherit pkgs;
+              git-bot-identity = allPackages.git-bot-identity;
             }
           )
           # mdformat `$`-escaping behaviour, pinned because MyST dollarmath

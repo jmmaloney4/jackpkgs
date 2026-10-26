@@ -21,6 +21,7 @@
       kubeconfig = import ./kubeconfig.nix {jackpkgsInputs = inputs;};
       lsp = import ./lsp.nix {jackpkgsInputs = inputs;};
       lean = import ./lean.nix {jackpkgsInputs = inputs;};
+      author-gate = import ./author-gate.nix {jackpkgsInputs = inputs;};
     };
   };
 }
