@@ -234,12 +234,19 @@ With `jackpkgs.author-gate.enable` (default `true` via `flakeModules.default` or
 export GROKBOT_GIT_NAME='bede (Personal Docs Writer)' GROKBOT_GIT_EMAIL='bede@bots.roomofrequirement.xyz' GIT_AUTHOR_NAME="$GROKBOT_GIT_NAME" GIT_AUTHOR_EMAIL="$GROKBOT_GIT_EMAIL" GIT_COMMITTER_NAME="$GROKBOT_GIT_NAME" GIT_COMMITTER_EMAIL="$GROKBOT_GIT_EMAIL"
 ```
 
-Cavins bots: use `<name>@bots.cavinsresearch.io` for `GROKBOT_GIT_EMAIL`. Cursor VMs often default to `cursoragent@cursor.com` when unset — **always** also run `nix run github:jmmaloney4/jackpkgs#git-bot-identity` so repo-local `user.name` / `user.email` persist across git subprocesses.
+Cavins bots: use `<name>@bots.cavinsresearch.io` for `GROKBOT_GIT_EMAIL`. When `GROKBOT_GIT_EMAIL` is unset and `git-bot-identity` falls back from a `Bot:` trailer, it builds `<bare>@${GROKBOT_GIT_EMAIL_DOMAIN}` (default `bots.roomofrequirement.xyz`; Cavins: `GROKBOT_GIT_EMAIL_DOMAIN=bots.cavinsresearch.io`) — see `pkgs/git-bot-identity/git-bot-identity.sh`. Cursor VMs often default to `cursoragent@cursor.com` when unset — **always** also run `nix run github:jmmaloney4/jackpkgs#git-bot-identity` so repo-local `user.name` / `user.email` persist across git subprocesses.
 
 **Consumer adoption** (after bumping `inputs.jackpkgs`):
 
 1. Keep `flakeModules.default` (or `flakeModules.author-gate` + `flakeModules.pre-commit`).
-2. Leave `jackpkgs.pre-commit.authorGate.enable` at default `true`. Cavins: set `jackpkgs.pre-commit.authorGate.botEmailDomain = "bots.cavinsresearch.io";` and the matching `perSystem` `jackpkgs.author-gate.botEmailDomain`.
+2. Leave `jackpkgs.pre-commit.authorGate.enable` at default `true` (per-system). Cavins: set both domain overrides inside `perSystem`:
+
+```nix
+perSystem = { ... }: {
+  jackpkgs.pre-commit.authorGate.botEmailDomain = "bots.cavinsresearch.io";
+  jackpkgs.author-gate.botEmailDomain = "bots.cavinsresearch.io";
+};
+```
 3. Append `nix run github:jmmaloney4/jackpkgs#git-bot-identity` to `.cursor/environment.json` `install` and worktree setup scripts.
 4. Put the `GROKBOT_*` one-liner above in each bot's cloud-agent launch env.
 5. Wrap merge: run `nix run github:jmmaloney4/jackpkgs#author-gate` (or `just author-gate`) **before** `nix flake check -L`.
