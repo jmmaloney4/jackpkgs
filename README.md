@@ -180,7 +180,7 @@ Loaded only via `flakeModules.default` (files exist; no named `flakeModules.<nam
 
 ```nix
 flake-parts.lib.mkFlake { inherit inputs; } {
-  systems = import inputs.systems;
+  systems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
   imports = [ inputs.jackpkgs.flakeModules.default ];
 }
 ```
@@ -189,7 +189,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 
 ```nix
 flake-parts.lib.mkFlake { inherit inputs; } {
-  systems = import inputs.systems;
+  systems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
   imports = [
     inputs.jackpkgs.flakeModules.pkgs  # Required when using jackpkgs.pkgs with overlayed nixpkgs
     inputs.jackpkgs.flakeModules.fmt
