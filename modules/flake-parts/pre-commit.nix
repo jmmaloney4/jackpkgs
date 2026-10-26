@@ -325,7 +325,7 @@ in {
       throw ''
         jackpkgs.pre-commit requires jackpkgs.checks options.
 
-        Import inputs.jackpkgs.flakeModules.checks (or inputs.jackpkgs.flakeModules.default)
+        Import inputs.jackpkgs.flakeModules.default
         in your flake modules list before using jackpkgs.pre-commit.
       ''
     else {

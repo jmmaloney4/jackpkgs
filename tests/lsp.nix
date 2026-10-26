@@ -236,6 +236,59 @@ in {
     expected = true;
   };
 
+  testLspAddsNilWhenNixBackendIsNil = let
+    perSystem = getPerSystem [
+      pkgsModule
+      shellModule
+      lspModule
+      {
+        _module.check = false;
+        jackpkgs.lsp.enable = true;
+        jackpkgs.lsp.nix.backend = "nil";
+      }
+    ];
+    packages = perSystem.jackpkgs.shell.packages;
+  in {
+    expr = hasPackageNamed "nil" packages && !(hasPackageNamed "nixd" packages);
+    expected = true;
+  };
+
+  testLspAddsNixdWhenNixBackendIsNixd = let
+    perSystem = getPerSystem [
+      pkgsModule
+      shellModule
+      lspModule
+      {
+        _module.check = false;
+        jackpkgs.lsp.enable = true;
+        jackpkgs.lsp.nix.backend = "nixd";
+      }
+    ];
+    packages = perSystem.jackpkgs.shell.packages;
+  in {
+    expr = hasPackageNamed "nixd" packages && !(hasPackageNamed "nil" packages);
+    expected = true;
+  };
+
+  # Regression: `backend = "none"` used to fall through the `!= "nil"`
+  # branch and install nixd. "none" must install neither Nix LSP.
+  testLspNixBackendNoneInstallsNeither = let
+    perSystem = getPerSystem [
+      pkgsModule
+      shellModule
+      lspModule
+      {
+        _module.check = false;
+        jackpkgs.lsp.enable = true;
+        jackpkgs.lsp.nix.backend = "none";
+      }
+    ];
+    packages = perSystem.jackpkgs.shell.packages;
+  in {
+    expr = !(hasPackageNamed "nil" packages) && !(hasPackageNamed "nixd" packages);
+    expected = true;
+  };
+
   testLspAddsRustAnalyzerWhenEnabled = let
     perSystem = getPerSystem [
       pkgsModule
