@@ -37,9 +37,19 @@ origin/HEAD, origin/main, origin/master, main, or master.
 EOF
 }
 
+needs_option_value() {
+  local opt="$1" argc="$2" next="${3-}"
+  if [[ $argc -lt 2 || $next == -* ]]; then
+    echo "author-gate: ${opt} requires an argument" >&2
+    usage >&2
+    exit 2
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --mode)
+    needs_option_value "--mode" "$#" "${2-}"
     mode="$2"
     shift 2
     ;;
@@ -48,6 +58,7 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --base)
+    needs_option_value "--base" "$#" "${2-}"
     base_ref="$2"
     shift 2
     ;;
@@ -56,6 +67,7 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --bot-email-domain)
+    needs_option_value "--bot-email-domain" "$#" "${2-}"
     bot_email_domain="$2"
     shift 2
     ;;
@@ -64,6 +76,7 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --blocked-email)
+    needs_option_value "--blocked-email" "$#" "${2-}"
     blocked_emails+=("$2")
     shift 2
     ;;

@@ -339,6 +339,38 @@ in {
   #   fatal: options '--reset-author' and '--author' cannot be used together
   # when the printed rebase --exec is copy-pasted. Extract that command,
   # run it, and require the gate to pass on the rewritten identity.
+  missing-blocked-email-value-exits-2 = mkTest {
+    name = "missing-blocked-email-value-exits-2";
+    body = ''
+      init_repo
+      set +e
+      ${exe} --blocked-email 2> err
+      rc=$?
+      set -e
+      if [ "$rc" -ne 2 ]; then
+        echo "expected exit 2 for --blocked-email without value, got $rc"
+        exit 1
+      fi
+      grep -q 'requires an argument' err
+    '';
+  };
+
+  missing-mode-value-exits-2 = mkTest {
+    name = "missing-mode-value-exits-2";
+    body = ''
+      init_repo
+      set +e
+      ${exe} --mode 2> err
+      rc=$?
+      set -e
+      if [ "$rc" -ne 2 ]; then
+        echo "expected exit 2 for --mode without value, got $rc"
+        exit 1
+      fi
+      grep -q 'requires an argument' err
+    '';
+  };
+
   printed-fix-rewrites-cursoragent-identity = mkTest {
     name = "printed-fix-rewrites-cursoragent-identity";
     body = ''
