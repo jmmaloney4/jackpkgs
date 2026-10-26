@@ -17,5 +17,6 @@
     (import ./kubeconfig.nix {inherit jackpkgsInputs;})
     (import ./lsp.nix {inherit jackpkgsInputs;})
     (import ./lean.nix {inherit jackpkgsInputs;})
+    (import ./author-gate.nix {inherit jackpkgsInputs;})
   ];
 }
