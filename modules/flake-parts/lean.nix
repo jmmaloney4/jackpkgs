@@ -60,6 +60,20 @@ in {
                 '';
               };
 
+              coverageExclude = mkOption {
+                type = types.listOf types.str;
+                default = [];
+                description = ''
+                  Project-relative `.lean` files (shell glob patterns such as
+                  `scripts/*` are accepted) that `packages.<name>-lean` need
+                  not compile into `.lake/build/lib/lean` (executable roots,
+                  scripts). Every other `.lean` file must be built, so a module
+                  the default targets do not reach fails the build instead of
+                  going unchecked. Prefer listing the library in the lakefile's
+                  `defaultTargets` over excluding it here.
+                '';
+              };
+
               artifactHash = mkOption {
                 type = types.nullOr types.str;
                 default = null;
@@ -97,6 +111,7 @@ in {
         name,
         src,
         artifactHash,
+        coverageExclude,
       }: let
         tag = leanLib.readToolchainTag src;
         lakeManifest = leanLib.readLakeManifest src;
@@ -173,7 +188,7 @@ in {
           version = "${tag}-${manifestDigest}";
           src = cleanSrc;
 
-          nativeBuildInputs = [toolchain leanPkgs.cacert leanPkgs.git leanPkgs.curl];
+          nativeBuildInputs = [toolchain leanPkgs.cacert leanPkgs.git leanPkgs.curl leanPkgs.jq leanPkgs.findutils];
 
           outputHashMode = "recursive";
           outputHashAlgo = "sha256";
@@ -201,13 +216,19 @@ in {
           '';
 
           # Measured: a fixed output over a raw `.lake/packages` is NOT
-          # reproducible. See lib/lean.nix:pruneNondeterministic.
+          # reproducible, but one that keeps the delivered traces and scrubs
+          # their logs is both reproducible and accepted by Lake. See
+          # lib/lean.nix:pruneNondeterministic and ADR-052.
           installPhase = ''
             runHook preInstall
             mkdir -p "$out"
             cp -R .lake/packages "$out/packages"
             chmod -R u+w "$out/packages"
             ${leanLib.pruneNondeterministic "\"$out/packages\""}
+            ${leanLib.seedLakeHashes {
+              workspace = "${cleanSrc}";
+              packagesDir = "$out/packages";
+            }}
             runHook postInstall
           '';
 
@@ -238,6 +259,75 @@ in {
               })
               sourceDeps);
 
+        # Where each dependency lives in the store, in the shape Lake wants.
+        depDir = n:
+          if usesMathlib
+          then "${mathlibDeps}/packages/${n}"
+          else "${sourceDeps.${n}}";
+
+        # The read-only dependency store, as a Lake package-overrides document.
+        # Passed with `--packages`, so nothing is written into a checkout and
+        # no setup step can go stale (ADR-052).
+        overridesJson = leanPkgs.writeText "${name}-lake-package-overrides.json" (builtins.toJSON
+          (leanLib.packageOverrides {
+            manifest = lakeManifest;
+            dirOf = depDir;
+          }));
+
+        # `lake` that already knows where the Nix-provided packages are. Shadows
+        # the toolchain's `lake` in the devShell so every invocation (editors'
+        # `lake serve` included) resolves the same way as the Nix build.
+        lakeWrapper = leanPkgs.writeShellScriptBin "lake" ''
+          exec ${toolchain}/bin/lake --packages=${overridesJson} "$@"
+        '';
+
+        # The project's own targets, built by Lake against the read-only
+        # dependency store (ADR-052). `--wfail` is required: plain `lake build`
+        # reports `sorry` as a warning and passes.
+        projectBuild = leanPkgs.stdenv.mkDerivation {
+          pname = "${name}-lean";
+          version = tag;
+          src = cleanSrc;
+          nativeBuildInputs = [toolchain];
+          dontConfigure = true;
+          dontFixup = true;
+          passthru = {inherit overridesJson toolchain;};
+
+          buildPhase = ''
+            runHook preBuild
+            export HOME="$TMPDIR"
+            lake --packages=${overridesJson} build --no-ansi --wfail
+            runHook postBuild
+          '';
+
+          # Fail closed on unbuilt modules: `lake build` builds only the
+          # default targets, and a `.lean` file they do not reach would
+          # otherwise be neither compiled nor checked.
+          checkPhase = ''
+            missing=0
+            while IFS= read -r f; do
+              rel="''${f#./}"
+              case "$rel" in
+                ${lib.concatStringsSep "|" (["lakefile.lean"] ++ coverageExclude)}) continue ;;
+              esac
+              test -f ".lake/build/lib/lean/''${rel%.lean}.olean" || {
+                echo "jackpkgs.lean: $rel was not compiled by the default targets." >&2
+                missing=1
+              }
+            done < <(find . -name '*.lean' -not -path './.lake/*' | sort)
+            if [ "$missing" = 1 ]; then
+              echo "Add its library to defaultTargets in the lakefile, or list it in coverageExclude." >&2
+              exit 1
+            fi
+          '';
+          doCheck = true;
+
+          installPhase = ''
+            mkdir -p "$out"
+            cp -R .lake/build "$out/build"
+          '';
+        };
+
         # With no hash there is nothing to point LEAN_PATH at, so the shell is
         # toolchain-only rather than unevaluable. That is what makes minting the
         # first hash possible: the previous shape reached the refusal through
@@ -247,7 +337,8 @@ in {
 
         devShell = leanPkgs.mkShell ({
             name = "${name}-lean";
-            packages = [toolchain leanPkgs.git];
+            # `lakeWrapper` first: it shadows the toolchain's `lake`.
+            packages = lib.optional haveDeps lakeWrapper ++ [toolchain leanPkgs.git];
           }
           // lib.optionalAttrs haveDeps {
             LEAN_PATH = lib.concatStringsSep ":" leanPathEntries;
@@ -263,16 +354,19 @@ in {
       in {
         inherit tag toolchain devShell usesMathlib;
         deps = depsDrv;
+        build = projectBuild;
       };
 
       envs = lib.mapAttrs (name: p:
         mkLeanEnv {
           inherit name;
-          inherit (p) src artifactHash;
+          inherit (p) src artifactHash coverageExclude;
         })
       config.jackpkgs.lean.projects;
     in {
-      packages = lib.mapAttrs' (name: env: lib.nameValuePair "${name}-lean-deps" env.deps) envs;
+      packages =
+        lib.mapAttrs' (name: env: lib.nameValuePair "${name}-lean-deps" env.deps) envs
+        // lib.mapAttrs' (name: env: lib.nameValuePair "${name}-lean" env.build) envs;
       devShells = lib.mapAttrs (_: env: env.devShell) envs;
     };
   };

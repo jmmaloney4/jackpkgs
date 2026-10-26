@@ -105,7 +105,7 @@ modules = [ inputs.jackpkgs.darwinModules.default ];       # or darwinModules.im
 modules = [ inputs.jackpkgs.homeModules.tod ];             # or homeModules.default for the whole tree
 ```
 
-NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enable`): `agenix`, `attic`, `build-user`, `cache-target-pruner`, `determinate`, `disks`, `docker`, `fonts`, `gnupg-agent`, `guest-user`, `nix`, `nixbuild`, `operator`, `packages`, `profile`, `ssh`, `tailscale`, `user`, `zenith`, `zsh`. Identity and topology values have no defaults — enabling a module without them fails at eval:
+NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enable`): `agenix`, `attic`, `build-user`, `cache-target-pruner`, `claude-managed-settings`, `determinate`, `disks`, `docker`, `fonts`, `gnupg-agent`, `guest-user`, `nix`, `nixbuild`, `operator`, `packages`, `profile`, `repo-sync`, `ssh`, `tailscale`, `user`, `zenith`, `zsh`. Identity and topology values have no defaults — enabling a module without them fails at eval:
 
 ```nix
 {
@@ -121,7 +121,11 @@ NixOS fleet modules (`nixosModules.<name>`, each gated on `jackpkgs.<name>.enabl
 
 `cache-target-pruner` deletes `CACHEDIR.TAG`-marked build caches (Cargo `target/`, uv, ...) under a user's `~/.cache`, but only when the root filesystem drops below 15% free (stopping at 20%), via a systemd timer. Required: `jackpkgs.cache-target-pruner.user` (declared in `users.users`). Thresholds are fixed. NixOS only.
 
+`claude-managed-settings` installs Claude Code's file-based managed settings system-wide (`/etc/claude-code/managed-settings.json`, the pinned and audited message-timestamps hooks, and the statusline). `jackpkgs.claude-managed-settings.enable = true;` ships garden's vendored default payload (not policy-neutral: it sets `permissions.defaultMode = "auto"` and `skipAutoPermissionPrompt = true` for every user on the host); point `settingsFile` / `statuslineSource` at your own files to replace it (the settings JSON is `jq`-validated at build time, since invalid JSON stops Claude Code from starting). NixOS only.
+
 `profile` is the fleet baseline: it `mkDefault`-enables `user`, `fonts`, `nix`, `attic`, `ssh` and `tailscale`, so a host on it must also wire their required values above (and on NixOS it imports Home Manager's NixOS module and sets the locale). The account modules create users: `operator` creates the account `jackpkgs.user.username` names and wires it to Home Manager, `build-user` and `guest-user` create the others.
+
+`repo-sync` is a timer-driven service that commits agent-authored edits from a dedicated checkout (`repoPath`) to a branch of `repo` and keeps a PR to `baseBranch` open. It needs `user`, `repo` (`owner/name`), `repoPath`, `branch`, `paths` and `commitAuthor.{name,email}` (no defaults); `flattenSkillsDir`, `githubTokenEnvFile` and `onePassword.*` are optional. It is not covered by `profile`.
 
 ```nix
 {
@@ -163,7 +167,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `container` — Linux OCI images under `config.flake.images` (options under `jackpkgs.images`; file `container.nix`).
 - `kubeconfig` — Pulumi-backed `just kubeconfig` recipe and `KUBECONFIG` devShell fragment.
 - `lsp` — optional lightweight LSP servers on the composed devShell PATH.
-- `lean` — Nix-built Lean 4 toolchains and dependency closures from a checkout's `lean-toolchain` + `lake-manifest.json`.
+- `lean` — Nix-built Lean 4 toolchains, dependency closures (with Nix-provided precompiled Mathlib) and sandboxed `lake build` packages; see [Lean projects](#lean-projects).
 
 Loaded only via `flakeModules.default` (files exist; no named `flakeModules.<name>`):
 
@@ -176,7 +180,7 @@ Loaded only via `flakeModules.default` (files exist; no named `flakeModules.<nam
 
 ```nix
 flake-parts.lib.mkFlake { inherit inputs; } {
-  systems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
+  systems = import inputs.systems;
   imports = [ inputs.jackpkgs.flakeModules.default ];
 }
 ```
@@ -852,6 +856,24 @@ jackpkgs.checks.python.numpydoc = {
   - `jackpkgs.projectRoot` is a Nix path (e.g., `inputs.self.outPath` or `./.`), or an absolute path converted via `builtins.toPath`.
   - Keep option values as relative strings; modules will resolve them.
 - See ADR-004 for details and troubleshooting: `docs/internal/designs/004-project-root-resolution.md`.
+
+### Lean projects
+
+`jackpkgs.lean.projects.<name>` builds a Lean 4 checkout (needs `lean-toolchain` and a committed `lake-manifest.json`) with its dependencies supplied by Nix (ADR-052):
+
+```nix
+perSystem = {
+  jackpkgs.lean.projects.mylib = {
+    src = ./lean/mylib;
+    artifactHash = "sha256-..."; # Mathlib projects only, per system
+    coverageExclude = [ "scripts/*" ]; # optional shell globs
+  };
+};
+```
+
+- `packages.<name>-lean-deps` — the dependency closure (fixed-output; mint `artifactHash` by building it with `lib.fakeHash`).
+- `packages.<name>-lean` — sandboxed `lake build --wfail` against that closure without rebuilding dependencies. Fails on `sorry` and on any `.lean` file the lakefile's default targets do not compile (list intentional exceptions in `coverageExclude`). The coverage check assumes the default `srcDir` layout.
+- devShell — `lake` is wrapped to use the Nix-provided dependencies; plain `lake build` works with no setup step.
 
 ### DevShell usage pattern
 

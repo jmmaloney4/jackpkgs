@@ -1,4 +1,16 @@
-# AGENTS: README maintenance
+# AGENTS: jackpkgs
+
+## Repository quick map
+
+- `flake.nix`: public flake outputs and inputs; start here when modifying exposed packages or modules.
+- `modules/flake-parts/`: reusable flake-parts modules for shells, formatting, pre-commit, just, Python, and other integrations.
+- `modules/nixos/`, `modules/nix-darwin/`, `modules/home-manager/`: system/home module outputs (see ADR-051).
+- `templates/`: starter templates; check the corresponding README section when changing them.
+- `README.md`: consumer-facing flake documentation and usage examples; keep its established flake-only contract.
+
+Explore the relevant module/output rather than inventorying the whole repository. For Cursor-hosted agents, read `.cursor/CLOUD.md` once before setup/testing; it supplements these rules.
+
+## README maintenance
 
 Keep `README.md` flake-only and accurate. Update it when anything changes that users consume.
 

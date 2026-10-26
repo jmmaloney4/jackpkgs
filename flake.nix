@@ -735,6 +735,10 @@
           # Individual rather than aggregated so a Lean failure is legible
           # without building Lean to read it.
           // lib.mapAttrs' (name: drv: lib.nameValuePair "lean-project-${name}" drv) leanProjectTests
+          # Behaviour of the FOD canonicaliser on a synthetic tree (ADR-052).
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "lean-${name}" drv) (
+            import ./tests/lean-prune.nix {inherit lib pkgs;}
+          )
           # The shared NixOS module set instantiated with every module enabled
           # (ADR-051, garden#2074 Part B PR 2); value-level behaviour is the
           # `nixos-modules` nix-unit suite.
