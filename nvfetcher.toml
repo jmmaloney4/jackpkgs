@@ -70,5 +70,5 @@ fetch.github = "TauCetiProject/TauCetiReview"
 # diverge from what every other worker runs. pkgs/tauceti asserts these two agree at build
 # time, so bumping `tauceti` without bumping this fails the build instead of drifting.
 [tauceti-progress]
-src.manual = "1feea7926eefd7129089bb060a47c28ae915a877"
+src.manual = "2d7bd8b7636560a50acf1b419761186f247009b9"
 fetch.github = "TauCetiProject/TauCetiProgress"
