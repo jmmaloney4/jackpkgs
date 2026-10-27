@@ -247,6 +247,7 @@ perSystem = { ... }: {
   jackpkgs.author-gate.botEmailDomain = "bots.cavinsresearch.io";
 };
 ```
+
 3. Append `nix run github:jmmaloney4/jackpkgs#git-bot-identity` to `.cursor/environment.json` `install` and worktree setup scripts.
 4. Put the `GROKBOT_*` one-liner above in each bot's cloud-agent launch env.
 5. Wrap merge: run `nix run github:jmmaloney4/jackpkgs#author-gate` (or `just author-gate`) **before** `nix flake check -L`.
