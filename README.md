@@ -181,7 +181,7 @@ Loaded only via `flakeModules.default` (files exist; no named `flakeModules.<nam
 
 ```nix
 flake-parts.lib.mkFlake { inherit inputs; } {
-  systems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
+  systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
   imports = [ inputs.jackpkgs.flakeModules.default ];
 }
 ```
@@ -190,7 +190,7 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 
 ```nix
 flake-parts.lib.mkFlake { inherit inputs; } {
-  systems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
+  systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
   imports = [
     inputs.jackpkgs.flakeModules.pkgs  # Required when using jackpkgs.pkgs with overlayed nixpkgs
     inputs.jackpkgs.flakeModules.fmt
@@ -212,6 +212,47 @@ flake-parts.lib.mkFlake { inherit inputs; } {
 Note: When importing modules a la carte, include `flakeModules.pkgs` if you want to set `jackpkgs.pkgs` to propagate overlayed nixpkgs. The `default` module includes it automatically.
 
 `nodejs` and `checks` are not named flakeModules. Repos that need `jackpkgs.nodejs` or the shared quality-gate options should import `flakeModules.default` rather than assembling a la carte.
+
+### Author gate
+
+Reject `cursoragent@cursor.com` as **author or committer** on commits in `merge-base(origin/<default>, HEAD)..HEAD` (and at git-hook stages). Jack's address and other authors are ignored unless they use a blocked email.
+
+**Run the CLIs** (from a git worktree):
+
+```bash
+nix run github:jmmaloney4/jackpkgs#author-gate
+nix run github:jmmaloney4/jackpkgs#git-bot-identity
+```
+
+With `jackpkgs.author-gate.enable` (default `true` via `flakeModules.default` or `flakeModules.author-gate`): `just author-gate`, `nix run .#author-gate`, and `nix run .#git-bot-identity` (`apps.author-gate` / `apps.git-bot-identity`).
+
+**Not a pure `nix flake check` gate:** Nix copies a flake into the store **without `.git`**, so a sandboxed check cannot read `git log` authors. Fleet merge is `nix flake check -L` in a worktree — that still builds those git-less copies. Enforcement is this worktree CLI plus git hooks (`commit-msg` / `post-commit` / `pre-push` via `jackpkgs.pre-commit.authorGate`, default enable `true`).
+
+**Launch env for cloud agents** (set on the bot launch; also export `GIT_AUTHOR_*` / `GIT_COMMITTER_*` for one-shot commits):
+
+```bash
+export GROKBOT_GIT_NAME='bede (Personal Docs Writer)' GROKBOT_GIT_EMAIL='bede@bots.roomofrequirement.xyz' GIT_AUTHOR_NAME="$GROKBOT_GIT_NAME" GIT_AUTHOR_EMAIL="$GROKBOT_GIT_EMAIL" GIT_COMMITTER_NAME="$GROKBOT_GIT_NAME" GIT_COMMITTER_EMAIL="$GROKBOT_GIT_EMAIL"
+```
+
+Cavins bots: use `<name>@bots.cavinsresearch.io` for `GROKBOT_GIT_EMAIL`. When `GROKBOT_GIT_EMAIL` is unset and `git-bot-identity` falls back from a `Bot:` trailer, it builds `<bare>@${GROKBOT_GIT_EMAIL_DOMAIN}` (default `bots.roomofrequirement.xyz`; Cavins: `GROKBOT_GIT_EMAIL_DOMAIN=bots.cavinsresearch.io`) — see `pkgs/git-bot-identity/git-bot-identity.sh`. Cursor VMs often default to `cursoragent@cursor.com` when unset — **always** also run `nix run github:jmmaloney4/jackpkgs#git-bot-identity` so repo-local `user.name` / `user.email` persist across git subprocesses.
+
+**Consumer adoption** (after bumping `inputs.jackpkgs`):
+
+1. Keep `flakeModules.default` (or `flakeModules.author-gate` + `flakeModules.pre-commit`).
+2. Leave `jackpkgs.pre-commit.authorGate.enable` at default `true` (per-system). Cavins: set both domain overrides inside `perSystem`:
+
+```nix
+perSystem = { ... }: {
+  jackpkgs.pre-commit.authorGate.botEmailDomain = "bots.cavinsresearch.io";
+  jackpkgs.author-gate.botEmailDomain = "bots.cavinsresearch.io";
+};
+```
+
+3. Append `nix run github:jmmaloney4/jackpkgs#git-bot-identity` to `.cursor/environment.json` `install` and worktree setup scripts.
+4. Put the `GROKBOT_*` one-liner above in each bot's cloud-agent launch env.
+5. Wrap merge: run `nix run github:jmmaloney4/jackpkgs#author-gate` (or `just author-gate`) **before** `nix flake check -L`.
+
+On failure, `author-gate` prints a `git rebase --exec` rewrite hint (uses your `botEmailDomain` and the `Bot: <name> (<Title>)` trailer shape).
 
 ### Using overlayed nixpkgs
 
@@ -283,6 +324,15 @@ in {
     - `iamOrg` (nullable string, default `null`) - GCP IAM organization domain for the `auth` recipe. When set, `just auth` uses `--account=$GCP_ACCOUNT_USER@<domain>` where `GCP_ACCOUNT_USER` defaults to `$USER`. Example: `iamOrg = "example.com";`
     - `quotaProject` (nullable string, default `null`) - when set, `just auth` runs `gcloud auth application-default set-quota-project <quotaProject>`.
     - `profile` (nullable string, default `mkDefault` of `iamOrg`) - gcloud profile directory name under `~/.config/gcloud-profiles/`. When set, the composed devShell exports `CLOUDSDK_CONFIG` to isolate credentials per project.
+
+- author-gate (`modules/flake-parts/author-gate.nix`)
+
+  - `jackpkgs.author-gate.enable` (bool, default `true`) — `apps.author-gate`, `apps.git-bot-identity`, and `just author-gate`. Does not add a pure flake check of consumer history.
+  - Per-system `jackpkgs.author-gate`:
+    - `package` (default `jackpkgs#author-gate`)
+    - `identityPackage` (default `jackpkgs#git-bot-identity`)
+    - `botEmailDomain` (str, default `"bots.roomofrequirement.xyz"`; Cavins: `"bots.cavinsresearch.io"`)
+    - `blockedEmails` (list of str, default `["cursoragent@cursor.com"]`)
 
 - pre-commit (`modules/flake-parts/pre-commit.nix`)
 
