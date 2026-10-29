@@ -177,6 +177,11 @@ Loaded only via `flakeModules.default` (files exist; no named `flakeModules.<nam
 - `nodejs` — `node_modules` via `fetchPnpmDeps` / `pnpmConfigHook`.
 - `checks` — CI checks and quality-gate controls shared with pre-commit.
 
+Imported by path from other flake-parts modules (files exist; no named `flakeModules.*` export):
+
+- `just-features` (`modules/flake-parts/just-features.nix`) — declares `perSystem.jackpkgs.justFeatures` so contributor modules can register just-flake features without importing `just-flake.flakeModule` (avoids duplicate `just-flake` option declarations). Imported by path from `just.nix`, `lean-recipes.nix`, and `author-gate.nix`.
+- `lean-recipes` (`modules/flake-parts/lean-recipes.nix`) — imported by `lean.nix`; registers `just lean-toolchain-fetch <version>` via `jackpkgs.justFeatures` to vendor Lean toolchain manifests into `pkgs/lean4-toolchains/`. Jackpkgs-maintainer recipe (intended for this repo's checkout; not a separate named flakeModule).
+
 ### Import (one-liner: everything)
 
 ```nix
@@ -606,6 +611,8 @@ back.
 
 - lean (`flakeModules.lean`, `modules/flake-parts/lean.nix`)
 
+  - Imports `lean-recipes.nix` (see [internal companion modules](#flake-parts-modules)) for `just lean-toolchain-fetch <version>`.
+  - Vendored Lean binary-toolchain manifests live in `pkgs/lean4-toolchains/` (e.g. `v4.34.0.nix`, `v4.34.0-rc2.nix`). `lib/lean.nix` `resolveManifestPath` (via `modules/flake-parts/lean.nix`) prefers these over upstream lean4-nix. Not a `packages.<system>` output or an overlay attribute.
   - `jackpkgs.lean.enable` (bool, default `true`). With an empty `projects` attrset this is a no-op (no extra nixpkgs instance).
   - Per-system `jackpkgs.lean.projects.<name>.src` (path) — checkout with `lean-toolchain` and committed `lake-manifest.json`.
   - Per-system `jackpkgs.lean.projects.<name>.artifactHash` (nullable string, default `null`) — Mathlib artifact FOD hash for this system. Leave `null` for a toolchain-only `devShells.<name>` that can mint the hash; then set `lib.fakeHash` and build `.#<name>-lean-deps`.
@@ -1106,6 +1113,8 @@ ______________________________________________________________________
 ## Packages available
 
 `packages.<system>` is the `allPackages` set in `flake.nix`, filtered by `meta.platforms` (`lib.filterByPlatforms`) and then dropping `meta.broken`. Overlay consumers see a different set (see [Overlays](#overlays)).
+
+> **Not flake `packages`:** `pkgs/lean4-toolchains/` — vendored Lean toolchain manifest Nix files used by `flakeModules.lean` / `lib/lean.nix` `resolveManifestPath`; not exported via `packages.<system>` or `overlays.default`.
 
 > **Removed packages:** `openchamber` (removed in e09c5ba, PR #247).
 >
