@@ -276,7 +276,8 @@ in {
               `jackpkgs.pre-commit.adr.directory` have:
                 - well-formed filenames (`NNN-*.md`)
                 - unique three-digit prefixes (no duplicates)
-                - a contiguous numeric sequence with no gaps (001…N)
+                - a contiguous numeric sequence with no gaps (001…N), unless
+                  `requireContiguous` is `false`
 
               `000` is reserved for the ADR template and is excluded from
               gap detection.
@@ -298,6 +299,21 @@ in {
             default = jackpkgsInputs.self.packages.${pkgs.stdenv.hostPlatform.system}."adr-conflict-check";
             defaultText = "jackpkgsInputs.self.packages.${pkgs.stdenv.hostPlatform.system}.\"adr-conflict-check\"";
             description = "The `adr-conflict-check` package to use.";
+          };
+
+          requireContiguous = mkOption {
+            type = types.bool;
+            default = true;
+            description = ''
+              Whether the ADR numbers must form a gap-free sequence.
+
+              Set to `false` for repos where ADR numbers are claimed on
+              concurrent branches: a later number landing first is then a
+              harmless gap rather than a red main, and `allowSkipped` needs
+              no transient entries. Duplicate numbers and malformed
+              filenames still fail; that is the real collision hazard.
+              Passed as `--allow-gaps` to `adr-conflict-check`.
+            '';
           };
 
           allowSkipped = mkOption {
@@ -704,7 +720,7 @@ in {
           settings.hooks.adr-conflict-check = {
             enable = sysCfg.adr.enable;
             package = sysCfg.adr.package;
-            entry = "${lib.getExe sysCfg.adr.package} --adr-dir ${lib.escapeShellArg sysCfg.adr.directory}${lib.optionalString (sysCfg.adr.allowSkipped != []) " --allow-skipped ${lib.escapeShellArg (lib.concatStringsSep "," sysCfg.adr.allowSkipped)}"}";
+            entry = "${lib.getExe sysCfg.adr.package} --adr-dir ${lib.escapeShellArg sysCfg.adr.directory}${lib.optionalString (!sysCfg.adr.requireContiguous) " --allow-gaps"}${lib.optionalString (sysCfg.adr.allowSkipped != []) " --allow-skipped ${lib.escapeShellArg (lib.concatStringsSep "," sysCfg.adr.allowSkipped)}"}";
             files = "\\.md$";
             pass_filenames = false;
           };

@@ -461,6 +461,24 @@ in {
     expected = true;
   };
 
+  testAdrHookContiguousByDefault = let
+    hooks = getHooks [(mkConfigModule {})];
+  in {
+    expr = hasInfixAll ["--allow-gaps"] hooks.adr-conflict-check.entry;
+    expected = false;
+  };
+
+  testAdrHookAllowGapsWhenNotContiguous = let
+    hooks = getHooks [
+      (mkConfigModule {
+        perSystemConfig.jackpkgs.pre-commit.adr.requireContiguous = false;
+      })
+    ];
+  in {
+    expr = hasInfixAll ["--allow-gaps"] hooks.adr-conflict-check.entry;
+    expected = true;
+  };
+
   testAdrHookEntryContainsBinary = let
     hooks = getHooks [(mkConfigModule {})];
   in {
