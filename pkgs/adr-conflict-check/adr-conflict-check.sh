@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   -h | --help)
-    echo "Usage: adr-conflict-check [--adr-dir <path>]"
+    echo "Usage: adr-conflict-check [--adr-dir <path>] [--allow-skipped <csv>] [--allow-gaps]"
     echo ""
     echo "Options:"
     echo "  --adr-dir <path>  Directory containing ADR files (default: docs/internal/decisions)"
