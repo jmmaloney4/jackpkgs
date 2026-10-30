@@ -369,6 +369,7 @@ in {
     - `adr.enable` (default `true`)
     - `adr.directory` (default `docs/internal/decisions`)
     - `adr.package` (default `config.packages."adr-conflict-check"`)
+    - `adr.requireContiguous` (default `true`; `false` passes `--allow-gaps`, so a gap is not an error but duplicates and malformed names still are)
     - `adr.allowSkipped` (list of 3-digit strings, default `[]`; legacy ADR gaps to suppress, e.g. `["017" "018"]`)
     - `authorGate.enable` (bool, default `true`) — reject `cursoragent@cursor.com` as author or committer at `commit-msg`, `post-commit`, and `pre-push`
     - `authorGate.package` (default `jackpkgs#author-gate`)

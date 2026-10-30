@@ -5,7 +5,8 @@
 #   1. Malformed filenames  – .md files whose names don't start with NNN-
 #   2. Duplicate numbers    – two or more files share the same NNN prefix
 #   3. Skipped numbers      – gaps in the NNN sequence (000 is reserved for
-#                             the template and is excluded from gap detection)
+#                             the template and is excluded from gap detection);
+#                             disabled by --allow-gaps
 #   4. Allowed skips        – explicit legacy gaps declared by the caller
 #
 # Exit 0 on success, exit 1 if any violation is found.
@@ -15,6 +16,7 @@ set -euo pipefail
 # ── defaults ────────────────────────────────────────────────────────────────
 ADR_DIR="docs/internal/decisions"
 ALLOW_SKIPPED_RAW=""
+ALLOW_GAPS=0
 
 # ── argument parsing ─────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -35,12 +37,17 @@ while [[ $# -gt 0 ]]; do
     ALLOW_SKIPPED_RAW="${1#--allow-skipped=}"
     shift
     ;;
+  --allow-gaps)
+    ALLOW_GAPS=1
+    shift
+    ;;
   -h | --help)
-    echo "Usage: adr-conflict-check [--adr-dir <path>]"
+    echo "Usage: adr-conflict-check [--adr-dir <path>] [--allow-skipped <csv>] [--allow-gaps]"
     echo ""
     echo "Options:"
     echo "  --adr-dir <path>  Directory containing ADR files (default: docs/internal/decisions)"
     echo "  --allow-skipped <csv>  Comma-separated ADR numbers allowed to be missing (e.g. 017,018,024)"
+    echo "  --allow-gaps      Do not require a contiguous sequence; duplicates and malformed names still fail"
     exit 0
     ;;
   *)
@@ -154,7 +161,7 @@ for key in "${!num_to_files[@]}"; do
   real_nums+=("$n")
 done
 
-if [[ ${#real_nums[@]} -gt 0 ]]; then
+if [[ $ALLOW_GAPS -eq 0 && ${#real_nums[@]} -gt 0 ]]; then
   # Sort numerically
   mapfile -t sorted_nums < <(printf '%s\n' "${real_nums[@]}" | sort -n)
 

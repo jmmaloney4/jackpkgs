@@ -92,6 +92,22 @@ in {
     extraArgs = ["--allow-skipped" "002"];
   };
 
+  # --allow-gaps accepts a gap (fixture adr-gap is missing 003)...
+  allowGaps = mkAdrTest {
+    name = "allow-gaps";
+    fixture = "adr-gap";
+    shouldPass = true;
+    extraArgs = ["--allow-gaps"];
+  };
+
+  # ...but still rejects duplicates: uniqueness is the invariant that matters.
+  allowGapsStillRejectsDuplicates = mkAdrTest {
+    name = "allow-gaps-duplicate";
+    fixture = "adr-duplicate";
+    shouldPass = false;
+    extraArgs = ["--allow-gaps"];
+  };
+
   # index.md must not be flagged as malformed — it's a structural index page.
   # This is covered by the allow-skipped fixture which includes index.md.
   # The test passes because index.md is skipped and the gap is allowed.
