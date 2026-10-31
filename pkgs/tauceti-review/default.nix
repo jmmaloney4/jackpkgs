@@ -1,9 +1,10 @@
 {
   lib,
-  python312Packages,
+  python313Packages,
   makeWrapper,
   git,
   gh,
+  tauceti-tools,
   # From nvfetcher
   src,
   version,
@@ -25,12 +26,14 @@
 # provenance is therefore an *approximation marked as one*, never a silent claim. Passing
 # `--rubrics-sha` would not fix it: that flag routes through `engine_at()`, which git-fetches
 # the named sha and replaces the engine, defeating the point of packaging it.
-python312Packages.buildPythonApplication {
+python313Packages.buildPythonApplication {
   pname = "tauceti-review";
   inherit src version;
 
   pyproject = true;
-  build-system = [python312Packages.setuptools];
+  build-system = [python313Packages.setuptools];
+
+  dependencies = [tauceti-tools];
 
   # Upstream's tests drive `gh` and the agent CLIs against live services.
   doCheck = false;

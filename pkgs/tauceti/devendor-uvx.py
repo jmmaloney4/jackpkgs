@@ -77,10 +77,12 @@ if m.group(1) != progress_rev:
 
 # The review engine, on the non-bubble review path and on the outbox-sync path. Upstream honours
 # $TAUCETI_REVIEW_ENGINE_DIR on the sync path but NOT on the review path, so an env var alone
-# cannot cover both -- hence a rewrite.
+# cannot cover both -- hence a rewrite. Since #451 the `--from` URL may append $TAUCETI_REVIEW_REF;
+# the Nix-built engine ignores that fetch and runs the pinned closure instead.
 edit(
     "tauceti_worker/work_units.py",
-    r'"uvx",\s*"--from",\s*f"git\+https://github\.com/\{REVIEW\}",\s*"tauceti-review",',
+    r'"uvx",\s*\n\s*"--from",\s*\n\s*f"git\+https://github\.com/\{REVIEW\}"\s*\n\s*'
+    r'\+ \(\"@" \+ os\.environ\["TAUCETI_REVIEW_REF"\] if os\.environ\.get\("TAUCETI_REVIEW_REF"\) else ""\),\s*\n\s*"tauceti-review",',
     f'"{review_bin}",',
     2,
     "the uvx tauceti-review invocation",

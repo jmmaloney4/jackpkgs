@@ -7,6 +7,7 @@
   jq,
   tauceti-review,
   tauceti-progress,
+  tauceti-tools,
   # From nvfetcher
   src,
   date,
@@ -33,6 +34,7 @@ python313Packages.buildPythonApplication {
   dependencies = with python313Packages; [
     rich
     textual
+    tauceti-tools
   ];
 
   # Upstream's tests drive `gh` and the agent CLIs against live services.

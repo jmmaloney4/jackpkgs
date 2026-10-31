@@ -63,13 +63,18 @@ else let
     };
     tauceti = super.callPackage ./pkgs/tauceti {
       inherit (nvfetcherSources.tauceti) src date;
-      inherit (allPackages) tauceti-review tauceti-progress;
+      inherit (allPackages) tauceti-review tauceti-progress tauceti-tools;
     };
     tauceti-progress = super.callPackage ./pkgs/tauceti-progress {
       inherit (nvfetcherSources.tauceti-progress) src version;
+      inherit (allPackages) tauceti-tools;
     };
     tauceti-review = super.callPackage ./pkgs/tauceti-review {
       inherit (nvfetcherSources.tauceti-review) src version;
+      inherit (allPackages) tauceti-tools;
+    };
+    tauceti-tools = super.callPackage ./pkgs/tauceti-tools {
+      inherit (nvfetcherSources.tauceti-tools) src version;
     };
     tod = super.callPackage ./pkgs/tod {
       inherit (nvfetcherSources.tod) src version;
