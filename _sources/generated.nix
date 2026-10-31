@@ -162,6 +162,17 @@
     };
     date = "2026-10-23";
   };
+  tauceti-tools = {
+    pname = "tauceti-tools";
+    version = "4c7381d3a47fd9b9f7aa786dd2a28c375e36fee6";
+    src = fetchFromGitHub {
+      owner = "TauCetiProject";
+      repo = "TauCetiTools";
+      rev = "4c7381d3a47fd9b9f7aa786dd2a28c375e36fee6";
+      fetchSubmodules = false;
+      sha256 = "sha256-rbXErL+j4vUAnrXrhcKfszzKRNhOoL76oqT3fnxyI8M=";
+    };
+  };
   tod = {
     pname = "tod";
     version = "v0.19.0";

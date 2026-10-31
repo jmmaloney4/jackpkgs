@@ -57,6 +57,14 @@ fetch.github = "jmmaloney4/codex-proxy-rs"
 # Tau Ceti: the worker CLI and the two engines it shells out to. The worker is packaged
 # hermetically (see pkgs/tauceti), so the engines are real inputs rather than things `uvx`
 # fetches at runtime.
+#
+# TauCetiTools is a shared Python library (and `tauceti-tools` CLI) that all three wheels
+# declare as a git-pinned dependency. Manual pin matches TauCetiProgress 2d7bd8b7; worker and
+# review pyproject pins may lag but `pythonRuntimeDepsCheck` only requires the distribution name.
+[tauceti-tools]
+src.manual = "4c7381d3a47fd9b9f7aa786dd2a28c375e36fee6"
+fetch.github = "TauCetiProject/TauCetiTools"
+
 [tauceti]
 src.git = "https://github.com/TauCetiProject/TauCetiWorker"
 fetch.github = "TauCetiProject/TauCetiWorker"

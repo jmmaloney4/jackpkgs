@@ -203,13 +203,18 @@
           };
           tauceti = pkgs.callPackage ./pkgs/tauceti {
             inherit (nvfetcherSources.tauceti) src date;
-            inherit (allPackages) tauceti-review tauceti-progress;
+            inherit (allPackages) tauceti-review tauceti-progress tauceti-tools;
           };
           tauceti-progress = pkgs.callPackage ./pkgs/tauceti-progress {
             inherit (nvfetcherSources.tauceti-progress) src version;
+            inherit (allPackages) tauceti-tools;
           };
           tauceti-review = pkgs.callPackage ./pkgs/tauceti-review {
             inherit (nvfetcherSources.tauceti-review) src version;
+            inherit (allPackages) tauceti-tools;
+          };
+          tauceti-tools = pkgs.callPackage ./pkgs/tauceti-tools {
+            inherit (nvfetcherSources.tauceti-tools) src version;
           };
           tod = pkgs.callPackage ./pkgs/tod {
             inherit (nvfetcherSources.tod) src version;

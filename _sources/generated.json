@@ -274,6 +274,27 @@
         },
         "version": "3999677031829254b4cbb27e9156c33672c61d0d"
     },
+    "tauceti-tools": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "tauceti-tools",
+        "passthru": null,
+        "pinned": true,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "TauCetiProject",
+            "repo": "TauCetiTools",
+            "rev": "4c7381d3a47fd9b9f7aa786dd2a28c375e36fee6",
+            "sha256": "sha256-rbXErL+j4vUAnrXrhcKfszzKRNhOoL76oqT3fnxyI8M=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "4c7381d3a47fd9b9f7aa786dd2a28c375e36fee6"
+    },
     "tod": {
         "cargoLock": {
             "Cargo.lock": [

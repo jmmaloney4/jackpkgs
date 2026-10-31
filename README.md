@@ -1141,6 +1141,7 @@ ______________________________________________________________________
 - `tauceti` — autonomous worker for the Tau Ceti Lean library (`pkgs/tauceti`)
 - `tauceti-progress` — per-roadmap progress reports (`pkgs/tauceti-progress`)
 - `tauceti-review` — Tau Ceti AI PR review (`pkgs/tauceti-review`)
+- `tauceti-tools` — shared Tau Ceti configuration library (`pkgs/tauceti-tools`)
 - `tod` — Todoist CLI (`pkgs/tod`)
 
 Build from CLI (examples):
@@ -1155,7 +1156,7 @@ nix build .#tod
 
 ## Overlays
 
-- `overlays.default` (`overlay.nix`) — NUR-style package overlay. It does **not** platform-filter attribute names. Packages: `biome`, `codex-proxy`, `codex-proxy-rs`, `csharpier`, `dbn-cli`, `docfx`, `epub2tts`, `gawkbot`, `gemini-proxy`, `imessage-bridge`, `mcp-ynab`, `seedtool-cli`, `spooktacular`, `tauceti`, `tauceti-progress`, `tauceti-review`, `tod`. Reserved names `lib` / `overlays` / `modules` are not merged onto `pkgs`. It does **not** export `skopeo-nix2container` or `adr-conflict-check`.
+- `overlays.default` (`overlay.nix`) — NUR-style package overlay. It does **not** platform-filter attribute names. Packages: `biome`, `codex-proxy`, `codex-proxy-rs`, `csharpier`, `dbn-cli`, `docfx`, `epub2tts`, `gawkbot`, `gemini-proxy`, `imessage-bridge`, `mcp-ynab`, `seedtool-cli`, `spooktacular`, `tauceti`, `tauceti-progress`, `tauceti-review`, `tauceti-tools`, `tod`. Reserved names `lib` / `overlays` / `modules` are not merged onto `pkgs`. It does **not** export `skopeo-nix2container` or `adr-conflict-check`.
 - `overlays.llvm-darwin-codesign-test` (`overlays/llvm-darwin-codesign-test.nix`) — **not** folded into `default`. On darwin only, drops LLVM 23's `dsymutil/codesign.test` so `llvmPackages_23.libllvm` can build without `/usr/bin/codesign`. Linux drv hashes are unchanged. Opt in knowingly; remove when NixOS/nixpkgs#552246 lands (plain `rm` of that test, so the overlay fails instead of lingering).
 
 ```nix
