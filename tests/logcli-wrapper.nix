@@ -25,7 +25,7 @@ in {
     w=${wrapper}/bin/logcli
     fail() { echo "FAIL: $1"; cat "$KUBELOGIN_LOG" 2>/dev/null; exit 1; }
     logins() { if [ -e "$KUBELOGIN_LOG" ]; then wc -l <"$KUBELOGIN_LOG" | tr -d ' '; else echo 0; fi; }
-    reset() { rm -f "$KUBELOGIN_LOG"; unset LOKI_ADDR LOKI_BEARER_TOKEN LOKI_BEARER_TOKEN_FILE FAKE_LOGIN || true; }
+    reset() { rm -f "$KUBELOGIN_LOG"; unset LOKI_ADDR LOKI_BEARER_TOKEN LOKI_BEARER_TOKEN_FILE LOKI_USERNAME LOKI_PASSWORD FAKE_LOGIN || true; }
 
     # A hosted name gets a token, passed by environment and never on the command line.
     reset; export LOKI_ADDR=https://loki.example.io
@@ -72,7 +72,11 @@ in {
     [ "$(logins)" = 0 ] || fail "explicit token logged in"
     reset; export LOKI_ADDR=https://loki.example.io LOKI_BEARER_TOKEN_FILE=/x
     $w labels >/dev/null; [ "$(logins)" = 0 ] || fail "token file logged in"
-    for args in "--help" "--version" "query --help" "help" "--bearer-token=x labels" "--bearer-token-file=/x labels" "--username=u labels"; do
+    for v in LOKI_USERNAME LOKI_PASSWORD; do
+      reset; export LOKI_ADDR=https://loki.example.io "$v=x"
+      $w labels >/dev/null; [ "$(logins)" = 0 ] || fail "$v logged in"
+    done
+    for args in "--help" "--version" "query --help" "help" "--bearer-token=x labels" "--bearer-token-file=/x labels" "--username=u labels" "--password=p labels"; do
       reset; export LOKI_ADDR=https://loki.example.io
       # shellcheck disable=SC2086
       $w $args >/dev/null

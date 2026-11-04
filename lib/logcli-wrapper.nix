@@ -40,14 +40,14 @@ pkgs.writeShellApplication {
         --help | --help-long | --help-man | -h | --version | --completion-script-bash | --completion-script-zsh)
           exec "$real" "$@"
           ;;
-        --bearer-token | --bearer-token=* | --bearer-token-file | --bearer-token-file=* | --username | --username=*)
+        --bearer-token | --bearer-token=* | --bearer-token-file | --bearer-token-file=* | --username | --username=* | --password | --password=*)
           exec "$real" "$@"
           ;;
       esac
       prev="$arg"
     done
 
-    if [[ -n "''${LOKI_BEARER_TOKEN:-}''${LOKI_BEARER_TOKEN_FILE:-}" ]]; then
+    if [[ -n "''${LOKI_BEARER_TOKEN:-}''${LOKI_BEARER_TOKEN_FILE:-}''${LOKI_USERNAME:-}''${LOKI_PASSWORD:-}" ]]; then
       exec "$real" "$@"
     fi
     case "$addr" in
