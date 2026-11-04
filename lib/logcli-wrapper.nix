@@ -1,10 +1,15 @@
 # `logcli`, logging in through Dex when it talks to a hosted Loki name
 # (room-of-requirement/seven ADR 032).
 #
-# Pointed at `https://loki.*` with no credentials of its own, it gets a token from
+# Pointed at a hosted name with no credentials of its own, it gets a token from
 # kubelogin and runs the real logcli with it. kubelogin reuses a cached token, and
 # refreshes it without a browser while it can. Anything else (a port-forward, a
 # kubectl proxy, an explicit token, `--help`) goes straight to logcli.
+#
+# The hosted names are an exact list, because the token goes wherever logcli
+# connects and any Loki behind these routes would accept it. A pattern such as
+# `https://loki.*` also matches `https://loki.x@evil.com`, which connects to
+# evil.com. A name missing from this list gets a 401 from its route, which is loud.
 #
 # Tokens are cached per host: a person can hold different logins for different
 # names, and a platform token is refused on a tenant name.
@@ -50,13 +55,13 @@ pkgs.writeShellApplication {
     if [[ -n "''${LOKI_BEARER_TOKEN:-}''${LOKI_BEARER_TOKEN_FILE:-}''${LOKI_USERNAME:-}''${LOKI_PASSWORD:-}" ]]; then
       exec "$real" "$@"
     fi
+    addr="''${addr%/}"
     case "$addr" in
-      https://loki.*) ;;
+      https://loki.roomofrequirement.xyz | https://loki.cavinsresearch.io | https://loki.ergodic.cc) ;;
       *) exec "$real" "$@" ;;
     esac
 
     host="''${addr#https://}"
-    host="''${host%%/*}"
     cache="''${XDG_CACHE_HOME:-$HOME/.cache}/logcli-dex/$host"
     umask 077
     mkdir -p "$cache"
