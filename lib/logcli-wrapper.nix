@@ -11,6 +11,10 @@
 # `https://loki.*` also matches `https://loki.x@evil.com`, which connects to
 # evil.com. A name missing from this list gets a 401 from its route, which is loud.
 #
+# This scan and logcli must agree on the destination, so a command line where they
+# might not (a `--`, or more than one `--addr`) gets no token. It then fails with a
+# 401, rather than sending a token somewhere this list never checked.
+#
 # Tokens are cached per host: a person can hold different logins for different
 # names, and a platform token is refused on a tenant name.
 #
@@ -34,12 +38,20 @@ pkgs.writeShellApplication {
       exec "$real" "$@"
     fi
     prev=""
+    addr_flags=0
     for arg in "$@"; do
       if [[ "$prev" == --addr ]]; then
         addr="$arg"
       fi
       case "$arg" in
+        --)
+          exec "$real" "$@"
+          ;;
+        --addr)
+          addr_flags=$((addr_flags + 1))
+          ;;
         --addr=*)
+          addr_flags=$((addr_flags + 1))
           addr="''${arg#--addr=}"
           ;;
         --help | --help-long | --help-man | -h | --version | --completion-script-bash | --completion-script-zsh)
@@ -52,6 +64,9 @@ pkgs.writeShellApplication {
       prev="$arg"
     done
 
+    if [[ "$addr_flags" -gt 1 ]]; then
+      exec "$real" "$@"
+    fi
     if [[ -n "''${LOKI_BEARER_TOKEN:-}''${LOKI_BEARER_TOKEN_FILE:-}''${LOKI_USERNAME:-}''${LOKI_PASSWORD:-}" ]]; then
       exec "$real" "$@"
     fi

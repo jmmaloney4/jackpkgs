@@ -92,6 +92,23 @@ in {
     reset; export LOKI_ADDR=https://loki.cavinsresearch.io
     $w >/dev/null; [ "$(logins)" = 0 ] || fail "no args logged in"
 
+    # No token when this scan and logcli might disagree about the destination.
+    reset
+    got="$($w --addr=http://evil:3100 query -- --addr=https://loki.cavinsresearch.io '{a="b"}')"
+    case "$got" in *"token=[]"*) ;; *) fail "-- smuggle: $got" ;; esac
+    [ "$(logins)" = 0 ] || fail "-- smuggle logged in"
+    reset
+    got="$($w --addr=https://loki.cavinsresearch.io --addr=http://evil:3100 labels)"
+    case "$got" in *"token=[]"*) ;; *) fail "two --addr: $got" ;; esac
+    [ "$(logins)" = 0 ] || fail "two --addr logged in"
+    reset
+    got="$($w --addr https://loki.cavinsresearch.io --addr http://evil:3100 labels)"
+    [ "$(logins)" = 0 ] || fail "two spaced --addr logged in"
+    reset; export LOKI_ADDR=https://loki.cavinsresearch.io
+    got="$($w query -- '{a="b"}')"
+    case "$got" in *"token=[]"*) ;; *) fail "bare --: $got" ;; esac
+    [ "$(logins)" = 0 ] || fail "bare -- logged in"
+
     # A failed login stops loudly and never runs logcli without a token.
     reset; export LOKI_ADDR=https://loki.cavinsresearch.io FAKE_LOGIN=fail
     if got="$($w labels </dev/null 2>"$TMPDIR/err")"; then fail "failed login exited 0: $got"; fi
