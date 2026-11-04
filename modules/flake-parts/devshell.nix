@@ -133,7 +133,14 @@ in {
         packages =
           # just was previously provided by just-flake's devShell via inputsFrom;
           # now we include it directly since we dropped that inputsFrom entry.
-          [pkgs.just]
+          [
+            pkgs.just
+            # `logcli` and kubelogin, for reading logs behind a Dex login
+            # (room-of-requirement/seven ADR 032). grafana-loki is the only
+            # package carrying logcli, and brings the rest of Loki with it.
+            pkgs.grafana-loki
+            pkgs.kubelogin-oidc
+          ]
           ++ sysCfg.packages
           ++ lib.optional (!cfg.direnv.showEnvDiff) (
             mkShellEnvHook {

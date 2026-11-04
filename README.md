@@ -161,7 +161,7 @@ This flake exposes reusable flake-parts modules under `inputs.jackpkgs.flakeModu
 - `just` — just-flake integration with curated recipes (direnv, infra, python, git, nix, nodejs). Also imports `gcp.nix` (options under `jackpkgs.gcp`; not a named flakeModule).
 - `pre-commit` — pre-commit hooks (treefmt, nbstripout, ADR checks, author-gate, Python/TS/JS quality gates). Hook enables/args via `jackpkgs.checks`, packages via `jackpkgs.pre-commit`. The checks module is loaded only by `flakeModules.default` (there is no `flakeModules.checks` output).
 - `author-gate` — `apps.author-gate` / `apps.git-bot-identity` and `just author-gate`. Git-history gate; not a pure flake check (store copies have no `.git`).
-- `shell` — shared dev shell output to include via `inputsFrom` (`modules/flake-parts/devshell.nix`).
+- `shell` — shared dev shell output to include via `inputsFrom` (`modules/flake-parts/devshell.nix`). Always carries `just`, `logcli` (from `grafana-loki`, about 380 MiB) and kubelogin (`kubectl oidc-login`).
 - `pulumi` — emits a `pulumi` devShell fragment (Pulumi CLI) for inclusion via `inputsFrom`, plus generated `preview`/`deploy` just recipes.
 - `quarto` — emits a Quarto devShell fragment, with configurable Quarto and Python packages.
 - `python` — opinionated Python environments via uv2nix; exposes env packages and a devShell fragment.
