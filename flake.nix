@@ -707,6 +707,9 @@
               adr-conflict-check = allPackages.adr-conflict-check;
             }
           )
+          // lib.mapAttrs' (name: drv: lib.nameValuePair "logcli-wrapper-${name}" drv) (
+            import ./tests/logcli-wrapper.nix {inherit pkgs;}
+          )
           // lib.mapAttrs' (name: drv: lib.nameValuePair "author-gate-${name}" drv) (
             import ./tests/author-gate.nix {
               inherit pkgs;

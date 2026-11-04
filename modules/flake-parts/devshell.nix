@@ -41,6 +41,16 @@ in {
         };
       };
 
+      lokiAddr = mkOption {
+        type = types.nullOr (types.strMatching "https?://.+");
+        default = null;
+        example = "https://loki.roomofrequirement.xyz";
+        description = ''
+          The Loki this repo's `logcli` talks to, exported as `LOKI_ADDR`. Each repo
+          chooses, because the right name depends on whose logs it reads.
+        '';
+      };
+
       direnv = {
         showEnvDiff = mkEnableOption "showing direnv environment variable diff output" // {default = false;};
       };
@@ -135,13 +145,18 @@ in {
           # now we include it directly since we dropped that inputsFrom entry.
           [
             pkgs.just
-            # `logcli` and kubelogin, for reading logs behind a Dex login
-            # (room-of-requirement/seven ADR 032). grafana-loki is the only
-            # package carrying logcli, and brings the rest of Loki with it.
-            pkgs.grafana-loki
+            # `logcli`, logging in through Dex for hosted Loki names, and kubelogin
+            # for `kubectl oidc-login` (room-of-requirement/seven ADR 032).
+            (import ../../lib/logcli-wrapper.nix {inherit pkgs;})
             pkgs.kubelogin-oidc
           ]
           ++ sysCfg.packages
+          ++ lib.optional (cfg.lokiAddr != null) (
+            mkShellEnvHook {
+              name = "jackpkgs-loki-addr-hook";
+              env = {LOKI_ADDR = cfg.lokiAddr;};
+            }
+          )
           ++ lib.optional (!cfg.direnv.showEnvDiff) (
             mkShellEnvHook {
               name = "jackpkgs-direnv-log-format-hook";

@@ -1,0 +1,110 @@
+# `logcli`, logging in through Dex when it talks to a hosted Loki name
+# (room-of-requirement/seven ADR 032).
+#
+# Pointed at a hosted name with no credentials of its own, it gets a token from
+# kubelogin and runs the real logcli with it. kubelogin reuses a cached token, and
+# refreshes it without a browser while it can. Anything else (a port-forward, a
+# kubectl proxy, an explicit token, `--help`) goes straight to logcli.
+#
+# The hosted names are an exact list, because the token goes wherever logcli
+# connects and any Loki behind these routes would accept it. A pattern such as
+# `https://loki.*` also matches `https://loki.x@evil.com`, which connects to
+# evil.com. A name missing from this list gets a 401 from its route, which is loud.
+#
+# This scan and logcli must agree on the destination, so a command line where they
+# might not (a `--`, or more than one `--addr`) gets no token. It then fails with a
+# 401, rather than sending a token somewhere this list never checked.
+#
+# Tokens are cached per host: a person can hold different logins for different
+# names, and a platform token is refused on a tenant name.
+#
+# A shell with no terminal, such as an agent's, never opens a browser. It can use a
+# cached token and otherwise fails with a message saying what to do.
+{
+  pkgs,
+  loki ? pkgs.grafana-loki,
+  kubelogin ? pkgs.kubelogin-oidc,
+}:
+pkgs.writeShellApplication {
+  name = "logcli";
+  runtimeInputs = [kubelogin pkgs.coreutils pkgs.jq];
+  text = ''
+    real=${loki}/bin/logcli
+    issuer=https://dex.roomofrequirement.xyz/dex
+    client=loki
+
+    addr="''${LOKI_ADDR:-}"
+    if [[ $# -eq 0 || "$1" == help ]]; then
+      exec "$real" "$@"
+    fi
+    prev=""
+    addr_flags=0
+    for arg in "$@"; do
+      if [[ "$prev" == --addr ]]; then
+        addr="$arg"
+      fi
+      case "$arg" in
+        --)
+          exec "$real" "$@"
+          ;;
+        --addr)
+          addr_flags=$((addr_flags + 1))
+          ;;
+        --addr=*)
+          addr_flags=$((addr_flags + 1))
+          addr="''${arg#--addr=}"
+          ;;
+        --help | --help-long | --help-man | -h | --version | --completion-script-bash | --completion-script-zsh)
+          exec "$real" "$@"
+          ;;
+        --bearer-token | --bearer-token=* | --bearer-token-file | --bearer-token-file=* | --username | --username=* | --password | --password=*)
+          exec "$real" "$@"
+          ;;
+      esac
+      prev="$arg"
+    done
+
+    if [[ "$addr_flags" -gt 1 ]]; then
+      exec "$real" "$@"
+    fi
+    if [[ -n "''${LOKI_BEARER_TOKEN:-}''${LOKI_BEARER_TOKEN_FILE:-}''${LOKI_USERNAME:-}''${LOKI_PASSWORD:-}" ]]; then
+      exec "$real" "$@"
+    fi
+    addr="''${addr%/}"
+    case "$addr" in
+      https://loki.roomofrequirement.xyz | https://loki.cavinsresearch.io | https://loki.ergodic.cc) ;;
+      *) exec "$real" "$@" ;;
+    esac
+
+    host="''${addr#https://}"
+    cache="''${XDG_CACHE_HOME:-$HOME/.cache}/logcli-dex/$host"
+    umask 077
+    mkdir -p "$cache"
+
+    login_flags=()
+    if [[ ! -t 0 && ! -t 2 ]]; then
+      login_flags=(--skip-open-browser --authentication-timeout-sec=1)
+    fi
+
+    if ! credential="$(kubectl-oidc_login get-token \
+      --oidc-issuer-url="$issuer" \
+      --oidc-client-id="$client" \
+      --oidc-extra-scope=profile \
+      --oidc-extra-scope=groups \
+      --oidc-extra-scope=offline_access \
+      --token-cache-dir="$cache" \
+      "''${login_flags[@]}")"; then
+      echo "logcli: could not get a Dex token for $host." >&2
+      if [[ ''${#login_flags[@]} -gt 0 ]]; then
+        echo "logcli: this shell has no terminal to log in from. Run logcli once in a terminal, or set LOKI_BEARER_TOKEN." >&2
+      fi
+      exit 1
+    fi
+    if ! token="$(jq -er '.status.token' <<<"$credential")"; then
+      echo "logcli: kubelogin returned no token for $host." >&2
+      exit 1
+    fi
+    export LOKI_BEARER_TOKEN="$token"
+    exec "$real" "$@"
+  '';
+}
