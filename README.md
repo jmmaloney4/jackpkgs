@@ -240,7 +240,7 @@ With `jackpkgs.author-gate.enable` (default `true` via `flakeModules.default` or
 export GROKBOT_GIT_NAME='bede (Personal Docs Writer)' GROKBOT_GIT_EMAIL='bede@bots.roomofrequirement.xyz' GIT_AUTHOR_NAME="$GROKBOT_GIT_NAME" GIT_AUTHOR_EMAIL="$GROKBOT_GIT_EMAIL" GIT_COMMITTER_NAME="$GROKBOT_GIT_NAME" GIT_COMMITTER_EMAIL="$GROKBOT_GIT_EMAIL"
 ```
 
-Cavins bots: use `<name>@bots.cavinsresearch.io` for `GROKBOT_GIT_EMAIL`. When `GROKBOT_GIT_EMAIL` is unset and `git-bot-identity` falls back from a `Bot:` trailer, it builds `<bare>@${GROKBOT_GIT_EMAIL_DOMAIN}` (default `bots.roomofrequirement.xyz`; Cavins: `GROKBOT_GIT_EMAIL_DOMAIN=bots.cavinsresearch.io`) — see `pkgs/git-bot-identity/git-bot-identity.sh`. Cursor VMs often default to `cursoragent@cursor.com` when unset — **eval** `git-bot-identity` exports (or use `--exec --`) so `GIT_AUTHOR_*` / `GIT_COMMITTER_*` apply to git subprocesses. It never writes `git config --local user.*` (worktrees share `.git/config`).
+Cavins bots: use `<name>@bots.cavinsresearch.io` for `GROKBOT_GIT_EMAIL`. Both `GROKBOT_GIT_NAME` and `GROKBOT_GIT_EMAIL` must be set in the launch environment; `git-bot-identity` does not infer identity from `Bot:` trailers or git history. On failure it exits non-zero with stderr only (no stdout exports). Cursor VMs often default to `cursoragent@cursor.com` when unset — set `GROKBOT_*` and **eval** `git-bot-identity` (or use `--exec --`) so `GIT_AUTHOR_*` / `GIT_COMMITTER_*` apply to git subprocesses. It never writes `git config --local user.*` (worktrees share `.git/config`).
 
 **Consumer adoption** (after bumping `inputs.jackpkgs`):
 
@@ -1133,7 +1133,7 @@ ______________________________________________________________________
 - `epub2tts` — EPUB to TTS (`pkgs/epub2tts`; linux; `meta.broken = true`, so it is **not** in `packages.<system>`; still an overlay attribute)
 - `gawkbot` — WhatsApp-first CRM (prebuilt upstream binary; Sustainable Use License, unfree). Flake `packages` evaluates it with a narrow `allowUnfreePredicate`; overlay consumers must allow unfree themselves.
 - `gemini-proxy` — OpenAI-compatible HTTP proxy to Google Gemini via Cloud Code Assist (`pkgs/gemini-proxy`)
-- `git-bot-identity` — print shell exports for `GROKBOT_GIT_*` and `GIT_AUTHOR_*`/`GIT_COMMITTER_*` from env or the latest `Bot:` trailer (never touches git config)
+- `git-bot-identity` — print shell exports for required `GROKBOT_GIT_*` and matching `GIT_AUTHOR_*`/`GIT_COMMITTER_*` (never touches git config; no trailer fallback)
 - `imessage-bridge` — HTTP bridge for macOS iMessage (`pkgs/imessage-bridge`; darwin only)
 - `mcp-ynab` — FastMCP server for the YNAB API (`pkgs/mcp-ynab`)
 - `seedtool-cli` — Gordian seed tool CLI (`pkgs/seedtool-cli`)
