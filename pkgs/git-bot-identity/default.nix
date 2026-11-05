@@ -11,7 +11,7 @@ writeShellApplication {
   excludeShellChecks = ["SC2016"];
   text = builtins.readFile ./git-bot-identity.sh;
   meta = {
-    description = "Set repo-local git user.name/email from GROKBOT_GIT_NAME/EMAIL or the latest Bot: trailer";
+    description = "Print shell exports for bot git identity (GROKBOT_GIT_* and GIT_AUTHOR_*/COMMITTER_*) without touching git config";
     mainProgram = "git-bot-identity";
   };
 }
