@@ -183,10 +183,15 @@ print_ident_fix() {
   echo "This is --mode ident (commit-msg): the commit is not on HEAD yet, so a" >&2
   echo "rebase --exec over HEAD would replay nothing. Fix the identity, then re-commit." >&2
   echo >&2
-  echo "Preferred: export bot identity for this process (never git config --local user.*" >&2
-  echo "— linked worktrees share .git/config):" >&2
-  echo '  eval "$(nix run github:jmmaloney4/jackpkgs#git-bot-identity)"' >&2
+  echo "Preferred: set GROKBOT_GIT_* and export identity for this process only" >&2
+  echo "(never git config --local user.* — linked worktrees share .git/config;" >&2
+  echo ".cursor/environment.json install does not persist exports into later shells):" >&2
+  echo "  export GROKBOT_GIT_NAME='<name> (<Title>)' GROKBOT_GIT_EMAIL='<name>@${domain}'" >&2
+  echo '  ident_exports="$(nix run github:jmmaloney4/jackpkgs#git-bot-identity)" || exit 1' >&2
+  echo '  [ -n "$ident_exports" ] || exit 1' >&2
+  echo '  eval "$ident_exports"' >&2
   echo "  # or: nix run github:jmmaloney4/jackpkgs#git-bot-identity -- --exec -- git commit ..." >&2
+  echo "  git var GIT_AUTHOR_IDENT && git var GIT_COMMITTER_IDENT  # verify before commit" >&2
   echo >&2
   echo "Or set identity for this commit only (do not run unscoped git config user.*" >&2
   echo "— linked worktrees share .git/config):" >&2

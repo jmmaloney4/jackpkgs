@@ -53,7 +53,7 @@ in {
         type = types.package;
         default = jackpkgsInputs.self.packages.${system}.git-bot-identity;
         defaultText = "jackpkgsInputs.self.packages.\${system}.git-bot-identity";
-        description = "CLI that sets repo-local git user.name/email from GROKBOT_GIT_* or a Bot: trailer.";
+        description = "CLI that prints per-process shell exports from required GROKBOT_GIT_* (never git config; no Bot: trailer fallback).";
       };
 
       botEmailDomain = mkOption {

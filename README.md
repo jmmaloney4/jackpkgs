@@ -226,8 +226,12 @@ Reject `cursoragent@cursor.com` as **author or committer** on commits in `merge-
 
 ```bash
 nix run github:jmmaloney4/jackpkgs#author-gate
-eval "$(nix run github:jmmaloney4/jackpkgs#git-bot-identity)"
+export GROKBOT_GIT_NAME='…' GROKBOT_GIT_EMAIL='…'
+ident_exports="$(nix run github:jmmaloney4/jackpkgs#git-bot-identity)" || exit 1
+[ -n "$ident_exports" ] || exit 1
+eval "$ident_exports"
 # or: nix run github:jmmaloney4/jackpkgs#git-bot-identity -- --exec -- git commit ...
+# verify before commit: git var GIT_AUTHOR_IDENT && git var GIT_COMMITTER_IDENT
 ```
 
 With `jackpkgs.author-gate.enable` (default `true` via `flakeModules.default` or `flakeModules.author-gate`): `just author-gate`, `nix run .#author-gate`, and `nix run .#git-bot-identity` (`apps.author-gate` / `apps.git-bot-identity`).
@@ -240,7 +244,7 @@ With `jackpkgs.author-gate.enable` (default `true` via `flakeModules.default` or
 export GROKBOT_GIT_NAME='bede (Personal Docs Writer)' GROKBOT_GIT_EMAIL='bede@bots.roomofrequirement.xyz' GIT_AUTHOR_NAME="$GROKBOT_GIT_NAME" GIT_AUTHOR_EMAIL="$GROKBOT_GIT_EMAIL" GIT_COMMITTER_NAME="$GROKBOT_GIT_NAME" GIT_COMMITTER_EMAIL="$GROKBOT_GIT_EMAIL"
 ```
 
-Cavins bots: use `<name>@bots.cavinsresearch.io` for `GROKBOT_GIT_EMAIL`. Both `GROKBOT_GIT_NAME` and `GROKBOT_GIT_EMAIL` must be set in the launch environment; `git-bot-identity` does not infer identity from `Bot:` trailers or git history. On failure it exits non-zero with stderr only (no stdout exports). Cursor VMs often default to `cursoragent@cursor.com` when unset — set `GROKBOT_*` and **eval** `git-bot-identity` (or use `--exec --`) so `GIT_AUTHOR_*` / `GIT_COMMITTER_*` apply to git subprocesses. It never writes `git config --local user.*` (worktrees share `.git/config`).
+Cavins bots: use `<name>@bots.cavinsresearch.io` for `GROKBOT_GIT_EMAIL`. Both `GROKBOT_GIT_NAME` and `GROKBOT_GIT_EMAIL` must be set in the launch environment; `git-bot-identity` does not infer identity from `Bot:` trailers or git history. On failure it exits non-zero with stderr only (no stdout exports). Cursor VMs often default to `cursoragent@cursor.com` when unset — set `GROKBOT_*` in the launch prompt and in **every** shell that commits, then run checked capture + `eval "$ident_exports"` (or use `--exec --`) so `GIT_AUTHOR_*` / `GIT_COMMITTER_*` apply to git subprocesses; verify `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT` before committing. Exports are process-only (`.cursor/environment.json` `install` does not persist into later agent shells). It never writes `git config --local user.*` (worktrees share `.git/config`). Fleet doctrine: [jmmaloney4/garden#3115](https://github.com/jmmaloney4/garden/pull/3115).
 
 **Consumer adoption** (after bumping `inputs.jackpkgs`):
 
@@ -254,8 +258,8 @@ perSystem = { ... }: {
 };
 ```
 
-3. Append `eval "$(nix run github:jmmaloney4/jackpkgs#git-bot-identity)"` to `.cursor/environment.json` `install` and worktree setup scripts (or export `GROKBOT_*` + `GIT_*` in the launch env).
-4. Put the `GROKBOT_*` one-liner above in each bot's cloud-agent launch env.
+3. Put the `GROKBOT_*` export block in each bot's cloud-agent **launch prompt** (and re-export in every shell that commits). Optional: pin `nix run github:jmmaloney4/jackpkgs/<rev>#git-bot-identity` with checked stdout capture + `eval "$ident_exports"` or `--exec -- git …` — do not treat `.cursor/environment.json` `install` or a one-time worktree setup script as sufficient; those run in their own process and exports do not carry into later shells.
+4. Before the first commit in each shell, verify `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT`.
 5. Wrap merge: run `nix run github:jmmaloney4/jackpkgs#author-gate` (or `just author-gate`) **before** `nix flake check -L`.
 
 On failure, `author-gate` prints a `git rebase --exec` rewrite hint (uses your `botEmailDomain` and the `Bot: <name> (<Title>)` trailer shape).
