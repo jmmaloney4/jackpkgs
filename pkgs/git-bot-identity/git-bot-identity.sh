@@ -14,11 +14,18 @@
 #   git-bot-identity --exec -- git commit -m "..."
 #   git-bot-identity --help
 #
-# Consumer snippets:
-#   worktree setup / .cursor/environment.json install:
-#     eval "$(nix run github:jmmaloney4/jackpkgs#git-bot-identity)"
-#   one-shot command:
-#     nix run github:jmmaloney4/jackpkgs#git-bot-identity -- --exec -- git status
+# Identity is per process — exports do not persist into later shells. Set
+# GROKBOT_GIT_* in the launch prompt and in every shell that commits; verify
+# `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT` before
+# committing. See jackpkgs README Author gate and jmmaloney4/garden#3115.
+#
+# Consumer snippets (each new shell must repeat):
+#   export GROKBOT_GIT_NAME='…' GROKBOT_GIT_EMAIL='…'
+#   ident_exports="$(git-bot-identity)" || exit 1
+#   [ -n "$ident_exports" ] || exit 1
+#   eval "$ident_exports"
+#   one-shot:
+#     git-bot-identity --exec -- git commit -m "…"
 
 name="${GROKBOT_GIT_NAME:-}"
 email="${GROKBOT_GIT_EMAIL:-}"
@@ -29,11 +36,20 @@ Usage: git-bot-identity [--help]
        git-bot-identity [--exec --] <command> [<args>...]
 
 Prints shell `export` lines for GROKBOT_GIT_* and GIT_AUTHOR_* / GIT_COMMITTER_*
-on stdout (messages on stderr). Does not run `git config`.
+on stdout (messages on stderr). Does not run `git config`. Exports are
+process-only — re-run in every shell that will commit; `.cursor/environment.json`
+`install` runs in its own process and does not persist into agent shells.
 
-  eval "$(git-bot-identity)"
+  export GROKBOT_GIT_NAME='…' GROKBOT_GIT_EMAIL='…'
+  ident_exports="$(git-bot-identity)" || exit 1
+  [ -n "$ident_exports" ] || exit 1
+  eval "$ident_exports"
 
   git-bot-identity --exec -- git commit -m "message"
+
+Before committing, verify both:
+  git var GIT_AUTHOR_IDENT
+  git var GIT_COMMITTER_IDENT
 
 Environment (required):
   GROKBOT_GIT_NAME, GROKBOT_GIT_EMAIL — bot identity from the launch environment.
