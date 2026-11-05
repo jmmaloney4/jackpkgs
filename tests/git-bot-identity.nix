@@ -27,15 +27,20 @@
       touch "$out"
     '';
 in {
-  env-vars-set-config = mkTest {
-    name = "env-vars-set-config";
+  env-vars-export-not-config = mkTest {
+    name = "env-vars-export-not-config";
     body = ''
       git init repo && cd repo
       export GROKBOT_GIT_NAME="wiesner (Shared Patterns Maintainer)"
       export GROKBOT_GIT_EMAIL="wiesner@bots.roomofrequirement.xyz"
-      ${exe}
-      test "$(git config --local user.name)" = "wiesner (Shared Patterns Maintainer)"
-      test "$(git config --local user.email)" = "wiesner@bots.roomofrequirement.xyz"
+      eval "$(${exe})"
+      test "$GIT_AUTHOR_NAME" = "wiesner (Shared Patterns Maintainer)"
+      test "$GIT_AUTHOR_EMAIL" = "wiesner@bots.roomofrequirement.xyz"
+      test "$GIT_COMMITTER_EMAIL" = "wiesner@bots.roomofrequirement.xyz"
+      if git config --local --get user.name >/dev/null 2>&1; then
+        echo "must not set local user.name"
+        exit 1
+      fi
     '';
   };
 
@@ -50,10 +55,32 @@ in {
       echo x > f
       git add f
       git commit -m "$(printf 'work\n\nBot: wiesner (Shared Patterns Maintainer)\n')"
-      unset GROKBOT_GIT_NAME GROKBOT_GIT_EMAIL || true
-      ${exe}
-      test "$(git config --local user.name)" = "wiesner (Shared Patterns Maintainer)"
-      test "$(git config --local user.email)" = "wiesner@bots.roomofrequirement.xyz"
+      unset GROKBOT_GIT_NAME GROKBOT_GIT_EMAIL GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL || true
+      eval "$(${exe})"
+      test "$GIT_AUTHOR_NAME" = "wiesner (Shared Patterns Maintainer)"
+      test "$GIT_AUTHOR_EMAIL" = "wiesner@bots.roomofrequirement.xyz"
+      if git config --local --get user.email >/dev/null 2>&1; then
+        echo "must not set local user.email"
+        exit 1
+      fi
+    '';
+  };
+
+  exec-wraps-command = mkTest {
+    name = "exec-wraps-command";
+    body = ''
+      git init repo && cd repo
+      export GROKBOT_GIT_NAME="wiesner (Shared Patterns Maintainer)"
+      export GROKBOT_GIT_EMAIL="wiesner@bots.roomofrequirement.xyz"
+      expected='wiesner (Shared Patterns Maintainer) <wiesner@bots.roomofrequirement.xyz>'
+      ident="$(${exe} --exec -- git var GIT_AUTHOR_IDENT)"
+      case "$ident" in
+        "$expected"*) ;;
+        *)
+          echo "unexpected GIT_AUTHOR_IDENT: $ident"
+          exit 1
+          ;;
+      esac
     '';
   };
 
@@ -71,7 +98,7 @@ in {
       unset GROKBOT_GIT_NAME GROKBOT_GIT_EMAIL || true
       ${exe} > out 2> err
       grep -q 'warning' err
-      # must not invent an identity
+      test ! -s out
       if git config --local --get user.name >/dev/null; then
         echo "did not expect user.name to be set"
         exit 1

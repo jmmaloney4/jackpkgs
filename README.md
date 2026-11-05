@@ -226,7 +226,8 @@ Reject `cursoragent@cursor.com` as **author or committer** on commits in `merge-
 
 ```bash
 nix run github:jmmaloney4/jackpkgs#author-gate
-nix run github:jmmaloney4/jackpkgs#git-bot-identity
+eval "$(nix run github:jmmaloney4/jackpkgs#git-bot-identity)"
+# or: nix run github:jmmaloney4/jackpkgs#git-bot-identity -- --exec -- git commit ...
 ```
 
 With `jackpkgs.author-gate.enable` (default `true` via `flakeModules.default` or `flakeModules.author-gate`): `just author-gate`, `nix run .#author-gate`, and `nix run .#git-bot-identity` (`apps.author-gate` / `apps.git-bot-identity`).
@@ -239,7 +240,7 @@ With `jackpkgs.author-gate.enable` (default `true` via `flakeModules.default` or
 export GROKBOT_GIT_NAME='bede (Personal Docs Writer)' GROKBOT_GIT_EMAIL='bede@bots.roomofrequirement.xyz' GIT_AUTHOR_NAME="$GROKBOT_GIT_NAME" GIT_AUTHOR_EMAIL="$GROKBOT_GIT_EMAIL" GIT_COMMITTER_NAME="$GROKBOT_GIT_NAME" GIT_COMMITTER_EMAIL="$GROKBOT_GIT_EMAIL"
 ```
 
-Cavins bots: use `<name>@bots.cavinsresearch.io` for `GROKBOT_GIT_EMAIL`. When `GROKBOT_GIT_EMAIL` is unset and `git-bot-identity` falls back from a `Bot:` trailer, it builds `<bare>@${GROKBOT_GIT_EMAIL_DOMAIN}` (default `bots.roomofrequirement.xyz`; Cavins: `GROKBOT_GIT_EMAIL_DOMAIN=bots.cavinsresearch.io`) — see `pkgs/git-bot-identity/git-bot-identity.sh`. Cursor VMs often default to `cursoragent@cursor.com` when unset — **always** also run `nix run github:jmmaloney4/jackpkgs#git-bot-identity` so repo-local `user.name` / `user.email` persist across git subprocesses.
+Cavins bots: use `<name>@bots.cavinsresearch.io` for `GROKBOT_GIT_EMAIL`. When `GROKBOT_GIT_EMAIL` is unset and `git-bot-identity` falls back from a `Bot:` trailer, it builds `<bare>@${GROKBOT_GIT_EMAIL_DOMAIN}` (default `bots.roomofrequirement.xyz`; Cavins: `GROKBOT_GIT_EMAIL_DOMAIN=bots.cavinsresearch.io`) — see `pkgs/git-bot-identity/git-bot-identity.sh`. Cursor VMs often default to `cursoragent@cursor.com` when unset — **eval** `git-bot-identity` exports (or use `--exec --`) so `GIT_AUTHOR_*` / `GIT_COMMITTER_*` apply to git subprocesses. It never writes `git config --local user.*` (worktrees share `.git/config`).
 
 **Consumer adoption** (after bumping `inputs.jackpkgs`):
 
@@ -253,7 +254,7 @@ perSystem = { ... }: {
 };
 ```
 
-3. Append `nix run github:jmmaloney4/jackpkgs#git-bot-identity` to `.cursor/environment.json` `install` and worktree setup scripts.
+3. Append `eval "$(nix run github:jmmaloney4/jackpkgs#git-bot-identity)"` to `.cursor/environment.json` `install` and worktree setup scripts (or export `GROKBOT_*` + `GIT_*` in the launch env).
 4. Put the `GROKBOT_*` one-liner above in each bot's cloud-agent launch env.
 5. Wrap merge: run `nix run github:jmmaloney4/jackpkgs#author-gate` (or `just author-gate`) **before** `nix flake check -L`.
 
@@ -1132,7 +1133,7 @@ ______________________________________________________________________
 - `epub2tts` — EPUB to TTS (`pkgs/epub2tts`; linux; `meta.broken = true`, so it is **not** in `packages.<system>`; still an overlay attribute)
 - `gawkbot` — WhatsApp-first CRM (prebuilt upstream binary; Sustainable Use License, unfree). Flake `packages` evaluates it with a narrow `allowUnfreePredicate`; overlay consumers must allow unfree themselves.
 - `gemini-proxy` — OpenAI-compatible HTTP proxy to Google Gemini via Cloud Code Assist (`pkgs/gemini-proxy`)
-- `git-bot-identity` — set repo-local `user.name`/`user.email` from `GROKBOT_GIT_NAME`/`GROKBOT_GIT_EMAIL` (or the latest `Bot:` trailer)
+- `git-bot-identity` — print shell exports for `GROKBOT_GIT_*` and `GIT_AUTHOR_*`/`GIT_COMMITTER_*` from env or the latest `Bot:` trailer (never touches git config)
 - `imessage-bridge` — HTTP bridge for macOS iMessage (`pkgs/imessage-bridge`; darwin only)
 - `mcp-ynab` — FastMCP server for the YNAB API (`pkgs/mcp-ynab`)
 - `seedtool-cli` — Gordian seed tool CLI (`pkgs/seedtool-cli`)
