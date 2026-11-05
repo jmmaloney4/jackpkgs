@@ -44,25 +44,14 @@ in {
     '';
   };
 
-  fallback-from-bot-trailer = mkTest {
-    name = "fallback-from-bot-trailer";
+  env-vars-outside-git = mkTest {
+    name = "env-vars-outside-git";
     body = ''
-      git init repo && cd repo
-      export GIT_AUTHOR_NAME="Cursor Agent"
-      export GIT_AUTHOR_EMAIL="cursoragent@cursor.com"
-      export GIT_COMMITTER_NAME="Cursor Agent"
-      export GIT_COMMITTER_EMAIL="cursoragent@cursor.com"
-      echo x > f
-      git add f
-      git commit -m "$(printf 'work\n\nBot: wiesner (Shared Patterns Maintainer)\n')"
-      unset GROKBOT_GIT_NAME GROKBOT_GIT_EMAIL GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL || true
+      mkdir notgit && cd notgit
+      export GROKBOT_GIT_NAME="wiesner (Shared Patterns Maintainer)"
+      export GROKBOT_GIT_EMAIL="wiesner@bots.roomofrequirement.xyz"
       eval "$(${exe})"
       test "$GIT_AUTHOR_NAME" = "wiesner (Shared Patterns Maintainer)"
-      test "$GIT_AUTHOR_EMAIL" = "wiesner@bots.roomofrequirement.xyz"
-      if git config --local --get user.email >/dev/null 2>&1; then
-        echo "must not set local user.email"
-        exit 1
-      fi
     '';
   };
 
@@ -84,8 +73,8 @@ in {
     '';
   };
 
-  warning-when-nothing = mkTest {
-    name = "warning-when-nothing";
+  fails-when-vars-unset-in-repo = mkTest {
+    name = "fails-when-vars-unset-in-repo";
     body = ''
       git init repo && cd repo
       export GIT_AUTHOR_NAME="Jack Maloney"
@@ -96,22 +85,80 @@ in {
       git add f
       git commit -m "jack"
       unset GROKBOT_GIT_NAME GROKBOT_GIT_EMAIL || true
+      set +e
       ${exe} > out 2> err
-      grep -q 'warning' err
+      code=$?
+      set -e
+      test "$code" -eq 1
+      grep -q 'error' err
       test ! -s out
-      if git config --local --get user.name >/dev/null; then
-        echo "did not expect user.name to be set"
-        exit 1
-      fi
     '';
   };
 
-  skip-outside-git = mkTest {
-    name = "skip-outside-git";
+  fails-despite-bot-trailer = mkTest {
+    name = "fails-despite-bot-trailer";
+    body = ''
+      git init repo && cd repo
+      export GIT_AUTHOR_NAME="Cursor Agent"
+      export GIT_AUTHOR_EMAIL="cursoragent@cursor.com"
+      export GIT_COMMITTER_NAME="Cursor Agent"
+      export GIT_COMMITTER_EMAIL="cursoragent@cursor.com"
+      echo x > f
+      git add f
+      git commit -m "$(printf 'work\n\nBot: wiesner (Shared Patterns Maintainer)\n')"
+      unset GROKBOT_GIT_NAME GROKBOT_GIT_EMAIL GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL || true
+      set +e
+      ${exe} > out 2> err
+      code=$?
+      set -e
+      test "$code" -eq 1
+      grep -q 'no Bot: trailer fallback' err
+      test ! -s out
+    '';
+  };
+
+  fails-outside-git-without-env = mkTest {
+    name = "fails-outside-git-without-env";
     body = ''
       mkdir notgit && cd notgit
-      ${exe} 2> err
-      grep -q 'warning' err
+      unset GROKBOT_GIT_NAME GROKBOT_GIT_EMAIL || true
+      set +e
+      ${exe} > out 2> err
+      code=$?
+      set -e
+      test "$code" -eq 1
+      grep -q 'error' err
+      test ! -s out
+    '';
+  };
+
+  fails-partial-env = mkTest {
+    name = "fails-partial-env";
+    body = ''
+      git init repo && cd repo
+      export GROKBOT_GIT_NAME="wiesner (Shared Patterns Maintainer)"
+      unset GROKBOT_GIT_EMAIL || true
+      set +e
+      ${exe} > out 2> err
+      code=$?
+      set -e
+      test "$code" -eq 1
+      grep -q 'both GROKBOT_GIT_NAME and GROKBOT_GIT_EMAIL' err
+      test ! -s out
+    '';
+  };
+
+  exec-refuses-unresolved = mkTest {
+    name = "exec-refuses-unresolved";
+    body = ''
+      git init repo && cd repo
+      unset GROKBOT_GIT_NAME GROKBOT_GIT_EMAIL || true
+      set +e
+      ${exe} --exec -- sh -c 'echo ran > ran'
+      code=$?
+      set -e
+      test "$code" -eq 1
+      test ! -f ran
     '';
   };
 }
