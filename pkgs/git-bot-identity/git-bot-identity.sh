@@ -46,26 +46,26 @@ EOF
 }
 
 resolve_identity() {
+  if [[ -n $name && -n $email ]]; then
+    return 0
+  fi
+
   if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "git-bot-identity: warning: not a git worktree; skipping" >&2
     return 1
   fi
 
-  if [[ -n $name && -n $email ]]; then
-    return 0
-  fi
-
   local trailer
   trailer="$(git log -n 50 --pretty='%(trailers:key=Bot,valueonly)' 2>/dev/null | sed '/^$/d' | head -n1 || true)"
   if [[ -n $trailer ]]; then
-    if [[ -z $name ]]; then
+    if [[ -z $name && -z $email ]]; then
       name="$trailer"
-    fi
-    if [[ -z $email ]]; then
       local bare="${trailer%% (*}"
       email="${bare}@${domain}"
+      echo "git-bot-identity: GROKBOT_GIT_NAME/EMAIL unset; falling back to Bot: trailer \`${trailer}\`" >&2
+    else
+      echo "git-bot-identity: warning: only one of GROKBOT_GIT_NAME/GROKBOT_GIT_EMAIL set; ignoring Bot: trailer \`${trailer}\`" >&2
     fi
-    echo "git-bot-identity: GROKBOT_GIT_NAME/EMAIL unset; falling back to Bot: trailer \`${trailer}\`" >&2
   fi
 
   if [[ -z $name || -z $email ]]; then
@@ -98,9 +98,11 @@ run_exec() {
     echo "git-bot-identity: --exec requires a command" >&2
     exit 2
   fi
-  if resolve_identity; then
-    eval "$(emit_exports)"
+  if ! resolve_identity; then
+    echo "git-bot-identity: no identity resolved; refusing --exec: $*" >&2
+    exit 1
   fi
+  eval "$(emit_exports)"
   exec "$@"
 }
 
