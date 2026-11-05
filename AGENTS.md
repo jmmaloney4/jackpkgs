@@ -19,7 +19,7 @@ Keep `README.md` flake-only and accurate. Update it when anything changes that u
 - How: skim `flake.nix`, `modules/flake-parts/**`, `modules/{nixos,nix-darwin,home-manager}/**`, `templates/**` and ensure README has:
   - Input snippet to add the flake
   - Package usage (via `jackpkgs.packages.${system}`) and overlay example
-  - Modules list (`default`, `fmt`, `just`, `pre-commit`, `shell`) + minimal import examples
+  - Modules list: named `flakeModules.*` exports from `modules/flake-parts/default.nix` (`default`, `pkgs`, `fmt`, `just`, `pre-commit`, `shell`, `pulumi`, `quarto`, `python`, `container`, `kubeconfig`, `lsp`, `lean`, `author-gate`; `default` also pulls in `lib`, `project-root`, `nodejs`, and `checks` via `all.nix`) — keep aligned with README § Flake-parts modules — plus minimal import examples
   - NixOS/darwin/HM module-outputs import examples (see ADR-051 for the conventions)
   - Notable constraints (if any)
   - Available templates
