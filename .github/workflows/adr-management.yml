@@ -10,7 +10,7 @@ permissions:
 jobs:
   adr-management:
     if: github.actor != 'github-actions[bot]'
-    uses: jmmaloney4/sector7/.github/workflows/adr-management.yml@47a3cedbd05c055f547dccbf3860da67bebbf5c3 # main
+    uses: jmmaloney4/sector7/.github/workflows/adr-management.yml@48babfe4a41ff9ec7a9527b46f6cbccb0458eeea # main
     with:
       runs-on: '["self-hosted", "heavy"]'
       repository: ${{ github.repository }}
