@@ -6,6 +6,7 @@
   version,
   pkg-config,
   openssl,
+  zstd,
 }:
 rustPlatform.buildRustPackage {
   pname = "dbn-cli";
@@ -20,7 +21,7 @@ rustPlatform.buildRustPackage {
   buildAndTestSubdir = "rust/dbn-cli";
 
   nativeBuildInputs = [pkg-config];
-  buildInputs = [openssl];
+  buildInputs = [openssl zstd];
 
   # Link against the nix-provided OpenSSL rather than a vendored copy.
   OPENSSL_NO_VENDOR = "1";
