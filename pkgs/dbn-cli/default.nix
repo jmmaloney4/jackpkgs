@@ -6,6 +6,7 @@
   version,
   pkg-config,
   openssl,
+  zstd,
 }:
 rustPlatform.buildRustPackage {
   pname = "dbn-cli";
@@ -20,10 +21,11 @@ rustPlatform.buildRustPackage {
   buildAndTestSubdir = "rust/dbn-cli";
 
   nativeBuildInputs = [pkg-config];
-  buildInputs = [openssl];
+  buildInputs = [openssl zstd];
 
   # Link against the nix-provided OpenSSL rather than a vendored copy.
   OPENSSL_NO_VENDOR = "1";
+  ZSTD_SYS_USE_PKG_CONFIG = "1";
 
   meta = {
     description = "CLI tool for working with Databento Binary Encoding (DBN) files and streams";
