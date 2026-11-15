@@ -276,6 +276,26 @@ in {
           '';
         };
 
+        src = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = ''
+            Source tree the tsc check copies and runs in. `null` (the default)
+            is the project root, so any edit to the repository re-runs the
+            check.
+
+            A narrower tree (for example `lib.fileset.toSource`) lets the check
+            re-run only when files tsc reads change. It must contain
+            everything tsc reads: the `.ts`/`.tsx`/`.d.ts` sources, every
+            `tsconfig*.json` and `package.json` it resolves, and any `.json`
+            module it imports. Workspace package discovery and `node_modules`
+            are unaffected (they still come from the project root and
+            `nodeModules`). A file missing from `src` is a file tsc never
+            sees, so pair a narrowed `src` with a check that compares it to
+            `tsc --listFilesOnly` over the full tree.
+          '';
+        };
+
         nodeModules = mkOption {
           type = types.nullOr types.package;
           default = null;
@@ -1040,6 +1060,10 @@ in {
 
       typescriptChecks = let
         tsPackages = getTsPackages cfg;
+        tscSrc =
+          if cfg.typescript.tsc.src != null
+          then cfg.typescript.tsc.src
+          else projectRoot;
       in
         lib.optionalAttrs (cfg.enable && cfg.typescript.tsc.enable && tsPackages != []) {
           # tsc check
@@ -1048,7 +1072,7 @@ in {
             buildInputs = [nodejsPackage config.jackpkgs.pkgs.typescript];
             setupCommands = ''
               # Copy source to writeable directory
-              cp -R ${projectRoot} src
+              cp -R ${tscSrc} src
               chmod -R +w src
               cd src
               ${linkNodeModules (
