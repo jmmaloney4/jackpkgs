@@ -55,6 +55,23 @@ in {
             description = "Enable pytest checks";
           };
 
+          src = mkOption {
+            type = types.nullOr types.path;
+            default = null;
+            description = ''
+              Source tree this check runs over. `null` (the default) is the
+              Python workspace root, i.e. the whole project, so any edit to
+              the repository re-runs the check.
+
+              A narrower tree (for example `lib.fileset.toSource`) lets the
+              check re-run only when files it reads change. It must contain
+              everything the tool reads: sources, the tool's config files, and
+              any ignore files it honours. A file missing from it is a file the
+              check never sees, so pair a narrowed `src` with a check that
+              compares it against what the tool itself enumerates.
+            '';
+          };
+
           extraArgs = mkOption {
             type = types.listOf types.str;
             default = ["--import-mode=importlib"];
@@ -68,6 +85,23 @@ in {
             type = types.bool;
             default = true;
             description = "Enable Python type checking with ty";
+          };
+
+          src = mkOption {
+            type = types.nullOr types.path;
+            default = null;
+            description = ''
+              Source tree this check runs over. `null` (the default) is the
+              Python workspace root, i.e. the whole project, so any edit to
+              the repository re-runs the check.
+
+              A narrower tree (for example `lib.fileset.toSource`) lets the
+              check re-run only when files it reads change. It must contain
+              everything the tool reads: sources, the tool's config files, and
+              any ignore files it honours. A file missing from it is a file the
+              check never sees, so pair a narrowed `src` with a check that
+              compares it against what the tool itself enumerates.
+            '';
           };
 
           extraArgs = mkOption {
@@ -106,6 +140,23 @@ in {
             type = types.bool;
             default = true;
             description = "Enable ruff linting";
+          };
+
+          src = mkOption {
+            type = types.nullOr types.path;
+            default = null;
+            description = ''
+              Source tree this check runs over. `null` (the default) is the
+              Python workspace root, i.e. the whole project, so any edit to
+              the repository re-runs the check.
+
+              A narrower tree (for example `lib.fileset.toSource`) lets the
+              check re-run only when files it reads change. It must contain
+              everything the tool reads: sources, the tool's config files, and
+              any ignore files it honours. A file missing from it is a file the
+              check never sees, so pair a narrowed `src` with a check that
+              compares it against what the tool itself enumerates.
+            '';
           };
 
           extraArgs = mkOption {
@@ -177,6 +228,23 @@ in {
 
               Requires `numpydoc` to be available in the selected Python check
               environment.
+            '';
+          };
+
+          src = mkOption {
+            type = types.nullOr types.path;
+            default = null;
+            description = ''
+              Source tree this check runs over. `null` (the default) is the
+              Python workspace root, i.e. the whole project, so any edit to
+              the repository re-runs the check.
+
+              A narrower tree (for example `lib.fileset.toSource`) lets the
+              check re-run only when files it reads change. It must contain
+              everything the tool reads: sources, the tool's config files, and
+              any ignore files it honours. A file missing from it is a file the
+              check never sees, so pair a narrowed `src` with a check that
+              compares it against what the tool itself enumerates.
             '';
           };
 
@@ -811,7 +879,10 @@ in {
             # pytest check (workspace root)
             pytest = mkCheck {
               name = "pytest";
-              src = pythonCfg.workspaceRoot;
+              src =
+                if cfg.python.pytest.src != null
+                then cfg.python.pytest.src
+                else pythonCfg.workspaceRoot;
               nativeBuildInputs = [pytestEnv];
               setupCommands = ''
                 ${mkToolGuard {
@@ -838,7 +909,10 @@ in {
             # Python type-check with ty (workspace root)
             ty = mkCheck {
               name = "ty";
-              src = pythonCfg.workspaceRoot;
+              src =
+                if cfg.python.ty.src != null
+                then cfg.python.ty.src
+                else pythonCfg.workspaceRoot;
               buildInputs = [tyBin];
               nativeBuildInputs = [tyEnv];
               setupCommands = mkToolGuard {
@@ -860,7 +934,10 @@ in {
             # ruff check (workspace root)
             ruff = mkCheck {
               name = "ruff";
-              src = pythonCfg.workspaceRoot;
+              src =
+                if cfg.python.ruff.src != null
+                then cfg.python.ruff.src
+                else pythonCfg.workspaceRoot;
               nativeBuildInputs = [ruffEnv];
               setupCommands = ''
                 ${mkToolGuard {
@@ -935,7 +1012,10 @@ in {
             # numpydoc check (workspace root)
             numpydoc = mkCheck {
               name = "numpydoc";
-              src = pythonCfg.workspaceRoot;
+              src =
+                if cfg.python.numpydoc.src != null
+                then cfg.python.numpydoc.src
+                else pythonCfg.workspaceRoot;
               nativeBuildInputs = [numpydocEnv];
               setupCommands = ''
                 ${mkToolGuard {
