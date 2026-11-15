@@ -425,6 +425,37 @@ in {
     expected = true;
   };
 
+  # A per-check `src` replaces the workspace root as the check's source, so a
+  # consumer can hand each tool only the files it reads (zeus#5363).
+  testPythonPerCheckSrc = let
+    narrow = ./fixtures/checks/no-workspace;
+    checks = mkChecks {
+      configModule = mkConfigModule {
+        pythonEnable = true;
+        extraConfig.jackpkgs.checks.python = {
+          ruff.src = narrow;
+          ty.src = narrow;
+          pytest.src = narrow;
+        };
+      };
+    };
+    full = mkChecks {configModule = mkConfigModule {pythonEnable = true;};};
+    srcOf = c: toString c.src;
+  in {
+    expr = {
+      ruff = srcOf checks.ruff == toString narrow;
+      ty = srcOf checks.ty == toString narrow;
+      pytest = srcOf checks.pytest == toString narrow;
+      defaultIsWorkspaceRoot = srcOf full.ruff == toString pythonWorkspace;
+    };
+    expected = {
+      ruff = true;
+      ty = true;
+      pytest = true;
+      defaultIsWorkspaceRoot = true;
+    };
+  };
+
   testPythonChecksPreferDefaultEnv = let
     checks = mkChecks {
       configModule = mkConfigModule {pythonEnable = true;};
