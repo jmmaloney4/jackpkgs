@@ -733,6 +733,36 @@ in {
     expected = true;
   };
 
+  # `typescript.tsc.src` replaces the project root as the tree tsc copies and
+  # runs in; the default stays the project root (zeus#5363).
+  testTypescriptTscSrc = let
+    narrow = ./fixtures/checks/no-workspace;
+    withSrc = mkChecks {
+      configModule = mkConfigModule {
+        nodejsEnable = true;
+        extraConfig.jackpkgs.checks.typescript.tsc.src = narrow;
+      };
+      projectRoot = pnpmWorkspace;
+    };
+    plain = mkChecks {
+      configModule = mkConfigModule {nodejsEnable = true;};
+      projectRoot = pnpmWorkspace;
+    };
+    narrowScript = getBuildCommand withSrc.tsc;
+    plainScript = getBuildCommand plain.tsc;
+  in {
+    expr = {
+      copiesNarrow = lib.hasInfix (builtins.unsafeDiscardStringContext "cp -R ${narrow} src") narrowScript;
+      dropsRoot = !lib.hasInfix (builtins.unsafeDiscardStringContext "cp -R ${pnpmWorkspace} src") narrowScript;
+      defaultCopiesRoot = lib.hasInfix (builtins.unsafeDiscardStringContext "cp -R ${pnpmWorkspace} src") plainScript;
+    };
+    expected = {
+      copiesNarrow = true;
+      dropsRoot = true;
+      defaultCopiesRoot = true;
+    };
+  };
+
   testTypescriptMissingWorkspace = let
     checks = mkChecks {
       configModule = mkConfigModule {nodejsEnable = true;};
