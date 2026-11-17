@@ -49,10 +49,14 @@ python313Packages.buildPythonApplication {
   nativeBuildInputs = [makeWrapper];
 
   postPatch = ''
-    python3 ${./devendor-uvx.py} . \
-      ${lib.getExe tauceti-review} \
-      ${lib.getExe tauceti-progress} \
-      ${tauceti-progress.version}
+      python3 ${./devendor-uvx.py} . \
+        ${lib.getExe tauceti-review} \
+        ${lib.getExe tauceti-progress} \
+        ${tauceti-progress.version}
+
+    # Same tree `review_runtime.resolve()` uses via TAUCETI_REVIEW_ENGINE_DIR (runner/cli.py + rubrics/).
+      test -f ${tauceti-review}/share/tauceti-review/runner/cli.py
+      test -d ${tauceti-review}/share/tauceti-review/rubrics
   '';
 
   # `prompts/` and `scripts/` are force-included into the wheel by upstream's hatch config, so
