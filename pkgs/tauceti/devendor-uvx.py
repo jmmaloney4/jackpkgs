@@ -113,9 +113,9 @@ assert_count(
 )
 assert_tree_count(
     "tauceti_worker/**/*.py",
-    r'"uvx"(?:.|\n){0,400}?"tauceti-review"|"tauceti-review"(?:.|\n){0,400}?"uvx"',
+    r"\buvx\b(?:.|\n){0,400}?tauceti-review|tauceti-review(?:.|\n){0,400}?\buvx\b",
     0,
-    "a uvx tauceti-review shell invocation",
+    "a uvx/tauceti-review fetch or shell invocation",
     flags=re.MULTILINE | re.DOTALL,
 )
 # work_units no longer shells out to uvx for review; the guard above is the replacement.
