@@ -14,7 +14,8 @@
 }:
 # The Tau Ceti worker CLI: one round picks a unit of work, does it, and stops.
 #
-# Upstream acquires its two engines at run time via `uvx --from git+https://github.com/...`.
+# Upstream acquires TauCetiProgress at run time via `uvx` and the review engine via
+# `review_runtime` (Git fetch unless `$TAUCETI_REVIEW_ENGINE_DIR` is set).
 # This build resolves them at build time instead, so a round needs no `uv`, reaches no network
 # for its own tooling, and runs exactly the engine revisions this closure pins. See
 # ./devendor-uvx.py for the rewrites and, more importantly, for the assertions that make an
@@ -34,8 +35,13 @@ python313Packages.buildPythonApplication {
   dependencies = with python313Packages; [
     rich
     textual
+    cryptography
     tauceti-tools
   ];
+
+  # Upstream's hatch metadata declares `tauceti-review` as a Git direct ref; we supply the
+  # engine as a wrapped store binary + TAUCETI_REVIEW_ENGINE_DIR instead.
+  pythonRemoveDeps = ["tauceti-review"];
 
   # Upstream's tests drive `gh` and the agent CLIs against live services.
   doCheck = false;
@@ -56,6 +62,7 @@ python313Packages.buildPythonApplication {
     patchShebangs $out/${python313Packages.python.sitePackages}/tauceti_worker/scripts
 
     wrapProgram $out/bin/tauceti \
+      --set-default TAUCETI_REVIEW_ENGINE_DIR ${tauceti-review}/share/tauceti-review \
       --prefix PATH : ${lib.makeBinPath [git gh jq tauceti-review tauceti-progress]}
   '';
 

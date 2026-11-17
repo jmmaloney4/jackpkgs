@@ -3,6 +3,7 @@
   rustPlatform,
   pkg-config,
   openssl,
+  aws-lc,
   cacert,
   # From nvfetcher
   src,
@@ -19,7 +20,9 @@ rustPlatform.buildRustPackage rec {
   };
 
   nativeBuildInputs = [pkg-config];
-  buildInputs = [openssl];
+  # nixpkgs default-crate-overrides sets AWS_LC_SYS_USE_SYSTEM=1 on aws-lc-sys >= 0.42.
+  # Openssl on buildInputs alone does not satisfy that probe; aws-lc must be present too.
+  buildInputs = [openssl aws-lc];
   # tod 0.19's reqwest 0.13 uses rustls-native-certs; Client::new() panics in
   # the Nix sandbox unless the CA bundle is on the check path.
   nativeCheckInputs = [cacert];

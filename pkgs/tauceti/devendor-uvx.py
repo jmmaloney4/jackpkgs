@@ -7,10 +7,15 @@ The worker normally acquires its two engines at run time, by shelling out to
 remote happens to be rather than anything this closure pins. Every such call site is rewritten
 here to invoke a store path instead.
 
-Each rewrite asserts how many occurrences it expects and exits non-zero on any other count, so
-an upstream refactor that moves or renames a call site FAILS THE BUILD. It cannot quietly stop
-applying and leave the worker fetching from the network again -- which is the one failure mode
-that would be invisible from the outside, since the worker would still work.
+Each rewrite (or count assertion) exits non-zero on any unexpected count, so an upstream refactor
+that moves or renames a call site FAILS THE BUILD. It cannot quietly stop applying and leave the
+worker fetching from the network again -- which is the one failure mode that would be invisible
+from the outside, since the worker would still work.
+
+The review engine is no longer launched through ``uvx``; upstream routes it through
+``review_runtime.resolve()`` and honours ``$TAUCETI_REVIEW_ENGINE_DIR``. The Nix package sets that
+default in ``postFixup`` (see ``default.nix``). This script still asserts the hook exists and that
+no ``uvx`` review-engine fetch crept back into ``tauceti_worker/``.
 
 Usage: devendor-uvx.py SRCROOT REVIEW_BIN PROGRESS_BIN PROGRESS_REV
 """
@@ -39,6 +44,30 @@ def edit(relpath, pattern, repl, expect, what):
             f"  silently go back to fetching its engines from the network."
         )
     path.write_text(new)
+
+
+def assert_count(relpath, pattern, expect, what, flags=0):
+    path = root / relpath
+    text = path.read_text()
+    n = len(re.findall(pattern, text, flags))
+    if n != expect:
+        sys.exit(
+            f"devendor-uvx: {relpath}: expected {expect} occurrence(s) of {what}, found {n}.\n"
+            f"  Upstream moved or rewrote it. Re-derive this patch against the new source."
+        )
+
+
+def assert_tree_count(glob_pattern, pattern, expect, what, flags=re.MULTILINE):
+    n = 0
+    for path in sorted(root.glob(glob_pattern)):
+        if path.is_file():
+            n += len(re.findall(pattern, path.read_text(), flags))
+    if n != expect:
+        sys.exit(
+            f"devendor-uvx: {glob_pattern}: expected {expect} occurrence(s) of {what}, found {n}.\n"
+            f"  Upstream moved or rewrote the call site. Re-derive this patch against the new\n"
+            f"  source before bumping the package -- do NOT relax the count."
+        )
 
 
 def edit_literal(relpath, old, new, what):
@@ -75,17 +104,25 @@ if m.group(1) != progress_rev:
         f"  nvfetcher, and rebuild."
     )
 
-# The review engine, on the non-bubble review path and on the outbox-sync path. Upstream honours
-# $TAUCETI_REVIEW_ENGINE_DIR on the sync path but NOT on the review path, so an env var alone
-# cannot cover both -- hence a rewrite. Since #451 the `--from` URL may append $TAUCETI_REVIEW_REF;
-# the Nix-built engine ignores that fetch and runs the pinned closure instead.
-edit(
+# Review engine: `review_runtime.resolve()` + `$TAUCETI_REVIEW_ENGINE_DIR` (set in default.nix).
+assert_count(
+    "tauceti_worker/review_runtime.py",
+    r"TAUCETI_REVIEW_ENGINE_DIR",
+    1,
+    "the TAUCETI_REVIEW_ENGINE_DIR override in review_runtime.resolve",
+)
+assert_tree_count(
+    "tauceti_worker/**/*.py",
+    r'"uvx"[^\n]{0,240}"tauceti-review"|"tauceti-review"[^\n]{0,240}"uvx"',
+    0,
+    "a uvx tauceti-review shell invocation",
+)
+# work_units no longer shells out to uvx for review; the guard above is the replacement.
+assert_count(
     "tauceti_worker/work_units.py",
-    r'"uvx",\s*\n\s*"--from",\s*\n\s*f"git\+https://github\.com/\{REVIEW\}"\s*\n\s*'
-    r'\+ \(\"@" \+ os\.environ\["TAUCETI_REVIEW_REF"\] if os\.environ\.get\("TAUCETI_REVIEW_REF"\) else ""\),\s*\n\s*"tauceti-review",',
-    f'"{review_bin}",',
-    2,
-    "the uvx tauceti-review invocation",
+    r'"uvx",\s*\n\s*"--from",\s*\n\s*f"git\+https://github\.com/\{REVIEW\}"',
+    0,
+    "the legacy uvx tauceti-review invocation in work_units",
 )
 
 # The progress reporter. This one has no env-var escape hatch upstream at all, and it runs on
