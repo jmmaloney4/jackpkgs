@@ -228,6 +228,14 @@
           git-bot-identity = pkgs.callPackage ./pkgs/git-bot-identity {};
         };
         platformFilteredPackages = jackLib.filterByPlatforms system allPackages;
+        # Shared with `packages.<system>` and per-package build checks (#472).
+        flakePackages =
+          lib.filterAttrs (
+            _: v:
+              lib.isDerivation v
+              && !(v.meta.broken or false)
+          )
+          platformFilteredPackages;
         # Import test helpers that validate the flake-exposed API surface
         testHelpers = import ./tests/test-helpers.nix {lib = flakeLib;};
         # Import justfile validation tests (these return derivations directly)
@@ -528,13 +536,7 @@
         # nvfetcher output is tracked (Nix needs it) but generated; never hand-format it.
         jackpkgs.fmt.excludes = ["_sources/**"];
 
-        packages =
-          lib.filterAttrs (
-            _: v:
-              lib.isDerivation v
-              && !(v.meta.broken or false)
-          )
-          platformFilteredPackages;
+        packages = flakePackages;
 
         devShells.default = pkgs.mkShell {
           inputsFrom = [
@@ -741,6 +743,12 @@
               inherit inputs lib pkgs system;
             }
           )
+          # Build every `packages.<system>` entry (except parked / unavailable).
+          # One check per package for failure attribution (#472).
+          // (import ./tests/packages-build.nix {
+            inherit lib pkgs;
+            packages = flakePackages;
+          })
           # Build the prebuilt gawkbot binary as part of `nix flake check` on
           # platforms nvfetcher tracks. Omitted when filterByPlatforms drops it.
           // lib.optionalAttrs (platformFilteredPackages ? gawkbot) {
