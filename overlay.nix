@@ -57,6 +57,9 @@ else let
     mcp-ynab = super.callPackage ./pkgs/mcp-ynab {
       inherit (nvfetcherSources.mcp-ynab) src version;
     };
+    pirateface = super.callPackage ./pkgs/pirateface {
+      inherit (nvfetcherSources.pirateface) src version;
+    };
     seedtool-cli = super.callPackage ./pkgs/seedtool-cli {};
     spooktacular = super.callPackage ./pkgs/spooktacular {
       inherit (nvfetcherSources.spooktacular) src date;

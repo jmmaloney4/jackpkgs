@@ -190,6 +190,27 @@
         },
         "version": "12982032fb970cabc085f00169c720792c3edecf"
     },
+    "pirateface": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "pirateface",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "pirateface",
+            "repo": "pirateface_cli",
+            "rev": "v0.2.24",
+            "sha256": "sha256-fCT7/pNUO5X41YGc7Wyh2IZFrimodDgqnvwzdLgQ70g=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "v0.2.24"
+    },
     "spooktacular": {
         "cargoLock": null,
         "date": "2026-08-02",

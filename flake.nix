@@ -189,6 +189,9 @@
           #   # The default value now comes from Python 3.14.
           #   python312 = pkgs.python314;
           # };
+          pirateface = pkgs.callPackage ./pkgs/pirateface {
+            inherit (nvfetcherSources.pirateface) src version;
+          };
           seedtool-cli = pkgs.callPackage ./pkgs/seedtool-cli {};
           # Re-export skopeo-nix2container from the nix2container flake so it is
           # built once and pushed to our binary cache, instead of every consumer
