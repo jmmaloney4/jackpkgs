@@ -12,7 +12,7 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     uses: jmmaloney4/sector7/.github/workflows/adr-management.yml@be1f12575c84e6b3a45dfc1a16f31e6d8f82ac73 # main
     with:
-      runs-on: '["self-hosted", "heavy"]'
+      runs-on: '["self-hosted", "light"]'
       repository: ${{ github.repository }}
       ref: ${{ github.event.pull_request.head.sha }}
       base_ref: ${{ github.event.pull_request.base.ref }}
