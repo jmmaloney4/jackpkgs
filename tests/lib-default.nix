@@ -119,10 +119,9 @@ in {
   # (zeus#5472). `runCommand` throws in this pkgs, so the test fails if the
   # yq-go IFD path is taken; `jsonSidecar = false` rules out the sidecar.
   testMkFromYAMLJsonContentNoIFD = {
-    expr =
-      (import ../lib/default.nix {
-        pkgs = pkgs // {runCommand = _: _: _: throw "mkFromYAML took the IFD path";};
-      }).mkFromYAML {jsonSidecar = false;} (./fixtures/lib-default/json-content.yaml);
+    expr = (import ../lib/default.nix {
+      pkgs = pkgs // {runCommand = _: _: _: throw "mkFromYAML took the IFD path";};
+    }).mkFromYAML {jsonSidecar = false;} (./fixtures/lib-default/json-content.yaml);
     expected = {
       packages = ["a" "b/*"];
       catalog = {typescript = "6.0.3";};
