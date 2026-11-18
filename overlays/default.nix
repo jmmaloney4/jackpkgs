@@ -15,6 +15,9 @@
       };
       docfx = super.callPackage ../pkgs/docfx {};
       # epub2tts = super.callPackage ../pkgs/epub2tts {};
+      pirateface = super.callPackage ../pkgs/pirateface {
+        inherit (nvfetcherSources.pirateface) src version;
+      };
       seedtool-cli = super.callPackage ../pkgs/seedtool-cli {};
       mcp-ynab = super.callPackage ../pkgs/mcp-ynab {
         inherit (nvfetcherSources.mcp-ynab) src version;

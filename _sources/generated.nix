@@ -115,6 +115,17 @@
     };
     date = "2026-11-14";
   };
+  pirateface = {
+    pname = "pirateface";
+    version = "v0.2.24";
+    src = fetchFromGitHub {
+      owner = "pirateface";
+      repo = "pirateface_cli";
+      rev = "v0.2.24";
+      fetchSubmodules = false;
+      sha256 = "sha256-fCT7/pNUO5X41YGc7Wyh2IZFrimodDgqnvwzdLgQ70g=";
+    };
+  };
   spooktacular = {
     pname = "spooktacular";
     version = "41036fc7a6bea9ac4d8b50559e40b8bd7ea66095";
