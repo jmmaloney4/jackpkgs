@@ -53,7 +53,10 @@ with pkgs.lib; rec {
   `discoverPnpmPackages` and other helpers that need to read YAML at
   evaluation time.
 
-  The `jsonSidecar` flag (default: true) enables the fast path: if a
+  A file whose content is itself a JSON object or array is parsed with
+  `builtins.fromJSON` and no derivation is built.
+
+  The `jsonSidecar` flag (default: true) enables the other fast path: if a
   pre-generated `.json` file exists adjacent to the `.yaml`/`.yml` file it
   is read with `builtins.fromJSON` and no derivation is built.  When false
   (or when the sidecar is absent) a `pkgs.runCommand` derivation invoking
@@ -70,9 +73,23 @@ with pkgs.lib; rec {
     yamlFileStr = toString yamlFile;
     jsonFile = removeSuffix ".yaml" (removeSuffix ".yml" yamlFileStr) + ".json";
     jsonExists = jsonSidecar && builtins.pathExists jsonFile;
+    # A YAML file whose content is a JSON document (JSON is YAML) is parsed
+    # directly, with no derivation: one file, nothing to keep in sync, and
+    # evaluation stays free of import-from-derivation (cavinsresearch/zeus#5472).
+    # Only a document that is one object or array, start to end, is taken
+    # this way (a trailing `# comment` keeps the yq path). A flow mapping that
+    # is not strict JSON (unquoted keys) fails here loudly, naming the file,
+    # rather than silently parsing differently; `tryEval` cannot catch a
+    # `fromJSON` parse error, so there is no quiet fallback to offer.
+    content = builtins.readFile yamlFile;
+    jsonContent = builtins.match "[[:space:]]*[{[].*[]}][[:space:]]*" content != null;
   in
     if jsonExists
     then builtins.fromJSON (builtins.readFile jsonFile)
+    else if jsonContent
+    then
+      builtins.addErrorContext "while parsing ${yamlFileStr} as JSON (mkFromYAML: content that starts with { or [ and ends with } or ] is read as strict JSON; quote its keys, or write it as block YAML)"
+      (builtins.fromJSON content)
     else
       builtins.fromJSON (builtins.readFile (pkgs.runCommand "yaml-to-json" {
           nativeBuildInputs = [pkgs.yq-go];

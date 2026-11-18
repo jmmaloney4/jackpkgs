@@ -115,6 +115,35 @@ in {
     };
   };
 
+  # A .yaml whose content is JSON parses without building anything
+  # (zeus#5472). `runCommand` throws in this pkgs, so the test fails if the
+  # yq-go IFD path is taken; `jsonSidecar = false` rules out the sidecar.
+  testMkFromYAMLJsonContentNoIFD = {
+    expr = (import ../lib/default.nix {
+      pkgs = pkgs // {runCommand = _: _: _: throw "mkFromYAML took the IFD path";};
+    }).mkFromYAML {jsonSidecar = false;} (./fixtures/lib-default/json-content.yaml);
+    expected = {
+      packages = ["a" "b/*"];
+      catalog = {typescript = "6.0.3";};
+    };
+  };
+
+  # Multi-line, as a real workspace file is. Built here because the formatter
+  # folds the fixture above onto one line.
+  testMkFromYAMLMultiLineJsonContentNoIFD = {
+    expr =
+      (import ../lib/default.nix {
+        pkgs = pkgs // {runCommand = _: _: _: throw "mkFromYAML took the IFD path";};
+      }).mkFromYAML {jsonSidecar = false;} (builtins.toFile "multi-line.yaml" ''
+        {
+          "packages": [
+            "a"
+          ]
+        }
+      '');
+    expected = {packages = ["a"];};
+  };
+
   # -------------------------------------------------------------------
   # Pure `with pkgs.lib;` helpers -- not part of the defect surface
   # (no bare `lib.` references), forced directly for completeness.
