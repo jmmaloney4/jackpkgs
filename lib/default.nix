@@ -88,7 +88,7 @@ with pkgs.lib; rec {
     then builtins.fromJSON (builtins.readFile jsonFile)
     else if jsonContent
     then
-      builtins.addErrorContext "while parsing ${yamlFileStr} as JSON (mkFromYAML: its content starts with { or [ and ends with } or ])"
+      builtins.addErrorContext "while parsing ${yamlFileStr} as JSON (mkFromYAML: content that starts with { or [ and ends with } or ] is read as strict JSON; quote its keys, or write it as block YAML)"
       (builtins.fromJSON content)
     else
       builtins.fromJSON (builtins.readFile (pkgs.runCommand "yaml-to-json" {
