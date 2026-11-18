@@ -128,6 +128,22 @@ in {
     };
   };
 
+  # Multi-line, as a real workspace file is. Built here because the formatter
+  # folds the fixture above onto one line.
+  testMkFromYAMLMultiLineJsonContentNoIFD = {
+    expr =
+      (import ../lib/default.nix {
+        pkgs = pkgs // {runCommand = _: _: _: throw "mkFromYAML took the IFD path";};
+      }).mkFromYAML {jsonSidecar = false;} (builtins.toFile "multi-line.yaml" ''
+        {
+          "packages": [
+            "a"
+          ]
+        }
+      '');
+    expected = {packages = ["a"];};
+  };
+
   # -------------------------------------------------------------------
   # Pure `with pkgs.lib;` helpers -- not part of the defect surface
   # (no bare `lib.` references), forced directly for completeness.
