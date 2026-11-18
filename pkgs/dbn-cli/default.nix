@@ -12,10 +12,13 @@ rustPlatform.buildRustPackage {
   pname = "dbn-cli";
   inherit version src;
 
-  # The workspace ships its own Cargo.lock and depends only on crates.io
-  # registry packages (no git dependencies), so the lockfile can be read
-  # straight from the fetched source with no outputHashes.
-  cargoLock.lockFile = src + "/Cargo.lock";
+  # A fixed-output vendor of the workspace's own Cargo.lock. Not
+  # `cargoLock.lockFile = src + "/Cargo.lock"`: that reads the fetched source
+  # during evaluation (import-from-derivation), so every consumer's eval has to
+  # fetch dbn first and fails under `allow-import-from-derivation = false`
+  # (cavinsresearch/zeus#5472). When nvfetcher bumps `version`, the build fails
+  # with the new hash to put here.
+  cargoHash = "sha256-Zjbe8YGyZIBIb32yp9FCqO+VxsKVp6HQX0GO/inCAic=";
 
   # Build only the CLI crate from the workspace.
   buildAndTestSubdir = "rust/dbn-cli";
