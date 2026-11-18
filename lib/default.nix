@@ -76,16 +76,20 @@ with pkgs.lib; rec {
     # A YAML file whose content is a JSON document (JSON is YAML) is parsed
     # directly, with no derivation: one file, nothing to keep in sync, and
     # evaluation stays free of import-from-derivation (cavinsresearch/zeus#5472).
-    # Only an object or array is taken this way; a YAML flow mapping that is
-    # not strict JSON (unquoted keys) fails here loudly rather than silently
-    # parsing differently.
+    # Only a document that is one object or array, start to end, is taken
+    # this way (a trailing `# comment` keeps the yq path). A flow mapping that
+    # is not strict JSON (unquoted keys) fails here loudly, naming the file,
+    # rather than silently parsing differently; `tryEval` cannot catch a
+    # `fromJSON` parse error, so there is no quiet fallback to offer.
     content = builtins.readFile yamlFile;
-    jsonContent = builtins.match "[[:space:]]*[{[].*" content != null;
+    jsonContent = builtins.match "[[:space:]]*[{[].*[]}][[:space:]]*" content != null;
   in
     if jsonExists
     then builtins.fromJSON (builtins.readFile jsonFile)
     else if jsonContent
-    then builtins.fromJSON content
+    then
+      builtins.addErrorContext "while parsing ${yamlFileStr} as JSON (mkFromYAML: its content starts with { or [ and ends with } or ])"
+      (builtins.fromJSON content)
     else
       builtins.fromJSON (builtins.readFile (pkgs.runCommand "yaml-to-json" {
           nativeBuildInputs = [pkgs.yq-go];
