@@ -12,5 +12,10 @@
 			"matchDatasources": ["docker", "helm"],
 			"automerge": false
 		}
-	]
+	],
+	"lockFileMaintenance": {
+		"enabled": true,
+		"schedule": ["* * 14 * *"],
+		"automerge": false
+	}
 }
