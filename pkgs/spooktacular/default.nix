@@ -40,7 +40,7 @@ in
 
     outputHashAlgo = "sha256";
     outputHashMode = "recursive";
-    outputHash = "sha256-nvio+YciMeDrk7D1BXWHakYtrHWw8E3+6qkBqdbuXwo=";
+    outputHash = "sha256-WCvrJOvyKx0c1VveDPscl2Tm+Oz1C6d9DoJuP/8OiRA=";
 
     nativeBuildInputs = [git];
 
@@ -68,13 +68,14 @@ in
       /usr/bin/swift build \
         -c release \
         --arch ${stdenv.hostPlatform.darwinArch} \
-        --product spook \
+        --product spooktacular-cli \
         --disable-sandbox
     '';
 
     installPhase = ''
       mkdir -p "$out/bin"
-      cp .build/release/spook "$out/bin/spook"
+      # Upstream renamed the product spook -> spooktacular-cli; keep the `spook` binary name.
+      cp .build/release/spooktacular-cli "$out/bin/spook"
 
       # Codesign with Virtualization.framework entitlements.
       # Uses a custom entitlements file that drops com.apple.security.app-sandbox.
