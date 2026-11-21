@@ -11,7 +11,7 @@ date: 2026-09-20
 
 Deprecated
 
-Retired 2026-11-20: upstream nixpkgs#552246 landed in the pin; overlay removed in jackpkgs#PRNUM, consumer in garden#3321. The ADR is kept for the pattern; the overlay, its flake export and its check no longer exist.
+Retired 2026-11-20: upstream nixpkgs#552246 landed in the pin; overlay removed in jackpkgs#484, consumer in garden#3321. The ADR is kept for the pattern; the overlay, its flake export and its check no longer exist.
 
 ## Context
 
