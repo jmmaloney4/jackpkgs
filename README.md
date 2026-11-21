@@ -21,7 +21,6 @@ Consumer-facing flake outputs and the trees that feed them:
 | `modules/home-manager/`                  | `homeModules`                                                                |
 | `pkgs/`                                  | `packages.<system>` (platform-filtered)                                      |
 | `overlay.nix`                            | `overlays.default`                                                           |
-| `overlays/llvm-darwin-codesign-test.nix` | `overlays.llvm-darwin-codesign-test`                                         |
 | `templates/`                             | `templates.just`                                                             |
 | `lib/`                                   | `lib` (flake-level) and per-system `jackpkgs.lib` via `flakeModules.default` |
 | `tests/`                                 | this flake's own `checks` (not a consumer import)                            |
@@ -31,7 +30,6 @@ flowchart LR
   consumer["Consumer flake"]
   consumer -->|"imports = [ inputs.jackpkgs.flakeModules.default ]"| fp["flake-parts modules"]
   consumer -->|"overlays = [ inputs.jackpkgs.overlays.default ]"| nixpkgs["nixpkgs"]
-  consumer -->|"optional overlays.llvm-darwin-codesign-test"| nixpkgs
   consumer -->|"nixosModules / darwinModules / homeModules"| hosts["NixOS / darwin / Home Manager"]
 ```
 
@@ -1162,7 +1160,6 @@ nix build .#tod
 ## Overlays
 
 - `overlays.default` (`overlay.nix`) — NUR-style package overlay. It does **not** platform-filter attribute names. Packages: `biome`, `codex-proxy`, `codex-proxy-rs`, `csharpier`, `dbn-cli`, `docfx`, `epub2tts`, `gawkbot`, `gemini-proxy`, `imessage-bridge`, `mcp-ynab`, `seedtool-cli`, `spooktacular`, `tauceti`, `tauceti-progress`, `tauceti-review`, `tauceti-tools`, `tod`. Reserved names `lib` / `overlays` / `modules` are not merged onto `pkgs`. It does **not** export `skopeo-nix2container` or `adr-conflict-check`.
-- `overlays.llvm-darwin-codesign-test` (`overlays/llvm-darwin-codesign-test.nix`) — **not** folded into `default`. On darwin only, drops LLVM 23's `dsymutil/codesign.test` so `llvmPackages_23.libllvm` can build without `/usr/bin/codesign`. Linux drv hashes are unchanged. Opt in knowingly; remove when NixOS/nixpkgs#552246 lands (plain `rm` of that test, so the overlay fails instead of lingering).
 
 ```nix
 {
@@ -1173,7 +1170,6 @@ nix build .#tod
       inherit system;
       overlays = [
         jackpkgs.overlays.default
-        jackpkgs.overlays.llvm-darwin-codesign-test
       ];
     };
   in {

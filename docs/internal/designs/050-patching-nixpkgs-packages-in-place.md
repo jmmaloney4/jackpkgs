@@ -1,7 +1,7 @@
 ---
 id: ADR-050
 title: Patching Nixpkgs Packages In Place
-status: accepted
+status: deprecated
 date: 2026-09-20
 ---
 
@@ -9,7 +9,9 @@ date: 2026-09-20
 
 ## Status
 
-Accepted
+Deprecated
+
+Retired 2026-11-20: upstream nixpkgs#552246 landed in the pin; overlay removed in jackpkgs#PRNUM, consumer in garden#3321. The ADR is kept for the pattern; the overlay, its flake export and its check no longer exist.
 
 ## Context
 
