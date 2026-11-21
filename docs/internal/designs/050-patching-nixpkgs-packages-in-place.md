@@ -11,7 +11,7 @@ date: 2026-09-20
 
 Deprecated
 
-Retired 2026-11-20: upstream nixpkgs#552246 landed in the pin; overlay removed in jackpkgs#484, consumer in garden#3321. The ADR is kept for the pattern; the overlay, its flake export and its check no longer exist.
+Retired 2026-11-20: upstream nixpkgs#552246 (merged 2026-09-20) is in nixpkgs rev 2074cc6 and later but not in d176bec (2026-10-25 lock of this flake and of garden's `nixpkgs` input), so consumers must be on a nixpkgs that contains it before dropping the overlay, or darwin `llvmPackages_23.libllvm` fails its codesign test again; overlay removed in jackpkgs#484, consumer in garden#3321. The ADR is kept for the pattern; the overlay, its flake export and its check no longer exist.
 
 ## Context
 
