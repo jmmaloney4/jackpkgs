@@ -1,6 +1,7 @@
 {
   lib,
   python313Packages,
+  stdenv,
   makeWrapper,
   git,
   gh,
@@ -32,12 +33,17 @@ python313Packages.buildPythonApplication {
   pyproject = true;
   build-system = [python313Packages.hatchling];
 
-  dependencies = with python313Packages; [
-    rich
-    textual
-    cryptography
-    tauceti-tools
-  ];
+  dependencies = with python313Packages;
+    [
+      rich
+      textual
+      cryptography
+      tauceti-tools
+    ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      # Upstream: "psutil>=7; sys_platform == 'darwin'"
+      psutil
+    ];
 
   # Upstream's hatch metadata declares `tauceti-review` as a Git direct ref; we supply the
   # engine as a wrapped store binary + TAUCETI_REVIEW_ENGINE_DIR instead.
