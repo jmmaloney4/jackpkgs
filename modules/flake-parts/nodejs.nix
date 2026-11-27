@@ -170,6 +170,17 @@ in {
 
         dontBuild = true;
 
+        # Skip stdenv's auditTmpdir fixup hook (#449). It runs a per-file bash
+        # loop (isELF, then isScript) over every file in $out — 63s of a 70s
+        # fixup for a 40k-file tree on aarch64-darwin — and can detect nothing
+        # here: its script check only inspects files with a `.<name>-wrapped`
+        # sibling, which pnpm never writes, and its RPATH check covers ELF
+        # files copied verbatim from the pnpm store, which nothing in this
+        # sandbox links (on darwin it cannot even run: no patchelf). The rest of
+        # fixup stays on: patchShebangs rewrites workspace .bin shims and
+        # noBrokenSymlinks is the ADR-047 guard below.
+        noAuditTmpdir = true;
+
         # capture-node-modules strips the pnpm workspace symlinks that would
         # dangle (or resolve to skeleton directories) inside $out, so the
         # noBrokenSymlinks fixup check stays enabled as the regression guard

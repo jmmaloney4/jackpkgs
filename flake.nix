@@ -677,6 +677,9 @@
             lsp = import ./tests/lsp.nix {
               inherit lib inputs;
             };
+            nodejs-module = import ./tests/nodejs-module.nix {
+              inherit lib inputs;
+            };
             helm-chart = import ./tests/helm-chart.nix {
               inherit lib pkgs;
             };
